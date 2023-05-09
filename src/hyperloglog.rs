@@ -95,7 +95,7 @@ where
     }
 
     #[inline(always)]
-    pub fn iter(&self) -> impl Iterator<Item = u8> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = u32> + '_ {
         debug_assert_eq!(
             self.registers.len(),
             ceil(1 << PRECISION, NUMBER_OF_REGISTERS_IN_WORD)
@@ -106,7 +106,7 @@ where
             .copied()
             .flat_map(|six_registers| {
                 (0..NUMBER_OF_REGISTERS_IN_WORD).map(move |i| {
-                    (six_registers >> i * NUMBER_OF_BITS_PER_REGISTER & LOWER_REGISTER_MASK) as u8
+                    six_registers >> i * NUMBER_OF_BITS_PER_REGISTER & LOWER_REGISTER_MASK
                 })
             })
             .take(Self::NUMBER_OF_REGISTERS)
@@ -119,8 +119,8 @@ where
     }
 
     #[inline(always)]
-    pub fn get_number_of_bits(&self) -> u8 {
-        PRECISION as u8
+    pub fn get_number_of_bits(&self) -> usize {
+        PRECISION
     }
 
     #[inline(always)]
@@ -138,7 +138,7 @@ where
     }
 
     #[inline(always)]
-    pub fn get_registers(&self) -> [u8; 1 << PRECISION] {
+    pub fn get_registers(&self) -> [u32; 1 << PRECISION] {
         let mut array = [0; (1 << PRECISION)];
         self.iter()
             .zip(array.iter_mut())
@@ -244,29 +244,17 @@ where
 
     #[inline(always)]
     /// Computes union between HLL counters.
-    pub fn union(&mut self, rhs: &Self) {
+    pub fn register_wise_max_inplace(&mut self, rhs: &Self) {
         for (left_word, right_word) in self.registers.iter_mut().zip(rhs.registers.iter().copied())
         {
-            let left_word_copy: u32 = *left_word;
-            let left_register_0 = left_word_copy & LOWER_REGISTER_MASK;
-            let left_register_1 =
-                (left_word_copy >> NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
-            let left_register_2 =
-                (left_word_copy >> 2 * NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
-            let left_register_3 =
-                (left_word_copy >> 3 * NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
-            let left_register_4 =
-                (left_word_copy >> 4 * NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
-
-            let right_register_0 = right_word & LOWER_REGISTER_MASK;
-            let right_register_1 =
-                (right_word >> NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
-            let right_register_2 =
-                (right_word >> 2 * NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
-            let right_register_3 =
-                (right_word >> 3 * NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
-            let right_register_4 =
-                (right_word >> 4 * NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
+            let [left_register_0, left_register_1, left_register_2, left_register_3, left_register_4] =
+                split_registers::<NUMBER_OF_REGISTERS_IN_WORD, NUMBER_OF_BITS_PER_REGISTER>(
+                    *left_word,
+                );
+            let [right_register_0, right_register_1, right_register_2, right_register_3, right_register_4] =
+                split_registers::<NUMBER_OF_REGISTERS_IN_WORD, NUMBER_OF_BITS_PER_REGISTER>(
+                    right_word,
+                );
 
             *left_word = left_register_0.max(right_register_0)
                 | (left_register_1.max(right_register_1) << NUMBER_OF_BITS_PER_REGISTER)
@@ -274,5 +262,13 @@ where
                 | (left_register_3.max(right_register_3) << 3 * NUMBER_OF_BITS_PER_REGISTER)
                 | (left_register_4.max(right_register_4) << 4 * NUMBER_OF_BITS_PER_REGISTER);
         }
+    }
+
+    #[inline(always)]
+    /// Computes union between HLL counters.
+    pub fn register_wise_max(&self, rhs: &Self) -> Self {
+        let mut result = self.clone();
+        result.register_wise_max_inplace(rhs);
+        result
     }
 }
