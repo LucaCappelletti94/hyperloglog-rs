@@ -13,7 +13,7 @@
 /// # Examples
 ///
 /// ```
-/// # use hyperloglog::prelude::*;
+/// # use hyperloglog_rs::prelude::*;
 ///
 /// let alpha_16 = get_alpha(16);
 /// let alpha_32 = get_alpha(32);

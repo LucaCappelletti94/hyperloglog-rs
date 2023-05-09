@@ -18,6 +18,18 @@ where
     registers: [u32; ceil(1 << PRECISION, NUMBER_OF_REGISTERS_IN_WORD)],
 }
 
+impl<const PRECISION: usize, T: Hash> From<T> for HyperLogLog<PRECISION>
+where
+    [(); ceil(1 << PRECISION, NUMBER_OF_REGISTERS_IN_WORD)]:,
+    [(); 1 << PRECISION]:,
+{
+    fn from(value: T) -> Self {
+        let mut hll = Self::new();
+        hll.insert(value);
+        hll
+    }
+}
+
 impl<const PRECISION: usize> HyperLogLog<PRECISION>
 where
     [(); ceil(1 << PRECISION, NUMBER_OF_REGISTERS_IN_WORD)]:,
@@ -145,14 +157,14 @@ where
     /// # Examples
     ///
     /// ```
-    /// use hyperloglog::prelude::*;
+    /// use hyperloglog_rs::prelude::*;
     ///
-    /// const N: usize = 16;
+    /// const PRECISION: usize = 10;
     ///
-    /// let mut hll = HyperLogLog::<N>::new();
+    /// let mut hll = HyperLogLog::<PRECISION>::new();
     ///
-    /// hll += "Hello";
-    /// hll += "World";
+    /// hll.insert("Hello");
+    /// hll.insert("World");
     ///
     /// assert!(hll.count() >= 2.0);
     /// ```

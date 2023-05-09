@@ -5,7 +5,7 @@ use hyperloglogplus::HyperLogLog as AlternativeHyperLogLog;
 use hyperloglogplus::HyperLogLogPF;
 use std::collections::hash_map::RandomState;
 
-use hyperloglog::prelude::*;
+use hyperloglog_rs::prelude::*;
 
 use test::{black_box, Bencher};
 
@@ -18,7 +18,7 @@ fn bench_count_16(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {
@@ -35,7 +35,7 @@ fn bench_count_16_dispatched(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {
@@ -71,7 +71,7 @@ fn bench_count_64(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {
@@ -88,7 +88,7 @@ fn bench_count_64_dispatched(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {
@@ -124,7 +124,7 @@ fn bench_count_128(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {
@@ -141,7 +141,7 @@ fn bench_count_128_dispatched(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {
@@ -177,7 +177,7 @@ fn bench_count_256(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {
@@ -194,7 +194,7 @@ fn bench_count_256_dispatched(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {
@@ -230,7 +230,7 @@ fn bench_count_512(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {
@@ -247,7 +247,7 @@ fn bench_count_512_dispatched(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {
@@ -283,7 +283,7 @@ fn bench_count_1024(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {
@@ -300,7 +300,7 @@ fn bench_count_1024_dispatched(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {
@@ -336,7 +336,7 @@ fn bench_count_4096(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {
@@ -353,7 +353,7 @@ fn bench_count_2048_dispatched(b: &mut Bencher) {
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     for i in 0..NUMBER_OF_ELEMENTS {
-        hll += i;
+        hll.insert(i);
     }
 
     b.iter(|| {

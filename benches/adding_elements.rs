@@ -1,6 +1,6 @@
 #![feature(test)]
 extern crate test;
-use hyperloglog::prelude::*;
+use hyperloglog_rs::prelude::*;
 
 use test::{black_box, Bencher};
 
@@ -14,7 +14,7 @@ fn bench_add(b: &mut Bencher) {
     b.iter(|| {
         // Inner closure, the actual test
         for i in 0..NUMBER_OF_ELEMENTS {
-            black_box(hll += i);
+            black_box(hll.insert(i));
         }
     });
 }

@@ -1,5 +1,5 @@
 
-use hyperloglog::prelude::*;
+use hyperloglog_rs::prelude::*;
 
 #[test]
 pub fn test_hyper_log_log_at_precision_5() {
@@ -9,7 +9,7 @@ pub fn test_hyper_log_log_at_precision_5() {
         let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
         for i in 0..elements {
-            hll += i;
+            hll.insert(i);
         }
 
         assert!(

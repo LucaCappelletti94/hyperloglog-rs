@@ -15,7 +15,7 @@
 /// # Examples
 ///
 /// ```
-/// # use hyperloglog::prelude::*;
+/// # use hyperloglog_rs::prelude::*;
 /// let result = get_small_correction_lookup_table::<16>(2);
 /// assert_eq!(result, 33.271_f32);
 /// ```
