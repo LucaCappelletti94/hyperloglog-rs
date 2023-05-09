@@ -1,7 +1,6 @@
 use crate::prelude::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::ops::{Add, AddAssign};
 
 pub const NUMBER_OF_REGISTERS_IN_WORD: usize = 5;
 pub const NUMBER_OF_BITS_PER_REGISTER: usize = 32 / NUMBER_OF_REGISTERS_IN_WORD; // 32 / 5 = 6.4 -> 6
@@ -136,28 +135,7 @@ where
             });
         array
     }
-}
 
-impl<const PRECISION: usize, T> Add<T> for HyperLogLog<PRECISION>
-where
-    [(); 1 << PRECISION]:,
-    [(); ceil(1 << PRECISION, NUMBER_OF_REGISTERS_IN_WORD)]:,
-    T: Hash,
-{
-    type Output = Self;
-    fn add(self, rhs: T) -> Self::Output {
-        let mut copy = self.clone();
-        copy += rhs;
-        copy
-    }
-}
-
-impl<const PRECISION: usize, T> AddAssign<T> for HyperLogLog<PRECISION>
-where
-    [(); 1 << PRECISION]:,
-    [(); ceil(1 << PRECISION, NUMBER_OF_REGISTERS_IN_WORD)]:,
-    T: Hash,
-{
     #[inline(always)]
     /// Adds an element to the HyperLogLog counter.
     ///
@@ -189,7 +167,7 @@ where
     /// # Errors
     ///
     /// This function does not return any errors.
-    fn add_assign(&mut self, rhs: T) {
+    pub fn insert<T: Hash>(&mut self, rhs: T) {
         // Create a new hasher.
         let mut hasher = DefaultHasher::new();
         // Calculate the hash.
@@ -249,6 +227,40 @@ where
                 self.registers[register_position_in_array] =
                     (self.registers[register_position_in_array] & !mask) | shifted_zeros;
             }
+        }
+    }
+
+    #[inline(always)]
+    /// Adds an element to the HyperLogLog counter.
+    pub fn union(&mut self, rhs: &Self) {
+        for (left_word, right_word) in self.registers.iter_mut().zip(rhs.registers.iter().copied())
+        {
+            let left_word_copy: u32 = *left_word;
+            let left_register_0 = left_word_copy & LOWER_REGISTER_MASK;
+            let left_register_1 =
+                (left_word_copy >> NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
+            let left_register_2 =
+                (left_word_copy >> 2 * NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
+            let left_register_3 =
+                (left_word_copy >> 3 * NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
+            let left_register_4 =
+                (left_word_copy >> 4 * NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
+
+            let right_register_0 = right_word & LOWER_REGISTER_MASK;
+            let right_register_1 =
+                (right_word >> NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
+            let right_register_2 =
+                (right_word >> 2 * NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
+            let right_register_3 =
+                (right_word >> 3 * NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
+            let right_register_4 =
+                (right_word >> 4 * NUMBER_OF_BITS_PER_REGISTER) & LOWER_REGISTER_MASK;
+
+            *left_word = left_register_0.max(right_register_0)
+                | (left_register_1.max(right_register_1) << NUMBER_OF_BITS_PER_REGISTER)
+                | (left_register_2.max(right_register_2) << 2 * NUMBER_OF_BITS_PER_REGISTER)
+                | (left_register_3.max(right_register_3) << 3 * NUMBER_OF_BITS_PER_REGISTER)
+                | (left_register_4.max(right_register_4) << 4 * NUMBER_OF_BITS_PER_REGISTER);
         }
     }
 }
