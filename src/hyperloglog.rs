@@ -231,7 +231,7 @@ where
     }
 
     #[inline(always)]
-    /// Adds an element to the HyperLogLog counter.
+    /// Computes union between HLL counters.
     pub fn union(&mut self, rhs: &Self) {
         for (left_word, right_word) in self.registers.iter_mut().zip(rhs.registers.iter().copied())
         {
