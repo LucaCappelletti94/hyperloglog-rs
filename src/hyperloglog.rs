@@ -8,7 +8,7 @@ pub const NUMBER_OF_BITS_PER_REGISTER: usize = 32 / NUMBER_OF_REGISTERS_IN_WORD;
 pub const LOWER_REGISTER_MASK: u32 = (1 << NUMBER_OF_BITS_PER_REGISTER) - 1; // These need to be {NUMBER_OF_BITS_PER_REGISTER} bits.
 
 #[repr(transparent)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 /// HyperLogLog is a probabilistic algorithm for estimating the number of distinct elements in a set.
 /// It uses a small amount of memory to produce an approximate count with a guaranteed error rate.
 pub struct HyperLogLog<const PRECISION: usize>
