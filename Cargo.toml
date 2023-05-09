@@ -8,4 +8,16 @@ edition = "2021"
 [dependencies]
 
 [dev-dependencies]
-hyperloglogplus = "0.4.1"
+hyperloglogplus = {git="https://github.com/LucaCappelletti94/hyperloglog.rs", branch="master"}
+
+[profile.test]
+overflow-checks = true   # Disable integer overflow checks.
+debug = false            # Include debug info.
+debug-assertions = true  # Enables debug assertions.
+opt-level = 3
+
+[profile.release]
+overflow-checks = true   # Disable integer overflow checks.
+debug = false            # Include debug info.
+debug-assertions = true  # Enables debug assertions.
+opt-level = 3

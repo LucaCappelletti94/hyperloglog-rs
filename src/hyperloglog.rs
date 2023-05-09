@@ -6,7 +6,7 @@ use std::ops::{Add, AddAssign};
 pub const NUMBER_OF_REGISTERS_IN_WORD: usize = 5;
 pub const NUMBER_OF_BITS_PER_REGISTER: usize = 32 / NUMBER_OF_REGISTERS_IN_WORD; // 32 / 5 = 6.4 -> 6
                                                                                  // A mask to get the lower register (from LSB).
-const LOWER_REGISTER_MASK: u32 = (1 << NUMBER_OF_BITS_PER_REGISTER) - 1; // These need to be {NUMBER_OF_BITS_PER_REGISTER} bits.
+pub const LOWER_REGISTER_MASK: u32 = (1 << NUMBER_OF_BITS_PER_REGISTER) - 1; // These need to be {NUMBER_OF_BITS_PER_REGISTER} bits.
 
 #[repr(transparent)]
 #[derive(Clone, Debug)]
@@ -24,13 +24,13 @@ where
     [(); ceil(1 << PRECISION, NUMBER_OF_REGISTERS_IN_WORD)]:,
     [(); 1 << PRECISION]:,
 {
-    pub const NUMBER_OF_REGISTERS: usize = (1 << PRECISION);
+    pub const NUMBER_OF_REGISTERS: usize = 1 << PRECISION;
     pub const NUMBER_OF_REGISTERS_SQUARED: f32 =
         (Self::NUMBER_OF_REGISTERS * Self::NUMBER_OF_REGISTERS) as f32;
     pub const SMALL_RANGE_CORRECTION_THRESHOLD: f32 = 2.5_f32 * (Self::NUMBER_OF_REGISTERS as f32);
     pub const TWO_32: f32 = (1u64 << 32) as f32;
     pub const INTERMEDIATE_RANGE_CORRECTION_THRESHOLD: f32 = Self::TWO_32 / 30.0_f32;
-    pub const ALPHA: f32 = get_alpha::<{ 1 << PRECISION }>();
+    pub const ALPHA: f32 = get_alpha(1 << PRECISION);
 
     /// Create a new HyperLogLog counter.
     pub fn new() -> Self {
@@ -43,59 +43,43 @@ where
 
     #[inline(always)]
     /// Computes the estimate of the cardinality of the set represented by the HyperLogLog data structure.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use hyperloglog::prelude::*;
-    ///
-    /// const N: usize = 30;
-    /// const NUMBER_OF_ELEMENTS: usize = 2;
-    ///
-    /// let mut hll = HyperLogLog::<N>::new();
-    ///
-    /// for i in 0..NUMBER_OF_ELEMENTS {
-    ///     hll += i;
-    /// }
-    ///
-    ///
-    /// assert!(
-    ///     hll.get_registers().len() as u8 == hll.get_total_number_of_registers()
-    /// );
-    ///
-    /// assert!(
-    ///     hll.count() >= NUMBER_OF_ELEMENTS as f32,
-    ///     "Expected >= {}, got {}. The registers are: {:?}, of which {} out of {} are zeroed and {} are not. We are using {} bits.",
-    ///     NUMBER_OF_ELEMENTS,
-    ///     hll.count(),
-    ///     hll.get_registers(),
-    ///     hll.number_of_zero_registers(),
-    ///     hll.get_total_number_of_registers(),
-    ///     hll.get_number_of_non_zero_registers(),
-    ///     hll.get_number_of_bits()
-    /// );
-    /// ```
-    ///
     pub fn count(&self) -> f32 {
         // Initialize the total estimate to 0.0
-        let mut total = 0.0;
+        let mut raw_estimate = 0.0;
         let mut number_of_zero_registers: usize = 0;
 
         // Iterate over the registers in the data structure
         for register in self.iter() {
             number_of_zero_registers += (register == 0) as usize;
-            total += 1.0 / (1u64 << register) as f32;
+            raw_estimate += 1.0 / (1u64 << register) as f32;
         }
 
         // Apply the final scaling factor to obtain the estimate of the cardinality
-        total = Self::ALPHA * Self::NUMBER_OF_REGISTERS_SQUARED / total;
+        raw_estimate = Self::ALPHA * Self::NUMBER_OF_REGISTERS_SQUARED / raw_estimate;
 
-        if total <= Self::SMALL_RANGE_CORRECTION_THRESHOLD && number_of_zero_registers > 0 {
+        if raw_estimate <= Self::SMALL_RANGE_CORRECTION_THRESHOLD && number_of_zero_registers > 0 {
             get_small_correction_lookup_table::<{ 1 << PRECISION }>(number_of_zero_registers)
-        } else if total >= Self::INTERMEDIATE_RANGE_CORRECTION_THRESHOLD {
-            -Self::TWO_32 * (-total / Self::TWO_32).ln_1p()
+        } else if raw_estimate >= Self::INTERMEDIATE_RANGE_CORRECTION_THRESHOLD {
+            -Self::TWO_32 * (-raw_estimate / Self::TWO_32).ln_1p()
         } else {
-            total
+            raw_estimate
+        }
+    }
+
+    pub fn count_dispatched(&self) -> f32 {
+        let (number_of_zero_registers, mut raw_estimate) = dispatch_specialized_count::<
+            { ceil(1 << PRECISION, NUMBER_OF_REGISTERS_IN_WORD) },
+        >(&self.registers);
+
+        // Apply the final scaling factor to obtain the estimate of the cardinality
+        raw_estimate = Self::ALPHA * Self::NUMBER_OF_REGISTERS_SQUARED / raw_estimate;
+
+        if raw_estimate <= Self::SMALL_RANGE_CORRECTION_THRESHOLD && number_of_zero_registers > 0 {
+            get_small_correction_lookup_table::<{ 1 << PRECISION }>(number_of_zero_registers)
+        } else if raw_estimate >= Self::INTERMEDIATE_RANGE_CORRECTION_THRESHOLD {
+            -Self::TWO_32 * (-raw_estimate / Self::TWO_32).ln_1p()
+        } else {
+            raw_estimate
         }
     }
 

@@ -7,8 +7,8 @@ use test::{black_box, Bencher};
 #[bench]
 fn bench_add(b: &mut Bencher) {
     // Optionally include some setup
-    const NUMBER_OF_ELEMENTS: usize = 200_000;
-    const PRECISION: usize = 8;
+    const NUMBER_OF_ELEMENTS: usize = 1_000_000;
+    const PRECISION: usize = 4;
     let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
 
     b.iter(|| {

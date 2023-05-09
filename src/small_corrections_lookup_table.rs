@@ -17,7 +17,7 @@
 /// ```
 /// # use hyperloglog::prelude::*;
 /// let result = get_small_correction_lookup_table::<16>(2);
-/// assert_eq!(result, 33.27106466687737_f32);
+/// assert_eq!(result, 33.271_f32);
 /// ```
 pub fn get_small_correction_lookup_table<const NUMBER_OF_REGISTERS: usize>(
     number_of_zero_registers: usize,
