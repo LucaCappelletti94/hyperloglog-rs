@@ -2,322 +2,318 @@
 use crate::prelude::*;
 
 #[inline]
-pub fn get_approximated_cardinality_with_512_registers_and_6_bits(words: &[u32; 103]) -> (usize, f32) {
+pub fn get_approximated_cardinality_with_512_registers_and_6_bits(words: &[u32; 103]) -> f32 {
     let mut raw_estimate = 0.0;
-    let mut number_of_zero_registers = 0;
 
 	let [register_0, register_1, register_2, register_3, register_4] = split_registers::<5>(words[0]);
 	raw_estimate += 1.0 / (1u64 << register_0) as f32 + 1.0 / (1u64 << register_1) as f32 + 1.0 / (1u64 << register_2) as f32 + 1.0 / (1u64 << register_3) as f32 + 1.0 / (1u64 << register_4) as f32;
-	number_of_zero_registers += (register_0 == 0) as usize + (register_1 == 0) as usize + (register_2 == 0) as usize + (register_3 == 0) as usize + (register_4 == 0) as usize;
+
 	let [register_5, register_6, register_7, register_8, register_9] = split_registers::<5>(words[1]);
 	raw_estimate += 1.0 / (1u64 << register_5) as f32 + 1.0 / (1u64 << register_6) as f32 + 1.0 / (1u64 << register_7) as f32 + 1.0 / (1u64 << register_8) as f32 + 1.0 / (1u64 << register_9) as f32;
-	number_of_zero_registers += (register_5 == 0) as usize + (register_6 == 0) as usize + (register_7 == 0) as usize + (register_8 == 0) as usize + (register_9 == 0) as usize;
+
 	let [register_10, register_11, register_12, register_13, register_14] = split_registers::<5>(words[2]);
 	raw_estimate += 1.0 / (1u64 << register_10) as f32 + 1.0 / (1u64 << register_11) as f32 + 1.0 / (1u64 << register_12) as f32 + 1.0 / (1u64 << register_13) as f32 + 1.0 / (1u64 << register_14) as f32;
-	number_of_zero_registers += (register_10 == 0) as usize + (register_11 == 0) as usize + (register_12 == 0) as usize + (register_13 == 0) as usize + (register_14 == 0) as usize;
+
 	let [register_15, register_16, register_17, register_18, register_19] = split_registers::<5>(words[3]);
 	raw_estimate += 1.0 / (1u64 << register_15) as f32 + 1.0 / (1u64 << register_16) as f32 + 1.0 / (1u64 << register_17) as f32 + 1.0 / (1u64 << register_18) as f32 + 1.0 / (1u64 << register_19) as f32;
-	number_of_zero_registers += (register_15 == 0) as usize + (register_16 == 0) as usize + (register_17 == 0) as usize + (register_18 == 0) as usize + (register_19 == 0) as usize;
+
 	let [register_20, register_21, register_22, register_23, register_24] = split_registers::<5>(words[4]);
 	raw_estimate += 1.0 / (1u64 << register_20) as f32 + 1.0 / (1u64 << register_21) as f32 + 1.0 / (1u64 << register_22) as f32 + 1.0 / (1u64 << register_23) as f32 + 1.0 / (1u64 << register_24) as f32;
-	number_of_zero_registers += (register_20 == 0) as usize + (register_21 == 0) as usize + (register_22 == 0) as usize + (register_23 == 0) as usize + (register_24 == 0) as usize;
+
 	let [register_25, register_26, register_27, register_28, register_29] = split_registers::<5>(words[5]);
 	raw_estimate += 1.0 / (1u64 << register_25) as f32 + 1.0 / (1u64 << register_26) as f32 + 1.0 / (1u64 << register_27) as f32 + 1.0 / (1u64 << register_28) as f32 + 1.0 / (1u64 << register_29) as f32;
-	number_of_zero_registers += (register_25 == 0) as usize + (register_26 == 0) as usize + (register_27 == 0) as usize + (register_28 == 0) as usize + (register_29 == 0) as usize;
+
 	let [register_30, register_31, register_32, register_33, register_34] = split_registers::<5>(words[6]);
 	raw_estimate += 1.0 / (1u64 << register_30) as f32 + 1.0 / (1u64 << register_31) as f32 + 1.0 / (1u64 << register_32) as f32 + 1.0 / (1u64 << register_33) as f32 + 1.0 / (1u64 << register_34) as f32;
-	number_of_zero_registers += (register_30 == 0) as usize + (register_31 == 0) as usize + (register_32 == 0) as usize + (register_33 == 0) as usize + (register_34 == 0) as usize;
+
 	let [register_35, register_36, register_37, register_38, register_39] = split_registers::<5>(words[7]);
 	raw_estimate += 1.0 / (1u64 << register_35) as f32 + 1.0 / (1u64 << register_36) as f32 + 1.0 / (1u64 << register_37) as f32 + 1.0 / (1u64 << register_38) as f32 + 1.0 / (1u64 << register_39) as f32;
-	number_of_zero_registers += (register_35 == 0) as usize + (register_36 == 0) as usize + (register_37 == 0) as usize + (register_38 == 0) as usize + (register_39 == 0) as usize;
+
 	let [register_40, register_41, register_42, register_43, register_44] = split_registers::<5>(words[8]);
 	raw_estimate += 1.0 / (1u64 << register_40) as f32 + 1.0 / (1u64 << register_41) as f32 + 1.0 / (1u64 << register_42) as f32 + 1.0 / (1u64 << register_43) as f32 + 1.0 / (1u64 << register_44) as f32;
-	number_of_zero_registers += (register_40 == 0) as usize + (register_41 == 0) as usize + (register_42 == 0) as usize + (register_43 == 0) as usize + (register_44 == 0) as usize;
+
 	let [register_45, register_46, register_47, register_48, register_49] = split_registers::<5>(words[9]);
 	raw_estimate += 1.0 / (1u64 << register_45) as f32 + 1.0 / (1u64 << register_46) as f32 + 1.0 / (1u64 << register_47) as f32 + 1.0 / (1u64 << register_48) as f32 + 1.0 / (1u64 << register_49) as f32;
-	number_of_zero_registers += (register_45 == 0) as usize + (register_46 == 0) as usize + (register_47 == 0) as usize + (register_48 == 0) as usize + (register_49 == 0) as usize;
+
 	let [register_50, register_51, register_52, register_53, register_54] = split_registers::<5>(words[10]);
 	raw_estimate += 1.0 / (1u64 << register_50) as f32 + 1.0 / (1u64 << register_51) as f32 + 1.0 / (1u64 << register_52) as f32 + 1.0 / (1u64 << register_53) as f32 + 1.0 / (1u64 << register_54) as f32;
-	number_of_zero_registers += (register_50 == 0) as usize + (register_51 == 0) as usize + (register_52 == 0) as usize + (register_53 == 0) as usize + (register_54 == 0) as usize;
+
 	let [register_55, register_56, register_57, register_58, register_59] = split_registers::<5>(words[11]);
 	raw_estimate += 1.0 / (1u64 << register_55) as f32 + 1.0 / (1u64 << register_56) as f32 + 1.0 / (1u64 << register_57) as f32 + 1.0 / (1u64 << register_58) as f32 + 1.0 / (1u64 << register_59) as f32;
-	number_of_zero_registers += (register_55 == 0) as usize + (register_56 == 0) as usize + (register_57 == 0) as usize + (register_58 == 0) as usize + (register_59 == 0) as usize;
+
 	let [register_60, register_61, register_62, register_63, register_64] = split_registers::<5>(words[12]);
 	raw_estimate += 1.0 / (1u64 << register_60) as f32 + 1.0 / (1u64 << register_61) as f32 + 1.0 / (1u64 << register_62) as f32 + 1.0 / (1u64 << register_63) as f32 + 1.0 / (1u64 << register_64) as f32;
-	number_of_zero_registers += (register_60 == 0) as usize + (register_61 == 0) as usize + (register_62 == 0) as usize + (register_63 == 0) as usize + (register_64 == 0) as usize;
+
 	let [register_65, register_66, register_67, register_68, register_69] = split_registers::<5>(words[13]);
 	raw_estimate += 1.0 / (1u64 << register_65) as f32 + 1.0 / (1u64 << register_66) as f32 + 1.0 / (1u64 << register_67) as f32 + 1.0 / (1u64 << register_68) as f32 + 1.0 / (1u64 << register_69) as f32;
-	number_of_zero_registers += (register_65 == 0) as usize + (register_66 == 0) as usize + (register_67 == 0) as usize + (register_68 == 0) as usize + (register_69 == 0) as usize;
+
 	let [register_70, register_71, register_72, register_73, register_74] = split_registers::<5>(words[14]);
 	raw_estimate += 1.0 / (1u64 << register_70) as f32 + 1.0 / (1u64 << register_71) as f32 + 1.0 / (1u64 << register_72) as f32 + 1.0 / (1u64 << register_73) as f32 + 1.0 / (1u64 << register_74) as f32;
-	number_of_zero_registers += (register_70 == 0) as usize + (register_71 == 0) as usize + (register_72 == 0) as usize + (register_73 == 0) as usize + (register_74 == 0) as usize;
+
 	let [register_75, register_76, register_77, register_78, register_79] = split_registers::<5>(words[15]);
 	raw_estimate += 1.0 / (1u64 << register_75) as f32 + 1.0 / (1u64 << register_76) as f32 + 1.0 / (1u64 << register_77) as f32 + 1.0 / (1u64 << register_78) as f32 + 1.0 / (1u64 << register_79) as f32;
-	number_of_zero_registers += (register_75 == 0) as usize + (register_76 == 0) as usize + (register_77 == 0) as usize + (register_78 == 0) as usize + (register_79 == 0) as usize;
+
 	let [register_80, register_81, register_82, register_83, register_84] = split_registers::<5>(words[16]);
 	raw_estimate += 1.0 / (1u64 << register_80) as f32 + 1.0 / (1u64 << register_81) as f32 + 1.0 / (1u64 << register_82) as f32 + 1.0 / (1u64 << register_83) as f32 + 1.0 / (1u64 << register_84) as f32;
-	number_of_zero_registers += (register_80 == 0) as usize + (register_81 == 0) as usize + (register_82 == 0) as usize + (register_83 == 0) as usize + (register_84 == 0) as usize;
+
 	let [register_85, register_86, register_87, register_88, register_89] = split_registers::<5>(words[17]);
 	raw_estimate += 1.0 / (1u64 << register_85) as f32 + 1.0 / (1u64 << register_86) as f32 + 1.0 / (1u64 << register_87) as f32 + 1.0 / (1u64 << register_88) as f32 + 1.0 / (1u64 << register_89) as f32;
-	number_of_zero_registers += (register_85 == 0) as usize + (register_86 == 0) as usize + (register_87 == 0) as usize + (register_88 == 0) as usize + (register_89 == 0) as usize;
+
 	let [register_90, register_91, register_92, register_93, register_94] = split_registers::<5>(words[18]);
 	raw_estimate += 1.0 / (1u64 << register_90) as f32 + 1.0 / (1u64 << register_91) as f32 + 1.0 / (1u64 << register_92) as f32 + 1.0 / (1u64 << register_93) as f32 + 1.0 / (1u64 << register_94) as f32;
-	number_of_zero_registers += (register_90 == 0) as usize + (register_91 == 0) as usize + (register_92 == 0) as usize + (register_93 == 0) as usize + (register_94 == 0) as usize;
+
 	let [register_95, register_96, register_97, register_98, register_99] = split_registers::<5>(words[19]);
 	raw_estimate += 1.0 / (1u64 << register_95) as f32 + 1.0 / (1u64 << register_96) as f32 + 1.0 / (1u64 << register_97) as f32 + 1.0 / (1u64 << register_98) as f32 + 1.0 / (1u64 << register_99) as f32;
-	number_of_zero_registers += (register_95 == 0) as usize + (register_96 == 0) as usize + (register_97 == 0) as usize + (register_98 == 0) as usize + (register_99 == 0) as usize;
+
 	let [register_100, register_101, register_102, register_103, register_104] = split_registers::<5>(words[20]);
 	raw_estimate += 1.0 / (1u64 << register_100) as f32 + 1.0 / (1u64 << register_101) as f32 + 1.0 / (1u64 << register_102) as f32 + 1.0 / (1u64 << register_103) as f32 + 1.0 / (1u64 << register_104) as f32;
-	number_of_zero_registers += (register_100 == 0) as usize + (register_101 == 0) as usize + (register_102 == 0) as usize + (register_103 == 0) as usize + (register_104 == 0) as usize;
+
 	let [register_105, register_106, register_107, register_108, register_109] = split_registers::<5>(words[21]);
 	raw_estimate += 1.0 / (1u64 << register_105) as f32 + 1.0 / (1u64 << register_106) as f32 + 1.0 / (1u64 << register_107) as f32 + 1.0 / (1u64 << register_108) as f32 + 1.0 / (1u64 << register_109) as f32;
-	number_of_zero_registers += (register_105 == 0) as usize + (register_106 == 0) as usize + (register_107 == 0) as usize + (register_108 == 0) as usize + (register_109 == 0) as usize;
+
 	let [register_110, register_111, register_112, register_113, register_114] = split_registers::<5>(words[22]);
 	raw_estimate += 1.0 / (1u64 << register_110) as f32 + 1.0 / (1u64 << register_111) as f32 + 1.0 / (1u64 << register_112) as f32 + 1.0 / (1u64 << register_113) as f32 + 1.0 / (1u64 << register_114) as f32;
-	number_of_zero_registers += (register_110 == 0) as usize + (register_111 == 0) as usize + (register_112 == 0) as usize + (register_113 == 0) as usize + (register_114 == 0) as usize;
+
 	let [register_115, register_116, register_117, register_118, register_119] = split_registers::<5>(words[23]);
 	raw_estimate += 1.0 / (1u64 << register_115) as f32 + 1.0 / (1u64 << register_116) as f32 + 1.0 / (1u64 << register_117) as f32 + 1.0 / (1u64 << register_118) as f32 + 1.0 / (1u64 << register_119) as f32;
-	number_of_zero_registers += (register_115 == 0) as usize + (register_116 == 0) as usize + (register_117 == 0) as usize + (register_118 == 0) as usize + (register_119 == 0) as usize;
+
 	let [register_120, register_121, register_122, register_123, register_124] = split_registers::<5>(words[24]);
 	raw_estimate += 1.0 / (1u64 << register_120) as f32 + 1.0 / (1u64 << register_121) as f32 + 1.0 / (1u64 << register_122) as f32 + 1.0 / (1u64 << register_123) as f32 + 1.0 / (1u64 << register_124) as f32;
-	number_of_zero_registers += (register_120 == 0) as usize + (register_121 == 0) as usize + (register_122 == 0) as usize + (register_123 == 0) as usize + (register_124 == 0) as usize;
+
 	let [register_125, register_126, register_127, register_128, register_129] = split_registers::<5>(words[25]);
 	raw_estimate += 1.0 / (1u64 << register_125) as f32 + 1.0 / (1u64 << register_126) as f32 + 1.0 / (1u64 << register_127) as f32 + 1.0 / (1u64 << register_128) as f32 + 1.0 / (1u64 << register_129) as f32;
-	number_of_zero_registers += (register_125 == 0) as usize + (register_126 == 0) as usize + (register_127 == 0) as usize + (register_128 == 0) as usize + (register_129 == 0) as usize;
+
 	let [register_130, register_131, register_132, register_133, register_134] = split_registers::<5>(words[26]);
 	raw_estimate += 1.0 / (1u64 << register_130) as f32 + 1.0 / (1u64 << register_131) as f32 + 1.0 / (1u64 << register_132) as f32 + 1.0 / (1u64 << register_133) as f32 + 1.0 / (1u64 << register_134) as f32;
-	number_of_zero_registers += (register_130 == 0) as usize + (register_131 == 0) as usize + (register_132 == 0) as usize + (register_133 == 0) as usize + (register_134 == 0) as usize;
+
 	let [register_135, register_136, register_137, register_138, register_139] = split_registers::<5>(words[27]);
 	raw_estimate += 1.0 / (1u64 << register_135) as f32 + 1.0 / (1u64 << register_136) as f32 + 1.0 / (1u64 << register_137) as f32 + 1.0 / (1u64 << register_138) as f32 + 1.0 / (1u64 << register_139) as f32;
-	number_of_zero_registers += (register_135 == 0) as usize + (register_136 == 0) as usize + (register_137 == 0) as usize + (register_138 == 0) as usize + (register_139 == 0) as usize;
+
 	let [register_140, register_141, register_142, register_143, register_144] = split_registers::<5>(words[28]);
 	raw_estimate += 1.0 / (1u64 << register_140) as f32 + 1.0 / (1u64 << register_141) as f32 + 1.0 / (1u64 << register_142) as f32 + 1.0 / (1u64 << register_143) as f32 + 1.0 / (1u64 << register_144) as f32;
-	number_of_zero_registers += (register_140 == 0) as usize + (register_141 == 0) as usize + (register_142 == 0) as usize + (register_143 == 0) as usize + (register_144 == 0) as usize;
+
 	let [register_145, register_146, register_147, register_148, register_149] = split_registers::<5>(words[29]);
 	raw_estimate += 1.0 / (1u64 << register_145) as f32 + 1.0 / (1u64 << register_146) as f32 + 1.0 / (1u64 << register_147) as f32 + 1.0 / (1u64 << register_148) as f32 + 1.0 / (1u64 << register_149) as f32;
-	number_of_zero_registers += (register_145 == 0) as usize + (register_146 == 0) as usize + (register_147 == 0) as usize + (register_148 == 0) as usize + (register_149 == 0) as usize;
+
 	let [register_150, register_151, register_152, register_153, register_154] = split_registers::<5>(words[30]);
 	raw_estimate += 1.0 / (1u64 << register_150) as f32 + 1.0 / (1u64 << register_151) as f32 + 1.0 / (1u64 << register_152) as f32 + 1.0 / (1u64 << register_153) as f32 + 1.0 / (1u64 << register_154) as f32;
-	number_of_zero_registers += (register_150 == 0) as usize + (register_151 == 0) as usize + (register_152 == 0) as usize + (register_153 == 0) as usize + (register_154 == 0) as usize;
+
 	let [register_155, register_156, register_157, register_158, register_159] = split_registers::<5>(words[31]);
 	raw_estimate += 1.0 / (1u64 << register_155) as f32 + 1.0 / (1u64 << register_156) as f32 + 1.0 / (1u64 << register_157) as f32 + 1.0 / (1u64 << register_158) as f32 + 1.0 / (1u64 << register_159) as f32;
-	number_of_zero_registers += (register_155 == 0) as usize + (register_156 == 0) as usize + (register_157 == 0) as usize + (register_158 == 0) as usize + (register_159 == 0) as usize;
+
 	let [register_160, register_161, register_162, register_163, register_164] = split_registers::<5>(words[32]);
 	raw_estimate += 1.0 / (1u64 << register_160) as f32 + 1.0 / (1u64 << register_161) as f32 + 1.0 / (1u64 << register_162) as f32 + 1.0 / (1u64 << register_163) as f32 + 1.0 / (1u64 << register_164) as f32;
-	number_of_zero_registers += (register_160 == 0) as usize + (register_161 == 0) as usize + (register_162 == 0) as usize + (register_163 == 0) as usize + (register_164 == 0) as usize;
+
 	let [register_165, register_166, register_167, register_168, register_169] = split_registers::<5>(words[33]);
 	raw_estimate += 1.0 / (1u64 << register_165) as f32 + 1.0 / (1u64 << register_166) as f32 + 1.0 / (1u64 << register_167) as f32 + 1.0 / (1u64 << register_168) as f32 + 1.0 / (1u64 << register_169) as f32;
-	number_of_zero_registers += (register_165 == 0) as usize + (register_166 == 0) as usize + (register_167 == 0) as usize + (register_168 == 0) as usize + (register_169 == 0) as usize;
+
 	let [register_170, register_171, register_172, register_173, register_174] = split_registers::<5>(words[34]);
 	raw_estimate += 1.0 / (1u64 << register_170) as f32 + 1.0 / (1u64 << register_171) as f32 + 1.0 / (1u64 << register_172) as f32 + 1.0 / (1u64 << register_173) as f32 + 1.0 / (1u64 << register_174) as f32;
-	number_of_zero_registers += (register_170 == 0) as usize + (register_171 == 0) as usize + (register_172 == 0) as usize + (register_173 == 0) as usize + (register_174 == 0) as usize;
+
 	let [register_175, register_176, register_177, register_178, register_179] = split_registers::<5>(words[35]);
 	raw_estimate += 1.0 / (1u64 << register_175) as f32 + 1.0 / (1u64 << register_176) as f32 + 1.0 / (1u64 << register_177) as f32 + 1.0 / (1u64 << register_178) as f32 + 1.0 / (1u64 << register_179) as f32;
-	number_of_zero_registers += (register_175 == 0) as usize + (register_176 == 0) as usize + (register_177 == 0) as usize + (register_178 == 0) as usize + (register_179 == 0) as usize;
+
 	let [register_180, register_181, register_182, register_183, register_184] = split_registers::<5>(words[36]);
 	raw_estimate += 1.0 / (1u64 << register_180) as f32 + 1.0 / (1u64 << register_181) as f32 + 1.0 / (1u64 << register_182) as f32 + 1.0 / (1u64 << register_183) as f32 + 1.0 / (1u64 << register_184) as f32;
-	number_of_zero_registers += (register_180 == 0) as usize + (register_181 == 0) as usize + (register_182 == 0) as usize + (register_183 == 0) as usize + (register_184 == 0) as usize;
+
 	let [register_185, register_186, register_187, register_188, register_189] = split_registers::<5>(words[37]);
 	raw_estimate += 1.0 / (1u64 << register_185) as f32 + 1.0 / (1u64 << register_186) as f32 + 1.0 / (1u64 << register_187) as f32 + 1.0 / (1u64 << register_188) as f32 + 1.0 / (1u64 << register_189) as f32;
-	number_of_zero_registers += (register_185 == 0) as usize + (register_186 == 0) as usize + (register_187 == 0) as usize + (register_188 == 0) as usize + (register_189 == 0) as usize;
+
 	let [register_190, register_191, register_192, register_193, register_194] = split_registers::<5>(words[38]);
 	raw_estimate += 1.0 / (1u64 << register_190) as f32 + 1.0 / (1u64 << register_191) as f32 + 1.0 / (1u64 << register_192) as f32 + 1.0 / (1u64 << register_193) as f32 + 1.0 / (1u64 << register_194) as f32;
-	number_of_zero_registers += (register_190 == 0) as usize + (register_191 == 0) as usize + (register_192 == 0) as usize + (register_193 == 0) as usize + (register_194 == 0) as usize;
+
 	let [register_195, register_196, register_197, register_198, register_199] = split_registers::<5>(words[39]);
 	raw_estimate += 1.0 / (1u64 << register_195) as f32 + 1.0 / (1u64 << register_196) as f32 + 1.0 / (1u64 << register_197) as f32 + 1.0 / (1u64 << register_198) as f32 + 1.0 / (1u64 << register_199) as f32;
-	number_of_zero_registers += (register_195 == 0) as usize + (register_196 == 0) as usize + (register_197 == 0) as usize + (register_198 == 0) as usize + (register_199 == 0) as usize;
+
 	let [register_200, register_201, register_202, register_203, register_204] = split_registers::<5>(words[40]);
 	raw_estimate += 1.0 / (1u64 << register_200) as f32 + 1.0 / (1u64 << register_201) as f32 + 1.0 / (1u64 << register_202) as f32 + 1.0 / (1u64 << register_203) as f32 + 1.0 / (1u64 << register_204) as f32;
-	number_of_zero_registers += (register_200 == 0) as usize + (register_201 == 0) as usize + (register_202 == 0) as usize + (register_203 == 0) as usize + (register_204 == 0) as usize;
+
 	let [register_205, register_206, register_207, register_208, register_209] = split_registers::<5>(words[41]);
 	raw_estimate += 1.0 / (1u64 << register_205) as f32 + 1.0 / (1u64 << register_206) as f32 + 1.0 / (1u64 << register_207) as f32 + 1.0 / (1u64 << register_208) as f32 + 1.0 / (1u64 << register_209) as f32;
-	number_of_zero_registers += (register_205 == 0) as usize + (register_206 == 0) as usize + (register_207 == 0) as usize + (register_208 == 0) as usize + (register_209 == 0) as usize;
+
 	let [register_210, register_211, register_212, register_213, register_214] = split_registers::<5>(words[42]);
 	raw_estimate += 1.0 / (1u64 << register_210) as f32 + 1.0 / (1u64 << register_211) as f32 + 1.0 / (1u64 << register_212) as f32 + 1.0 / (1u64 << register_213) as f32 + 1.0 / (1u64 << register_214) as f32;
-	number_of_zero_registers += (register_210 == 0) as usize + (register_211 == 0) as usize + (register_212 == 0) as usize + (register_213 == 0) as usize + (register_214 == 0) as usize;
+
 	let [register_215, register_216, register_217, register_218, register_219] = split_registers::<5>(words[43]);
 	raw_estimate += 1.0 / (1u64 << register_215) as f32 + 1.0 / (1u64 << register_216) as f32 + 1.0 / (1u64 << register_217) as f32 + 1.0 / (1u64 << register_218) as f32 + 1.0 / (1u64 << register_219) as f32;
-	number_of_zero_registers += (register_215 == 0) as usize + (register_216 == 0) as usize + (register_217 == 0) as usize + (register_218 == 0) as usize + (register_219 == 0) as usize;
+
 	let [register_220, register_221, register_222, register_223, register_224] = split_registers::<5>(words[44]);
 	raw_estimate += 1.0 / (1u64 << register_220) as f32 + 1.0 / (1u64 << register_221) as f32 + 1.0 / (1u64 << register_222) as f32 + 1.0 / (1u64 << register_223) as f32 + 1.0 / (1u64 << register_224) as f32;
-	number_of_zero_registers += (register_220 == 0) as usize + (register_221 == 0) as usize + (register_222 == 0) as usize + (register_223 == 0) as usize + (register_224 == 0) as usize;
+
 	let [register_225, register_226, register_227, register_228, register_229] = split_registers::<5>(words[45]);
 	raw_estimate += 1.0 / (1u64 << register_225) as f32 + 1.0 / (1u64 << register_226) as f32 + 1.0 / (1u64 << register_227) as f32 + 1.0 / (1u64 << register_228) as f32 + 1.0 / (1u64 << register_229) as f32;
-	number_of_zero_registers += (register_225 == 0) as usize + (register_226 == 0) as usize + (register_227 == 0) as usize + (register_228 == 0) as usize + (register_229 == 0) as usize;
+
 	let [register_230, register_231, register_232, register_233, register_234] = split_registers::<5>(words[46]);
 	raw_estimate += 1.0 / (1u64 << register_230) as f32 + 1.0 / (1u64 << register_231) as f32 + 1.0 / (1u64 << register_232) as f32 + 1.0 / (1u64 << register_233) as f32 + 1.0 / (1u64 << register_234) as f32;
-	number_of_zero_registers += (register_230 == 0) as usize + (register_231 == 0) as usize + (register_232 == 0) as usize + (register_233 == 0) as usize + (register_234 == 0) as usize;
+
 	let [register_235, register_236, register_237, register_238, register_239] = split_registers::<5>(words[47]);
 	raw_estimate += 1.0 / (1u64 << register_235) as f32 + 1.0 / (1u64 << register_236) as f32 + 1.0 / (1u64 << register_237) as f32 + 1.0 / (1u64 << register_238) as f32 + 1.0 / (1u64 << register_239) as f32;
-	number_of_zero_registers += (register_235 == 0) as usize + (register_236 == 0) as usize + (register_237 == 0) as usize + (register_238 == 0) as usize + (register_239 == 0) as usize;
+
 	let [register_240, register_241, register_242, register_243, register_244] = split_registers::<5>(words[48]);
 	raw_estimate += 1.0 / (1u64 << register_240) as f32 + 1.0 / (1u64 << register_241) as f32 + 1.0 / (1u64 << register_242) as f32 + 1.0 / (1u64 << register_243) as f32 + 1.0 / (1u64 << register_244) as f32;
-	number_of_zero_registers += (register_240 == 0) as usize + (register_241 == 0) as usize + (register_242 == 0) as usize + (register_243 == 0) as usize + (register_244 == 0) as usize;
+
 	let [register_245, register_246, register_247, register_248, register_249] = split_registers::<5>(words[49]);
 	raw_estimate += 1.0 / (1u64 << register_245) as f32 + 1.0 / (1u64 << register_246) as f32 + 1.0 / (1u64 << register_247) as f32 + 1.0 / (1u64 << register_248) as f32 + 1.0 / (1u64 << register_249) as f32;
-	number_of_zero_registers += (register_245 == 0) as usize + (register_246 == 0) as usize + (register_247 == 0) as usize + (register_248 == 0) as usize + (register_249 == 0) as usize;
+
 	let [register_250, register_251, register_252, register_253, register_254] = split_registers::<5>(words[50]);
 	raw_estimate += 1.0 / (1u64 << register_250) as f32 + 1.0 / (1u64 << register_251) as f32 + 1.0 / (1u64 << register_252) as f32 + 1.0 / (1u64 << register_253) as f32 + 1.0 / (1u64 << register_254) as f32;
-	number_of_zero_registers += (register_250 == 0) as usize + (register_251 == 0) as usize + (register_252 == 0) as usize + (register_253 == 0) as usize + (register_254 == 0) as usize;
+
 	let [register_255, register_256, register_257, register_258, register_259] = split_registers::<5>(words[51]);
 	raw_estimate += 1.0 / (1u64 << register_255) as f32 + 1.0 / (1u64 << register_256) as f32 + 1.0 / (1u64 << register_257) as f32 + 1.0 / (1u64 << register_258) as f32 + 1.0 / (1u64 << register_259) as f32;
-	number_of_zero_registers += (register_255 == 0) as usize + (register_256 == 0) as usize + (register_257 == 0) as usize + (register_258 == 0) as usize + (register_259 == 0) as usize;
+
 	let [register_260, register_261, register_262, register_263, register_264] = split_registers::<5>(words[52]);
 	raw_estimate += 1.0 / (1u64 << register_260) as f32 + 1.0 / (1u64 << register_261) as f32 + 1.0 / (1u64 << register_262) as f32 + 1.0 / (1u64 << register_263) as f32 + 1.0 / (1u64 << register_264) as f32;
-	number_of_zero_registers += (register_260 == 0) as usize + (register_261 == 0) as usize + (register_262 == 0) as usize + (register_263 == 0) as usize + (register_264 == 0) as usize;
+
 	let [register_265, register_266, register_267, register_268, register_269] = split_registers::<5>(words[53]);
 	raw_estimate += 1.0 / (1u64 << register_265) as f32 + 1.0 / (1u64 << register_266) as f32 + 1.0 / (1u64 << register_267) as f32 + 1.0 / (1u64 << register_268) as f32 + 1.0 / (1u64 << register_269) as f32;
-	number_of_zero_registers += (register_265 == 0) as usize + (register_266 == 0) as usize + (register_267 == 0) as usize + (register_268 == 0) as usize + (register_269 == 0) as usize;
+
 	let [register_270, register_271, register_272, register_273, register_274] = split_registers::<5>(words[54]);
 	raw_estimate += 1.0 / (1u64 << register_270) as f32 + 1.0 / (1u64 << register_271) as f32 + 1.0 / (1u64 << register_272) as f32 + 1.0 / (1u64 << register_273) as f32 + 1.0 / (1u64 << register_274) as f32;
-	number_of_zero_registers += (register_270 == 0) as usize + (register_271 == 0) as usize + (register_272 == 0) as usize + (register_273 == 0) as usize + (register_274 == 0) as usize;
+
 	let [register_275, register_276, register_277, register_278, register_279] = split_registers::<5>(words[55]);
 	raw_estimate += 1.0 / (1u64 << register_275) as f32 + 1.0 / (1u64 << register_276) as f32 + 1.0 / (1u64 << register_277) as f32 + 1.0 / (1u64 << register_278) as f32 + 1.0 / (1u64 << register_279) as f32;
-	number_of_zero_registers += (register_275 == 0) as usize + (register_276 == 0) as usize + (register_277 == 0) as usize + (register_278 == 0) as usize + (register_279 == 0) as usize;
+
 	let [register_280, register_281, register_282, register_283, register_284] = split_registers::<5>(words[56]);
 	raw_estimate += 1.0 / (1u64 << register_280) as f32 + 1.0 / (1u64 << register_281) as f32 + 1.0 / (1u64 << register_282) as f32 + 1.0 / (1u64 << register_283) as f32 + 1.0 / (1u64 << register_284) as f32;
-	number_of_zero_registers += (register_280 == 0) as usize + (register_281 == 0) as usize + (register_282 == 0) as usize + (register_283 == 0) as usize + (register_284 == 0) as usize;
+
 	let [register_285, register_286, register_287, register_288, register_289] = split_registers::<5>(words[57]);
 	raw_estimate += 1.0 / (1u64 << register_285) as f32 + 1.0 / (1u64 << register_286) as f32 + 1.0 / (1u64 << register_287) as f32 + 1.0 / (1u64 << register_288) as f32 + 1.0 / (1u64 << register_289) as f32;
-	number_of_zero_registers += (register_285 == 0) as usize + (register_286 == 0) as usize + (register_287 == 0) as usize + (register_288 == 0) as usize + (register_289 == 0) as usize;
+
 	let [register_290, register_291, register_292, register_293, register_294] = split_registers::<5>(words[58]);
 	raw_estimate += 1.0 / (1u64 << register_290) as f32 + 1.0 / (1u64 << register_291) as f32 + 1.0 / (1u64 << register_292) as f32 + 1.0 / (1u64 << register_293) as f32 + 1.0 / (1u64 << register_294) as f32;
-	number_of_zero_registers += (register_290 == 0) as usize + (register_291 == 0) as usize + (register_292 == 0) as usize + (register_293 == 0) as usize + (register_294 == 0) as usize;
+
 	let [register_295, register_296, register_297, register_298, register_299] = split_registers::<5>(words[59]);
 	raw_estimate += 1.0 / (1u64 << register_295) as f32 + 1.0 / (1u64 << register_296) as f32 + 1.0 / (1u64 << register_297) as f32 + 1.0 / (1u64 << register_298) as f32 + 1.0 / (1u64 << register_299) as f32;
-	number_of_zero_registers += (register_295 == 0) as usize + (register_296 == 0) as usize + (register_297 == 0) as usize + (register_298 == 0) as usize + (register_299 == 0) as usize;
+
 	let [register_300, register_301, register_302, register_303, register_304] = split_registers::<5>(words[60]);
 	raw_estimate += 1.0 / (1u64 << register_300) as f32 + 1.0 / (1u64 << register_301) as f32 + 1.0 / (1u64 << register_302) as f32 + 1.0 / (1u64 << register_303) as f32 + 1.0 / (1u64 << register_304) as f32;
-	number_of_zero_registers += (register_300 == 0) as usize + (register_301 == 0) as usize + (register_302 == 0) as usize + (register_303 == 0) as usize + (register_304 == 0) as usize;
+
 	let [register_305, register_306, register_307, register_308, register_309] = split_registers::<5>(words[61]);
 	raw_estimate += 1.0 / (1u64 << register_305) as f32 + 1.0 / (1u64 << register_306) as f32 + 1.0 / (1u64 << register_307) as f32 + 1.0 / (1u64 << register_308) as f32 + 1.0 / (1u64 << register_309) as f32;
-	number_of_zero_registers += (register_305 == 0) as usize + (register_306 == 0) as usize + (register_307 == 0) as usize + (register_308 == 0) as usize + (register_309 == 0) as usize;
+
 	let [register_310, register_311, register_312, register_313, register_314] = split_registers::<5>(words[62]);
 	raw_estimate += 1.0 / (1u64 << register_310) as f32 + 1.0 / (1u64 << register_311) as f32 + 1.0 / (1u64 << register_312) as f32 + 1.0 / (1u64 << register_313) as f32 + 1.0 / (1u64 << register_314) as f32;
-	number_of_zero_registers += (register_310 == 0) as usize + (register_311 == 0) as usize + (register_312 == 0) as usize + (register_313 == 0) as usize + (register_314 == 0) as usize;
+
 	let [register_315, register_316, register_317, register_318, register_319] = split_registers::<5>(words[63]);
 	raw_estimate += 1.0 / (1u64 << register_315) as f32 + 1.0 / (1u64 << register_316) as f32 + 1.0 / (1u64 << register_317) as f32 + 1.0 / (1u64 << register_318) as f32 + 1.0 / (1u64 << register_319) as f32;
-	number_of_zero_registers += (register_315 == 0) as usize + (register_316 == 0) as usize + (register_317 == 0) as usize + (register_318 == 0) as usize + (register_319 == 0) as usize;
+
 	let [register_320, register_321, register_322, register_323, register_324] = split_registers::<5>(words[64]);
 	raw_estimate += 1.0 / (1u64 << register_320) as f32 + 1.0 / (1u64 << register_321) as f32 + 1.0 / (1u64 << register_322) as f32 + 1.0 / (1u64 << register_323) as f32 + 1.0 / (1u64 << register_324) as f32;
-	number_of_zero_registers += (register_320 == 0) as usize + (register_321 == 0) as usize + (register_322 == 0) as usize + (register_323 == 0) as usize + (register_324 == 0) as usize;
+
 	let [register_325, register_326, register_327, register_328, register_329] = split_registers::<5>(words[65]);
 	raw_estimate += 1.0 / (1u64 << register_325) as f32 + 1.0 / (1u64 << register_326) as f32 + 1.0 / (1u64 << register_327) as f32 + 1.0 / (1u64 << register_328) as f32 + 1.0 / (1u64 << register_329) as f32;
-	number_of_zero_registers += (register_325 == 0) as usize + (register_326 == 0) as usize + (register_327 == 0) as usize + (register_328 == 0) as usize + (register_329 == 0) as usize;
+
 	let [register_330, register_331, register_332, register_333, register_334] = split_registers::<5>(words[66]);
 	raw_estimate += 1.0 / (1u64 << register_330) as f32 + 1.0 / (1u64 << register_331) as f32 + 1.0 / (1u64 << register_332) as f32 + 1.0 / (1u64 << register_333) as f32 + 1.0 / (1u64 << register_334) as f32;
-	number_of_zero_registers += (register_330 == 0) as usize + (register_331 == 0) as usize + (register_332 == 0) as usize + (register_333 == 0) as usize + (register_334 == 0) as usize;
+
 	let [register_335, register_336, register_337, register_338, register_339] = split_registers::<5>(words[67]);
 	raw_estimate += 1.0 / (1u64 << register_335) as f32 + 1.0 / (1u64 << register_336) as f32 + 1.0 / (1u64 << register_337) as f32 + 1.0 / (1u64 << register_338) as f32 + 1.0 / (1u64 << register_339) as f32;
-	number_of_zero_registers += (register_335 == 0) as usize + (register_336 == 0) as usize + (register_337 == 0) as usize + (register_338 == 0) as usize + (register_339 == 0) as usize;
+
 	let [register_340, register_341, register_342, register_343, register_344] = split_registers::<5>(words[68]);
 	raw_estimate += 1.0 / (1u64 << register_340) as f32 + 1.0 / (1u64 << register_341) as f32 + 1.0 / (1u64 << register_342) as f32 + 1.0 / (1u64 << register_343) as f32 + 1.0 / (1u64 << register_344) as f32;
-	number_of_zero_registers += (register_340 == 0) as usize + (register_341 == 0) as usize + (register_342 == 0) as usize + (register_343 == 0) as usize + (register_344 == 0) as usize;
+
 	let [register_345, register_346, register_347, register_348, register_349] = split_registers::<5>(words[69]);
 	raw_estimate += 1.0 / (1u64 << register_345) as f32 + 1.0 / (1u64 << register_346) as f32 + 1.0 / (1u64 << register_347) as f32 + 1.0 / (1u64 << register_348) as f32 + 1.0 / (1u64 << register_349) as f32;
-	number_of_zero_registers += (register_345 == 0) as usize + (register_346 == 0) as usize + (register_347 == 0) as usize + (register_348 == 0) as usize + (register_349 == 0) as usize;
+
 	let [register_350, register_351, register_352, register_353, register_354] = split_registers::<5>(words[70]);
 	raw_estimate += 1.0 / (1u64 << register_350) as f32 + 1.0 / (1u64 << register_351) as f32 + 1.0 / (1u64 << register_352) as f32 + 1.0 / (1u64 << register_353) as f32 + 1.0 / (1u64 << register_354) as f32;
-	number_of_zero_registers += (register_350 == 0) as usize + (register_351 == 0) as usize + (register_352 == 0) as usize + (register_353 == 0) as usize + (register_354 == 0) as usize;
+
 	let [register_355, register_356, register_357, register_358, register_359] = split_registers::<5>(words[71]);
 	raw_estimate += 1.0 / (1u64 << register_355) as f32 + 1.0 / (1u64 << register_356) as f32 + 1.0 / (1u64 << register_357) as f32 + 1.0 / (1u64 << register_358) as f32 + 1.0 / (1u64 << register_359) as f32;
-	number_of_zero_registers += (register_355 == 0) as usize + (register_356 == 0) as usize + (register_357 == 0) as usize + (register_358 == 0) as usize + (register_359 == 0) as usize;
+
 	let [register_360, register_361, register_362, register_363, register_364] = split_registers::<5>(words[72]);
 	raw_estimate += 1.0 / (1u64 << register_360) as f32 + 1.0 / (1u64 << register_361) as f32 + 1.0 / (1u64 << register_362) as f32 + 1.0 / (1u64 << register_363) as f32 + 1.0 / (1u64 << register_364) as f32;
-	number_of_zero_registers += (register_360 == 0) as usize + (register_361 == 0) as usize + (register_362 == 0) as usize + (register_363 == 0) as usize + (register_364 == 0) as usize;
+
 	let [register_365, register_366, register_367, register_368, register_369] = split_registers::<5>(words[73]);
 	raw_estimate += 1.0 / (1u64 << register_365) as f32 + 1.0 / (1u64 << register_366) as f32 + 1.0 / (1u64 << register_367) as f32 + 1.0 / (1u64 << register_368) as f32 + 1.0 / (1u64 << register_369) as f32;
-	number_of_zero_registers += (register_365 == 0) as usize + (register_366 == 0) as usize + (register_367 == 0) as usize + (register_368 == 0) as usize + (register_369 == 0) as usize;
+
 	let [register_370, register_371, register_372, register_373, register_374] = split_registers::<5>(words[74]);
 	raw_estimate += 1.0 / (1u64 << register_370) as f32 + 1.0 / (1u64 << register_371) as f32 + 1.0 / (1u64 << register_372) as f32 + 1.0 / (1u64 << register_373) as f32 + 1.0 / (1u64 << register_374) as f32;
-	number_of_zero_registers += (register_370 == 0) as usize + (register_371 == 0) as usize + (register_372 == 0) as usize + (register_373 == 0) as usize + (register_374 == 0) as usize;
+
 	let [register_375, register_376, register_377, register_378, register_379] = split_registers::<5>(words[75]);
 	raw_estimate += 1.0 / (1u64 << register_375) as f32 + 1.0 / (1u64 << register_376) as f32 + 1.0 / (1u64 << register_377) as f32 + 1.0 / (1u64 << register_378) as f32 + 1.0 / (1u64 << register_379) as f32;
-	number_of_zero_registers += (register_375 == 0) as usize + (register_376 == 0) as usize + (register_377 == 0) as usize + (register_378 == 0) as usize + (register_379 == 0) as usize;
+
 	let [register_380, register_381, register_382, register_383, register_384] = split_registers::<5>(words[76]);
 	raw_estimate += 1.0 / (1u64 << register_380) as f32 + 1.0 / (1u64 << register_381) as f32 + 1.0 / (1u64 << register_382) as f32 + 1.0 / (1u64 << register_383) as f32 + 1.0 / (1u64 << register_384) as f32;
-	number_of_zero_registers += (register_380 == 0) as usize + (register_381 == 0) as usize + (register_382 == 0) as usize + (register_383 == 0) as usize + (register_384 == 0) as usize;
+
 	let [register_385, register_386, register_387, register_388, register_389] = split_registers::<5>(words[77]);
 	raw_estimate += 1.0 / (1u64 << register_385) as f32 + 1.0 / (1u64 << register_386) as f32 + 1.0 / (1u64 << register_387) as f32 + 1.0 / (1u64 << register_388) as f32 + 1.0 / (1u64 << register_389) as f32;
-	number_of_zero_registers += (register_385 == 0) as usize + (register_386 == 0) as usize + (register_387 == 0) as usize + (register_388 == 0) as usize + (register_389 == 0) as usize;
+
 	let [register_390, register_391, register_392, register_393, register_394] = split_registers::<5>(words[78]);
 	raw_estimate += 1.0 / (1u64 << register_390) as f32 + 1.0 / (1u64 << register_391) as f32 + 1.0 / (1u64 << register_392) as f32 + 1.0 / (1u64 << register_393) as f32 + 1.0 / (1u64 << register_394) as f32;
-	number_of_zero_registers += (register_390 == 0) as usize + (register_391 == 0) as usize + (register_392 == 0) as usize + (register_393 == 0) as usize + (register_394 == 0) as usize;
+
 	let [register_395, register_396, register_397, register_398, register_399] = split_registers::<5>(words[79]);
 	raw_estimate += 1.0 / (1u64 << register_395) as f32 + 1.0 / (1u64 << register_396) as f32 + 1.0 / (1u64 << register_397) as f32 + 1.0 / (1u64 << register_398) as f32 + 1.0 / (1u64 << register_399) as f32;
-	number_of_zero_registers += (register_395 == 0) as usize + (register_396 == 0) as usize + (register_397 == 0) as usize + (register_398 == 0) as usize + (register_399 == 0) as usize;
+
 	let [register_400, register_401, register_402, register_403, register_404] = split_registers::<5>(words[80]);
 	raw_estimate += 1.0 / (1u64 << register_400) as f32 + 1.0 / (1u64 << register_401) as f32 + 1.0 / (1u64 << register_402) as f32 + 1.0 / (1u64 << register_403) as f32 + 1.0 / (1u64 << register_404) as f32;
-	number_of_zero_registers += (register_400 == 0) as usize + (register_401 == 0) as usize + (register_402 == 0) as usize + (register_403 == 0) as usize + (register_404 == 0) as usize;
+
 	let [register_405, register_406, register_407, register_408, register_409] = split_registers::<5>(words[81]);
 	raw_estimate += 1.0 / (1u64 << register_405) as f32 + 1.0 / (1u64 << register_406) as f32 + 1.0 / (1u64 << register_407) as f32 + 1.0 / (1u64 << register_408) as f32 + 1.0 / (1u64 << register_409) as f32;
-	number_of_zero_registers += (register_405 == 0) as usize + (register_406 == 0) as usize + (register_407 == 0) as usize + (register_408 == 0) as usize + (register_409 == 0) as usize;
+
 	let [register_410, register_411, register_412, register_413, register_414] = split_registers::<5>(words[82]);
 	raw_estimate += 1.0 / (1u64 << register_410) as f32 + 1.0 / (1u64 << register_411) as f32 + 1.0 / (1u64 << register_412) as f32 + 1.0 / (1u64 << register_413) as f32 + 1.0 / (1u64 << register_414) as f32;
-	number_of_zero_registers += (register_410 == 0) as usize + (register_411 == 0) as usize + (register_412 == 0) as usize + (register_413 == 0) as usize + (register_414 == 0) as usize;
+
 	let [register_415, register_416, register_417, register_418, register_419] = split_registers::<5>(words[83]);
 	raw_estimate += 1.0 / (1u64 << register_415) as f32 + 1.0 / (1u64 << register_416) as f32 + 1.0 / (1u64 << register_417) as f32 + 1.0 / (1u64 << register_418) as f32 + 1.0 / (1u64 << register_419) as f32;
-	number_of_zero_registers += (register_415 == 0) as usize + (register_416 == 0) as usize + (register_417 == 0) as usize + (register_418 == 0) as usize + (register_419 == 0) as usize;
+
 	let [register_420, register_421, register_422, register_423, register_424] = split_registers::<5>(words[84]);
 	raw_estimate += 1.0 / (1u64 << register_420) as f32 + 1.0 / (1u64 << register_421) as f32 + 1.0 / (1u64 << register_422) as f32 + 1.0 / (1u64 << register_423) as f32 + 1.0 / (1u64 << register_424) as f32;
-	number_of_zero_registers += (register_420 == 0) as usize + (register_421 == 0) as usize + (register_422 == 0) as usize + (register_423 == 0) as usize + (register_424 == 0) as usize;
+
 	let [register_425, register_426, register_427, register_428, register_429] = split_registers::<5>(words[85]);
 	raw_estimate += 1.0 / (1u64 << register_425) as f32 + 1.0 / (1u64 << register_426) as f32 + 1.0 / (1u64 << register_427) as f32 + 1.0 / (1u64 << register_428) as f32 + 1.0 / (1u64 << register_429) as f32;
-	number_of_zero_registers += (register_425 == 0) as usize + (register_426 == 0) as usize + (register_427 == 0) as usize + (register_428 == 0) as usize + (register_429 == 0) as usize;
+
 	let [register_430, register_431, register_432, register_433, register_434] = split_registers::<5>(words[86]);
 	raw_estimate += 1.0 / (1u64 << register_430) as f32 + 1.0 / (1u64 << register_431) as f32 + 1.0 / (1u64 << register_432) as f32 + 1.0 / (1u64 << register_433) as f32 + 1.0 / (1u64 << register_434) as f32;
-	number_of_zero_registers += (register_430 == 0) as usize + (register_431 == 0) as usize + (register_432 == 0) as usize + (register_433 == 0) as usize + (register_434 == 0) as usize;
+
 	let [register_435, register_436, register_437, register_438, register_439] = split_registers::<5>(words[87]);
 	raw_estimate += 1.0 / (1u64 << register_435) as f32 + 1.0 / (1u64 << register_436) as f32 + 1.0 / (1u64 << register_437) as f32 + 1.0 / (1u64 << register_438) as f32 + 1.0 / (1u64 << register_439) as f32;
-	number_of_zero_registers += (register_435 == 0) as usize + (register_436 == 0) as usize + (register_437 == 0) as usize + (register_438 == 0) as usize + (register_439 == 0) as usize;
+
 	let [register_440, register_441, register_442, register_443, register_444] = split_registers::<5>(words[88]);
 	raw_estimate += 1.0 / (1u64 << register_440) as f32 + 1.0 / (1u64 << register_441) as f32 + 1.0 / (1u64 << register_442) as f32 + 1.0 / (1u64 << register_443) as f32 + 1.0 / (1u64 << register_444) as f32;
-	number_of_zero_registers += (register_440 == 0) as usize + (register_441 == 0) as usize + (register_442 == 0) as usize + (register_443 == 0) as usize + (register_444 == 0) as usize;
+
 	let [register_445, register_446, register_447, register_448, register_449] = split_registers::<5>(words[89]);
 	raw_estimate += 1.0 / (1u64 << register_445) as f32 + 1.0 / (1u64 << register_446) as f32 + 1.0 / (1u64 << register_447) as f32 + 1.0 / (1u64 << register_448) as f32 + 1.0 / (1u64 << register_449) as f32;
-	number_of_zero_registers += (register_445 == 0) as usize + (register_446 == 0) as usize + (register_447 == 0) as usize + (register_448 == 0) as usize + (register_449 == 0) as usize;
+
 	let [register_450, register_451, register_452, register_453, register_454] = split_registers::<5>(words[90]);
 	raw_estimate += 1.0 / (1u64 << register_450) as f32 + 1.0 / (1u64 << register_451) as f32 + 1.0 / (1u64 << register_452) as f32 + 1.0 / (1u64 << register_453) as f32 + 1.0 / (1u64 << register_454) as f32;
-	number_of_zero_registers += (register_450 == 0) as usize + (register_451 == 0) as usize + (register_452 == 0) as usize + (register_453 == 0) as usize + (register_454 == 0) as usize;
+
 	let [register_455, register_456, register_457, register_458, register_459] = split_registers::<5>(words[91]);
 	raw_estimate += 1.0 / (1u64 << register_455) as f32 + 1.0 / (1u64 << register_456) as f32 + 1.0 / (1u64 << register_457) as f32 + 1.0 / (1u64 << register_458) as f32 + 1.0 / (1u64 << register_459) as f32;
-	number_of_zero_registers += (register_455 == 0) as usize + (register_456 == 0) as usize + (register_457 == 0) as usize + (register_458 == 0) as usize + (register_459 == 0) as usize;
+
 	let [register_460, register_461, register_462, register_463, register_464] = split_registers::<5>(words[92]);
 	raw_estimate += 1.0 / (1u64 << register_460) as f32 + 1.0 / (1u64 << register_461) as f32 + 1.0 / (1u64 << register_462) as f32 + 1.0 / (1u64 << register_463) as f32 + 1.0 / (1u64 << register_464) as f32;
-	number_of_zero_registers += (register_460 == 0) as usize + (register_461 == 0) as usize + (register_462 == 0) as usize + (register_463 == 0) as usize + (register_464 == 0) as usize;
+
 	let [register_465, register_466, register_467, register_468, register_469] = split_registers::<5>(words[93]);
 	raw_estimate += 1.0 / (1u64 << register_465) as f32 + 1.0 / (1u64 << register_466) as f32 + 1.0 / (1u64 << register_467) as f32 + 1.0 / (1u64 << register_468) as f32 + 1.0 / (1u64 << register_469) as f32;
-	number_of_zero_registers += (register_465 == 0) as usize + (register_466 == 0) as usize + (register_467 == 0) as usize + (register_468 == 0) as usize + (register_469 == 0) as usize;
+
 	let [register_470, register_471, register_472, register_473, register_474] = split_registers::<5>(words[94]);
 	raw_estimate += 1.0 / (1u64 << register_470) as f32 + 1.0 / (1u64 << register_471) as f32 + 1.0 / (1u64 << register_472) as f32 + 1.0 / (1u64 << register_473) as f32 + 1.0 / (1u64 << register_474) as f32;
-	number_of_zero_registers += (register_470 == 0) as usize + (register_471 == 0) as usize + (register_472 == 0) as usize + (register_473 == 0) as usize + (register_474 == 0) as usize;
+
 	let [register_475, register_476, register_477, register_478, register_479] = split_registers::<5>(words[95]);
 	raw_estimate += 1.0 / (1u64 << register_475) as f32 + 1.0 / (1u64 << register_476) as f32 + 1.0 / (1u64 << register_477) as f32 + 1.0 / (1u64 << register_478) as f32 + 1.0 / (1u64 << register_479) as f32;
-	number_of_zero_registers += (register_475 == 0) as usize + (register_476 == 0) as usize + (register_477 == 0) as usize + (register_478 == 0) as usize + (register_479 == 0) as usize;
+
 	let [register_480, register_481, register_482, register_483, register_484] = split_registers::<5>(words[96]);
 	raw_estimate += 1.0 / (1u64 << register_480) as f32 + 1.0 / (1u64 << register_481) as f32 + 1.0 / (1u64 << register_482) as f32 + 1.0 / (1u64 << register_483) as f32 + 1.0 / (1u64 << register_484) as f32;
-	number_of_zero_registers += (register_480 == 0) as usize + (register_481 == 0) as usize + (register_482 == 0) as usize + (register_483 == 0) as usize + (register_484 == 0) as usize;
+
 	let [register_485, register_486, register_487, register_488, register_489] = split_registers::<5>(words[97]);
 	raw_estimate += 1.0 / (1u64 << register_485) as f32 + 1.0 / (1u64 << register_486) as f32 + 1.0 / (1u64 << register_487) as f32 + 1.0 / (1u64 << register_488) as f32 + 1.0 / (1u64 << register_489) as f32;
-	number_of_zero_registers += (register_485 == 0) as usize + (register_486 == 0) as usize + (register_487 == 0) as usize + (register_488 == 0) as usize + (register_489 == 0) as usize;
+
 	let [register_490, register_491, register_492, register_493, register_494] = split_registers::<5>(words[98]);
 	raw_estimate += 1.0 / (1u64 << register_490) as f32 + 1.0 / (1u64 << register_491) as f32 + 1.0 / (1u64 << register_492) as f32 + 1.0 / (1u64 << register_493) as f32 + 1.0 / (1u64 << register_494) as f32;
-	number_of_zero_registers += (register_490 == 0) as usize + (register_491 == 0) as usize + (register_492 == 0) as usize + (register_493 == 0) as usize + (register_494 == 0) as usize;
+
 	let [register_495, register_496, register_497, register_498, register_499] = split_registers::<5>(words[99]);
 	raw_estimate += 1.0 / (1u64 << register_495) as f32 + 1.0 / (1u64 << register_496) as f32 + 1.0 / (1u64 << register_497) as f32 + 1.0 / (1u64 << register_498) as f32 + 1.0 / (1u64 << register_499) as f32;
-	number_of_zero_registers += (register_495 == 0) as usize + (register_496 == 0) as usize + (register_497 == 0) as usize + (register_498 == 0) as usize + (register_499 == 0) as usize;
+
 	let [register_500, register_501, register_502, register_503, register_504] = split_registers::<5>(words[100]);
 	raw_estimate += 1.0 / (1u64 << register_500) as f32 + 1.0 / (1u64 << register_501) as f32 + 1.0 / (1u64 << register_502) as f32 + 1.0 / (1u64 << register_503) as f32 + 1.0 / (1u64 << register_504) as f32;
-	number_of_zero_registers += (register_500 == 0) as usize + (register_501 == 0) as usize + (register_502 == 0) as usize + (register_503 == 0) as usize + (register_504 == 0) as usize;
+
 	let [register_505, register_506, register_507, register_508, register_509] = split_registers::<5>(words[101]);
 	raw_estimate += 1.0 / (1u64 << register_505) as f32 + 1.0 / (1u64 << register_506) as f32 + 1.0 / (1u64 << register_507) as f32 + 1.0 / (1u64 << register_508) as f32 + 1.0 / (1u64 << register_509) as f32;
-	number_of_zero_registers += (register_505 == 0) as usize + (register_506 == 0) as usize + (register_507 == 0) as usize + (register_508 == 0) as usize + (register_509 == 0) as usize;
+
 	let [register_510, register_511, _, _, _] = split_registers::<5>(words[102]);
 	raw_estimate += 1.0 / (1u64 << register_510) as f32 + 1.0 / (1u64 << register_511) as f32;
-	number_of_zero_registers += (register_510 == 0) as usize + (register_511 == 0) as usize;
 
-    (
-number_of_zero_registers,
-raw_estimate
-    )
+
+    raw_estimate
 }

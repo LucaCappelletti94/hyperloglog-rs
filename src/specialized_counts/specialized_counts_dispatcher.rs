@@ -4,7 +4,7 @@ use crate::prelude::*;
 #[inline]
 pub fn get_generic_approximated_cardinality<const N: usize, const PRECISION: usize, const NUMBER_OF_REGISTERS_IN_WORD: usize>(
     words: &[u32; N],
-) -> (usize, f32) {
+) -> f32 {
     let number_of_registers: usize = 1 << PRECISION;
     let number_of_bits_per_register: usize = 32 / NUMBER_OF_REGISTERS_IN_WORD;
     let mask = (1 << number_of_bits_per_register) - 1;
@@ -18,12 +18,8 @@ pub fn get_generic_approximated_cardinality<const N: usize, const PRECISION: usi
             })
         })
         .take(number_of_registers)
-        .fold((0, 0.0), |(number_of_zero_registers, raw_estimate), register|{
-            (
-                number_of_zero_registers + (register == 0) as usize,
-                raw_estimate + 1.0 / (1u64 << register) as f32,
-            )
-        })
+        .map(|register| 1.0 / (1u64 << register) as f32)
+        .sum()
 }
 
 #[inline]
@@ -33,7 +29,7 @@ pub fn dispatch_specialized_count<
     const NUMBER_OF_REGISTERS_IN_WORD: usize
 >(
     words: &[u32; N],
-) -> (usize, f32) {
+) -> f32 {
     match (N, PRECISION, NUMBER_OF_REGISTERS_IN_WORD) {
 		(3, 4, 6) => get_approximated_cardinality_with_16_registers_and_5_bits(unsafe { core::mem::transmute(words) }),
 		(6, 5, 6) => get_approximated_cardinality_with_32_registers_and_5_bits(unsafe { core::mem::transmute(words) }),

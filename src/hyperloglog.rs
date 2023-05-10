@@ -3,7 +3,6 @@ use core::hash::{Hash, Hasher};
 use core::ops::{BitOr, BitOrAssign};
 use std::collections::hash_map::DefaultHasher;
 
-#[repr(transparent)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 /// HyperLogLog is a probabilistic algorithm for estimating the number of distinct elements in a set.
 /// It uses a small amount of memory to produce an approximate count with a guaranteed error rate.
@@ -12,6 +11,7 @@ where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     words: [u32; ceil(1 << PRECISION, 32 / BITS)],
+    number_of_zero_register: u16,
 }
 
 impl<const PRECISION: usize, const BITS: usize, T: Hash> From<T> for HyperLogLog<PRECISION, BITS>
@@ -47,23 +47,32 @@ where
         assert!(PRECISION <= 16);
         Self {
             words: [0; ceil(1 << PRECISION, 32 / BITS)],
+            number_of_zero_register: 1 << PRECISION,
         }
     }
 
     /// Create a new HyperLogLog counter.
     pub fn from_registers(registers: [u32; 1 << PRECISION]) -> Self {
         let mut words = [0; ceil(1 << PRECISION, 32 / BITS)];
-        words
+        let number_of_zero_register = words
             .iter_mut()
             .zip(registers.chunks(Self::NUMBER_OF_REGISTERS_IN_WORD))
-            .for_each(|(word, word_registers)| {
+            .fold(0, |mut number_of_zero_register, (word, word_registers)| {
+                number_of_zero_register += word_registers
+                    .iter()
+                    .filter(|&&register| register == 0)
+                    .count() as u16;
                 *word = to_word::<BITS>(&word_registers);
+                number_of_zero_register
             });
-        Self { words }
+        Self {
+            words,
+            number_of_zero_register,
+        }
     }
 
     pub fn estimate_cardinality(&self) -> f32 {
-        let (number_of_zero_registers, mut raw_estimate): (usize, f32) = dispatch_specialized_count::<
+        let mut raw_estimate: f32 = dispatch_specialized_count::<
             { ceil(1 << PRECISION, 32 / BITS) },
             PRECISION,
             { 32 / BITS },
@@ -72,8 +81,12 @@ where
         // Apply the final scaling factor to obtain the estimate of the cardinality
         raw_estimate = Self::ALPHA * Self::NUMBER_OF_REGISTERS_SQUARED / raw_estimate;
 
-        if raw_estimate <= Self::SMALL_RANGE_CORRECTION_THRESHOLD && number_of_zero_registers > 0 {
-            get_small_correction_lookup_table::<{ 1 << PRECISION }>(number_of_zero_registers)
+        if raw_estimate <= Self::SMALL_RANGE_CORRECTION_THRESHOLD
+            && self.number_of_zero_register > 0
+        {
+            get_small_correction_lookup_table::<{ 1 << PRECISION }>(
+                self.number_of_zero_register as usize,
+            )
         } else if raw_estimate >= Self::INTERMEDIATE_RANGE_CORRECTION_THRESHOLD {
             -Self::TWO_32 * (-raw_estimate / Self::TWO_32).ln_1p()
         } else {
@@ -215,6 +228,7 @@ where
         if number_of_zeros > register_value {
             let shifted_zeros = number_of_zeros << (register_position_in_u32 * BITS);
             if register_value == 0 {
+                self.number_of_zero_register -= 1;
                 // If the current number_of_zeros is zero, decrement `zeros` and set the register to `number_of_zeros`.
                 self.words[register_position_in_array] |= shifted_zeros;
             } else {
