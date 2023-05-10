@@ -15,7 +15,7 @@ keywords = ["hyperloglog", "probabilistic", "algorithm", "cardinality", "countin
 [dependencies]
 
 [dev-dependencies]
-hyperloglogplus = {git="https://github.com/LucaCappelletti94/hyperloglog.rs", branch="master"}
+hyperloglogplus = {git="https://github.com/LucaCappelletti94/hyperloglog.rs", branch="master", feature=["const-loop"]}
 
 [profile.test]
 overflow-checks = true   # Disable integer overflow checks.

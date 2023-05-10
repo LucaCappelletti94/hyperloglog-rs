@@ -4,8 +4,43 @@ use core::ops::{BitOr, BitOrAssign};
 use std::collections::hash_map::DefaultHasher;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-/// HyperLogLog is a probabilistic algorithm for estimating the number of distinct elements in a set.
-/// It uses a small amount of memory to produce an approximate count with a guaranteed error rate.
+/// A probabilistic algorithm for estimating the number of distinct elements in a set.
+///
+/// HyperLogLog is a probabilistic algorithm designed to estimate the number
+/// of distinct elements in a set. It does so by taking advantage of the fact
+/// that the representation of an element can be transformed into a uniform
+/// distribution in a space with a fixed range.
+///
+/// HyperLogLog works by maintaining a fixed-sized register array,
+/// where each register holds a counter. The algorithm splits the input set into subsets,
+/// applies a hash function to each element in the subset, and then updates
+/// the corresponding counter in the register array.
+///
+/// HyperLogLog uses a trick called "probabilistic counting" to estimate
+/// the number of distinct elements in the set. Each register counter is converted
+/// to a binary string, and the algorithm counts the number of leading zeros in
+/// each binary string. The maximum number of leading zeros over all counters
+/// is used to estimate the number of distinct elements in the set.
+///
+/// HyperLogLog has a tunable parameter called precision that determines
+/// the accuracy of the algorithm. Higher precision leads to better accuracy,
+/// but requires more memory. The error rate of the algorithm is guaranteed
+/// to be within a certain bound, depending on the chosen precision.
+///
+/// # Examples
+///
+/// ```
+/// use hyperloglog_rs::prelude::*;
+///
+/// let mut hll = HyperLogLog::<10, 6>::new();
+/// hll.insert(&"apple");
+/// hll.insert(&"banana");
+/// hll.insert(&"cherry");
+///
+/// let estimated_cardinality = hll.estimate_cardinality();
+/// assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
+///         estimated_cardinality <= 3.0_f32 * 1.1);
+/// ```
 pub struct HyperLogLog<const PRECISION: usize, const BITS: usize>
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
@@ -18,6 +53,7 @@ impl<const PRECISION: usize, const BITS: usize, T: Hash> From<T> for HyperLogLog
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
     [(); 1 << PRECISION]:,
+    [(); 1 << BITS]:,
 {
     fn from(value: T) -> Self {
         let mut hll = Self::new();
@@ -30,6 +66,7 @@ impl<const PRECISION: usize, const BITS: usize> HyperLogLog<PRECISION, BITS>
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
     [(); 1 << PRECISION]:,
+    [(); 1 << BITS]:,
 {
     pub const NUMBER_OF_REGISTERS: usize = 1 << PRECISION;
     pub const NUMBER_OF_REGISTERS_SQUARED: f32 =
@@ -40,6 +77,10 @@ where
     pub const ALPHA: f32 = get_alpha(1 << PRECISION);
     pub const LOWER_REGISTER_MASK: u32 = (1 << BITS) - 1;
     pub const NUMBER_OF_REGISTERS_IN_WORD: usize = 32 / BITS;
+
+    pub const PRECOMPUTED_RECIPROCALS: [f32; 1 << BITS] = precompute_reciprocals::<BITS>();
+    pub const SMALL_CORRECTIONS: [f32; 1 << PRECISION] =
+        precompute_small_corrections::<{ 1 << PRECISION }>();
 
     /// Create a new HyperLogLog counter.
     pub fn new() -> Self {
@@ -94,11 +135,10 @@ where
     /// * `f32` - The estimated cardinality of the set.
     pub fn estimate_cardinality(&self) -> f32 {
         // Dispatch specialized count for 32 / BITS registers per word.
-        let mut raw_estimate: f32 = dispatch_specialized_count::<
-            { ceil(1 << PRECISION, 32 / BITS) },
-            PRECISION,
-            { 32 / BITS },
-        >(&self.words);
+        let mut raw_estimate: f32 = self
+            .iter()
+            .map(|register| Self::PRECOMPUTED_RECIPROCALS[register as usize])
+            .sum();
 
         // Apply the final scaling factor to obtain the estimate of the cardinality
         raw_estimate = Self::ALPHA * Self::NUMBER_OF_REGISTERS_SQUARED / raw_estimate;
@@ -108,9 +148,7 @@ where
         if raw_estimate <= Self::SMALL_RANGE_CORRECTION_THRESHOLD
             && self.number_of_zero_register > 0
         {
-            get_small_correction_lookup_table::<{ 1 << PRECISION }>(
-                self.number_of_zero_register as usize,
-            )
+            Self::SMALL_CORRECTIONS[self.number_of_zero_register - 1]
         // Apply the intermediate range correction factor if the raw estimate is above the threshold.
         } else if raw_estimate >= Self::INTERMEDIATE_RANGE_CORRECTION_THRESHOLD {
             -Self::TWO_32 * (-raw_estimate / Self::TWO_32).ln_1p()
@@ -212,14 +250,37 @@ where
     pub fn get_number_of_padding_registers(&self) -> usize {
         self.words.len() * Self::NUMBER_OF_REGISTERS_IN_WORD - Self::NUMBER_OF_REGISTERS
     }
-    
+
     #[inline(always)]
+    /// Returns the number of registers with zero values. This value is used for computing a small
+    /// correction when estimating the cardinality of a small set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use hyperloglog_rs::prelude::*;
+    ///
+    /// // Create a new HyperLogLog counter with precision 14 and 5 bits per register.
+    /// let mut hll = HyperLogLog::<14, 5>::new();
+    ///
+    /// // Add some elements to the counter.
+    /// hll.insert(&1);
+    /// hll.insert(&2);
+    /// hll.insert(&3);
+    ///
+    /// // Get the number of zero registers.
+    /// let number_of_zero_registers = hll.get_number_of_zero_registers();
+    ///
+    /// assert_eq!(number_of_zero_registers, 16381);
+    /// ```
     pub fn get_number_of_zero_registers(&self) -> usize {
         self.number_of_zero_register
     }
 
     #[inline(always)]
     pub fn get_number_of_non_zero_registers(&self) -> usize {
+        // Calculates the number of registers that have a non-zero value by
+        // subtracting the number of registers with a zero value from the total number of registers
         self.len() - self.get_number_of_zero_registers()
     }
 
@@ -331,6 +392,7 @@ where
 impl<const PRECISION: usize, const BITS: usize> BitOrAssign for HyperLogLog<PRECISION, BITS>
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
+    [(); 1 << BITS]:,
 {
     #[inline(always)]
     /// Computes union between HLL counters.
@@ -399,6 +461,7 @@ where
 impl<const PRECISION: usize, const BITS: usize> BitOr for HyperLogLog<PRECISION, BITS>
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
+    [(); 1 << BITS]:,
 {
     type Output = Self;
 
