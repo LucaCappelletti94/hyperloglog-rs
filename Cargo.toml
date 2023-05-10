@@ -8,7 +8,7 @@ homepage = "https://github.com/LucaCappelletti94/hyperloglog-rs"
 repository = "https://github.com/LucaCappelletti94/hyperloglog-rs"
 readme = "README.md"
 license = "MIT"
-keywords = ["hyperloglog", "probabilistic", "algorithm", "cardinality", "counting", "estimation", "distinct", "set", "big", "data", "analytics", "approximate", "memory-efficient", "hash", "function", "probabilistic-data-structures"]
+keywords = ["hyperloglog", "probabilistic", "algorithm", "cardinality", "estimation",]
 categories = [
     "Data structures",
     "Algorithms",
