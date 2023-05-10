@@ -13,4 +13,5 @@ pub mod prelude {
     pub use crate::small_corrections_lookup_table::*;
     pub use crate::specialized_counts::*;
     pub use crate::utils::*;
+    pub use core::ops::{BitOr, BitOrAssign};
 }

@@ -3,8 +3,8 @@ use hyperloglog_rs::prelude::*;
 
 
 #[test]
-pub fn test_hyper_log_log_at_precision_10_and_bits_5() {
-    const PRECISION: usize = 10;
+pub fn test_hyper_log_log_at_precision_16_and_bits_5() {
+    const PRECISION: usize = 16;
     const BITS: usize = 5;
     
     for number_of_elements in [5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000]{
@@ -35,8 +35,8 @@ pub fn test_hyper_log_log_at_precision_10_and_bits_5() {
 
 
 #[test]
-pub fn test_hyper_log_log_at_precision_10_and_bits_6() {
-    const PRECISION: usize = 10;
+pub fn test_hyper_log_log_at_precision_16_and_bits_6() {
+    const PRECISION: usize = 16;
     const BITS: usize = 6;
     
     for number_of_elements in [5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000]{
@@ -67,8 +67,8 @@ pub fn test_hyper_log_log_at_precision_10_and_bits_6() {
 
 
 #[test]
-pub fn test_hyper_log_log_at_precision_10_and_bits_8() {
-    const PRECISION: usize = 10;
+pub fn test_hyper_log_log_at_precision_16_and_bits_8() {
+    const PRECISION: usize = 16;
     const BITS: usize = 8;
     
     for number_of_elements in [5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000]{
