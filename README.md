@@ -29,3 +29,17 @@ Finally, the **const_fn_floating_point_arithmetic** feature provides the ability
 Contributions from the community are highly appreciated and can help improve this project. If you have any suggestions, feature requests, or bugs to report, [please open an issue on GitHub](https://github.com/LucaCappelletti94/hyperloglog-rs/issues). Additionally, if you want to contribute to the project, [you can open a pull request with your proposed changes](https://github.com/LucaCappelletti94/hyperloglog-rs/pulls). Before making any substantial changes, please discuss them with the project maintainer in the issue tracker or on the [🍇GRAPE🍇 Discord server](https://discord.gg/Nda2cqYvTN).
 
 If you appreciate this project and would like to support its development, you can star the repository on GitHub or [consider making a financial contribution](https://github.com/sponsors/LucaCappelletti94). The project maintainer has set up a GitHub Sponsors page where you can make a recurring financial contribution to support the project's development. Any financial contribution, no matter how small, is greatly appreciated and helps ensure the continued development and maintenance of this project.
+
+## Thanks
+We would like to thank the GitHub user [Tabac](https://github.com/tabac) for their implementation of HyperLogLog, which was very useful for learning and benchmarking this implementation. The goals of the two implementations are different, but Tabac's implementation already supports the HLL++ algorithm. Their implementation can be found at [here](https://github.com/tabac/hyperloglog.rs).
+
+## Citations
+Some relevant citations to learn more:
+
+* [Flajolet, Philippe](https://en.wikipedia.org/wiki/Philippe_Flajolet), Éric Fusy, Olivier Gandouet, and Frédéric Meunier. "[Hyperloglog: the analysis of a near-optimal cardinality estimation algorithm.](https://hal.science/file/index/docid/406166/filename/FlFuGaMe07.pdf)" In Proceedings of the 2007 conference on analysis of algorithms, pp. 127-146. 2007.
+
+* Heule, Stefan, Marc Nunkesser, and Alexander Hall. "[HyperLogLog in practice: algorithmic engineering of a state of the art cardinality estimation algorithm.](https://static.googleusercontent.com/media/research.google.com/it//pubs/archive/40671.pdf)" In Proceedings of the 16th International Conference on Extending Database Technology, pp. 683-692. 2013.
+
+* Heule, Stefan, and Marc Nunkesser. "[HyperLogLog++: Google's take on engineering HLL.](https://agkn.wordpress.com/2013/01/24/hyperloglog-googles-take-on-engineering-hll/)" In Proceedings of the 2013 ACM SIGMOD international conference on Management of data, pp. 1247-1250. 2013.
+
+* Durand, Mathias, and [Philippe Flajolet](https://en.wikipedia.org/wiki/Philippe_Flajolet). "[Loglog counting of large cardinalities.](https://link.springer.com/chapter/10.1007/978-3-540-39658-1_55)" In Algorithms-ESA'03, pp. 605-617. Springer Berlin Heidelberg, 2003.
