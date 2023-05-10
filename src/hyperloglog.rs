@@ -71,7 +71,29 @@ where
         }
     }
 
+    #[inline(always)]
+    /// Estimates the cardinality of the set based on the HLL counter data.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use hyperloglog_rs::prelude::*;
+    /// const PRECISION: usize = 8;
+    /// const BITS: usize = 5;
+    /// let mut hll = HyperLogLog::<PRECISION, BITS>::new();
+    /// let elements = vec![1, 2, 3, 4, 5];
+    /// for element in &elements {
+    ///     hll.insert(element);
+    /// }
+    /// let estimated_cardinality = hll.estimate_cardinality();
+    /// assert!(estimated_cardinality >= elements.len() as f32 * 0.9 &&
+    ///         estimated_cardinality <= elements.len() as f32 * 1.1);
+    /// ```
+    ///
+    /// # Returns
+    /// * `f32` - The estimated cardinality of the set.
     pub fn estimate_cardinality(&self) -> f32 {
+        // Dispatch specialized count for 32 / BITS registers per word.
         let mut raw_estimate: f32 = dispatch_specialized_count::<
             { ceil(1 << PRECISION, 32 / BITS) },
             PRECISION,
@@ -81,12 +103,15 @@ where
         // Apply the final scaling factor to obtain the estimate of the cardinality
         raw_estimate = Self::ALPHA * Self::NUMBER_OF_REGISTERS_SQUARED / raw_estimate;
 
+        // Apply the small range correction factor if the raw estimate is below the threshold
+        // and there are zero registers in the counter.
         if raw_estimate <= Self::SMALL_RANGE_CORRECTION_THRESHOLD
             && self.number_of_zero_register > 0
         {
             get_small_correction_lookup_table::<{ 1 << PRECISION }>(
                 self.number_of_zero_register as usize,
             )
+        // Apply the intermediate range correction factor if the raw estimate is above the threshold.
         } else if raw_estimate >= Self::INTERMEDIATE_RANGE_CORRECTION_THRESHOLD {
             -Self::TWO_32 * (-raw_estimate / Self::TWO_32).ln_1p()
         } else {
@@ -164,6 +189,26 @@ where
 
     #[inline(always)]
     /// Returns the number of extra registers that are not actually used.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use hyperloglog_rs::prelude::*;
+    ///
+    /// // Create a HyperLogLog counter with precision 10 and 6-bit registers
+    /// let mut hll = HyperLogLog::<10, 6>::new();
+    ///
+    /// // Since the number of registers is not a multiple of the number of registers in a word,
+    /// // there are padding registers that are not actually used.
+    /// assert_eq!(hll.get_number_of_padding_registers(), 1);
+    ///
+    /// // Insert some elements into the counter
+    /// hll.insert(&1);
+    /// hll.insert(&2);
+    ///
+    /// // The number of padding registers is still the same
+    /// assert_eq!(hll.get_number_of_padding_registers(), 1);
+    /// ```
     pub fn get_number_of_padding_registers(&self) -> usize {
         self.words.len() * Self::NUMBER_OF_REGISTERS_IN_WORD - Self::NUMBER_OF_REGISTERS
     }

@@ -2,6 +2,13 @@
 name = "hyperloglog-rs"
 version = "0.1.0"
 edition = "2021"
+authors = ["Luca Cappelletti <cappelletti.luca94@gmail.com>"]
+description = "A Rust implementation of HyperLogLog trying to be parsimonious with memory."
+homepage = "https://github.com/LucaCappelletti94/hyperloglog-rs"
+repository = "https://github.com/LucaCappelletti94/hyperloglog-rs"
+readme = "README.md"
+license = "MIT"
+keywords = ["hyperloglog", "probabilistic", "algorithm", "cardinality", "counting", "estimation", "distinct", "set", "big", "data", "analytics", "approximate", "memory-efficient", "hash", "function", "probabilistic-data-structures"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
