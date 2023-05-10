@@ -1,5 +1,8 @@
 # 🧮 HyperLogLog-rs
-This is a Rust library that provides an implementation of the HyperLogLog (HLL) algorithm. HLL is a probabilistic algorithm that is used for estimating the cardinality of a set with very high accuracy while using a very small amount of memory. The algorithm was invented by Philippe Flajolet and Éric Fusy in 2007, and since then, it has been widely used in many fields, including database systems, search engines, and social networks.
+This is a Rust library that provides an implementation of the HyperLogLog (HLL) algorithm.
+
+## What is HyperLogLog?
+HLL is a probabilistic algorithm that is used for estimating the cardinality of a set with very high accuracy while using a very small amount of memory. The algorithm was invented by Philippe Flajolet and Éric Fusy in 2007, and since then, it has been widely used in many fields, including database systems, search engines, and social networks.
 
 The HLL algorithm is based on the observation that the number of unique elements in a set can be estimated by counting the number of leading zeros in the binary representation of the hash values of the elements in the set. This idea is simple but powerful, and it allows us to estimate the cardinality of a set with very high accuracy (within a few percentage points) using only a small amount of memory (a few kilobytes).
 
