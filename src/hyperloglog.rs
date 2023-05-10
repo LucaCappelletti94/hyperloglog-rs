@@ -158,6 +158,38 @@ where
     }
 
     #[inline(always)]
+    /// Returns an iterator over the register values of the HyperLogLog instance.
+    ///
+    /// The register values are extracted from the words array, where each word contains multiple
+    /// register values. This method first checks that the size of the words array matches the expected
+    /// number of registers per word, which is determined by the number of bits per register. It then
+    /// iterates over each word in the array and extracts the register values using bit shifting and
+    /// masking operations. Finally, it takes only the expected number of register values and returns
+    /// an iterator over them.
+    ///
+    /// # Returns
+    ///
+    /// An iterator over the register values of the HyperLogLog instance.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hyperloglog_rs::prelude::*;
+    /// const PRECISION: usize = 8;
+    /// const BITS: usize = 5;
+    /// const HYPERLOGLOG_SIZE: usize = 1 << PRECISION;
+    ///
+    /// let mut hll = HyperLogLog::<PRECISION, BITS>::new();
+    /// assert_eq!(hll.iter().count(), HYPERLOGLOG_SIZE);
+    ///
+    /// hll.insert(&"foo");
+    /// hll.insert(&"bar");
+    ///
+    /// let mut hll2 = HyperLogLog::<PRECISION, BITS>::new();
+    /// hll2|= hll;
+    ///
+    /// assert_eq!(hll2.iter().count(), HYPERLOGLOG_SIZE);
+    /// ```
     pub fn iter(&self) -> impl Iterator<Item = u32> + '_ {
         debug_assert_eq!(
             self.words.len(),
@@ -166,10 +198,9 @@ where
 
         self.words
             .iter()
-            .copied()
-            .flat_map(|six_registers| {
+            .flat_map(|word| {
                 (0..Self::NUMBER_OF_REGISTERS_IN_WORD)
-                    .map(move |i| six_registers >> i * BITS & Self::LOWER_REGISTER_MASK)
+                    .map(move |i| word >> i * BITS & Self::LOWER_REGISTER_MASK)
             })
             .take(Self::NUMBER_OF_REGISTERS)
     }
