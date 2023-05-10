@@ -11,6 +11,7 @@ However, this approach requires the use of several nightly features of the Rust 
 
 We hope that this library will be useful for you in your projects, and we welcome your feedback and contributions. Please feel free to open an issue or submit a pull request if you have any questions or suggestions. Thank you for your interest in our HLL crate, and happy counting!
 
+
 ## Required features
 The **generic_const_exprs** feature allows for using constant expressions as generic type parameters, which is necessary in this implementation to pass compile-time constant values as template arguments.
 
@@ -23,3 +24,8 @@ The **const_trait_impl** feature enables implementing traits on const generics, 
 The **const_mut_refs** feature allows taking references to mutable constants, which is useful in generating arrays and computing the hash values.
 
 Finally, the **const_fn_floating_point_arithmetic** feature provides the ability to perform floating-point arithmetic in const functions, which is necessary for computing hash values using the f32::to_bits() method.
+
+## Contributing to this project
+Contributions from the community are highly appreciated and can help improve this project. If you have any suggestions, feature requests, or bugs to report, [please open an issue on GitHub](https://github.com/LucaCappelletti94/hyperloglog-rs/issues). Additionally, if you want to contribute to the project, [you can open a pull request with your proposed changes](https://github.com/LucaCappelletti94/hyperloglog-rs/pulls). Before making any substantial changes, please discuss them with the project maintainer in the issue tracker or on the [🍇GRAPE🍇 Discord server](https://discord.gg/Nda2cqYvTN).
+
+If you appreciate this project and would like to support its development, you can star the repository on GitHub or [consider making a financial contribution](https://github.com/sponsors/LucaCappelletti94). The project maintainer has set up a GitHub Sponsors page where you can make a recurring financial contribution to support the project's development. Any financial contribution, no matter how small, is greatly appreciated and helps ensure the continued development and maintenance of this project.
