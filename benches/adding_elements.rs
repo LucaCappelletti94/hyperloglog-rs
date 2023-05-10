@@ -9,7 +9,8 @@ fn bench_add(b: &mut Bencher) {
     // Optionally include some setup
     const NUMBER_OF_ELEMENTS: usize = 1_000_000;
     const PRECISION: usize = 4;
-    let mut hll: HyperLogLog<PRECISION> = HyperLogLog::new();
+    const BITS: usize = 6;
+    let mut hll: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
 
     b.iter(|| {
         // Inner closure, the actual test
