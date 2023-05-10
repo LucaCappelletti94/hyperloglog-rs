@@ -350,13 +350,13 @@ where
     /// assert_eq!(registers.len(), 1024);
     /// assert!(registers.iter().any(|&x| x > 0));
     /// ```
-    /// 
+    ///
     /// We can also create an HLL from registers, and then check
     /// whether the registers are what we expect:
-    /// 
+    ///
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
-    /// 
+    ///
     /// let expected = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11, 11, 0];
     /// let mut hll = HyperLogLog::<4, 6>::from_registers(expected);
     /// assert_eq!(hll.get_registers(), expected, "Expected {:?}, got {:?}", expected, hll.get_registers());
@@ -369,6 +369,80 @@ where
                 *target = value;
             });
         array
+    }
+
+    /// Returns the hash value and the corresponding register's index for a given value.
+    ///
+    /// # Arguments
+    /// * `value` - A reference to the value to be hashed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hyperloglog_rs::prelude::*;
+    ///
+    /// let mut hll: HyperLogLog<8, 6> = HyperLogLog::new();
+    /// let value = 42;
+    /// let (hash, index) = hll.get_hash_and_index(&value);
+    ///
+    /// assert_eq!(index, 162, "Expected index {}, got {}.", 162, index);
+    /// assert_eq!(hash, 4225250432, "Expected hash {}, got {}.", 4225250432, hash);
+    /// ```
+    pub fn get_hash_and_index<T: Hash>(&self, value: &T) -> (u32, usize) {
+        // Create a new hasher.
+        let mut hasher = DefaultHasher::new();
+        // Calculate the hash.
+        value.hash(&mut hasher);
+        // Drops the higher 32 bits.
+        let mut hash: u32 = hasher.finish() as u32;
+
+        // Calculate the register's index.
+        let index: usize = (hash >> (32 - PRECISION)) as usize;
+        debug_assert!(
+            index < Self::NUMBER_OF_REGISTERS,
+            "The index {} must be less than the number of registers {}.",
+            index,
+            Self::NUMBER_OF_REGISTERS
+        );
+
+        // Shift left the bits of the index.
+        hash = (hash << PRECISION) | (1 << (PRECISION - 1));
+
+        (hash, index)
+    }
+
+    #[inline(always)]
+    /// Returns `true` if the HyperLogLog counter may contain the given element.
+    ///
+    /// # Arguments
+    /// * `rhs` - The element to check.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use hyperloglog_rs::prelude::*;
+    ///
+    /// let mut hll: HyperLogLog<8, 6> = HyperLogLog::new();
+    /// assert_eq!(hll.may_contain(&42), false);
+    ///
+    /// hll.insert(&42);
+    /// assert_eq!(hll.may_contain(&42), true);
+    /// ```
+    pub fn may_contain<T: Hash>(&mut self, rhs: &T) -> bool {
+        let (_hash, index) = self.get_hash_and_index(&rhs);
+
+        // Calculate the position of the register in the internal buffer array.
+        let register_position_in_array = index / Self::NUMBER_OF_REGISTERS_IN_WORD;
+
+        // Calculate the position of the register within the 32-bit word containing it.
+        let register_position_in_u32 = index % Self::NUMBER_OF_REGISTERS_IN_WORD;
+
+        // Extract the current value of the register at `index`.
+        let register_value: u32 = (self.words[register_position_in_array]
+            >> (register_position_in_u32 * BITS))
+            & Self::LOWER_REGISTER_MASK;
+
+        register_value > 0
     }
 
     #[inline(always)]
@@ -403,24 +477,7 @@ where
     ///
     /// This function does not return any errors.
     pub fn insert<T: Hash>(&mut self, rhs: T) {
-        // Create a new hasher.
-        let mut hasher = DefaultHasher::new();
-        // Calculate the hash.
-        rhs.hash(&mut hasher);
-        // Drops the higher 32 bits.
-        let mut hash: u32 = hasher.finish() as u32;
-
-        // Calculate the register's index.
-        let index: usize = (hash >> (32 - PRECISION)) as usize;
-        debug_assert!(
-            index < Self::NUMBER_OF_REGISTERS,
-            "The index {} must be less than the number of registers {}.",
-            index,
-            Self::NUMBER_OF_REGISTERS
-        );
-
-        // Shift left the bits of the index.
-        hash = (hash << PRECISION) | (1 << (PRECISION - 1));
+        let (hash, index) = self.get_hash_and_index(&rhs);
 
         // Count leading zeros.
         let number_of_zeros: u32 = 1 + hash.leading_zeros();

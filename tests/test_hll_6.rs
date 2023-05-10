@@ -7,11 +7,14 @@ pub fn test_hyper_log_log_at_precision_6_and_bits_5() {
     const PRECISION: usize = 6;
     const BITS: usize = 5;
     
-    for number_of_elements in [5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000]{
+    for number_of_elements in [
+        5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000
+    ]{
         let mut hll: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
 
         for i in 0..number_of_elements {
             hll.insert(i);
+            assert!(hll.may_contain(&i));
         }
 
         assert!(
@@ -39,11 +42,14 @@ pub fn test_hyper_log_log_at_precision_6_and_bits_6() {
     const PRECISION: usize = 6;
     const BITS: usize = 6;
     
-    for number_of_elements in [5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000]{
+    for number_of_elements in [
+        5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000
+    ]{
         let mut hll: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
 
         for i in 0..number_of_elements {
             hll.insert(i);
+            assert!(hll.may_contain(&i));
         }
 
         assert!(
@@ -71,11 +77,14 @@ pub fn test_hyper_log_log_at_precision_6_and_bits_8() {
     const PRECISION: usize = 6;
     const BITS: usize = 8;
     
-    for number_of_elements in [5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000]{
+    for number_of_elements in [
+        5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000
+    ]{
         let mut hll: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
 
         for i in 0..number_of_elements {
             hll.insert(i);
+            assert!(hll.may_contain(&i));
         }
 
         assert!(
