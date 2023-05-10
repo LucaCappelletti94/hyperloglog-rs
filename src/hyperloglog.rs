@@ -11,7 +11,7 @@ where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     words: [u32; ceil(1 << PRECISION, 32 / BITS)],
-    number_of_zero_register: u16,
+    number_of_zero_register: usize,
 }
 
 impl<const PRECISION: usize, const BITS: usize, T: Hash> From<T> for HyperLogLog<PRECISION, BITS>
@@ -47,7 +47,7 @@ where
         assert!(PRECISION <= 16);
         Self {
             words: [0; ceil(1 << PRECISION, 32 / BITS)],
-            number_of_zero_register: 1 << PRECISION,
+            number_of_zero_register: 1_usize << PRECISION,
         }
     }
 
@@ -61,7 +61,7 @@ where
                 number_of_zero_register += word_registers
                     .iter()
                     .filter(|&&register| register == 0)
-                    .count() as u16;
+                    .count();
                 *word = to_word::<BITS>(&word_registers);
                 number_of_zero_register
             });
@@ -112,28 +112,70 @@ where
     }
 
     #[inline(always)]
+    /// Returns the number of registers in the HLL counter.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use hyperloglog_rs::prelude::*;
+    ///
+    /// // Create a new HLL counter with 128 registers
+    /// let mut hll = HyperLogLog::<12, 8>::new();
+    /// assert_eq!(hll.len(), 4096);
+    ///
+    /// // Insert some elements into the HLL counter
+    /// hll.insert(&1);
+    /// hll.insert(&2);
+    /// hll.insert(&3);
+    /// assert_eq!(hll.len(), 1 << 12);
+    ///
+    /// // Merge another HLL counter with 128 registers
+    /// let mut hll2 = HyperLogLog::<12, 8>::new();
+    /// hll2.insert(&4);
+    /// hll2.insert(&5);
+    /// hll |= hll2;
+    /// assert_eq!(hll.len(), 1 << 12);
+    /// ```
     pub fn len(&self) -> usize {
         debug_assert_eq!(Self::NUMBER_OF_REGISTERS, self.iter().count());
         Self::NUMBER_OF_REGISTERS
     }
 
     #[inline(always)]
+    /// Returns the number of bits used to represent each register in the HyperLogLog counter.
+    ///
+    /// # Returns
+    ///
+    /// An unsigned integer value representing the number of bits used to represent each register
+    /// in the HyperLogLog counter.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use hyperloglog_rs::prelude::*;
+    ///
+    /// let hll = HyperLogLog::<13, 6>::new();
+    /// assert_eq!(hll.get_number_of_bits(), 6);
+    /// ```
     pub fn get_number_of_bits(&self) -> usize {
-        PRECISION
+        BITS
     }
 
     #[inline(always)]
+    /// Returns the number of extra registers that are not actually used.
+    pub fn get_number_of_padding_registers(&self) -> usize {
+        self.words.len() * Self::NUMBER_OF_REGISTERS_IN_WORD - Self::NUMBER_OF_REGISTERS
+    }
+    
+    #[inline(always)]
     pub fn get_number_of_zero_registers(&self) -> usize {
-        self.iter()
-            .filter(|&register_value| register_value == 0)
-            .count()
+        self.number_of_zero_register
     }
 
     #[inline(always)]
     pub fn get_number_of_non_zero_registers(&self) -> usize {
-        self.iter()
-            .filter(|&register_value| register_value > 0)
-            .count()
+        self.len() - self.get_number_of_zero_registers()
     }
 
     #[inline(always)]
@@ -260,8 +302,8 @@ where
     ///
     /// hll.bitor_assign(hll2);
     ///
-    /// assert!(hll.estimate_cardinality() > 2.0 - 0.1);
-    /// assert!(hll.estimate_cardinality() < 2.0 + 0.1);
+    /// assert!(hll.estimate_cardinality() > 2.0 - 0.1, "The cardinality is {}, we were expecting 2.", hll.estimate_cardinality());
+    /// assert!(hll.estimate_cardinality() < 2.0 + 0.1, "The cardinality is {}, we were expecting 2.", hll.estimate_cardinality());
     ///
     /// let mut hll = HyperLogLog::<8, 6>::new();
     /// hll.insert(1u8);
@@ -271,8 +313,8 @@ where
     ///
     /// hll.bitor_assign(hll2);
     ///
-    /// assert!(hll.estimate_cardinality() > 1.0 - 0.1);
-    /// assert!(hll.estimate_cardinality() < 1.0 + 0.1);
+    /// assert!(hll.estimate_cardinality() > 1.0 - 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
+    /// assert!(hll.estimate_cardinality() < 1.0 + 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
     ///
     /// let mut hll3 = HyperLogLog::<16, 6>::new();
     /// hll3.insert(3u8);
@@ -288,6 +330,7 @@ where
     /// assert!(hll3.estimate_cardinality() < 4.0 + 0.1, "Expected a value equal to around 4, got {}", hll3.estimate_cardinality());
     /// ```
     fn bitor_assign(&mut self, rhs: Self) {
+        let mut new_number_of_zeros = 0;
         for (left_word, right_word) in self.words.iter_mut().zip(rhs.words.iter().copied()) {
             let mut left_registers = split_registers::<{ 32 / BITS }>(*left_word);
             let right_registers = split_registers::<{ 32 / BITS }>(right_word);
@@ -297,10 +340,14 @@ where
                 .zip(right_registers.into_iter())
                 .for_each(|(left, right)| {
                     *left = (*left).max(right);
+                    if *left == 0 {
+                        new_number_of_zeros += 1;
+                    }
                 });
 
             *left_word = to_word::<BITS>(&left_registers)
         }
+        self.number_of_zero_register = new_number_of_zeros - self.get_number_of_padding_registers();
     }
 }
 
