@@ -11,7 +11,6 @@ However, this approach requires the use of several nightly features of the Rust 
 
 We hope that this library will be useful for you in your projects, and we welcome your feedback and contributions. Please feel free to open an issue or submit a pull request if you have any questions or suggestions. Thank you for your interest in our HLL crate, and happy counting!
 
-
 ## Required features
 The **generic_const_exprs** feature allows for using constant expressions as generic type parameters, which is necessary in this implementation to pass compile-time constant values as template arguments.
 
@@ -31,7 +30,7 @@ Contributions from the community are highly appreciated and can help improve thi
 If you appreciate this project and would like to support its development, you can star the repository on GitHub or [consider making a financial contribution](https://github.com/sponsors/LucaCappelletti94). The project maintainer has set up a GitHub Sponsors page where you can make a recurring financial contribution to support the project's development. Any financial contribution, no matter how small, is greatly appreciated and helps ensure the continued development and maintenance of this project.
 
 ## Thanks
-We would like to thank the GitHub user [Tabac](https://github.com/tabac) for their implementation of HyperLogLog, which was very useful for learning and benchmarking this implementation. The goals of the two implementations are different, but Tabac's implementation already supports the HLL++ algorithm. Their implementation can be found at [here](https://github.com/tabac/hyperloglog.rs).
+We would like to thank the GitHub user [Tabac](https://github.com/tabac) for their implementation of HyperLogLog, which was very useful for learning and benchmarking this implementation. The goals of the two implementations are different, but Tabac's implementation already supports the HLL++ algorithm, go check it out if you need it. Their implementation can be found at [here](https://github.com/tabac/hyperloglog.rs).
 
 ## Citations
 Some relevant citations to learn more:
