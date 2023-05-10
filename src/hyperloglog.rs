@@ -92,7 +92,25 @@ where
         }
     }
 
-    /// Create a new HyperLogLog counter.
+    /// Create a new HyperLogLog counter from an array of registers.
+    ///
+    /// # Arguments
+    ///
+    /// * `registers` - An array of u32 registers to use for the HyperLogLog counter.
+    ///
+    /// # Returns
+    ///
+    /// A new HyperLogLog counter initialized with the given registers.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hyperloglog_rs::prelude::*;
+    ///
+    /// let registers = [0_u32; 1 << 4];
+    /// let hll = HyperLogLog::<4, 6>::from_registers(registers);
+    /// assert_eq!(hll.len(), 1 << 4);
+    /// ```
     pub fn from_registers(registers: [u32; 1 << PRECISION]) -> Self {
         let mut words = [0; ceil(1 << PRECISION, 32 / BITS)];
         let number_of_zero_register = words
@@ -316,6 +334,22 @@ where
     }
 
     #[inline(always)]
+    /// Returns an array of registers of the HyperLogLog counter.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hyperloglog_rs::prelude::*;
+    ///
+    /// let mut hll = HyperLogLog::<10, 6>::new();
+    /// hll.insert(&4);
+    /// hll.insert(&5);
+    /// hll.insert(&6);
+    /// let registers = hll.get_registers();
+    ///
+    /// assert_eq!(registers.len(), 1024);
+    /// assert!(registers.iter().any(|&x| x > 0));
+    /// ```
     pub fn get_registers(&self) -> [u32; 1 << PRECISION] {
         let mut array = [0; (1 << PRECISION)];
         self.iter()
