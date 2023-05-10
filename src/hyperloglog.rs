@@ -338,8 +338,8 @@ where
     ///
     /// # Examples
     ///
-    /// ```
-    /// use hyperloglog_rs::prelude::*;
+    /// ```rust
+    /// # use hyperloglog_rs::prelude::*;
     ///
     /// let mut hll = HyperLogLog::<10, 6>::new();
     /// hll.insert(&4);
@@ -349,6 +349,17 @@ where
     ///
     /// assert_eq!(registers.len(), 1024);
     /// assert!(registers.iter().any(|&x| x > 0));
+    /// ```
+    /// 
+    /// We can also create an HLL from registers, and then check
+    /// whether the registers are what we expect:
+    /// 
+    /// ```rust
+    /// # use hyperloglog_rs::prelude::*;
+    /// 
+    /// let expected = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11, 11, 0];
+    /// let mut hll = HyperLogLog::<4, 6>::from_registers(expected);
+    /// assert_eq!(hll.get_registers(), expected, "Expected {:?}, got {:?}", expected, hll.get_registers());
     /// ```
     pub fn get_registers(&self) -> [u32; 1 << PRECISION] {
         let mut array = [0; (1 << PRECISION)];
