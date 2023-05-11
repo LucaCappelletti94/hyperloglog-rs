@@ -1,7 +1,27 @@
-use crate::prelude::*;
+use crate::log::log;
 
 #[inline]
 /// Calculates the integer ceil of the division of `numerator` by `denominator`.
+/// 
+/// # Examples
+/// 
+/// Test with evenly divisible values:
+/// ```rust
+///  # use hyperloglog_rs::prelude::*;
+///  assert_eq!(ceil(10, 5), 2);
+///  assert_eq!(ceil(25, 5), 5);
+///  assert_eq!(ceil(100, 10), 10);
+///  ```
+/// 
+/// Test with values that require rounding up:
+/// ``` 
+/// # use hyperloglog_rs::prelude::*;
+/// assert_eq!(ceil(3, 2), 2);
+/// assert_eq!(ceil(7, 3), 3);
+/// assert_eq!(ceil(11, 4), 3);
+/// assert_eq!(ceil(100, 7), 15);
+/// ```
+/// 
 pub const fn ceil(numerator: usize, denominator: usize) -> usize {
     (numerator + denominator - 1) / denominator
 }
@@ -193,6 +213,8 @@ pub const fn precompute_reciprocals<const BITS: usize>() -> [f32; 1 << BITS] {
 /// # Examples
 /// ```
 /// use hyperloglog_rs::prelude::*;
+/// use hyperloglog_rs::log::log;
+/// 
 /// const NUMBER_OF_REGISTERS: usize = 16;
 /// let small_corrections = precompute_small_corrections::<NUMBER_OF_REGISTERS>();
 /// assert_eq!(small_corrections.len(), NUMBER_OF_REGISTERS);

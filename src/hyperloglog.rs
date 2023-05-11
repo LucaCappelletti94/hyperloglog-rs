@@ -55,6 +55,21 @@ where
     [(); 1 << PRECISION]:,
     [(); 1 << BITS]:,
 {
+    /// Create a new HyperLogLog counter from a value.
+    ///
+    /// This method creates a new empty HyperLogLog counter and inserts the hash
+    /// of the given value into it. The value can be any type that implements
+    /// the `Hash` trait.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use hyperloglog_rs::prelude::*;
+    ///
+    /// let hll = HyperLogLog::<14, 5>::from("test");
+    ///
+    /// assert!(hll.estimate_cardinality() >=  1.0_f32);
+    /// ```
     fn from(value: T) -> Self {
         let mut hll = Self::new();
         hll.insert(value);
@@ -68,17 +83,28 @@ where
     [(); 1 << PRECISION]:,
     [(); 1 << BITS]:,
 {
+    /// The number of registers used by the HyperLogLog algorithm, which depends on its precision.
     pub const NUMBER_OF_REGISTERS: usize = 1 << PRECISION;
-    pub const NUMBER_OF_REGISTERS_SQUARED: f32 =
-        (Self::NUMBER_OF_REGISTERS * Self::NUMBER_OF_REGISTERS) as f32;
+
+    /// The threshold value used in the small range correction of the HyperLogLog algorithm.
     pub const SMALL_RANGE_CORRECTION_THRESHOLD: f32 = 2.5_f32 * (Self::NUMBER_OF_REGISTERS as f32);
+
+    /// The float value of 2^32, used in the intermediate range correction of the HyperLogLog algorithm.
     pub const TWO_32: f32 = (1u64 << 32) as f32;
+
+    /// The threshold value used in the intermediate range correction of the HyperLogLog algorithm.
     pub const INTERMEDIATE_RANGE_CORRECTION_THRESHOLD: f32 = Self::TWO_32 / 30.0_f32;
-    pub const ALPHA: f32 = get_alpha(1 << PRECISION);
+
+    /// The mask used to obtain the lower register bits in the HyperLogLog algorithm.
     pub const LOWER_REGISTER_MASK: u32 = (1 << BITS) - 1;
+
+    /// The number of registers that can fit in a single 32-bit word in the HyperLogLog algorithm.
     pub const NUMBER_OF_REGISTERS_IN_WORD: usize = 32 / BITS;
 
+    /// The precomputed reciprocals used in the HyperLogLog algorithm for better performance.
     pub const PRECOMPUTED_RECIPROCALS: [f32; 1 << BITS] = precompute_reciprocals::<BITS>();
+
+    /// The precomputed small corrections used in the HyperLogLog algorithm for better performance.
     pub const SMALL_CORRECTIONS: [f32; 1 << PRECISION] =
         precompute_small_corrections::<{ 1 << PRECISION }>();
 
@@ -159,7 +185,9 @@ where
             .sum();
 
         // Apply the final scaling factor to obtain the estimate of the cardinality
-        raw_estimate = Self::ALPHA * Self::NUMBER_OF_REGISTERS_SQUARED / raw_estimate;
+        raw_estimate = get_alpha(1 << PRECISION)
+            * (Self::NUMBER_OF_REGISTERS * Self::NUMBER_OF_REGISTERS) as f32
+            / raw_estimate;
 
         // Apply the small range correction factor if the raw estimate is below the threshold
         // and there are zero registers in the counter.
@@ -599,7 +627,25 @@ where
     type Output = Self;
 
     #[inline(always)]
-    /// Computes union between HLL counters.
+    /// Computes the union between two HyperLogLog counters of the same precision and number of bits per register.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use hyperloglog_rs::prelude::*;
+    /// let mut hll1 = HyperLogLog::<14, 5>::new();
+    /// hll1.insert(&1);
+    /// hll1.insert(&2);
+    ///
+    /// let mut hll2 = HyperLogLog::<14, 5>::new();
+    /// hll2.insert(&2);
+    /// hll2.insert(&3);
+    ///
+    /// let hll_union = hll1 | hll2;
+    ///
+    /// assert!(hll_union.estimate_cardinality() >= 3.0_f32 * 0.9 &&
+    ///         hll_union.estimate_cardinality() <= 3.0_f32 * 1.1);
+    /// ```
     fn bitor(mut self, rhs: Self) -> Self {
         self.bitor_assign(rhs);
         self

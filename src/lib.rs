@@ -5,15 +5,14 @@
 #![feature(const_mut_refs)]
 #![feature(const_fn_floating_point_arithmetic)]
 
-mod alpha;
-mod hyperloglog;
-mod utils;
-mod log;
+pub mod alpha;
+pub mod hyperloglog;
+pub mod utils;
+pub mod log;
 
 pub mod prelude {
     pub use crate::alpha::*;
     pub use crate::hyperloglog::*;
     pub use crate::utils::*;
-    pub use crate::log::*;
     pub use core::ops::{BitOr, BitOrAssign};
 }
