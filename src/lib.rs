@@ -9,6 +9,11 @@
 //! the hashed value of an element. The optimal values of these constants depend on the expected number of distinct elements
 //! and the available memory.
 //!
+//! ## No STD
+//! This crate is designed to be as lightweight as possible and does not require any dependencies from the Rust standard library (std). As a result, it can be used in a bare metal or embedded context, where std may not be available.
+//! 
+//! All functionality of this crate can be used without std, and the prelude module provides easy access to all the relevant types and traits. If you encounter any issues using this crate in a no_std environment, please don't hesitate to open an issue or submit a pull request on GitHub.
+//! 
 //! ## Usage
 //!
 //! Add this to your `Cargo.toml`:
