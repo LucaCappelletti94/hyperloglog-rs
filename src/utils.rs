@@ -2,26 +2,26 @@ use crate::log::log;
 
 #[inline]
 /// Calculates the integer ceil of the division of `numerator` by `denominator`.
-/// 
+///
 /// # Examples
-/// 
+///
 /// Test with evenly divisible values:
 /// ```rust
-///  # use hyperloglog_rs::prelude::*;
+///  # use hyperloglog_rs::utils::ceil;
 ///  assert_eq!(ceil(10, 5), 2);
 ///  assert_eq!(ceil(25, 5), 5);
 ///  assert_eq!(ceil(100, 10), 10);
 ///  ```
-/// 
+///
 /// Test with values that require rounding up:
-/// ``` 
-/// # use hyperloglog_rs::prelude::*;
+/// ```
+/// # use hyperloglog_rs::utils::ceil;
 /// assert_eq!(ceil(3, 2), 2);
 /// assert_eq!(ceil(7, 3), 3);
 /// assert_eq!(ceil(11, 4), 3);
 /// assert_eq!(ceil(100, 7), 15);
 /// ```
-/// 
+///
 pub const fn ceil(numerator: usize, denominator: usize) -> usize {
     (numerator + denominator - 1) / denominator
 }
@@ -41,7 +41,7 @@ pub const fn ceil(numerator: usize, denominator: usize) -> usize {
 /// # Examples
 /// Split a 32-bit word into 4 8-bit registers
 /// ```rust
-/// # use hyperloglog_rs::prelude::*;
+/// # use hyperloglog_rs::utils::split_registers;
 ///
 /// let word = 0b0110_1001_1010_1111_0110_1001_1010_1111;
 /// let registers = split_registers::<4>(word);
@@ -51,7 +51,7 @@ pub const fn ceil(numerator: usize, denominator: usize) -> usize {
 ///
 /// Split a 32-bit word into 2 16-bit registers
 /// ```rust
-/// # use hyperloglog_rs::prelude::*;
+/// # use hyperloglog_rs::utils::split_registers;
 ///
 /// let word = 0b1111_0000_1111_0000_1010_1010_0101_0101;
 /// let registers = split_registers::<2>(word);
@@ -62,7 +62,7 @@ pub const fn ceil(numerator: usize, denominator: usize) -> usize {
 /// Split a 32-bit word into 8 4-bit registers
 ///
 /// ```rust
-/// # use hyperloglog_rs::prelude::*;
+/// # use hyperloglog_rs::utils::split_registers;
 ///
 /// let word = 0b1010_0101_1111_0000_1111_1111_0101_1010;
 /// let registers = split_registers::<8>(word);
@@ -73,7 +73,7 @@ pub const fn ceil(numerator: usize, denominator: usize) -> usize {
 /// Split a 32-bit word into 1 32-bit register
 ///
 /// ```rust
-/// # use hyperloglog_rs::prelude::*;
+/// # use hyperloglog_rs::utils::split_registers;
 ///
 /// let word = 0b1111_1111_0000_0000_1111_0000_1111_1111;
 /// let registers = split_registers::<1>(word);
@@ -114,7 +114,7 @@ pub fn split_registers<const NUMBER_OF_REGISTERS_IN_WORD: usize>(
 /// Convert an array of 5 registers with 4 bits per register to a single 32-bit word:
 ///
 /// ```rust
-/// # use hyperloglog_rs::prelude::*;
+/// # use hyperloglog_rs::utils::to_word;
 ///
 /// let registers = [0b1111, 0b0101, 0b0011, 0b1010, 0b1001];
 /// let word = to_word::<4>(&registers);
@@ -125,7 +125,7 @@ pub fn split_registers<const NUMBER_OF_REGISTERS_IN_WORD: usize>(
 /// Convert an array of 3 registers with 6 bits per register to a single 32-bit word:
 ///
 /// ```rust
-/// # use hyperloglog_rs::prelude::*;
+/// # use hyperloglog_rs::utils::to_word;
 /// let registers = [0b111111, 0b001001, 0b101010];
 /// let word = to_word::<6>(&registers);
 /// let expected = 0b00_000000_000000_000000_101010_001001_111111;
@@ -137,7 +137,7 @@ pub fn split_registers<const NUMBER_OF_REGISTERS_IN_WORD: usize>(
 /// an array of 3 registers with 4 bits per register to a single 32-bit word:
 ///
 /// ```rust
-/// # use hyperloglog_rs::prelude::*;
+/// # use hyperloglog_rs::utils::to_word;
 /// let registers = [0b1111, 0b0101, 0b0011];
 /// let word = to_word::<5>(&registers);
 /// let expected = 0b00_00000_00000_00000_00011_00101_01111;
@@ -148,7 +148,7 @@ pub fn split_registers<const NUMBER_OF_REGISTERS_IN_WORD: usize>(
 /// in a single 32-bit word, which is NUMBER_OF_REGISTERS_IN_WORD, the extra registers are ignored.
 ///
 /// ```rust
-/// # use hyperloglog_rs::prelude::*;
+/// # use hyperloglog_rs::utils::to_word;
 /// let registers = [0b111, 0b010, 0b001, 0b101, 0b100];
 /// let word = to_word::<8>(&registers);
 /// let expected = 0b00000101_00000001_00000010_00000111;
@@ -172,7 +172,7 @@ pub fn to_word<const NUMBER_OF_BITS_PER_REGISTER: usize>(registers: &[u32]) -> u
 /// # Example
 ///
 /// ```
-/// use hyperloglog_rs::prelude::*;
+/// use hyperloglog_rs::utils::precompute_reciprocals;
 ///
 /// const BITS: usize = 5;
 ///
@@ -212,9 +212,9 @@ pub const fn precompute_reciprocals<const BITS: usize>() -> [f32; 1 << BITS] {
 ///
 /// # Examples
 /// ```
-/// use hyperloglog_rs::prelude::*;
+/// use hyperloglog_rs::utils::precompute_small_corrections;
 /// use hyperloglog_rs::log::log;
-/// 
+///
 /// const NUMBER_OF_REGISTERS: usize = 16;
 /// let small_corrections = precompute_small_corrections::<NUMBER_OF_REGISTERS>();
 /// assert_eq!(small_corrections.len(), NUMBER_OF_REGISTERS);
@@ -232,4 +232,44 @@ pub const fn precompute_small_corrections<const NUMBER_OF_REGISTERS: usize>(
         i += 1;
     }
     small_corrections
+}
+
+/// Computes the alpha constant for the given number of registers.
+///
+/// The alpha constant is used to scale the raw HyperLogLog estimate into an
+/// estimate of the true cardinality of the set.
+///
+/// # Arguments
+/// * `NUMBER_OF_REGISTERS`: The number of registers in the HyperLogLog
+/// data structure.
+///
+/// # Returns
+/// The alpha constant for the given number of registers.
+///
+/// # Examples
+///
+/// ```
+/// # use hyperloglog_rs::utils::get_alpha;
+///
+/// let alpha_16 = get_alpha(16);
+/// let alpha_32 = get_alpha(32);
+/// let alpha_64 = get_alpha(64);
+///
+/// assert_eq!(alpha_16, 0.673);
+/// assert_eq!(alpha_32, 0.697);
+/// assert_eq!(alpha_64, 0.709);
+///
+/// let alpha_4096 = get_alpha(4096);
+///
+/// assert_eq!(alpha_4096, 0.7213 / (1.0 + 1.079 / 4096.0));
+/// ```
+#[inline(always)]
+pub const fn get_alpha(number_of_registers: usize) -> f32 {
+    // Match the number of registers to the known alpha values
+    match number_of_registers {
+        16 => 0.673,
+        32 => 0.697,
+        64 => 0.709,
+        _ => 0.7213 / (1.0 + 1.079 / number_of_registers as f32),
+    }
 }
