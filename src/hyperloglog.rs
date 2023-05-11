@@ -581,6 +581,7 @@ where
 
         // Calculate the position of the register in the internal buffer array.
         let word_position = index / Self::NUMBER_OF_REGISTERS_IN_WORD;
+        let register_position_in_u32 = index - word_position * Self::NUMBER_OF_REGISTERS_IN_WORD;
 
         debug_assert!(
             word_position < self.words.len(),
@@ -593,9 +594,6 @@ where
             index,
             Self::NUMBER_OF_REGISTERS_IN_WORD
         );
-
-        // Calculate the position of the register within the 32-bit word containing it.
-        let register_position_in_u32 = index % Self::NUMBER_OF_REGISTERS_IN_WORD;
 
         // Extract the current value of the register at `index`.
         let register_value: u32 = (self.words[word_position] >> (register_position_in_u32 * BITS))
