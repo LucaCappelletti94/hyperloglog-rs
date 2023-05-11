@@ -1,7 +1,7 @@
 #![feature(test)]
 extern crate test;
 
-use hyperloglog_rs::prelude::*;
+use hyperloglog_rs::HyperLogLog;
 use hyperloglogplus::HyperLogLog as AlternativeHyperLogLog;
 use hyperloglogplus::HyperLogLogPF;
 use std::collections::hash_map::RandomState;

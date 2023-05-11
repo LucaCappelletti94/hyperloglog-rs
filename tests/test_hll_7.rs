@@ -1,5 +1,5 @@
 
-use hyperloglog_rs::prelude::*;
+use hyperloglog_rs::HyperLogLog;
 
 
 #[test]

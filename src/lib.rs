@@ -26,13 +26,13 @@
 //! and this to your crate root:
 //!
 //! ```rust
-//! use hyperloglog_rs::prelude::*;
+//! use hyperloglog_rs::HyperLogLog;
 //! ```
 //!
 //! ## Examples
 //!
 //! ```rust
-//! use hyperloglog_rs::prelude::*;
+//! use hyperloglog_rs::HyperLogLog;
 //!
 //! let mut hll = HyperLogLog::<14, 5>::new();
 //! hll.insert(&1);
