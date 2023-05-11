@@ -17,8 +17,6 @@ We hope that this library will be useful for you in your projects, and we welcom
 ## Required features
 The **generic_const_exprs** feature allows for using constant expressions as generic type parameters, which is necessary in this implementation to pass compile-time constant values as template arguments.
 
-The **const_for** feature enables us to use for loops in const contexts, which is useful for generating arrays at compile time.
-
 The **const_float_bits_conv** feature provides the ability to convert floating-point values to their corresponding bit patterns at compile time, which is useful in computing hash values.
 
 The **const_trait_impl** feature enables implementing traits on const generics, which is essential to ensure that traits are implemented on types with known constant values.

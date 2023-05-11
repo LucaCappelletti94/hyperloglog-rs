@@ -50,7 +50,6 @@
 //! * Heule, Stefan, Marc Nunkesser, and Alexander Hall. "HyperLogLog in practice: algorithmic engineering of a state of the art cardinality estimation algorithm." Proceedings of the 16th international conference on Extending database technology. 2013.
 
 #![feature(generic_const_exprs)]
-#![feature(const_for)]
 #![feature(const_float_bits_conv)]
 #![feature(const_trait_impl)]
 #![feature(const_mut_refs)]
