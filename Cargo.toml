@@ -1,6 +1,6 @@
 [package]
 name = "hyperloglog-rs"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["Luca Cappelletti <cappelletti.luca94@gmail.com>"]
 description = "A Rust implementation of HyperLogLog trying to be parsimonious with memory."
