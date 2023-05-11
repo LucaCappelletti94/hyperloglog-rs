@@ -217,11 +217,20 @@ where
     /// # Returns
     /// * `f32` - The estimated cardinality of the set.
     pub fn estimate_cardinality(&self) -> f32 {
-        // Dispatch specialized count for 32 / BITS registers per word.
-        let mut raw_estimate: f32 = self
-            .iter()
-            .map(|register| Self::PRECOMPUTED_RECIPROCALS[register as usize])
-            .sum();
+        let mut raw_estimate = 0.0;
+
+        for mut word in self.words {
+            let mut partial: f32 = 0.0;
+            for _ in 0..Self::NUMBER_OF_REGISTERS_IN_WORD {
+                let register = word & Self::LOWER_REGISTER_MASK;
+                let two_to_minus_register = (127 - register) << 23;
+                partial += f32::from_le_bytes(two_to_minus_register.to_le_bytes());
+                word >>= BITS;
+            }
+            raw_estimate += partial;
+        }
+
+        raw_estimate -= self.get_number_of_padding_registers() as f32;
 
         // Apply the final scaling factor to obtain the estimate of the cardinality
         raw_estimate = get_alpha(1 << PRECISION)
@@ -358,7 +367,7 @@ where
     /// let hll = HyperLogLog::<13, 6>::new();
     /// assert_eq!(hll.get_number_of_bits(), 6);
     /// ```
-    pub fn get_number_of_bits(&self) -> usize {
+    pub const fn get_number_of_bits(&self) -> usize {
         BITS
     }
 
@@ -384,8 +393,9 @@ where
     /// // The number of padding registers is still the same
     /// assert_eq!(hll.get_number_of_padding_registers(), 1);
     /// ```
-    pub fn get_number_of_padding_registers(&self) -> usize {
-        self.words.len() * Self::NUMBER_OF_REGISTERS_IN_WORD - Self::NUMBER_OF_REGISTERS
+    pub const fn get_number_of_padding_registers(&self) -> usize {
+        ceil(1 << PRECISION, 32 / BITS) * Self::NUMBER_OF_REGISTERS_IN_WORD
+            - Self::NUMBER_OF_REGISTERS
     }
 
     #[inline(always)]
@@ -459,6 +469,7 @@ where
         array
     }
 
+    #[inline(always)]
     /// Returns the hash value and the corresponding register's index for a given value.
     ///
     /// # Arguments
@@ -473,28 +484,24 @@ where
     /// let value = 42;
     /// let (hash, index) = hll.get_hash_and_index(&value);
     ///
-    /// assert_eq!(index, 54, "Expected index {}, got {}.", 54, index);
-    /// assert_eq!(hash, 3623031424, "Expected hash {}, got {}.", 3623031424, hash);
+    /// assert_eq!(index, 65, "Expected index {}, got {}.", 65, index);
+    /// assert_eq!(hash, 4686640835114562322, "Expected hash {}, got {}.", 4686640835114562322, hash);
     /// ```
-    pub fn get_hash_and_index<T: Hash>(&self, value: &T) -> (u32, usize) {
+    pub fn get_hash_and_index<T: Hash>(&self, value: &T) -> (u64, usize) {
         // Create a new hasher.
         let mut hasher = SipHasher::new();
         // Calculate the hash.
         value.hash(&mut hasher);
-        // Drops the higher 32 bits.
-        let mut hash: u32 = hasher.finish() as u32;
+        let hash: u64 = hasher.finish();
 
         // Calculate the register's index.
-        let index: usize = (hash >> (32 - PRECISION)) as usize;
+        let index: usize = (hash >> (64 - PRECISION)) as usize;
         debug_assert!(
             index < Self::NUMBER_OF_REGISTERS,
             "The index {} must be less than the number of registers {}.",
             index,
             Self::NUMBER_OF_REGISTERS
         );
-
-        // Shift left the bits of the index.
-        hash = (hash << PRECISION) | (1 << (PRECISION - 1));
 
         (hash, index)
     }
@@ -520,14 +527,13 @@ where
         let (_hash, index) = self.get_hash_and_index(&rhs);
 
         // Calculate the position of the register in the internal buffer array.
-        let register_position_in_array = index / Self::NUMBER_OF_REGISTERS_IN_WORD;
+        let word_position = index / Self::NUMBER_OF_REGISTERS_IN_WORD;
 
         // Calculate the position of the register within the 32-bit word containing it.
         let register_position_in_u32 = index % Self::NUMBER_OF_REGISTERS_IN_WORD;
 
         // Extract the current value of the register at `index`.
-        let register_value: u32 = (self.words[register_position_in_array]
-            >> (register_position_in_u32 * BITS))
+        let register_value: u32 = (self.words[word_position] >> (register_position_in_u32 * BITS))
             & Self::LOWER_REGISTER_MASK;
 
         register_value > 0
@@ -565,21 +571,24 @@ where
     ///
     /// This function does not return any errors.
     pub fn insert<T: Hash>(&mut self, rhs: T) {
-        let (hash, index) = self.get_hash_and_index(&rhs);
+        let (mut hash, index) = self.get_hash_and_index(&rhs);
+
+        // Shift left the bits of the index.
+        hash = (hash << PRECISION) | (1 << (PRECISION - 1));
 
         // Count leading zeros.
         let number_of_zeros: u32 = 1 + hash.leading_zeros();
 
         // Calculate the position of the register in the internal buffer array.
-        let register_position_in_array = index / Self::NUMBER_OF_REGISTERS_IN_WORD;
+        let word_position = index / Self::NUMBER_OF_REGISTERS_IN_WORD;
 
         debug_assert!(
-            register_position_in_array < self.words.len(),
+            word_position < self.words.len(),
             concat!(
-                "The register_position_in_array {} must be less than the number of words {}. ",
+                "The word_position {} must be less than the number of words {}. ",
                 "You have obtained this values starting from the index {} and the word size {}."
             ),
-            register_position_in_array,
+            word_position,
             self.words.len(),
             index,
             Self::NUMBER_OF_REGISTERS_IN_WORD
@@ -589,23 +598,16 @@ where
         let register_position_in_u32 = index % Self::NUMBER_OF_REGISTERS_IN_WORD;
 
         // Extract the current value of the register at `index`.
-        let register_value: u32 = (self.words[register_position_in_array]
-            >> (register_position_in_u32 * BITS))
+        let register_value: u32 = (self.words[word_position] >> (register_position_in_u32 * BITS))
             & Self::LOWER_REGISTER_MASK;
 
-        // If `number_of_zeros` is greater than the current number_of_zeros, update the register.
+        self.number_of_zero_register -= (register_value == 0) as usize;
+
+        // Otherwise, update the register using a bit mask.
         if number_of_zeros > register_value {
-            let shifted_zeros = number_of_zeros << (register_position_in_u32 * BITS);
-            if register_value == 0 {
-                self.number_of_zero_register -= 1;
-                // If the current number_of_zeros is zero, decrement `zeros` and set the register to `number_of_zeros`.
-                self.words[register_position_in_array] |= shifted_zeros;
-            } else {
-                // Otherwise, update the register using a bit mask.
-                let mask = Self::LOWER_REGISTER_MASK << (register_position_in_u32 * BITS);
-                self.words[register_position_in_array] =
-                    (self.words[register_position_in_array] & !mask) | shifted_zeros;
-            }
+            self.words[word_position] &=
+                !(Self::LOWER_REGISTER_MASK << (register_position_in_u32 * BITS));
+            self.words[word_position] |= number_of_zeros << (register_position_in_u32 * BITS);
         }
     }
 }
@@ -669,9 +671,7 @@ where
                 .zip(right_registers.into_iter())
                 .for_each(|(left, right)| {
                     *left = (*left).max(right);
-                    if *left == 0 {
-                        new_number_of_zeros += 1;
-                    }
+                    new_number_of_zeros += (*left == 0) as usize;
                 });
 
             *left_word = word_from_registers::<BITS>(&left_registers)

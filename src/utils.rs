@@ -307,3 +307,4 @@ pub const fn get_alpha(number_of_registers: usize) -> f32 {
         _ => 0.7213 / (1.0 + 1.079 / number_of_registers as f32),
     }
 }
+

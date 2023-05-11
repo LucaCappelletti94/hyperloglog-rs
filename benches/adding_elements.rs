@@ -18,9 +18,10 @@ fn bench_add(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        for i in 0..NUMBER_OF_ELEMENTS {
-            black_box(hll.insert(i));
-        }
+
+        black_box(for i in 0..NUMBER_OF_ELEMENTS {
+            hll.insert(i)
+        });
     });
 }
 
@@ -35,8 +36,9 @@ fn bench_add_tabac(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        for i in 0..NUMBER_OF_ELEMENTS {
-            black_box(alternative.insert(&i));
-        }
+
+        black_box(for i in 0..NUMBER_OF_ELEMENTS {
+            alternative.insert(&i)
+        });
     });
 }
