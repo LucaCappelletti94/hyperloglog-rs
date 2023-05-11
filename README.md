@@ -1,5 +1,5 @@
 # 🧮 HyperLogLog-rs
-[![Build status](https://github.com/lucacappelletti94/hyperloglog-rs/actions/workflows/rust/badge.svg)](https://github.com/lucacappelletti94/hyperloglog-rs/actions)
+[![Build status](https://github.com/lucacappelletti94/hyperloglog-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/lucacappelletti94/hyperloglog-rs/actions)
 [![Crates.io](https://img.shields.io/crates/v/hyperloglog-rs.svg)](https://crates.io/crates/hyperloglog-rs)
 [![Documentation](https://docs.rs/hyperloglog-rs/badge.svg)](https://docs.rs/hyperloglog-rs)
 
