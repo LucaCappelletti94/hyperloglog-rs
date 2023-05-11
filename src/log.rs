@@ -63,15 +63,15 @@
  * This code is copied from https://github.com/rust-lang/libm
  */
 
-const LN2_HI: f64 = 6.93147180369123816490e-01; /* 3fe62e42 fee00000 */
-const LN2_LO: f64 = 1.90821492927058770002e-10; /* 3dea39ef 35793c76 */
-const LG1: f64 = 6.666666666666735130e-01; /* 3FE55555 55555593 */
-const LG2: f64 = 3.999999999940941908e-01; /* 3FD99999 9997FA04 */
-const LG3: f64 = 2.857142874366239149e-01; /* 3FD24924 94229359 */
-const LG4: f64 = 2.222219843214978396e-01; /* 3FCC71C5 1D8E78AF */
-const LG5: f64 = 1.818357216161805012e-01; /* 3FC74664 96CB03DE */
-const LG6: f64 = 1.531383769920937332e-01; /* 3FC39A09 D078C69F */
-const LG7: f64 = 1.479819860511658591e-01; /* 3FC2F112 DF3E5244 */
+const LN2_HI: f64 = 6.931_471_803_691_238e-1; /* 3fe62e42 fee00000 */
+const LN2_LO: f64 = 1.908_214_929_270_587_7e-10; /* 3dea39ef 35793c76 */
+const LG1: f64 = 6.666_666_666_666_735e-1; /* 3FE55555 55555593 */
+const LG2: f64 = 3.999_999_999_940_942e-1; /* 3FD99999 9997FA04 */
+const LG3: f64 = 2.857_142_874_366_239e-1; /* 3FD24924 94229359 */
+const LG4: f64 = 2.222_219_843_214_978_4e-1; /* 3FCC71C5 1D8E78AF */
+const LG5: f64 = 1.818_357_216_161_805e-1; /* 3FC74664 96CB03DE */
+const LG6: f64 = 1.531_383_769_920_937_3e-1; /* 3FC39A09 D078C69F */
+const LG7: f64 = 1.479_819_860_511_658_6e-1; /* 3FC2F112 DF3E5244 */
 
 #[cfg_attr(all(test, assert_no_panic), no_panic::no_panic)]
 pub const fn log(mut x: f64) -> f64 {
@@ -87,7 +87,7 @@ pub const fn log(mut x: f64) -> f64 {
             return -1. / (x * x); /* log(+-0)=-inf */
         }
         if hx >> 31 != 0 {
-            return (x - x) / 0.0; /* log(-#) = NaN */
+            return f64::NAN; /* log(-#) = NaN */
         }
         /* subnormal number, scale x up */
         k -= 54;

@@ -1,5 +1,6 @@
 use crate::utils::{
-    ceil, get_alpha, precompute_reciprocals, precompute_small_corrections, split_registers, to_word,
+    ceil, get_alpha, precompute_reciprocals, precompute_small_corrections, split_registers,
+    word_from_registers,
 };
 use core::hash::{Hash, Hasher};
 use core::ops::{BitOr, BitOrAssign};
@@ -87,6 +88,32 @@ where
     }
 }
 
+/// Implements the Default trait for HyperLogLog.
+///
+/// HyperLogLog is a probabilistic cardinality estimator that uses a fixed
+/// amount of memory to estimate the number of distinct elements in a set.
+///
+/// # Examples
+///
+/// ```rust
+/// # use hyperloglog_rs::HyperLogLog;
+///
+/// let hll: HyperLogLog<10, 6> = Default::default();
+/// assert_eq!(hll.len(), 1024);
+/// assert_eq!(hll.get_number_of_bits(), 6);
+/// ```
+impl<const PRECISION: usize, const BITS: usize> Default for HyperLogLog<PRECISION, BITS>
+where
+    [(); ceil(1 << PRECISION, 32 / BITS)]:,
+    [(); 1 << PRECISION]:,
+    [(); 1 << BITS]:,
+{
+    /// Returns a new HyperLogLog instance with default configuration settings.
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const PRECISION: usize, const BITS: usize> HyperLogLog<PRECISION, BITS>
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
@@ -157,7 +184,7 @@ where
                     .iter()
                     .filter(|&&register| register == 0)
                     .count();
-                *word = to_word::<BITS>(&word_registers);
+                *word = word_from_registers::<BITS>(word_registers);
                 number_of_zero_register
             });
         Self {
@@ -256,7 +283,7 @@ where
             .iter()
             .flat_map(|word| {
                 (0..Self::NUMBER_OF_REGISTERS_IN_WORD)
-                    .map(move |i| word >> i * BITS & Self::LOWER_REGISTER_MASK)
+                    .map(move |i| (word >> (i * BITS)) & Self::LOWER_REGISTER_MASK)
             })
             .take(Self::NUMBER_OF_REGISTERS)
     }
@@ -290,6 +317,27 @@ where
     pub fn len(&self) -> usize {
         debug_assert_eq!(Self::NUMBER_OF_REGISTERS, self.iter().count());
         Self::NUMBER_OF_REGISTERS
+    }
+
+    #[inline(always)]
+    /// Returns whether no element was yet added to the HLL counter.
+    ///
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hyperloglog_rs::HyperLogLog;
+    ///
+    /// let mut hll: HyperLogLog<8, 8> = HyperLogLog::new();
+    ///
+    /// assert!(hll.is_empty());
+    ///
+    /// hll.insert(&1);
+    ///
+    /// assert!(!hll.is_empty());
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.number_of_zero_register == self.len()
     }
 
     #[inline(always)]
@@ -560,6 +608,7 @@ where
     }
 }
 
+#[allow(clippy::suspicious_op_assign_impl)]
 impl<const PRECISION: usize, const BITS: usize> BitOrAssign for HyperLogLog<PRECISION, BITS>
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
@@ -623,7 +672,7 @@ where
                     }
                 });
 
-            *left_word = to_word::<BITS>(&left_registers)
+            *left_word = word_from_registers::<BITS>(&left_registers)
         }
         self.number_of_zero_register = new_number_of_zeros - self.get_number_of_padding_registers();
     }
