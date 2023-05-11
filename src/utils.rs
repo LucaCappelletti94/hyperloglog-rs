@@ -7,30 +7,9 @@
 //! - `ceil(numerator: usize, denominator: usize) -> usize`: Calculates the integer ceil of the division
 //! of `numerator` by `denominator`.
 //!
-//! - `split_registers<const NUMBER_OF_REGISTERS_IN_WORD: usize>(word: u32) -> [u32; NUMBER_OF_REGISTERS_IN_WORD]`:
-//! Split the given registers into an array of bytes where each element corresponds to a register of
-//! NUMBER_OF_BITS_PER_REGISTER bits. The number of registers in a single 32-bit registers word is
-//! specified by NUMBER_OF_REGISTERS_IN_WORD.
-//!
 //! - `word_from_registers<const NUMBER_OF_BITS_PER_REGISTER: usize>(registers: &[u32]) -> u32`: Converts an array
 //! of HLL registers into a single 32-bit word.
 //!
-//! # Examples
-//!
-//! ```rust
-//! # use hyperloglog_rs::utils::*;
-//! assert_eq!(ceil(10, 5), 2);
-//! assert_eq!(ceil(25, 5), 5);
-//!
-//! let word = 0b0110_1001_1010_1111_0110_1001_1010_1111;
-//! let registers = split_registers::<4>(word);
-//! let expected = [0b1010_1111, 0b0110_1001, 0b1010_1111, 0b0110_1001];
-//! assert_eq!(registers, expected, "Example 1, Expected: {:?}, got: {:?}", expected, registers);
-//!
-//! let registers = [0b1010_1010_0101_0101, 0b1111_0000_1111_0000];
-//! let word = word_from_registers::<16>(&registers);
-//! assert_eq!(word, 0b1111_0000_1111_0000_1010_1010_0101_0101);
-//! ```
 //!
 use crate::log::log;
 
@@ -58,75 +37,6 @@ use crate::log::log;
 ///
 pub const fn ceil(numerator: usize, denominator: usize) -> usize {
     (numerator + denominator - 1) / denominator
-}
-
-#[inline]
-/// Split the given registers into an array of bytes where each element corresponds
-/// to a register of NUMBER_OF_BITS_PER_REGISTER bits. The number of registers in a single
-/// 32-bit registers word is specified by NUMBER_OF_REGISTERS_IN_WORD.
-///
-/// # Arguments
-/// * word - A 32-bit word containing the registers to be split.
-///
-/// # Returns
-/// An array of bytes where each element corresponds to a register of NUMBER_OF_BITS_PER_REGISTER
-/// bits. The length of the returned array is equal to NUMBER_OF_REGISTERS_IN_WORD.
-///
-/// # Examples
-/// Split a 32-bit word into 4 8-bit registers
-/// ```rust
-/// # use hyperloglog_rs::utils::split_registers;
-///
-/// let word = 0b0110_1001_1010_1111_0110_1001_1010_1111;
-/// let registers = split_registers::<4>(word);
-/// let expected = [0b1010_1111, 0b0110_1001, 0b1010_1111, 0b0110_1001];
-/// assert_eq!(registers, expected, "Example 1, Expected: {:?}, got: {:?}", expected, registers);
-/// ```
-///
-/// Split a 32-bit word into 2 16-bit registers
-/// ```rust
-/// # use hyperloglog_rs::utils::split_registers;
-///
-/// let word = 0b1111_0000_1111_0000_1010_1010_0101_0101;
-/// let registers = split_registers::<2>(word);
-/// let expected = [0b1010_1010_0101_0101, 0b1111_0000_1111_0000];
-/// assert_eq!(registers, expected, "Example 2, Expected: {:?}, got: {:?}", expected, registers);
-/// ```
-///
-/// Split a 32-bit word into 8 4-bit registers
-///
-/// ```rust
-/// # use hyperloglog_rs::utils::split_registers;
-///
-/// let word = 0b1010_0101_1111_0000_1111_1111_0101_1010;
-/// let registers = split_registers::<8>(word);
-/// let expected = [0b1010, 0b0101, 0b1111, 0b1111, 0b0000, 0b1111, 0b0101, 0b1010];
-/// assert_eq!(registers, expected, "Example 3, Expected: {:?}, got: {:?}", expected, registers);
-/// ```
-///
-/// Split a 32-bit word into 1 32-bit register
-///
-/// ```rust
-/// # use hyperloglog_rs::utils::split_registers;
-///
-/// let word = 0b1111_1111_0000_0000_1111_0000_1111_1111;
-/// let registers = split_registers::<1>(word);
-/// let expected = [0b1111_1111_0000_0000_1111_0000_1111_1111];
-/// assert_eq!(registers, expected, "Example 4, Expected: {:?}, got: {:?}", expected, registers);
-/// ```
-pub fn split_registers<const NUMBER_OF_REGISTERS_IN_WORD: usize>(
-    word: u32,
-) -> [u32; NUMBER_OF_REGISTERS_IN_WORD] {
-    let mask = if NUMBER_OF_REGISTERS_IN_WORD == 1 {
-        u32::MAX
-    } else {
-        (1 << (32 / NUMBER_OF_REGISTERS_IN_WORD)) - 1
-    };
-    let mut result = [0_u32; NUMBER_OF_REGISTERS_IN_WORD];
-    result.iter_mut().enumerate().for_each(|(i, res)| {
-        *res = (word >> (i * (32 / NUMBER_OF_REGISTERS_IN_WORD))) & mask;
-    });
-    result
 }
 
 #[inline]

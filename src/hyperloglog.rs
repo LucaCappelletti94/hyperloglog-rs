@@ -1,6 +1,4 @@
-use crate::utils::{
-    ceil, get_alpha, precompute_small_corrections, word_from_registers,
-};
+use crate::utils::{ceil, get_alpha, precompute_small_corrections, word_from_registers};
 use core::hash::{Hash, Hasher};
 use core::ops::{BitOr, BitOrAssign};
 use siphasher::sip::SipHasher13;
