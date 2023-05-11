@@ -41,6 +41,14 @@ use std::collections::hash_map::DefaultHasher;
 /// assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
 ///         estimated_cardinality <= 3.0_f32 * 1.1);
 /// ```
+/// 
+/// # Citations
+///
+/// This implementation is based on the following papers:
+///
+/// * Flajolet, Philippe, et al. "HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm." DMTCS Proceedings 1 (2007): 127-146.
+/// * Heule, Stefan, Marc Nunkesser, and Alexander Hall. "HyperLogLog in practice: algorithmic engineering of a state of the art cardinality estimation algorithm." Proceedings of the 16th International Conference on Extending Database Technology. 2013.
+/// 
 pub struct HyperLogLog<const PRECISION: usize, const BITS: usize>
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
