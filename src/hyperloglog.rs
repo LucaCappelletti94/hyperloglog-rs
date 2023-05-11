@@ -1,10 +1,9 @@
 use crate::utils::{
-    ceil, get_alpha, precompute_small_corrections, split_registers,
-    word_from_registers,
+    ceil, get_alpha, precompute_small_corrections, split_registers, word_from_registers,
 };
 use core::hash::{Hash, Hasher};
 use core::ops::{BitOr, BitOrAssign};
-use siphasher::sip::SipHasher;
+use siphasher::sip::SipHasher13;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 /// A probabilistic algorithm for estimating the number of distinct elements in a set.
@@ -481,12 +480,12 @@ where
     /// let value = 42;
     /// let (hash, index) = hll.get_hash_and_index(&value);
     ///
-    /// assert_eq!(index, 65, "Expected index {}, got {}.", 65, index);
-    /// assert_eq!(hash, 4686640835114562322, "Expected hash {}, got {}.", 4686640835114562322, hash);
+    /// assert_eq!(index, 213, "Expected index {}, got {}.", 213, index);
+    /// assert_eq!(hash, 15387811073369036852, "Expected hash {}, got {}.", 15387811073369036852, hash);
     /// ```
     pub fn get_hash_and_index<T: Hash>(&self, value: &T) -> (u64, usize) {
         // Create a new hasher.
-        let mut hasher = SipHasher::new();
+        let mut hasher = SipHasher13::new();
         // Calculate the hash.
         value.hash(&mut hasher);
         let hash: u64 = hasher.finish();
@@ -591,15 +590,14 @@ where
             index,
             Self::NUMBER_OF_REGISTERS_IN_WORD
         );
-
+        
         // Extract the current value of the register at `index`.
         let register_value: u32 = (self.words[word_position] >> (register_position_in_u32 * BITS))
             & Self::LOWER_REGISTER_MASK;
 
-        self.number_of_zero_register -= (register_value == 0) as usize;
-
         // Otherwise, update the register using a bit mask.
         if number_of_zeros > register_value {
+            self.number_of_zero_register -= (register_value == 0) as usize;
             self.words[word_position] &=
                 !(Self::LOWER_REGISTER_MASK << (register_position_in_u32 * BITS));
             self.words[word_position] |= number_of_zeros << (register_position_in_u32 * BITS);
