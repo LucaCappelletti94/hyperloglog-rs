@@ -14,6 +14,41 @@ However, this approach requires the use of several nightly features of the Rust 
 
 We hope that this library will be useful for you in your projects, and we welcome your feedback and contributions. Please feel free to open an issue or submit a pull request if you have any questions or suggestions. Thank you for your interest in our HLL crate, and happy counting!
 
+## Usage
+
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+hyperloglog = "0.1"
+```
+
+and this to your crate root:
+
+```rust
+use hyperloglog_rs::prelude::*;
+```
+
+## Examples
+
+```rust
+use hyperloglog_rs::prelude::*;
+
+let mut hll = HyperLogLog::<14, 5>::new();
+hll.insert(&1);
+hll.insert(&2);
+
+let mut hll2 = HyperLogLog::<14, 5>::new();
+hll2.insert(&2);
+hll2.insert(&3);
+
+let union = hll | hll2;
+
+let estimated_cardinality = union.estimate_cardinality();
+assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
+        estimated_cardinality <= 3.0_f32 * 1.1);
+```
+
 ## No STD
 This crate is designed to be as lightweight as possible and does not require any dependencies from the Rust standard library (std). As a result, it can be used in a bare metal or embedded context, where std may not be available.
 
