@@ -1,5 +1,5 @@
 use crate::utils::{
-    ceil, get_alpha, precompute_reciprocals, precompute_small_corrections, split_registers,
+    ceil, get_alpha, precompute_position_times_bits, precompute_small_corrections, split_registers,
     word_from_registers,
 };
 use core::hash::{Hash, Hasher};
@@ -140,12 +140,11 @@ where
     /// The number of registers that can fit in a single 32-bit word in the HyperLogLog algorithm.
     pub const NUMBER_OF_REGISTERS_IN_WORD: usize = 32 / BITS;
 
-    /// The precomputed reciprocals used in the HyperLogLog algorithm for better performance.
-    pub const PRECOMPUTED_RECIPROCALS: [f32; 1 << BITS] = precompute_reciprocals::<BITS>();
-
     /// The precomputed small corrections used in the HyperLogLog algorithm for better performance.
     pub const SMALL_CORRECTIONS: [f32; 1 << PRECISION] =
         precompute_small_corrections::<{ 1 << PRECISION }>();
+
+    pub const POSITION_TIMES_BITS: [usize; 32 / BITS] = precompute_position_times_bits::<BITS>();
 
     /// Create a new HyperLogLog counter.
     pub fn new() -> Self {
@@ -581,7 +580,8 @@ where
 
         // Calculate the position of the register in the internal buffer array.
         let word_position = index / Self::NUMBER_OF_REGISTERS_IN_WORD;
-        let register_position_in_u32 = index - word_position * Self::NUMBER_OF_REGISTERS_IN_WORD;
+        let bits_offset =
+            Self::POSITION_TIMES_BITS[index - word_position * Self::NUMBER_OF_REGISTERS_IN_WORD];
 
         debug_assert!(
             word_position < self.words.len(),
@@ -596,16 +596,15 @@ where
         );
 
         // Extract the current value of the register at `index`.
-        let register_value: u32 = (self.words[word_position] >> (register_position_in_u32 * BITS))
-            & Self::LOWER_REGISTER_MASK;
+        let register_value: u32 =
+            (self.words[word_position] >> bits_offset) & Self::LOWER_REGISTER_MASK;
 
         self.number_of_zero_register -= (register_value == 0) as usize;
 
         // Otherwise, update the register using a bit mask.
         if number_of_zeros > register_value {
-            self.words[word_position] &=
-                !(Self::LOWER_REGISTER_MASK << (register_position_in_u32 * BITS));
-            self.words[word_position] |= number_of_zeros << (register_position_in_u32 * BITS);
+            self.words[word_position] &= !(Self::LOWER_REGISTER_MASK << bits_offset);
+            self.words[word_position] |= number_of_zeros << bits_offset;
         }
     }
 }

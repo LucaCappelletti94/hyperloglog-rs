@@ -197,44 +197,6 @@ pub fn word_from_registers<const NUMBER_OF_BITS_PER_REGISTER: usize>(registers: 
     })
 }
 
-/// Precomputes an array of reciprocal powers of two and returns it.
-///
-/// This function generates an array of reciprocal powers of two, which is used as a lookup table
-/// for the HyperLogLog algorithm. The array is of length 2^BITS and contains the reciprocal
-/// value of each power of two up to 2^(BITS-1).
-///
-/// # Example
-///
-/// ```
-/// use hyperloglog_rs::utils::precompute_reciprocals;
-///
-/// const BITS: usize = 5;
-///
-/// let reciprocals = precompute_reciprocals::<BITS>();
-///
-/// assert_eq!(reciprocals[0], 1.0_f32);
-/// assert_eq!(reciprocals[1], 0.5_f32);
-/// assert_eq!(reciprocals[2], 0.25_f32);
-/// assert_eq!(reciprocals[3], 0.125_f32);
-/// assert_eq!(reciprocals[4], 0.0625_f32);
-/// assert_eq!(reciprocals[5], 0.03125_f32);
-/// assert_eq!(reciprocals[6], 0.015625_f32);
-/// assert_eq!(reciprocals[7], 0.0078125_f32);
-/// assert_eq!(reciprocals[8], 0.00390625_f32);
-/// ```
-pub const fn precompute_reciprocals<const BITS: usize>() -> [f32; 1 << BITS] {
-    let mut reciprocals = [0_f32; 1 << BITS];
-    let number_of_possible_registers = 1 << BITS;
-    let mut i = 0;
-    let mut current_power_of_two: f32 = 1.0_f32;
-    while i < number_of_possible_registers {
-        reciprocals[i] = 1.0_f32 / current_power_of_two;
-        current_power_of_two *= 2.0;
-        i += 1;
-    }
-    reciprocals
-}
-
 /// Precomputes small corrections for HyperLogLog algorithm.
 ///
 /// This function calculates a correction factor for each register that helps to improve the
@@ -266,6 +228,19 @@ pub const fn precompute_small_corrections<const NUMBER_OF_REGISTERS: usize>(
         i += 1;
     }
     small_corrections
+}
+
+/// Precomputes position times bits for HyperLogLog algorithm.
+pub const fn precompute_position_times_bits<const BITS: usize>() -> [usize; 32 / BITS] {
+    let mut position_times_bits = [0; 32 / BITS];
+    let mut number_of_bits = 0;
+    let mut i = 0;
+    while number_of_bits < 32 - BITS {
+        position_times_bits[i] = number_of_bits;
+        number_of_bits += BITS;
+        i += 1;
+    }
+    position_times_bits
 }
 
 /// Computes the alpha constant for the given number of registers.
@@ -307,4 +282,3 @@ pub const fn get_alpha(number_of_registers: usize) -> f32 {
         _ => 0.7213 / (1.0 + 1.079 / number_of_registers as f32),
     }
 }
-
