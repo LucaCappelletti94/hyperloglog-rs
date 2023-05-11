@@ -230,19 +230,6 @@ pub const fn precompute_small_corrections<const NUMBER_OF_REGISTERS: usize>(
     small_corrections
 }
 
-/// Precomputes position times bits for HyperLogLog algorithm.
-pub const fn precompute_position_times_bits<const BITS: usize>() -> [usize; 32 / BITS] {
-    let mut position_times_bits = [0; 32 / BITS];
-    let mut number_of_bits = 0;
-    let mut i = 0;
-    while number_of_bits < 32 - BITS {
-        position_times_bits[i] = number_of_bits;
-        number_of_bits += BITS;
-        i += 1;
-    }
-    position_times_bits
-}
-
 /// Computes the alpha constant for the given number of registers.
 ///
 /// The alpha constant is used to scale the raw HyperLogLog estimate into an

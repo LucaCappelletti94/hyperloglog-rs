@@ -22,9 +22,6 @@ categories = [
 [dependencies]
 siphasher = "0.3"
 
-[dev-dependencies]
-hyperloglogplus = {git="https://github.com/LucaCappelletti94/hyperloglog.rs", branch="master", feature=["const-loop"]}
-
 [profile.test]
 overflow-checks = true   # Disable integer overflow checks.
 debug = false            # Include debug info.
