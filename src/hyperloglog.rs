@@ -33,7 +33,7 @@ use siphasher::sip::SipHasher;
 /// # Examples
 ///
 /// ```
-/// use hyperloglog_rs::prelude::*;
+/// use hyperloglog_rs::HyperLogLog;
 ///
 /// let mut hll = HyperLogLog::<10, 6>::new();
 /// hll.insert(&"apple");
@@ -75,11 +75,13 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use hyperloglog_rs::prelude::*;
+    /// # use hyperloglog_rs::HyperLogLog;
     ///
     /// let hll = HyperLogLog::<14, 5>::from("test");
     ///
     /// assert!(hll.estimate_cardinality() >=  1.0_f32);
+    /// assert!(!hll.is_empty());
+    /// assert!(hll.may_contain(&"test"));
     /// ```
     fn from(value: T) -> Self {
         let mut hll = Self::new();
@@ -168,7 +170,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use hyperloglog_rs::prelude::*;
+    /// use hyperloglog_rs::HyperLogLog;
     ///
     /// let registers = [0_u32; 1 << 4];
     /// let hll = HyperLogLog::<4, 6>::from_registers(registers);
@@ -199,7 +201,7 @@ where
     /// # Example
     ///
     /// ```
-    /// # use hyperloglog_rs::prelude::*;
+    /// # use hyperloglog_rs::HyperLogLog;
     /// const PRECISION: usize = 8;
     /// const BITS: usize = 5;
     /// let mut hll = HyperLogLog::<PRECISION, BITS>::new();
@@ -257,7 +259,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use hyperloglog_rs::prelude::*;
+    /// use hyperloglog_rs::HyperLogLog;
     /// const PRECISION: usize = 8;
     /// const BITS: usize = 5;
     /// const HYPERLOGLOG_SIZE: usize = 1 << PRECISION;
@@ -295,7 +297,7 @@ where
     /// # Example
     ///
     /// ```
-    /// # use hyperloglog_rs::prelude::*;
+    /// # use hyperloglog_rs::HyperLogLog;
     ///
     /// // Create a new HLL counter with 128 registers
     /// let mut hll = HyperLogLog::<12, 8>::new();
@@ -351,7 +353,7 @@ where
     /// # Example
     ///
     /// ```
-    /// use hyperloglog_rs::prelude::*;
+    /// use hyperloglog_rs::HyperLogLog;
     ///
     /// let hll = HyperLogLog::<13, 6>::new();
     /// assert_eq!(hll.get_number_of_bits(), 6);
@@ -366,7 +368,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use hyperloglog_rs::prelude::*;
+    /// # use hyperloglog_rs::HyperLogLog;
     ///
     /// // Create a HyperLogLog counter with precision 10 and 6-bit registers
     /// let mut hll = HyperLogLog::<10, 6>::new();
@@ -393,7 +395,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use hyperloglog_rs::prelude::*;
+    /// # use hyperloglog_rs::HyperLogLog;
     ///
     /// // Create a new HyperLogLog counter with precision 14 and 5 bits per register.
     /// let mut hll = HyperLogLog::<14, 5>::new();
@@ -425,7 +427,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use hyperloglog_rs::prelude::*;
+    /// # use hyperloglog_rs::HyperLogLog;
     ///
     /// let mut hll = HyperLogLog::<10, 6>::new();
     /// hll.insert(&4);
@@ -441,7 +443,7 @@ where
     /// whether the registers are what we expect:
     ///
     /// ```rust
-    /// # use hyperloglog_rs::prelude::*;
+    /// # use hyperloglog_rs::HyperLogLog;
     ///
     /// let expected = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11, 11, 0];
     /// let mut hll = HyperLogLog::<4, 6>::from_registers(expected);
@@ -465,7 +467,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use hyperloglog_rs::prelude::*;
+    /// use hyperloglog_rs::HyperLogLog;
     ///
     /// let mut hll: HyperLogLog<8, 6> = HyperLogLog::new();
     /// let value = 42;
@@ -506,7 +508,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use hyperloglog_rs::prelude::*;
+    /// # use hyperloglog_rs::HyperLogLog;
     ///
     /// let mut hll: HyperLogLog<8, 6> = HyperLogLog::new();
     /// assert_eq!(hll.may_contain(&42), false);
@@ -514,7 +516,7 @@ where
     /// hll.insert(&42);
     /// assert_eq!(hll.may_contain(&42), true);
     /// ```
-    pub fn may_contain<T: Hash>(&mut self, rhs: &T) -> bool {
+    pub fn may_contain<T: Hash>(&self, rhs: &T) -> bool {
         let (_hash, index) = self.get_hash_and_index(&rhs);
 
         // Calculate the position of the register in the internal buffer array.
@@ -540,7 +542,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use hyperloglog_rs::prelude::*;
+    /// use hyperloglog_rs::HyperLogLog;
     ///
     /// const PRECISION: usize = 10;
     ///
@@ -618,7 +620,7 @@ where
     /// Computes union between HLL counters.
     ///
     /// ```rust
-    /// # use hyperloglog_rs::prelude::*;
+    /// # use hyperloglog_rs::HyperLogLog;
     /// # use core::ops::BitOrAssign;
     ///
     /// let mut hll = HyperLogLog::<8, 6>::new();
@@ -691,7 +693,7 @@ where
     /// # Example
     ///
     /// ```
-    /// # use hyperloglog_rs::prelude::*;
+    /// # use hyperloglog_rs::HyperLogLog;
     /// let mut hll1 = HyperLogLog::<14, 5>::new();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
