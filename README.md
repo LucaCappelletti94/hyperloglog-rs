@@ -1,4 +1,8 @@
 # 🧮 HyperLogLog-rs
+[![Build status](https://github.com/tabac/hyperloglog.rs/workflows/ci/badge.svg)](https://github.com/tabac/hyperloglog.rs/actions)
+[![Crates.io](https://img.shields.io/crates/v/hyperloglogplus.svg)](https://crates.io/crates/hyperloglogplus)
+[![Documentation](https://docs.rs/hyperloglogplus/badge.svg)](https://docs.rs/hyperloglogplus)
+
 This is a Rust library that provides an implementation of the HyperLogLog (HLL) algorithm.
 
 ## What is HyperLogLog?
