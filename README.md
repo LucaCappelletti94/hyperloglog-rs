@@ -24,7 +24,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-hyperloglog = "0.1.2"
+hyperloglog = "0.1"
 ```
 
 and this to your crate root:
