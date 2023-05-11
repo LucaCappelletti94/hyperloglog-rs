@@ -14,7 +14,14 @@ However, this approach requires the use of several nightly features of the Rust 
 
 We hope that this library will be useful for you in your projects, and we welcome your feedback and contributions. Please feel free to open an issue or submit a pull request if you have any questions or suggestions. Thank you for your interest in our HLL crate, and happy counting!
 
+## No STD
+This crate is designed to be as lightweight as possible and does not require any dependencies from the Rust standard library (std). As a result, it can be used in a bare metal or embedded context, where std may not be available.
+
+All functionality of this crate can be used without std, and the prelude module provides easy access to all the relevant types and traits. If you encounter any issues using this crate in a no_std environment, please don't hesitate to open an issue or submit a pull request on GitHub.
+
 ## Required features
+Note that some of the features used by this crate, such as #![feature(generic_const_exprs)], require a nightly Rust compiler. If you are using a stable or beta version of Rust, you may need to switch to nightly or disable certain features to use this crate.
+
 The **generic_const_exprs** feature allows for using constant expressions as generic type parameters, which is necessary in this implementation to pass compile-time constant values as template arguments.
 
 The **const_float_bits_conv** feature provides the ability to convert floating-point values to their corresponding bit patterns at compile time, which is useful in computing hash values.

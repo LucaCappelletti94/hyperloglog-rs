@@ -3,7 +3,7 @@ use crate::utils::{
 };
 use core::hash::{Hash, Hasher};
 use core::ops::{BitOr, BitOrAssign};
-use std::collections::hash_map::DefaultHasher;
+use siphasher::sip::SipHasher;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 /// A probabilistic algorithm for estimating the number of distinct elements in a set.
@@ -423,12 +423,12 @@ where
     /// let value = 42;
     /// let (hash, index) = hll.get_hash_and_index(&value);
     ///
-    /// assert_eq!(index, 162, "Expected index {}, got {}.", 162, index);
-    /// assert_eq!(hash, 4225250432, "Expected hash {}, got {}.", 4225250432, hash);
+    /// assert_eq!(index, 54, "Expected index {}, got {}.", 54, index);
+    /// assert_eq!(hash, 3623031424, "Expected hash {}, got {}.", 3623031424, hash);
     /// ```
     pub fn get_hash_and_index<T: Hash>(&self, value: &T) -> (u32, usize) {
         // Create a new hasher.
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = SipHasher::new();
         // Calculate the hash.
         value.hash(&mut hasher);
         // Drops the higher 32 bits.

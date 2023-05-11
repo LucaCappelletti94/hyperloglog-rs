@@ -12,15 +12,34 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
+      - uses: actions/checkout@v3
+      - name: Addind baremetal arm target
+        run: rustup target add aarch64-unknown-none
+      - name: Install Miri
+        run: |
+          rustup toolchain install nightly --component miri clippy
+          rustup override set nightly
+          cargo miri setup
       - name: Build
         run: cargo build --verbose
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --verbose --target x86_64-unknown-linux-gnu
+      - name: Run tests on std
+        run: cargo test --verbose --target x86_64-unknown-linux-gnu --no-default-features --features std
+      - name: Run tests on alloc
+        run: cargo test --verbose --target x86_64-unknown-linux-gnu --no-default-features --features alloc
+      - name: Run tests on no_std
+        run: cargo test --verbose --target aarch64-unknown-none --no-default-features
+      - name: Run clippy
+        run: cargo clippy -- -Dclippy::all -Dclippy::cargo
+      - name: Test with Miri in little endian
+        run: cargo miri test --target x86_64-unknown-linux-gnu
+        env:
+          RUSTFLAGS: "-Zrandomize-layout"
+          MIRIFLAGS: "-Zmiri-symbolic-alignment-check"
+      - name: Test with Miri in big endian
+        run: cargo miri test --target mips64-unknown-linux-gnuabi64
+        env:
+          RUSTFLAGS: "-Zrandomize-layout"
+          MIRIFLAGS: "-Zmiri-symbolic-alignment-check"

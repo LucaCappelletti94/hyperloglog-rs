@@ -20,6 +20,7 @@ categories = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+siphasher = "0.3"
 
 [dev-dependencies]
 hyperloglogplus = {git="https://github.com/LucaCappelletti94/hyperloglog.rs", branch="master", feature=["const-loop"]}
