@@ -1,5 +1,5 @@
 use crate::utils::{
-    ceil, get_alpha, precompute_small_corrections, split_registers, word_from_registers,
+    ceil, get_alpha, precompute_small_corrections, word_from_registers,
 };
 use core::hash::{Hash, Hasher};
 use core::ops::{BitOr, BitOrAssign};
@@ -590,7 +590,7 @@ where
             index,
             Self::NUMBER_OF_REGISTERS_IN_WORD
         );
-        
+
         // Extract the current value of the register at `index`.
         let register_value: u32 = (self.words[word_position] >> (register_position_in_u32 * BITS))
             & Self::LOWER_REGISTER_MASK;
@@ -655,19 +655,19 @@ where
     /// ```
     fn bitor_assign(&mut self, rhs: Self) {
         let mut new_number_of_zeros = 0;
-        for (left_word, right_word) in self.words.iter_mut().zip(rhs.words.iter().copied()) {
-            let mut left_registers = split_registers::<{ 32 / BITS }>(*left_word);
-            let right_registers = split_registers::<{ 32 / BITS }>(right_word);
+        for (left_word, mut right_word) in self.words.iter_mut().zip(rhs.words.iter().copied()) {
+            let mut left_word_copy = *left_word;
 
-            left_registers
-                .iter_mut()
-                .zip(right_registers.into_iter())
-                .for_each(|(left, right)| {
-                    *left = (*left).max(right);
-                    new_number_of_zeros += (*left == 0) as usize;
-                });
-
-            *left_word = word_from_registers::<BITS>(&left_registers)
+            for i in 0..Self::NUMBER_OF_REGISTERS_IN_WORD {
+                let mut left_register = left_word_copy & Self::LOWER_REGISTER_MASK;
+                let right_register = right_word & Self::LOWER_REGISTER_MASK;
+                left_register = (left_register).max(right_register);
+                *left_word &= !(Self::LOWER_REGISTER_MASK << (i * BITS));
+                *left_word |= left_register << (i * BITS);
+                new_number_of_zeros += (left_register == 0) as usize;
+                left_word_copy >>= BITS;
+                right_word >>= BITS;
+            }
         }
         self.number_of_zero_register = new_number_of_zeros - self.get_number_of_padding_registers();
     }
