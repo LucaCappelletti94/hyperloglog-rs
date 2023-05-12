@@ -221,13 +221,12 @@ where
     pub fn estimate_cardinality(&self) -> f32 {
         let mut raw_estimate = 0.0;
 
-        for mut word in self.words {
+        for word in self.words {
             let mut partial: f32 = 0.0;
-            for _ in 0..Self::NUMBER_OF_REGISTERS_IN_WORD {
-                let register = word & Self::LOWER_REGISTER_MASK;
+            for i in 0..Self::NUMBER_OF_REGISTERS_IN_WORD {
+                let register = (word >> i * BITS) & Self::LOWER_REGISTER_MASK;
                 let two_to_minus_register = (127 - register) << 23;
                 partial += f32::from_le_bytes(two_to_minus_register.to_le_bytes());
-                word >>= BITS;
             }
             raw_estimate += partial;
         }
