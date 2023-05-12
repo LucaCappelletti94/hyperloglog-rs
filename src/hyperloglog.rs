@@ -213,19 +213,18 @@ where
     /// # Returns
     /// * `f32` - The estimated cardinality of the set.
     pub fn estimate_cardinality(&self) -> f32 {
-        let mut raw_estimate = 0.0;
-
-        for mut word in self.words {
-            let mut partial: f32 = 0.0;
+        let mut counter: u64 = 0;
+        for word in self.words {
             for _ in 0..Self::NUMBER_OF_REGISTERS_IN_WORD {
                 let register = word & Self::LOWER_REGISTER_MASK;
-                let two_to_minus_register = (127 - register) << 23;
-                partial += f32::from_le_bytes(two_to_minus_register.to_le_bytes());
-                word >>= BITS;
+                counter += (1_u64 << 32) >> register;
             }
-            raw_estimate += partial;
         }
-
+        let exp = counter.leading_zeros() + 1;
+        counter <<= exp;
+        counter >>= 64 - 23;
+        let res = (((127 + 32 - exp) as u32) << 23) | (counter as u32);
+        let mut raw_estimate = f32::from_ne_bytes(res.to_ne_bytes());
         raw_estimate -= self.get_number_of_padding_registers() as f32;
 
         // Apply the final scaling factor to obtain the estimate of the cardinality
