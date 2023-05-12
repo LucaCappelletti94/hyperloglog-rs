@@ -65,10 +65,6 @@ The **generic_const_exprs** feature allows for using constant expressions as gen
 
 The **const_float_bits_conv** feature provides the ability to convert floating-point values to their corresponding bit patterns at compile time, which is useful in computing hash values.
 
-The **const_trait_impl** feature enables implementing traits on const generics, which is essential to ensure that traits are implemented on types with known constant values.
-
-The **const_mut_refs** feature allows taking references to mutable constants, which is useful in generating arrays and computing the hash values.
-
 Finally, the **const_fn_floating_point_arithmetic** feature provides the ability to perform floating-point arithmetic in const functions, which is necessary for computing hash values using the f32::to_bits() method.
 
 ## Fuzzing
