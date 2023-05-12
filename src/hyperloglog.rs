@@ -1,4 +1,4 @@
-use crate::utils::{ceil, get_alpha, precompute_small_corrections, word_from_registers};
+use crate::utils::{ceil, get_alpha, precompute_small_corrections};
 use core::hash::{Hash, Hasher};
 use core::ops::{BitOr, BitOrAssign};
 use siphasher::sip::SipHasher13;
@@ -164,20 +164,31 @@ where
     /// use hyperloglog_rs::HyperLogLog;
     ///
     /// let registers = [0_u32; 1 << 4];
-    /// let hll = HyperLogLog::<4, 6>::from_registers(registers);
+    /// let hll = HyperLogLog::<4, 6>::from_registers(&registers);
     /// assert_eq!(hll.len(), 1 << 4);
     /// ```
-    pub fn from_registers(registers: [u32; 1 << PRECISION]) -> Self {
+    pub fn from_registers(registers: &[u32]) -> Self {
+        assert!(
+            registers.len() == Self::NUMBER_OF_REGISTERS,
+            "We expect {} registers, but got {}",
+            Self::NUMBER_OF_REGISTERS,
+            registers.len()
+        );
         let mut words = [0; ceil(1 << PRECISION, 32 / BITS)];
         let number_of_zero_register = words
             .iter_mut()
             .zip(registers.chunks(Self::NUMBER_OF_REGISTERS_IN_WORD))
             .fold(0, |mut number_of_zero_register, (word, word_registers)| {
-                number_of_zero_register += word_registers
-                    .iter()
-                    .filter(|&&register| register == 0)
-                    .count();
-                *word = word_from_registers::<BITS>(word_registers);
+                for (i, register) in word_registers.iter().copied().enumerate() {
+                    assert!(
+                        register <= Self::LOWER_REGISTER_MASK,
+                        "Register value {} is too large for the given number of bits {}",
+                        register,
+                        BITS
+                    );
+                    number_of_zero_register += (register == 0) as usize;
+                    *word |= register << (i * BITS);
+                }
                 number_of_zero_register
             });
         Self {
@@ -221,6 +232,8 @@ where
             raw_estimate += partial;
         }
 
+        debug_assert!(!raw_estimate.is_nan(), "Raw estimate is NaN");
+
         raw_estimate -= self.get_number_of_padding_registers() as f32;
 
         // Apply the final scaling factor to obtain the estimate of the cardinality
@@ -228,18 +241,30 @@ where
             * (Self::NUMBER_OF_REGISTERS * Self::NUMBER_OF_REGISTERS) as f32
             / raw_estimate;
 
+        debug_assert!(!raw_estimate.is_nan(), "Updated raw estimate is NaN");
+
         // Apply the small range correction factor if the raw estimate is below the threshold
         // and there are zero registers in the counter.
         if raw_estimate <= Self::SMALL_RANGE_CORRECTION_THRESHOLD
             && self.number_of_zero_register > 0
         {
-            Self::SMALL_CORRECTIONS[self.number_of_zero_register - 1]
+            raw_estimate = Self::SMALL_CORRECTIONS[self.number_of_zero_register - 1];
+            debug_assert!(
+                !raw_estimate.is_nan(),
+                "Small range correction factor is NaN"
+            )
         // Apply the intermediate range correction factor if the raw estimate is above the threshold.
         } else if raw_estimate >= Self::INTERMEDIATE_RANGE_CORRECTION_THRESHOLD {
-            -Self::TWO_32 * (-raw_estimate / Self::TWO_32).ln_1p()
-        } else {
-            raw_estimate
+            let corrected_raw_estimate =
+                -Self::TWO_32 * (-raw_estimate.min(Self::TWO_32) / Self::TWO_32).ln_1p();
+            debug_assert!(
+                !corrected_raw_estimate.is_nan(),
+                "Intermediate range correction factor is NaN, starting raw estimate was {}",
+                raw_estimate
+            );
+            raw_estimate = corrected_raw_estimate;
         }
+        raw_estimate
     }
 
     #[inline(always)]
@@ -447,7 +472,7 @@ where
     /// # use hyperloglog_rs::HyperLogLog;
     ///
     /// let expected = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11, 11, 0];
-    /// let mut hll = HyperLogLog::<4, 6>::from_registers(expected);
+    /// let mut hll = HyperLogLog::<4, 6>::from_registers(&expected);
     /// assert_eq!(hll.get_registers(), expected, "Expected {:?}, got {:?}", expected, hll.get_registers());
     /// ```
     pub fn get_registers(&self) -> [u32; 1 << PRECISION] {
