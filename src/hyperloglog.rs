@@ -61,7 +61,6 @@ impl<const PRECISION: usize, const BITS: usize, T: Hash> From<T> for HyperLogLog
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
     [(); 1 << PRECISION]:,
-    [(); 1 << BITS]:,
 {
     /// Create a new HyperLogLog counter from a value.
     ///
@@ -105,7 +104,6 @@ impl<const PRECISION: usize, const BITS: usize> Default for HyperLogLog<PRECISIO
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
     [(); 1 << PRECISION]:,
-    [(); 1 << BITS]:,
 {
     /// Returns a new HyperLogLog instance with default configuration settings.
     fn default() -> Self {
@@ -117,7 +115,6 @@ impl<const PRECISION: usize, const BITS: usize> HyperLogLog<PRECISION, BITS>
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
     [(); 1 << PRECISION]:,
-    [(); 1 << BITS]:,
 {
     /// The number of registers used by the HyperLogLog algorithm, which depends on its precision.
     pub const NUMBER_OF_REGISTERS: usize = 1 << PRECISION;
@@ -607,7 +604,6 @@ where
 impl<const PRECISION: usize, const BITS: usize> BitOrAssign for HyperLogLog<PRECISION, BITS>
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
-    [(); 1 << BITS]:,
 {
     #[inline(always)]
     /// Computes union between HLL counters.
@@ -674,7 +670,6 @@ where
 impl<const PRECISION: usize, const BITS: usize> BitOr for HyperLogLog<PRECISION, BITS>
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
-    [(); 1 << BITS]:,
 {
     type Output = Self;
 
