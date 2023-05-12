@@ -69,8 +69,6 @@
 
 #![feature(generic_const_exprs)]
 #![feature(const_float_bits_conv)]
-#![feature(const_trait_impl)]
-#![feature(const_mut_refs)]
 #![feature(const_fn_floating_point_arithmetic)]
 
 pub mod hyperloglog;
