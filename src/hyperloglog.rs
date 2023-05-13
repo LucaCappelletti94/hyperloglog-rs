@@ -702,7 +702,7 @@ where
     ///
     /// # Example
     ///
-    /// ```
+    /// ```rust
     /// # use hyperloglog_rs::HyperLogLog;
     /// let mut hll1 = HyperLogLog::<14, 5>::new();
     /// hll1.insert(&1);
@@ -717,6 +717,25 @@ where
     /// assert!(hll_union.estimate_cardinality() >= 3.0_f32 * 0.9 &&
     ///         hll_union.estimate_cardinality() <= 3.0_f32 * 1.1);
     /// ```
+    ///
+    /// Merging a set with an empty set should not change the cardinality.
+    ///
+    /// ```rust
+    /// # use hyperloglog_rs::HyperLogLog;
+    /// let mut hll1 = HyperLogLog::<14, 5>::new();
+    /// hll1.insert(&1);
+    /// hll1.insert(&2);
+    ///
+    /// let hll_union = hll1.clone() | HyperLogLog::<14, 5>::new();
+    /// assert_eq!(
+    ///     hll_union,
+    ///     hll1,
+    ///     concat!(
+    ///         "The cardinality of the union should ",
+    ///         "be the same as the cardinality of the first set."
+    ///    )
+    /// );
+    ///
     fn bitor(mut self, rhs: Self) -> Self {
         self.bitor_assign(rhs);
         self
