@@ -673,7 +673,7 @@ where
     /// ```
     fn bitor_assign(&mut self, rhs: Self) {
         let mut new_number_of_zeros = 0;
-        for (left_word, mut right_word) in self.words.iter_mut().zip(rhs.words.iter().copied()) {
+        for (left_word, mut right_word) in self.words.iter_mut().zip(rhs.words.into_iter()) {
             let mut left_word_copy = *left_word;
 
             for i in 0..Self::NUMBER_OF_REGISTERS_IN_WORD {
