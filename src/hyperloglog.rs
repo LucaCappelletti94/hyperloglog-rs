@@ -735,6 +735,24 @@ where
     ///         "be the same as the cardinality of the first set."
     ///    )
     /// );
+    /// ```
+    ///
+    /// We can create the HLL counters from array from registers,
+    /// so to be able to check that everything works as expected.
+    ///
+    /// ```rust
+    /// # use hyperloglog_rs::HyperLogLog;
+    ///
+    /// let first_registers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    /// let second_registers = [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 19];
+    /// let expected = [9, 9, 9, 9, 9, 9, 9, 9, 9, 10, 11, 12, 13, 14, 15, 19];
+    ///
+    /// let mut hll1 = HyperLogLog::<4, 5>::from_registers(&first_registers);
+    /// let mut hll2 = HyperLogLog::<4, 5>::from_registers(&second_registers);
+    /// let union = hll1 | hll2;
+    ///
+    /// assert_eq!(union.get_registers(), expected, "The registers are not the expected ones, got {:?} instead of {:?}.", union.get_registers(), expected);
+    /// ```
     ///
     fn bitor(mut self, rhs: Self) -> Self {
         self.bitor_assign(rhs);
