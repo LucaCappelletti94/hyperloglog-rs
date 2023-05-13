@@ -21,10 +21,13 @@ enum RandomCommand {
     FromRegisters,
 }
 
+const BITS: usize = 5;
+const PRECISION: usize = 8;
+
 fuzz_target!(|data: FuzzCase| {
     let mut idx: u32 = 0;
-    let mut left: HyperLogLog<4, 6> = HyperLogLog::new();
-    let mut right: HyperLogLog<4, 6> = HyperLogLog::default();
+    let mut left: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
+    let mut right: HyperLogLog<PRECISION, BITS> = HyperLogLog::default();
     for command in data.commands {
         match command {
             RandomCommand::Multiply => {
@@ -37,6 +40,8 @@ fuzz_target!(|data: FuzzCase| {
                 idx = idx.wrapping_add(1);
             }
             RandomCommand::InsertCounter => {
+                let old_left_registers = left.get_registers();
+                let old_right_registers = right.get_registers();
                 let previous = left.estimate_cardinality();
                 left.insert(&idx);
                 right.insert(&idx);
@@ -59,6 +64,29 @@ fuzz_target!(|data: FuzzCase| {
                 );
                 let left_registers = left.get_registers();
                 let right_registers = right.get_registers();
+
+                // We check that all values in the left and right registers
+                // are equal or larger than the old values.
+                assert!(
+                    left_registers
+                        .iter()
+                        .zip(old_left_registers.iter())
+                        .all(|(new, old)| new >= old),
+                    "Left registers should be equal or larger than the old left registers. Left: {:?}, old left: {:?}",
+                    left_registers,
+                    old_left_registers
+                );
+
+                assert!(
+                    right_registers
+                        .iter()
+                        .zip(old_right_registers.iter())
+                        .all(|(new, old)| new >= old),
+                    "Right registers should be equal or larger than the old right registers. Right: {:?}, old right: {:?}",
+                    right_registers,
+                    old_right_registers
+                );
+
                 assert_eq!(
                     left_registers, right_registers,
                     "Registers should be equal, but they are not. Left: {:?}, right: {:?}",
@@ -83,15 +111,38 @@ fuzz_target!(|data: FuzzCase| {
                 right = HyperLogLog::default();
             }
             RandomCommand::FromRegisters => {
-                if idx < 1 << 6 {
-                    left = HyperLogLog::from_registers(&[idx; 1 << 4]);
-                    right = HyperLogLog::from_registers(&[idx; 1 << 4]);    
+                if idx < 1 << BITS {
+                    left = HyperLogLog::from_registers(&[idx; 1 << PRECISION]);
+                    right = HyperLogLog::from_registers(&[idx; 1 << PRECISION]);
                 }
             }
             RandomCommand::FromCounter => {
                 left = HyperLogLog::from(idx);
                 right = HyperLogLog::default();
                 right.insert(&idx);
+                
+                // After having inserted an element
+                // the registers should never appear empty.
+
+                assert!(
+                    left.get_registers().iter().any(|&x| x != 0),
+                    "Left registers should not be empty after having inserted an element"
+                );
+
+                assert!(
+                    right.get_registers().iter().any(|&x| x != 0),
+                    "Right registers should not be empty after having inserted an element"
+                );
+
+                assert!(
+                    !left.is_empty(),
+                    "Left registers should not be empty after having inserted an element"
+                );
+
+                assert!(
+                    !right.is_empty(),
+                    "Right registers should not be empty after having inserted an element"
+                );
             }
         };
     }
