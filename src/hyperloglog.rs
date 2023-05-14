@@ -624,6 +624,49 @@ where
     }
 }
 
+impl<const PRECISION: usize, const BITS: usize, A: Hash> core::iter::FromIterator<A>
+    for HyperLogLog<PRECISION, BITS>
+where
+    [(); ceil(1 << PRECISION, 32 / BITS)]:,
+{
+    #[inline(always)]
+    /// Creates a new HyperLogLog counter and adds all elements from an iterator to it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hyperloglog_rs::HyperLogLog;
+    ///
+    /// let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+    /// let hll: HyperLogLog<12, 5> = data.iter().collect();
+    /// assert!(
+    ///     hll.estimate_cardinality() > 0.9 * data.len() as f32,
+    ///     concat!(
+    ///         "The estimate is too low, expected ",
+    ///         "at least {}, got {}",
+    ///     ),
+    ///     0.9 * data.len() as f32,
+    ///     hll.estimate_cardinality()
+    /// );
+    /// assert!(
+    ///     hll.estimate_cardinality() < 1.1 * data.len() as f32,
+    ///     concat!(
+    ///     "The estimate is too high, expected ",
+    ///     "at most {}, got {}",
+    ///    ),
+    ///     1.1 * data.len() as f32,
+    ///     hll.estimate_cardinality()
+    /// );
+    /// ```
+    fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
+        let mut hll = Self::new();
+        for item in iter {
+            hll.insert(item);
+        }
+        hll
+    }
+}
+
 #[allow(clippy::suspicious_op_assign_impl)]
 impl<const PRECISION: usize, const BITS: usize> BitOrAssign for HyperLogLog<PRECISION, BITS>
 where
