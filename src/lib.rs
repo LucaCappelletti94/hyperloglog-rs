@@ -74,10 +74,13 @@
 pub mod hyperloglog;
 pub mod log;
 pub mod utils;
+pub mod iter;
 
 pub use crate::hyperloglog::HyperLogLog;
 
 pub mod prelude {
     pub use crate::hyperloglog::*;
+    pub use crate::iter::*;
+    pub use crate::utils::*;
     pub use core::ops::{BitOr, BitOrAssign};
 }
