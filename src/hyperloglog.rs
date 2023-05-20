@@ -437,7 +437,9 @@ where
     pub fn estimate_jaccard_cardinality(&self, other: &Self) -> f32 {
         let (union_estimate, left_estimate, right_estimate) =
             self.estimate_intersection_and_sets_cardinality(other);
-        (left_estimate + right_estimate - union_estimate) / union_estimate
+        ((left_estimate + right_estimate) / union_estimate - 1.0)
+            .max(0.0)
+            .min(1.0)
     }
 
     #[inline(always)]
