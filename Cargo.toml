@@ -21,6 +21,10 @@ categories = [
 
 [dependencies]
 siphasher = "0.3"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1.0"
 
 [profile.test]
 overflow-checks = true   # Disable integer overflow checks.

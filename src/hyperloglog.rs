@@ -53,8 +53,8 @@ pub struct HyperLogLog<const PRECISION: usize, const BITS: usize>
 where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
-    words: [u32; ceil(1 << PRECISION, 32 / BITS)],
-    number_of_zero_register: usize,
+    pub(crate) words: [u32; ceil(1 << PRECISION, 32 / BITS)],
+    pub(crate) number_of_zero_register: usize,
 }
 
 impl<const PRECISION: usize, const BITS: usize, T: Hash> From<T> for HyperLogLog<PRECISION, BITS>
@@ -197,6 +197,37 @@ where
         }
     }
 
+    fn adjust_estimate(&self, mut raw_estimate: f32, number_of_zeros: usize) -> f32 {
+        debug_assert!(!raw_estimate.is_nan(), "Raw estimate is NaN");
+        // Apply the final scaling factor to obtain the estimate of the cardinality
+        raw_estimate = get_alpha(1 << PRECISION)
+            * (Self::NUMBER_OF_REGISTERS * Self::NUMBER_OF_REGISTERS) as f32
+            / raw_estimate;
+
+        debug_assert!(!raw_estimate.is_nan(), "Updated raw estimate is NaN");
+
+        // Apply the small range correction factor if the raw estimate is below the threshold
+        // and there are zero registers in the counter.
+        if raw_estimate <= Self::SMALL_RANGE_CORRECTION_THRESHOLD && number_of_zeros > 0 {
+            raw_estimate = Self::SMALL_CORRECTIONS[number_of_zeros - 1];
+            debug_assert!(
+                !raw_estimate.is_nan(),
+                "Small range correction factor is NaN"
+            )
+        // Apply the intermediate range correction factor if the raw estimate is above the threshold.
+        } else if raw_estimate >= Self::INTERMEDIATE_RANGE_CORRECTION_THRESHOLD {
+            let corrected_raw_estimate =
+                -Self::TWO_32 * (-raw_estimate.min(Self::TWO_32) / Self::TWO_32).ln_1p();
+            debug_assert!(
+                !corrected_raw_estimate.is_nan(),
+                "Intermediate range correction factor is NaN, starting raw estimate was {}",
+                raw_estimate
+            );
+            raw_estimate = corrected_raw_estimate;
+        }
+        raw_estimate
+    }
+
     #[inline(always)]
     /// Estimates the cardinality of the set based on the HLL counter data.
     ///
@@ -235,35 +266,178 @@ where
 
         raw_estimate -= self.get_number_of_padding_registers() as f32;
 
-        // Apply the final scaling factor to obtain the estimate of the cardinality
-        raw_estimate = get_alpha(1 << PRECISION)
-            * (Self::NUMBER_OF_REGISTERS * Self::NUMBER_OF_REGISTERS) as f32
-            / raw_estimate;
+        self.adjust_estimate(raw_estimate, self.get_number_of_zero_registers())
+    }
 
-        debug_assert!(!raw_estimate.is_nan(), "Updated raw estimate is NaN");
+    #[inline(always)]
+    /// Returns an estimate of the cardinality of the union of two HyperLogLog counters.
+    ///
+    /// This method calculates an estimate of the cardinality of the union of two HyperLogLog counters
+    /// using the raw estimation values of each counter. It combines the estimation values by iterating
+    /// over the register words of both counters and performing necessary calculations.
+    ///
+    /// # Arguments
+    /// * `other`: A reference to the other HyperLogLog counter.
+    ///
+    /// # Returns
+    /// An estimation of the cardinality of the union of the two HyperLogLog counters.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use hyperloglog_rs::HyperLogLog;
+    ///
+    /// let mut hll1 = HyperLogLog::<12, 6>::new();
+    /// hll1.insert(&1);
+    /// hll1.insert(&2);
+    ///
+    /// let mut hll2 = HyperLogLog::<12, 6>::new();
+    /// hll2.insert(&2);
+    /// hll2.insert(&3);
+    ///
+    /// let union_cardinality = hll1.estimate_union_cardinality(&hll2);
+    ///
+    /// assert!(union_cardinality >= 3.0 * 0.9 &&
+    ///         union_cardinality <= 3.0 * 1.1);
+    /// ```
+    pub fn estimate_union_cardinality(&self, other: &Self) -> f32 {
+        let mut raw_union_estimate = 0.0;
 
-        // Apply the small range correction factor if the raw estimate is below the threshold
-        // and there are zero registers in the counter.
-        if raw_estimate <= Self::SMALL_RANGE_CORRECTION_THRESHOLD
-            && self.number_of_zero_register > 0
-        {
-            raw_estimate = Self::SMALL_CORRECTIONS[self.number_of_zero_register - 1];
-            debug_assert!(
-                !raw_estimate.is_nan(),
-                "Small range correction factor is NaN"
-            )
-        // Apply the intermediate range correction factor if the raw estimate is above the threshold.
-        } else if raw_estimate >= Self::INTERMEDIATE_RANGE_CORRECTION_THRESHOLD {
-            let corrected_raw_estimate =
-                -Self::TWO_32 * (-raw_estimate.min(Self::TWO_32) / Self::TWO_32).ln_1p();
-            debug_assert!(
-                !corrected_raw_estimate.is_nan(),
-                "Intermediate range correction factor is NaN, starting raw estimate was {}",
-                raw_estimate
-            );
-            raw_estimate = corrected_raw_estimate;
+        let mut union_zeros = 0;
+        for (left_word, right_word) in self.words.iter().copied().zip(other.words.iter().copied()) {
+            let mut partial: f32 = 0.0;
+            for i in 0..Self::NUMBER_OF_REGISTERS_IN_WORD {
+                let left_register = (left_word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
+                let right_register = (right_word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
+                let maximal_register = (left_register).max(right_register);
+                let two_to_minus_register = (127 - maximal_register) << 23;
+                partial += f32::from_le_bytes(two_to_minus_register.to_le_bytes());
+                union_zeros += (maximal_register == 0) as usize;
+            }
+            raw_union_estimate += partial;
         }
-        raw_estimate
+
+        union_zeros -= self.get_number_of_padding_registers();
+
+        self.adjust_estimate(raw_union_estimate, union_zeros)
+    }
+
+    #[inline(always)]
+    /// Returns an estimate of the cardinality of the two HLL counters intersection.
+    fn estimate_intersection_and_sets_cardinality(&self, other: &Self) -> (f32, f32, f32) {
+        let mut raw_union_estimate = 0.0;
+        let mut raw_left_estimate = 0.0;
+        let mut raw_right_estimate = 0.0;
+
+        let mut union_zeros = 0;
+        for (left_word, right_word) in self.words.iter().copied().zip(other.words.iter().copied()) {
+            let mut union_partial: f32 = 0.0;
+            let mut left_partial: f32 = 0.0;
+            let mut right_partial: f32 = 0.0;
+            for i in 0..Self::NUMBER_OF_REGISTERS_IN_WORD {
+                let left_register = (left_word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
+                let right_register = (right_word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
+                let maximal_register = (left_register).max(right_register);
+                union_partial += f32::from_le_bytes(((127 - maximal_register) << 23).to_le_bytes());
+                left_partial += f32::from_le_bytes(((127 - left_register) << 23).to_le_bytes());
+                right_partial += f32::from_le_bytes(((127 - right_register) << 23).to_le_bytes());
+                union_zeros += (maximal_register == 0) as usize;
+            }
+            raw_union_estimate += union_partial;
+            raw_left_estimate += left_partial;
+            raw_right_estimate += right_partial;
+        }
+
+        union_zeros -= self.get_number_of_padding_registers();
+
+        let union_estimate = self.adjust_estimate(raw_union_estimate, union_zeros);
+        let left_estimate =
+            self.adjust_estimate(raw_left_estimate, self.get_number_of_zero_registers());
+        let right_estimate =
+            self.adjust_estimate(raw_right_estimate, other.get_number_of_zero_registers());
+
+        (union_estimate, left_estimate, right_estimate)
+    }
+
+    #[inline(always)]
+    /// Returns an estimate of the cardinality of the intersection of two HyperLogLog counters.
+    ///
+    /// This method calculates an estimate of the cardinality of the intersection of two HyperLogLog
+    /// counters using the raw estimation values of each counter. It combines the estimation values by
+    /// iterating over the register words of both counters and performing necessary calculations.
+    ///
+    /// # Arguments
+    /// * `other`: A reference to the other HyperLogLog counter.
+    ///
+    /// # Returns
+    /// An estimation of the cardinality of the intersection of the two HyperLogLog counters.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use hyperloglog_rs::HyperLogLog;
+    ///
+    /// let mut hll1 = HyperLogLog::<12, 6>::new();
+    /// hll1.insert(&1);
+    /// hll1.insert(&2);
+    ///
+    /// let mut hll2 = HyperLogLog::<12, 6>::new();
+    /// hll2.insert(&2);
+    /// hll2.insert(&3);
+    ///
+    /// let intersection_cardinality = hll1.estimate_intersection_cardinality(&hll2);
+    ///
+    /// assert!(intersection_cardinality >= 1.0 * 0.9 &&
+    ///         intersection_cardinality <= 1.0 * 1.1);
+    /// ```
+    pub fn estimate_intersection_cardinality(&self, other: &Self) -> f32 {
+        let (union_estimate, left_estimate, right_estimate) =
+            self.estimate_intersection_and_sets_cardinality(other);
+        left_estimate + right_estimate - union_estimate
+    }
+
+    #[inline(always)]
+    /// Returns an estimate of the Jaccard index between two HyperLogLog counters.
+    ///
+    /// The Jaccard index is a measure of similarity between two sets. In the context of HyperLogLog
+    /// counters, it represents the ratio of the size of the intersection of the sets represented by
+    /// the counters to the size of their union. This method estimates the Jaccard index by utilizing
+    /// the cardinality estimation values of the intersection, left set, and right set.
+    ///
+    /// # Arguments
+    /// * `other`: A reference to the other HyperLogLog counter.
+    ///
+    /// # Returns
+    /// An estimation of the Jaccard index between the two HyperLogLog counters.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use hyperloglog_rs::HyperLogLog;
+    ///
+    /// let mut hll1 = HyperLogLog::<12, 6>::new();
+    /// hll1.insert(&1);
+    /// hll1.insert(&2);
+    /// hll1.insert(&3);
+    /// hll1.insert(&4);
+    ///
+    /// let mut hll2 = HyperLogLog::<12, 6>::new();
+    /// hll2.insert(&2);
+    /// hll2.insert(&3);
+    /// hll2.insert(&5);
+    /// hll2.insert(&6);
+    ///
+    /// let jaccard_index = hll1.estimate_jaccard_cardinality(&hll2);
+    ///
+    /// let expected = 2.0 / 6.0;
+    ///
+    /// assert!(jaccard_index >= expected * 0.9 &&
+    ///         jaccard_index <= expected * 1.1);
+    /// ```
+    pub fn estimate_jaccard_cardinality(&self, other: &Self) -> f32 {
+        let (union_estimate, left_estimate, right_estimate) =
+            self.estimate_intersection_and_sets_cardinality(other);
+        (left_estimate + right_estimate - union_estimate) / union_estimate
     }
 
     #[inline(always)]
@@ -482,6 +656,12 @@ where
                 *target = value;
             });
         array
+    }
+
+    #[inline(always)]
+    /// Returns the array of words of the HyperLogLog counter.
+    pub fn get_words(&self) -> [u32; ceil(1 << PRECISION, 32 / BITS)] {
+        self.words.clone()
     }
 
     #[inline(always)]

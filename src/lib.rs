@@ -11,9 +11,9 @@
 //!
 //! ## No STD
 //! This crate is designed to be as lightweight as possible and does not require any dependencies from the Rust standard library (std). As a result, it can be used in a bare metal or embedded context, where std may not be available.
-//! 
+//!
 //! All functionality of this crate can be used without std, and the prelude module provides easy access to all the relevant types and traits. If you encounter any issues using this crate in a no_std environment, please don't hesitate to open an issue or submit a pull request on GitHub.
-//! 
+//!
 //! ## Usage
 //!
 //! Add this to your `Cargo.toml`:
@@ -48,7 +48,7 @@
 //! assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
 //!         estimated_cardinality <= 3.0_f32 * 1.1);
 //! ```
-//! 
+//!
 //! ## Fuzzing
 //! Fuzzing is a technique for finding security vulnerabilities and bugs in software by
 //! providing random input to the code. It can be an effective way of uncovering issues
@@ -59,7 +59,7 @@
 //! difficult to detect through traditional testing methods. We make sure that our fuzz targets
 //! are continuously updated and run against the latest versions of the library to ensure that
 //! any vulnerabilities or bugs are quickly identified and addressed.
-//! 
+//!
 //! [Learn more about how we fuzz here](https://github.com/LucaCappelletti94/hyperloglog-rs/tree/main/fuzz)
 //!
 //! ## References
@@ -72,9 +72,10 @@
 #![feature(const_fn_floating_point_arithmetic)]
 
 pub mod hyperloglog;
-pub mod log;
-pub mod utils;
 pub mod iter;
+pub mod log;
+pub mod serde;
+pub mod utils;
 
 pub use crate::hyperloglog::HyperLogLog;
 
@@ -82,5 +83,6 @@ pub mod prelude {
     pub use crate::hyperloglog::*;
     pub use crate::iter::*;
     pub use crate::utils::*;
+    pub use crate::serde::*;
     pub use core::ops::{BitOr, BitOrAssign};
 }
