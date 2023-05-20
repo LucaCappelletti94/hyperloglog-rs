@@ -661,7 +661,7 @@ where
     #[inline(always)]
     /// Returns the array of words of the HyperLogLog counter.
     pub fn get_words(&self) -> [u32; ceil(1 << PRECISION, 32 / BITS)] {
-        self.words.clone()
+        self.words
     }
 
     #[inline(always)]

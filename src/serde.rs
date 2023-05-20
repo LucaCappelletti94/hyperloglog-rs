@@ -76,7 +76,7 @@ where
     /// ```
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let mut hll = Self {
-            words: deserializer.deserialize_seq(U32ArrayVisitor::default())?,
+            words: deserializer.deserialize_seq(U32ArrayVisitor)?,
             number_of_zero_register: 0,
         };
 
