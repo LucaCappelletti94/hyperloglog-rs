@@ -73,6 +73,7 @@
 
 pub mod hyperloglog;
 pub mod iter;
+pub mod bitor;
 pub mod log;
 pub mod serde;
 pub mod utils;
@@ -82,6 +83,7 @@ pub use crate::hyperloglog::HyperLogLog;
 pub mod prelude {
     pub use crate::hyperloglog::*;
     pub use crate::iter::*;
+    pub use crate::bitor::*;
     pub use crate::utils::*;
     pub use crate::serde::*;
     pub use core::ops::{BitOr, BitOrAssign};

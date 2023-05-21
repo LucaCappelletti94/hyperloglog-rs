@@ -78,7 +78,7 @@ pub trait HyperLogLogIterator<const PRECISION: usize, const BITS: usize> {
     /// hll3.insert(&5);
     /// hll3.insert(&6);
     ///
-    /// let hll_union = vec![hll1, hll2, hll3].into_iter().union();
+    /// let hll_union = vec![hll1, hll2, hll3].iter().union();
     ///
     /// assert!(hll_union.estimate_cardinality() - 6.0 < 1.0, "Expected 6.0, got {}", hll_union.estimate_cardinality());
     /// ```
@@ -87,17 +87,17 @@ pub trait HyperLogLogIterator<const PRECISION: usize, const BITS: usize> {
         [(); ceil(1 << PRECISION, 32 / BITS)]:;
 }
 
-impl<const PRECISION: usize, const BITS: usize, I> HyperLogLogIterator<PRECISION, BITS> for I
+impl<const PRECISION: usize, const BITS: usize, I, C> HyperLogLogIterator<PRECISION, BITS> for I
 where
-    I: Iterator<Item = HyperLogLog<PRECISION, BITS>>,
+    I: Iterator<Item = C>,
+    HyperLogLog<PRECISION, BITS>: BitOr<C, Output = HyperLogLog<PRECISION, BITS>>,
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
-{
+{   
+    #[inline(always)]
     fn union(self) -> HyperLogLog<PRECISION, BITS>
     where
         [(); ceil(1 << PRECISION, 32 / BITS)]:,
     {
-        self.fold(HyperLogLog::<PRECISION, BITS>::default(), |acc, hll| {
-            acc | hll
-        })
+        self.fold(HyperLogLog::default(), |acc, hll| acc | hll)
     }
 }
