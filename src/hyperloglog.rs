@@ -322,8 +322,8 @@ where
     }
 
     #[inline(always)]
-    /// Returns an estimate of the cardinality of the two HLL counters intersection.
-    fn estimate_intersection_and_sets_cardinality(&self, other: &Self) -> (f32, f32, f32) {
+    /// Returns an estimate of the cardinality of the two HLL counters union.
+    fn estimate_union_and_sets_cardinality(&self, other: &Self) -> (f32, f32, f32) {
         let mut raw_union_estimate = 0.0;
         let mut raw_left_estimate = 0.0;
         let mut raw_right_estimate = 0.0;
@@ -391,7 +391,7 @@ where
     /// ```
     pub fn estimate_intersection_cardinality(&self, other: &Self) -> f32 {
         let (union_estimate, left_estimate, right_estimate) =
-            self.estimate_intersection_and_sets_cardinality(other);
+            self.estimate_union_and_sets_cardinality(other);
         left_estimate + right_estimate - union_estimate
     }
 
@@ -435,7 +435,7 @@ where
     /// ```
     pub fn estimate_jaccard_cardinality(&self, other: &Self) -> f32 {
         let (union_estimate, left_estimate, right_estimate) =
-            self.estimate_intersection_and_sets_cardinality(other);
+            self.estimate_union_and_sets_cardinality(other);
         ((left_estimate + right_estimate) / union_estimate - 1.0)
             .max(0.0)
             .min(1.0)
