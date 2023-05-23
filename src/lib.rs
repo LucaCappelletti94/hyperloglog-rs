@@ -79,6 +79,7 @@ pub mod serde;
 pub mod utils;
 
 pub use crate::hyperloglog::HyperLogLog;
+pub use crate::hyperloglog::EstimatedUnionCardinalities;
 
 pub mod prelude {
     pub use crate::hyperloglog::*;
