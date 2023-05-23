@@ -13,7 +13,6 @@ pub struct EstimatedUnionCardinalities {
 }
 
 impl EstimatedUnionCardinalities {
-
     /// Returns the estimated cardinality of the left set.
     pub fn get_left_cardinality(&self) -> f32 {
         self.left_cardinality
@@ -36,7 +35,9 @@ impl EstimatedUnionCardinalities {
 
     /// Returns the estimated Jaccard index of the two sets.
     pub fn get_jaccard_index(&self) -> f32 {
-        ((self.left_cardinality + self.right_cardinality) / self.union_cardinality - 1.0)
+        ((self.left_cardinality + self.right_cardinality)
+            / (self.union_cardinality).max(f32::EPSILON)
+            - 1.0)
             .max(0.0)
             .min(1.0)
     }
@@ -434,7 +435,8 @@ where
     ///         intersection_cardinality <= 1.0 * 1.1);
     /// ```
     pub fn estimate_intersection_cardinality(&self, other: &Self) -> f32 {
-        self.estimate_union_and_sets_cardinality(other).get_intersection_cardinality()
+        self.estimate_union_and_sets_cardinality(other)
+            .get_intersection_cardinality()
     }
 
     #[inline(always)]
@@ -476,7 +478,8 @@ where
     ///         jaccard_index <= expected * 1.1);
     /// ```
     pub fn estimate_jaccard_cardinality(&self, other: &Self) -> f32 {
-        self.estimate_union_and_sets_cardinality(other).get_jaccard_index()
+        self.estimate_union_and_sets_cardinality(other)
+            .get_jaccard_index()
     }
 
     #[inline(always)]
