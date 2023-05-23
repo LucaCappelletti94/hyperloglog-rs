@@ -2,6 +2,46 @@ use crate::utils::{ceil, get_alpha, precompute_small_corrections};
 use core::hash::{Hash, Hasher};
 use siphasher::sip::SipHasher13;
 
+/// A struct for more readable code.
+pub struct EstimatedUnionCardinalities {
+    /// The estimated cardinality of the left set.
+    left_cardinality: f32,
+    /// The estimated cardinality of the right set.
+    right_cardinality: f32,
+    /// The estimated cardinality of the union of the two sets.
+    union_cardinality: f32,
+}
+
+impl EstimatedUnionCardinalities {
+
+    /// Returns the estimated cardinality of the left set.
+    pub fn get_left_cardinality(&self) -> f32 {
+        self.left_cardinality
+    }
+
+    /// Returns the estimated cardinality of the right set.
+    pub fn get_right_cardinality(&self) -> f32 {
+        self.right_cardinality
+    }
+
+    /// Returns the estimated cardinality of the union of the two sets.
+    pub fn get_union_cardinality(&self) -> f32 {
+        self.union_cardinality
+    }
+
+    /// Returns the estimated cardinality of the intersection of the two sets.
+    pub fn get_intersection_cardinality(&self) -> f32 {
+        self.left_cardinality + self.right_cardinality - self.union_cardinality
+    }
+
+    /// Returns the estimated Jaccard index of the two sets.
+    pub fn get_jaccard_index(&self) -> f32 {
+        ((self.left_cardinality + self.right_cardinality) / self.union_cardinality - 1.0)
+            .max(0.0)
+            .min(1.0)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 /// A probabilistic algorithm for estimating the number of distinct elements in a set.
 ///
@@ -323,7 +363,7 @@ where
 
     #[inline(always)]
     /// Returns an estimate of the cardinality of the two HLL counters union.
-    fn estimate_union_and_sets_cardinality(&self, other: &Self) -> (f32, f32, f32) {
+    pub fn estimate_union_and_sets_cardinality(&self, other: &Self) -> EstimatedUnionCardinalities {
         let mut raw_union_estimate = 0.0;
         let mut raw_left_estimate = 0.0;
         let mut raw_right_estimate = 0.0;
@@ -355,7 +395,11 @@ where
         let right_estimate =
             self.adjust_estimate(raw_right_estimate, other.get_number_of_zero_registers());
 
-        (union_estimate, left_estimate, right_estimate)
+        EstimatedUnionCardinalities {
+            left_cardinality: left_estimate,
+            right_cardinality: right_estimate,
+            union_cardinality: union_estimate,
+        }
     }
 
     #[inline(always)]
@@ -390,9 +434,7 @@ where
     ///         intersection_cardinality <= 1.0 * 1.1);
     /// ```
     pub fn estimate_intersection_cardinality(&self, other: &Self) -> f32 {
-        let (union_estimate, left_estimate, right_estimate) =
-            self.estimate_union_and_sets_cardinality(other);
-        left_estimate + right_estimate - union_estimate
+        self.estimate_union_and_sets_cardinality(other).get_intersection_cardinality()
     }
 
     #[inline(always)]
@@ -434,11 +476,7 @@ where
     ///         jaccard_index <= expected * 1.1);
     /// ```
     pub fn estimate_jaccard_cardinality(&self, other: &Self) -> f32 {
-        let (union_estimate, left_estimate, right_estimate) =
-            self.estimate_union_and_sets_cardinality(other);
-        ((left_estimate + right_estimate) / union_estimate - 1.0)
-            .max(0.0)
-            .min(1.0)
+        self.estimate_union_and_sets_cardinality(other).get_jaccard_index()
     }
 
     #[inline(always)]
