@@ -1012,6 +1012,10 @@ where
     /// 
     /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/triple_overlap.drawio.png?raw=true)
     /// 
+    /// Very similarly, for the case of vectors of two elements:
+    /// 
+    /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/tuple_overlap.drawio.png?raw=true)
+    /// 
     /// In this crate, we make available the singular method to compute the estimated overlapping
     /// and differences cardinality matrices and vectors. In some instances, it is necessary to
     /// compute both of these matrices and vectors at once, and as they have a lot of common
