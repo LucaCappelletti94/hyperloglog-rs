@@ -84,9 +84,3 @@ We would like to thank the GitHub user [Tabac](https://github.com/tabac) for the
 Some relevant citations to learn more:
 
 * [Flajolet, Philippe](https://en.wikipedia.org/wiki/Philippe_Flajolet), Éric Fusy, Olivier Gandouet, and Frédéric Meunier. "[Hyperloglog: the analysis of a near-optimal cardinality estimation algorithm.](https://hal.science/file/index/docid/406166/filename/FlFuGaMe07.pdf)" In Proceedings of the 2007 conference on analysis of algorithms, pp. 127-146. 2007.
-
-* Heule, Stefan, Marc Nunkesser, and Alexander Hall. "[HyperLogLog in practice: algorithmic engineering of a state of the art cardinality estimation algorithm.](https://static.googleusercontent.com/media/research.google.com/it//pubs/archive/40671.pdf)" In Proceedings of the 16th International Conference on Extending Database Technology, pp. 683-692. 2013.
-
-* Heule, Stefan, and Marc Nunkesser. "[HyperLogLog++: Google's take on engineering HLL.](https://agkn.wordpress.com/2013/01/24/hyperloglog-googles-take-on-engineering-hll/)" In Proceedings of the 2013 ACM SIGMOD international conference on Management of data, pp. 1247-1250. 2013.
-
-* Durand, Mathias, and [Philippe Flajolet](https://en.wikipedia.org/wiki/Philippe_Flajolet). "[Loglog counting of large cardinalities.](https://link.springer.com/chapter/10.1007/978-3-540-39658-1_55)" In Algorithms-ESA'03, pp. 605-617. Springer Berlin Heidelberg, 2003.
