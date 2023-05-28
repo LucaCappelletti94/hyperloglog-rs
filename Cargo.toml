@@ -1,6 +1,6 @@
 [package]
 name = "hyperloglog-rs"
-version = "0.1.19"
+version = "0.1.20"
 edition = "2021"
 authors = ["Luca Cappelletti <cappelletti.luca94@gmail.com>"]
 description = "A Rust implementation of HyperLogLog trying to be parsimonious with memory."
@@ -35,5 +35,5 @@ opt-level = 3
 [profile.release]
 overflow-checks = false   # Disable integer overflow checks.
 debug = false            # Include debug info.
-debug-assertions = true  # Enables debug assertions.
+debug-assertions = false  # Enables debug assertions.
 opt-level = 3
