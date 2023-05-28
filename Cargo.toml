@@ -1,6 +1,6 @@
 [package]
 name = "hyperloglog-rs"
-version = "0.1.21"
+version = "0.1.22"
 edition = "2021"
 authors = ["Luca Cappelletti <cappelletti.luca94@gmail.com>"]
 description = "A Rust implementation of HyperLogLog trying to be parsimonious with memory."
@@ -10,11 +10,9 @@ readme = "README.md"
 license = "MIT"
 keywords = ["hyperloglog", "probabilistic", "algorithm", "cardinality", "estimation",]
 categories = [
-    "Data structures",
-    "Algorithms",
-    "Mathematics",
-    "Performance and optimization",
-    "Probability and statistics",
+    "no-std",
+    "algorithms",
+    "science"
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
