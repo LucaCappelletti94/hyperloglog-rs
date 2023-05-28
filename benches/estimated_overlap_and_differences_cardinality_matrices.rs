@@ -39,48 +39,48 @@ fn populate_vectors<const N: usize>() -> ([HyperLogLog<4, 4>; N], [HyperLogLog<4
 }
 
 #[bench]
-fn bench_estimated_overlap_cardinality_matrix_2(b: &mut Bencher) {
+fn bench_estimated_overlap_and_differences_cardinality_matrices_2(b: &mut Bencher) {
     let (left, right) = populate_vectors::<2>();
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(HyperLogLog::estimated_overlap_cardinality_matrix(
+        black_box(HyperLogLog::estimated_overlap_and_differences_cardinality_matrices(
             &left, &right,
         ));
     });
 }
 
 #[bench]
-fn bench_estimated_overlap_cardinality_matrix_3(b: &mut Bencher) {
+fn bench_estimated_overlap_and_differences_cardinality_matrices_3(b: &mut Bencher) {
     let (left, right) = populate_vectors::<3>();
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(HyperLogLog::estimated_overlap_cardinality_matrix(
+        black_box(HyperLogLog::estimated_overlap_and_differences_cardinality_matrices(
             &left, &right,
         ));
     });
 }
 
 #[bench]
-fn bench_estimated_overlap_cardinality_matrix_4(b: &mut Bencher) {
+fn bench_estimated_overlap_and_differences_cardinality_matrices_4(b: &mut Bencher) {
     let (left, right) = populate_vectors::<4>();
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(HyperLogLog::estimated_overlap_cardinality_matrix(
+        black_box(HyperLogLog::estimated_overlap_and_differences_cardinality_matrices(
             &left, &right,
         ));
     });
 }
 
 #[bench]
-fn bench_estimated_overlap_cardinality_matrix_5(b: &mut Bencher) {
+fn bench_estimated_overlap_and_differences_cardinality_matrices_5(b: &mut Bencher) {
     let (left, right) = populate_vectors::<5>();
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(HyperLogLog::estimated_overlap_cardinality_matrix(
+        black_box(HyperLogLog::estimated_overlap_and_differences_cardinality_matrices(
             &left, &right,
         ));
     });
