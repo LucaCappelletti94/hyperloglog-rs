@@ -183,8 +183,9 @@ where
     /// assert_eq!(union.get_registers(), expected, "The registers are not the expected ones, got {:?} instead of {:?}.", union.get_registers(), expected);
     /// ```
     ///
-    fn bitor(self, rhs: Self) -> Self {
-        self | &rhs
+    fn bitor(mut self, rhs: Self) -> Self {
+        self.bitor_assign(rhs);
+        self
     }
 }
 
