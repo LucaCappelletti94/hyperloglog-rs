@@ -1007,6 +1007,11 @@ where
     /// We expect the elements of the left and right arrays to be increasingly contained in the next one.
     /// 
     /// # Examples
+    /// In the following illustration, we show that for two vectors left and right of three elements,
+    /// we expect to compute the exclusively overlap matrix $A_{ij}$ and the exclusively differences vectors $B_i$.    
+    /// 
+    /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/triple_overlap.drawio.png?raw=true)
+    /// 
     /// In this crate, we make available the singular method to compute the estimated overlapping
     /// and differences cardinality matrices and vectors. In some instances, it is necessary to
     /// compute both of these matrices and vectors at once, and as they have a lot of common
