@@ -64,8 +64,7 @@
 //!
 //! ## References
 //!
-//! * Flajolet, Philippe, et al. "HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm." DMTCS Proceedings 1 (2007): 127-146.
-//! * Heule, Stefan, Marc Nunkesser, and Alexander Hall. "HyperLogLog in practice: algorithmic engineering of a state of the art cardinality estimation algorithm." Proceedings of the 16th international conference on Extending database technology. 2013.
+//! * [Flajolet, Philippe](https://en.wikipedia.org/wiki/Philippe_Flajolet), Éric Fusy, Olivier Gandouet, and Frédéric Meunier. "[Hyperloglog: the analysis of a near-optimal cardinality estimation algorithm.](https://hal.science/file/index/docid/406166/filename/FlFuGaMe07.pdf)" In Proceedings of the 2007 conference on analysis of algorithms, pp. 127-146. 2007.
 
 #![feature(generic_const_exprs)]
 #![feature(const_float_bits_conv)]
