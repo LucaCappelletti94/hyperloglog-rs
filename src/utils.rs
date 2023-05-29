@@ -62,11 +62,11 @@ pub const fn ceil(numerator: usize, denominator: usize) -> usize {
 pub const fn precompute_small_corrections<const NUMBER_OF_REGISTERS: usize>(
 ) -> [f32; NUMBER_OF_REGISTERS] {
     let mut small_corrections = [0_f32; NUMBER_OF_REGISTERS];
-    let number_of_possible_registers = NUMBER_OF_REGISTERS;
     let mut i = 0;
-    while i < number_of_possible_registers {
+    // We can skip the last value in the small range correction array, because it is always 0.
+    while i < NUMBER_OF_REGISTERS - 1 {
         small_corrections[i] =
-            NUMBER_OF_REGISTERS as f32 * log(NUMBER_OF_REGISTERS as f64 / (i + 1) as f64) as f32;
+            (NUMBER_OF_REGISTERS as f64 * log(NUMBER_OF_REGISTERS as f64 / (i + 1) as f64)) as f32;
         i += 1;
     }
     small_corrections
