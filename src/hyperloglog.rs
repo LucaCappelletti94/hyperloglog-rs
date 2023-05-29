@@ -97,7 +97,7 @@ impl EstimatedUnionCardinalities {
     ///
     /// ```
     pub fn get_intersection_cardinality(&self) -> f32 {
-        self.left_cardinality + self.right_cardinality - self.union_cardinality
+        (self.left_cardinality + self.right_cardinality - self.union_cardinality).max(0.0)
     }
 
     #[inline(always)]
@@ -116,7 +116,7 @@ impl EstimatedUnionCardinalities {
     ///
     /// ```
     pub fn get_left_difference_cardinality(&self) -> f32 {
-        self.left_cardinality - self.get_intersection_cardinality()
+        (self.left_cardinality - self.get_intersection_cardinality()).max(0.0)
     }
 
     #[inline(always)]
@@ -135,7 +135,7 @@ impl EstimatedUnionCardinalities {
     ///
     /// ```
     pub fn get_right_difference_cardinality(&self) -> f32 {
-        self.right_cardinality - self.get_intersection_cardinality()
+        (self.right_cardinality - self.get_intersection_cardinality()).max(0.0)
     }
 
     #[inline(always)]
@@ -154,7 +154,8 @@ impl EstimatedUnionCardinalities {
     ///
     /// ```
     pub fn get_symmetric_difference_cardinality(&self) -> f32 {
-        self.left_cardinality + self.right_cardinality - 2.0 * self.get_intersection_cardinality()
+        (self.left_cardinality + self.right_cardinality - 2.0 * self.get_intersection_cardinality())
+            .max(0.0)
     }
 
     #[inline(always)]
@@ -997,55 +998,55 @@ where
     /// # Arguments
     /// * `left` - Array of `L` HyperLogLog counters describing increasingly large surroundings of a first element.
     /// * `right` - Array of `R` HyperLogLog counters describing increasingly large surroundings of a second element.
-    /// 
+    ///
     /// # Returns
     /// * `overlap_cardinality_matrix` - Matrix of estimated overlapping cardinalities between the elements of the left and right arrays.
     /// * `left_difference_cardinality_vector` - Vector of estimated difference cardinalities between the elements of the left array and the last element of the right array.
     /// * `right_difference_cardinality_vector` - Vector of estimated difference cardinalities between the elements of the right array and the last element of the left array.
-    /// 
+    ///
     /// # Implementative details
     /// We expect the elements of the left and right arrays to be increasingly contained in the next one.
-    /// 
+    ///
     /// # Examples
     /// In the following illustration, we show that for two vectors left and right of three elements,
     /// we expect to compute the exclusively overlap matrix $A_{ij}$ and the exclusively differences vectors $B_i$.    
-    /// 
+    ///
     /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/triple_overlap.drawio.png?raw=true)
-    /// 
+    ///
     /// Very similarly, for the case of vectors of two elements:
-    /// 
+    ///
     /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/tuple_overlap.drawio.png?raw=true)
-    /// 
+    ///
     /// In this crate, we make available the singular method to compute the estimated overlapping
     /// and differences cardinality matrices and vectors. In some instances, it is necessary to
     /// compute both of these matrices and vectors at once, and as they have a lot of common
     /// computations, it is more efficient to compute them at once. We expect that the two methods
     /// provide the same results, and we test this in the following example.
-    /// 
+    ///
     /// In this example, we populate randomly two arrays of two HLL each, and we compute the
     /// estimated overlapping and differences cardinality matrices and vectors using the method
     /// computing the values at once, and we compare them to the values computed using the methods
     /// which compute the values separately.
-    /// 
+    ///
     /// ```rust
     /// # use hyperloglog_rs::HyperLogLog;
-    /// 
+    ///
     /// for k in 0..1000 {
     ///     let mut left = [HyperLogLog::<12, 6>::new(), HyperLogLog::<12, 6>::new()];
     ///     let mut right = [HyperLogLog::<12, 6>::new(), HyperLogLog::<12, 6>::new()];
-    /// 
+    ///
     ///     for i in 0..2 {
     ///          for j in 0..100 {
     ///             left[i].insert((k + 1) * (i + 1) * (j + 1) % 50);
     ///             right[i].insert((k + 1) * (i + 1) * (j + 1) % 30);
     ///         }
     ///     }
-    /// 
+    ///
     ///     let left_tmp = left[0] | left[1];
     ///     left[1] = left_tmp;
     ///     let right_tmp = right[0] | right[1];
     ///     right[1] = right_tmp;
-    /// 
+    ///
     ///     let (overlap_cardinality_matrix, left_difference_cardinality_vector, right_difference_cardinality_vector) =
     ///         HyperLogLog::<12, 6>::estimated_overlap_and_differences_cardinality_matrices(&left, &right);
     ///     let overlap_cardinality_matrix_singular = HyperLogLog::estimated_overlap_cardinality_matrix(&left, &right);
@@ -1063,7 +1064,7 @@ where
     ///             );
     ///         }
     ///     }
-    /// 
+    ///
     /// for i in 0..2 {
     ///     assert!(
     ///         left_difference_cardinality_vector[i] >= left_difference_cardinality_vector_singular[i] * 0.9 - 0.1 &&
@@ -1071,7 +1072,7 @@ where
     ///         "The value of the left difference cardinality vector at position {} is not the same when computed at once and separately.",
     ///         i
     ///     );
-    /// 
+    ///
     ///     assert!(
     ///         right_difference_cardinality_vector[i] >= right_difference_cardinality_vector_singular[i] * 0.9 - 0.1 &&
     ///         right_difference_cardinality_vector[i] <= right_difference_cardinality_vector_singular[i] * 1.1 + 0.1,
@@ -1085,10 +1086,10 @@ where
     ///         right_difference_cardinality_vector[i]
     ///     );
     /// }
-    /// 
+    ///
     /// }
-    /// 
-    /// ``` 
+    ///
+    /// ```
     ///
     pub fn estimated_overlap_and_differences_cardinality_matrices<
         const L: usize,
@@ -1131,7 +1132,7 @@ where
 
         for i in 0..(L - 1) {
             for j in 0..(R - 1) {
-                overlap_cardinality_matrix[i][j] = left[i]
+                overlap_cardinality_matrix[i][j] = (left[i]
                     .estimate_intersection_cardinality(&right[j])
                     // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
                     // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
@@ -1139,23 +1140,26 @@ where
                     - overlap_cardinality_matrix[0..(i+1)]
                         .iter()
                         .map(|row| row[0..(j+1)].iter().sum::<f32>())
-                        .sum::<f32>();
+                        .sum::<f32>())
+                .max(0.0);
             }
 
             // We handle separately the case for j = R - 1, since we need to also compute
             // the difference cardinality of the left HLL.
             let estimate = left[i].estimate_union_and_sets_cardinality(&right[R - 1]);
-            left_difference_cardinality_vector[i] =
-                estimate.get_left_difference_cardinality() - left_comulative_estimated_cardinality;
+            left_difference_cardinality_vector[i] = (estimate.get_left_difference_cardinality()
+                - left_comulative_estimated_cardinality)
+                .max(0.0);
             left_comulative_estimated_cardinality += left_difference_cardinality_vector[i];
-            overlap_cardinality_matrix[i][R - 1] = estimate.get_intersection_cardinality()
+            overlap_cardinality_matrix[i][R - 1] = (estimate.get_intersection_cardinality()
                 // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
                 // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
                 // with a smaller index than the current one.
                 - overlap_cardinality_matrix[0..(i+1)]
                     .iter()
                     .map(|row| row[0..R].iter().sum::<f32>())
-                    .sum::<f32>();
+                    .sum::<f32>())
+            .max(0.0);
         }
 
         // We handle separately the case for i = L - 1, since we need to also compute
@@ -1165,26 +1169,30 @@ where
 
         for j in 0..(R - 1) {
             let estimate = left[L - 1].estimate_union_and_sets_cardinality(&right[j]);
-            right_difference_cardinality_vector[j] = estimate.get_right_difference_cardinality()
-                - right_comulative_estimated_cardinality;
+            right_difference_cardinality_vector[j] = (estimate.get_right_difference_cardinality()
+                - right_comulative_estimated_cardinality)
+                .max(0.0);
             right_comulative_estimated_cardinality += right_difference_cardinality_vector[j];
-            overlap_cardinality_matrix[L - 1][j] = estimate.get_intersection_cardinality()
+            overlap_cardinality_matrix[L - 1][j] = (estimate.get_intersection_cardinality()
                 // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
                 // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
                 // with a smaller index than the current one.
                 - overlap_cardinality_matrix[0..L]
                     .iter()
                     .map(|row| row[0..(j+1)].iter().sum::<f32>())
-                    .sum::<f32>();
+                    .sum::<f32>())
+            .max(0.0);
         }
 
         // We handle separately the case for i = L - 1 and j = R - 1, since we need to also compute
         // the difference cardinality of the left and right HLL.
         let estimate = left[L - 1].estimate_union_and_sets_cardinality(&right[R - 1]);
-        left_difference_cardinality_vector[L - 1] =
-            estimate.get_left_difference_cardinality() - left_comulative_estimated_cardinality;
-        right_difference_cardinality_vector[R - 1] =
-            estimate.get_right_difference_cardinality() - right_comulative_estimated_cardinality;
+        left_difference_cardinality_vector[L - 1] = (estimate.get_left_difference_cardinality()
+            - left_comulative_estimated_cardinality)
+            .max(0.0);
+        right_difference_cardinality_vector[R - 1] = (estimate.get_right_difference_cardinality()
+            - right_comulative_estimated_cardinality)
+            .max(0.0);
 
         (
             overlap_cardinality_matrix,
@@ -1510,7 +1518,7 @@ where
 
         for i in 0..L {
             for j in 0..R {
-                overlap_cardinality_matrix[i][j] = left[i]
+                overlap_cardinality_matrix[i][j] = (left[i]
                     .estimate_intersection_cardinality(&right[j])
                     // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
                     // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
@@ -1518,7 +1526,8 @@ where
                     - overlap_cardinality_matrix[0..(i+1)]
                         .iter()
                         .map(|row| row[0..(j+1)].iter().sum::<f32>())
-                        .sum::<f32>();
+                        .sum::<f32>())
+                .max(0.0);
             }
         }
 
@@ -1635,12 +1644,13 @@ where
         let mut comulative_estimated_cardinality = 0.0;
 
         for i in 0..N {
-            difference_cardinality_vector[i] = array[i]
+            difference_cardinality_vector[i] = (array[i]
                 .estimate_difference_cardinality(other)
                 // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
                 // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
                 // with a smaller index than the current one.
-                - comulative_estimated_cardinality;
+                - comulative_estimated_cardinality)
+                .max(0.0);
 
             comulative_estimated_cardinality += difference_cardinality_vector[i];
         }
