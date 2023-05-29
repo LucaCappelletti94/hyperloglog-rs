@@ -102,6 +102,28 @@ fuzz_target!(|data: FuzzCase| {
                     restored_right, right,
                     "Restored right should be equal to the original right"
                 );
+
+                // If there are k registers equal to zero, then the cardinality estimate
+                // must be greater of equal to number of registers minus k.
+
+                let left_zero_registers = left_registers.iter().filter(|&&x| x == 0).count();
+                let right_zero_registers = right_registers.iter().filter(|&&x| x == 0).count();
+
+                assert!(
+                    left.estimate_cardinality() >= ((1 << PRECISION) - left_zero_registers) as f32,
+                    "Estimate should be greater or equal to the number of registers minus the number of zero registers. Estimate: {}, number of zero registers: {}, number of registers: {}",
+                    left.estimate_cardinality(),
+                    left_zero_registers,
+                    1 << PRECISION
+                );
+
+                assert!(
+                    right.estimate_cardinality() >= ((1 << PRECISION) - right_zero_registers) as f32,
+                    "Estimate should be greater or equal to the number of registers minus the number of zero registers. Estimate: {}, number of zero registers: {}, number of registers: {}",
+                    right.estimate_cardinality(),
+                    right_zero_registers,
+                    1 << PRECISION
+                );
             }
             RandomCommand::ResetCounter => {
                 idx = 0;
