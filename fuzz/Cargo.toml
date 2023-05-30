@@ -26,3 +26,27 @@ name = "registers_symmetry"
 path = "fuzz_targets/registers_symmetry.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "sketching"
+path = "fuzz_targets/sketching.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "intersection_cardinality"
+path = "fuzz_targets/intersection_cardinality.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "cardinality"
+path = "fuzz_targets/cardinality.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "method_execution"
+path = "fuzz_targets/method_execution.rs"
+test = false
+doc = false
