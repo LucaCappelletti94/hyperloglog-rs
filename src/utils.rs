@@ -129,7 +129,7 @@ pub const fn get_alpha(number_of_registers: usize) -> f32 {
 /// # use hyperloglog_rs::utils::linear_counting_threshold;
 ///
 /// assert_eq!(linear_counting_threshold(4), 10.0);
-/// assert_eq!(linear_counting_threshold(5), 10.0);
+/// assert_eq!(linear_counting_threshold(5), 20.0);
 /// assert_eq!(linear_counting_threshold(6), 40.0);
 /// assert_eq!(linear_counting_threshold(7), 80.0);
 /// ```
