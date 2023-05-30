@@ -1596,7 +1596,7 @@ where
         let (mut hash, index) = self.get_hash_and_index(&rhs);
 
         // Shift left the bits of the index.
-        hash = hash << PRECISION;
+        hash <<= PRECISION;
 
         if BITS < 6 {
             hash |= 1 << (64 - (1 << BITS) + 1);
