@@ -50,16 +50,16 @@ pub const fn ceil(numerator: usize, denominator: usize) -> usize {
 ///
 /// # Examples
 /// ```
-/// use hyperloglog_rs::utils::precompute_small_corrections;
+/// use hyperloglog_rs::utils::precompute_linear_counting;
 /// use hyperloglog_rs::log::log;
 ///
 /// const NUMBER_OF_REGISTERS: usize = 16;
-/// let small_corrections = precompute_small_corrections::<NUMBER_OF_REGISTERS>();
+/// let small_corrections = precompute_linear_counting::<NUMBER_OF_REGISTERS>();
 /// assert_eq!(small_corrections.len(), NUMBER_OF_REGISTERS);
 /// assert_eq!(small_corrections[0], NUMBER_OF_REGISTERS as f32 * log(NUMBER_OF_REGISTERS as f64) as f32);
 /// assert_eq!(small_corrections[1], NUMBER_OF_REGISTERS as f32 * log(NUMBER_OF_REGISTERS as f64 / 2.0_f64) as f32);
 /// ```
-pub const fn precompute_small_corrections<const NUMBER_OF_REGISTERS: usize>(
+pub const fn precompute_linear_counting<const NUMBER_OF_REGISTERS: usize>(
 ) -> [f32; NUMBER_OF_REGISTERS] {
     let mut small_corrections = [0_f32; NUMBER_OF_REGISTERS];
     let mut i = 0;
@@ -109,5 +109,48 @@ pub const fn get_alpha(number_of_registers: usize) -> f32 {
         32 => 0.697,
         64 => 0.709,
         _ => 0.7213 / (1.0 + 1.079 / number_of_registers as f32),
+    }
+}
+
+#[inline]
+/// Returns an empirically determined threshold to decide on
+/// the use of linear counting.
+///
+/// # Arguments
+/// * `precision`: The precision of the HyperLogLog algorithm.
+///
+/// # References
+/// This data is made available by the authors of the paper
+/// in [this Google Docs document](https://docs.google.com/document/d/1gyjfMHy43U9OWBXxfaeG-3MjGzejW1dlpyMwEYAAWEI/view?fullscreen).
+///
+/// # Examples
+///
+/// ```rust
+/// # use hyperloglog_rs::utils::linear_counting_threshold;
+///
+/// assert_eq!(linear_counting_threshold(4), 10.0);
+/// assert_eq!(linear_counting_threshold(5), 10.0);
+/// assert_eq!(linear_counting_threshold(6), 40.0);
+/// assert_eq!(linear_counting_threshold(7), 80.0);
+/// ```
+pub const fn linear_counting_threshold(precision: usize) -> f32 {
+    match precision {
+        4 => 10.0,
+        5 => 20.0,
+        6 => 40.0,
+        7 => 80.0,
+        8 => 220.0,
+        9 => 400.0,
+        10 => 900.0,
+        11 => 1800.0,
+        12 => 3100.0,
+        13 => 6500.0,
+        14 => 11500.0,
+        15 => 20000.0,
+        16 => 50000.0,
+        17 => 120000.0,
+        18 => 350000.0,
+        // The documentation for the HyperLogLog algorithm only provides empirically determined thresholds for precisions from 4 to 18.
+        _ => unreachable!(),
     }
 }

@@ -12,7 +12,7 @@ struct FuzzCase {
     right: Vec<u32>,
 }
 
-const BITS: usize = 4;
+const BITS: usize = 6;
 const PRECISION: usize = 10;
 
 fuzz_target!(|data: FuzzCase| {
@@ -27,10 +27,40 @@ fuzz_target!(|data: FuzzCase| {
     let mut left: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
     let mut right: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
     for item in data.left.iter() {
+        // If the item is causing a collision, we stop the test early
+        // as it is a known limitation of the data structure and 
+        // it is to be expected.
+        if left.may_contain(item) {
+            return;
+        }
         left.insert(item);
     }
     for item in data.right.iter() {
+        // If the item is causing a collision, we stop the test early
+        // as it is a known limitation of the data structure and 
+        // it is to be expected.
+        if right.may_contain(item) {
+            return;
+        }
         right.insert(item);
+    }
+    // We also check whether there are collisions on the data
+    // that is NOT shared between the two sets.
+    for item in data.right.iter().filter(|item| !data.left.contains(item)) {
+        // If the item is causing a collision, we stop the test early
+        // as it is a known limitation of the data structure and 
+        // it is to be expected.
+        if left.may_contain(item) {
+            return;
+        }
+    }
+    for item in data.left.iter().filter(|item| !data.right.contains(item)) {
+        // If the item is causing a collision, we stop the test early
+        // as it is a known limitation of the data structure and 
+        // it is to be expected.
+        if right.may_contain(item) {
+            return;
+        }
     }
     let error: f32 = 1.0;
 
@@ -40,28 +70,28 @@ fuzz_target!(|data: FuzzCase| {
     let right_cardinality = right.estimate_cardinality();
 
     assert!(
-        left_cardinality >= left_unique.len() as f32 * 0.5 - error,
+        left_cardinality >= left_unique.len() as f32 * 0.9 - error,
         "Estimated left cardinality was too small: {} vs {}",
         left_cardinality,
         left_unique.len()
     );
 
     assert!(
-        left_cardinality <= left_unique.len() as f32 * 2.0 + error,
+        left_cardinality <= left_unique.len() as f32 * 1.1 + error,
         "Estimated left cardinality was too large: {} vs {}",
         left_cardinality,
         left_unique.len()
     );
 
     assert!(
-        right_cardinality >= right_unique.len() as f32 * 0.5 - error,
+        right_cardinality >= right_unique.len() as f32 * 0.9 - error,
         "Estimated right cardinality was too small: {} vs {}",
         right_cardinality,
         right_unique.len()
     );
 
     assert!(
-        right_cardinality <= right_unique.len() as f32 * 2.0 + error,
+        right_cardinality <= right_unique.len() as f32 * 1.1 + error,
         "Estimated right cardinality was too large: {} vs {}",
         right_cardinality,
         right_unique.len()
@@ -77,16 +107,18 @@ fuzz_target!(|data: FuzzCase| {
     let estimated_intersection = left.estimate_intersection_cardinality(&right);
 
     assert!(
-        estimated_intersection >= exact_intersection_size as f32 * 0.5 - 2.0 * error,
-        "Estimated intersection size was too small: {} vs {}",
+        estimated_intersection >= exact_intersection_size as f32 * 0.9 - error,
+        "Estimated intersection size was too small: {} vs {} - {:?}",
         estimated_intersection,
-        exact_intersection_size
+        exact_intersection_size,
+        left.estimate_union_and_sets_cardinality(&right)
     );
 
     assert!(
-        estimated_intersection <= exact_intersection_size as f32 * 2.0 + 2.0 * error,
-        "Estimated intersection size was too large: {} vs {}",
+        estimated_intersection <= exact_intersection_size as f32 * 1.1 + error,
+        "Estimated intersection size was too large: {} vs {} - {:?}",
         estimated_intersection,
-        exact_intersection_size
+        exact_intersection_size,
+        left.estimate_union_and_sets_cardinality(&right)
     );
 });

@@ -5,6 +5,9 @@
 
 This is a Rust library that provides an implementation of the HyperLogLog (HLL) algorithm, trying to be parsimonious with memory.
 
+This implementation already provides almost all the benefits available from [HyperLogLog++](https://static.googleusercontent.com/media/research.google.com/it//pubs/archive/40671.pdf). We **do not** intend to integrate the sparse registers feature, as the use cases for this library focus
+of cases where registers need to be a relatively small number and a dense set. Except for that, all other observations provided in the HLL++ paper are already implemented.
+
 ## What is HyperLogLog?
 HLL is a probabilistic algorithm that is used for estimating the cardinality of a set with very high accuracy while using a very small amount of memory. The algorithm was invented by Philippe Flajolet and Éric Fusy in 2007, and since then, it has been widely used in many fields, including database systems, search engines, and social networks.
 
@@ -30,13 +33,13 @@ hyperloglog = "0.1"
 and this to your crate root:
 
 ```rust
-use hyperloglog_rs::HyperLogLog;
+use hyperloglog_rs::prelude::*;
 ```
 
 ## Examples
 
 ```rust
-use hyperloglog_rs::HyperLogLog;
+use hyperloglog_rs::prelude::*;
 
 let mut hll = HyperLogLog::<14, 5>::new();
 hll.insert(&1);
@@ -78,7 +81,7 @@ Contributions from the community are highly appreciated and can help improve thi
 If you appreciate this project and would like to support its development, you can star the repository on GitHub or [consider making a financial contribution](https://github.com/sponsors/LucaCappelletti94). The project maintainer has set up a GitHub Sponsors page where you can make a recurring financial contribution to support the project's development. Any financial contribution, no matter how small, is greatly appreciated and helps ensure the continued development and maintenance of this project.
 
 ## Thanks
-We would like to thank the GitHub user [Tabac](https://github.com/tabac) for their implementation of HyperLogLog, which was very useful for learning and benchmarking this implementation. The goals of the two implementations are different, but Tabac's implementation already supports the HLL++ algorithm, go check it out if you need it. Their implementation can be found at [here](https://github.com/tabac/hyperloglog.rs).
+We would like to thank the GitHub user [Tabac](https://github.com/tabac) for their implementation of HyperLogLog, which was very useful for learning and benchmarking this implementation. Their implementation can be found at [here](https://github.com/tabac/hyperloglog.rs).
 
 ## Citations
 Some relevant citations to learn more:

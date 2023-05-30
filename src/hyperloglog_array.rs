@@ -266,6 +266,44 @@ where
     }
 }
 
+impl<const PRECISION: usize, const BITS: usize, const N: usize, H: Hash>
+    From<&[Vec<H>; N]> for HyperLogLogArray<PRECISION, BITS, N>
+where
+    [(); ceil(1 << PRECISION, 32 / BITS)]:,
+{
+    #[inline(always)]
+    /// Creates a new HyperLogLogArray from the given array of vectors of hashable items.
+    ///
+    /// # Arguments
+    /// * `items`: The array of vectors of hashable items to create the HyperLogLogArray from.
+    ///
+    /// # Returns
+    /// A new HyperLogLogArray from the given array of vectors of hashable items.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// #![feature(generic_const_exprs)]
+    /// use std::hash::Hash;
+    /// use hyperloglog_rs::prelude::*;
+    ///
+    /// let hll_array = HyperLogLogArray::<12, 6, 3>::from(&[
+    ///     vec![1, 2, 3],
+    ///     vec![4, 5, 6],
+    ///     vec![7, 8, 9],
+    /// ]);
+    /// ```
+    fn from(items: &[Vec<H>; N]) -> Self {
+        let mut array = [HyperLogLog::new(); N];
+        for (i, item) in items.iter().enumerate() {
+            for item in item.iter() {
+                array[i].insert(item);
+            }
+        }
+        Self { counters: array }
+    }
+}
+
 impl<const PRECISION: usize, const BITS: usize, const N: usize>
     From<Vec<HyperLogLog<PRECISION, BITS>>> for HyperLogLogArray<PRECISION, BITS, N>
 where
@@ -322,12 +360,10 @@ where
     /// ```rust
     /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
-    ///
-    /// let hll_array = HyperLogLogArray::<12, 6, 3>::from(&[
-    ///     HyperLogLog::new(),
-    ///     HyperLogLog::new(),
-    ///     HyperLogLog::new(),
-    /// ]);
+    /// 
+    /// let counters = vec![HyperLogLog::new(), HyperLogLog::new(), HyperLogLog::new()];
+    /// 
+    /// let hll_array = HyperLogLogArray::<12, 6, 3>::from(counters.as_slice());
     /// ```
     fn from(counters: &[HyperLogLog<PRECISION, BITS>]) -> Self {
         assert_eq!(counters.len(), N, concat!(
@@ -415,9 +451,9 @@ where
             "in the HyperLogLogArray."
         ));
         let mut array = [HyperLogLog::new(); N];
-        for (i, item) in items.into_iter().enumerate() {
-            for item in item.into_iter() {
-                array[i].insert(&item);
+        for (i, item) in items.iter().enumerate() {
+            for item in item.iter() {
+                array[i].insert(item);
             }
         }
         Self { counters: array }

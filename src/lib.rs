@@ -8,6 +8,11 @@
 //! determines the number of bits used to index a register, and `BITS` determines the number of bits used to represent
 //! the hashed value of an element. The optimal values of these constants depend on the expected number of distinct elements
 //! and the available memory.
+//! 
+//! This implementation already provides almost all the benefits available from [HyperLogLog++](https://static.googleusercontent.com/media/research.google.com/it//pubs/archive/40671.pdf).
+//! We **do not** intend to integrate the sparse registers feature, as the use cases for this library focus of cases
+//! where registers need to be a relatively small number and a dense set. Except for that, all
+//! other observations provided in the HLL++ paper are already implemented.
 //!
 //! ## No STD
 //! This crate is designed to be as lightweight as possible and does not require any dependencies from the Rust standard library (std). As a result, it can be used in a bare metal or embedded context, where std may not be available.
@@ -26,13 +31,13 @@
 //! and this to your crate root:
 //!
 //! ```rust
-//! use hyperloglog_rs::HyperLogLog;
+//! use hyperloglog_rs::prelude::*;
 //! ```
 //!
 //! ## Examples
 //!
 //! ```rust
-//! use hyperloglog_rs::HyperLogLog;
+//! use hyperloglog_rs::prelude::*;
 //!
 //! let mut hll = HyperLogLog::<14, 5>::new();
 //! hll.insert(&1);
@@ -65,7 +70,7 @@
 //! ## References
 //!
 //! * [Flajolet, Philippe](https://en.wikipedia.org/wiki/Philippe_Flajolet), Éric Fusy, Olivier Gandouet, and Frédéric Meunier. "[Hyperloglog: the analysis of a near-optimal cardinality estimation algorithm.](https://hal.science/file/index/docid/406166/filename/FlFuGaMe07.pdf)" In Proceedings of the 2007 conference on analysis of algorithms, pp. 127-146. 2007.
-
+#![feature(return_position_impl_trait_in_trait)]
 #![feature(generic_const_exprs)]
 #![feature(const_float_bits_conv)]
 #![feature(const_fn_floating_point_arithmetic)]
@@ -77,12 +82,16 @@ pub mod log;
 pub mod serde;
 pub mod utils;
 pub mod hyperloglog_array;
+pub mod estimated_union_cardinalities;
+mod bias;
+mod raw_estimate_data;
 
 pub use crate::hyperloglog::HyperLogLog;
-pub use crate::hyperloglog::EstimatedUnionCardinalities;
+pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
 
 pub mod prelude {
     pub use crate::hyperloglog::*;
+    pub use crate::estimated_union_cardinalities::*;
     pub use crate::iter::*;
     pub use crate::bitor::*;
     pub use crate::utils::*;

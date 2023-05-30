@@ -10,7 +10,7 @@ where
     /// Computes union between HLL counters.
     ///
     /// ```rust
-    /// # use hyperloglog_rs::HyperLogLog;
+    /// # use hyperloglog_rs::prelude::*;
     /// # use core::ops::BitOrAssign;
     ///
     /// let mut hll = HyperLogLog::<8, 6>::new();
@@ -62,7 +62,7 @@ where
     /// Computes union between HLL counters.
     ///
     /// ```rust
-    /// # use hyperloglog_rs::HyperLogLog;
+    /// # use hyperloglog_rs::prelude::*;
     /// # use core::ops::BitOrAssign;
     ///
     /// let mut hll = HyperLogLog::<8, 6>::new();
@@ -111,12 +111,12 @@ where
                 left_register = (left_register).max(right_register);
                 *left_word &= !(Self::LOWER_REGISTER_MASK << (i * BITS));
                 *left_word |= left_register << (i * BITS);
-                new_number_of_zeros += (left_register == 0) as usize;
+                new_number_of_zeros += (left_register == 0) as u32;
                 left_word_copy >>= BITS;
                 right_word >>= BITS;
             }
         }
-        self.number_of_zero_register = new_number_of_zeros - self.get_number_of_padding_registers();
+        self.number_of_zero_register = new_number_of_zeros - self.get_number_of_padding_registers() as u32;
     }
 }
 
@@ -132,7 +132,7 @@ where
     /// # Example
     ///
     /// ```rust
-    /// # use hyperloglog_rs::HyperLogLog;
+    /// # use hyperloglog_rs::prelude::*;
     /// let mut hll1 = HyperLogLog::<14, 5>::new();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
@@ -150,7 +150,7 @@ where
     /// Merging a set with an empty set should not change the cardinality.
     ///
     /// ```rust
-    /// # use hyperloglog_rs::HyperLogLog;
+    /// # use hyperloglog_rs::prelude::*;
     /// let mut hll1 = HyperLogLog::<14, 5>::new();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
@@ -170,7 +170,7 @@ where
     /// so to be able to check that everything works as expected.
     ///
     /// ```rust
-    /// # use hyperloglog_rs::HyperLogLog;
+    /// # use hyperloglog_rs::prelude::*;
     ///
     /// let first_registers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
     /// let second_registers = [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 19];
@@ -201,7 +201,7 @@ where
     /// # Example
     ///
     /// ```rust
-    /// # use hyperloglog_rs::HyperLogLog;
+    /// # use hyperloglog_rs::prelude::*;
     /// let mut hll1 = HyperLogLog::<14, 5>::new();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
@@ -219,7 +219,7 @@ where
     /// Merging a set with an empty set should not change the cardinality.
     ///
     /// ```rust
-    /// # use hyperloglog_rs::HyperLogLog;
+    /// # use hyperloglog_rs::prelude::*;
     /// let mut hll1 = HyperLogLog::<14, 5>::new();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
@@ -239,7 +239,7 @@ where
     /// so to be able to check that everything works as expected.
     ///
     /// ```rust
-    /// # use hyperloglog_rs::HyperLogLog;
+    /// # use hyperloglog_rs::prelude::*;
     ///
     /// let first_registers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
     /// let second_registers = [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 19];
