@@ -228,8 +228,14 @@ where
             number_of_zero_register: 0,
         };
 
+        let number_of_zero_register = hll.iter().filter(|register| *register == 0).count();
+
         // We update the number of zeroed registers.
-        hll.number_of_zero_register = hll.iter().filter(|register| *register == 0).count() as u32;
+        if PRECISION == 16 {
+            hll.number_of_zero_register = number_of_zero_register.min(u16::MAX as usize) as u16;
+        } else {
+            hll.number_of_zero_register = number_of_zero_register as u16;
+        }
 
         Ok(hll)
     }

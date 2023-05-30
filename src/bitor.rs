@@ -116,7 +116,14 @@ where
                 right_word >>= BITS;
             }
         }
-        self.number_of_zero_register = new_number_of_zeros - self.get_number_of_padding_registers() as u32;
+
+        new_number_of_zeros -= self.get_number_of_padding_registers() as u32;
+
+        if PRECISION == 16 {
+            self.number_of_zero_register = new_number_of_zeros.min(u16::MAX as u32) as u16;
+        } else {
+            self.number_of_zero_register = new_number_of_zeros as u16;
+        }
     }
 }
 

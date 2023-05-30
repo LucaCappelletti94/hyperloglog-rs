@@ -57,7 +57,7 @@ where
     [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     pub(crate) words: [u32; ceil(1 << PRECISION, 32 / BITS)],
-    pub(crate) number_of_zero_register: u32,
+    pub(crate) number_of_zero_register: u16,
 }
 
 impl<const PRECISION: usize, const BITS: usize, T: Hash> From<T> for HyperLogLog<PRECISION, BITS>
@@ -131,6 +131,9 @@ where
     /// The mask used to obtain the lower register bits in the HyperLogLog algorithm.
     pub const LOWER_REGISTER_MASK: u32 = (1 << BITS) - 1;
 
+    /// The mask used to obtain the lower precision bits in the HyperLogLog algorithm.
+    pub const LOWER_PRECISION_MASK: usize = (1 << PRECISION) - 1;
+
     /// The number of registers that can fit in a single 32-bit word in the HyperLogLog algorithm.
     pub const NUMBER_OF_REGISTERS_IN_WORD: usize = 32 / BITS;
 
@@ -142,9 +145,16 @@ where
     pub fn new() -> Self {
         assert!(PRECISION >= 4);
         assert!(PRECISION <= 16);
+
+        let number_of_zero_register = if PRECISION == 16 {
+            u16::MAX
+        } else {
+            Self::NUMBER_OF_REGISTERS as u16
+        };
+
         Self {
             words: [0; ceil(1 << PRECISION, 32 / BITS)],
-            number_of_zero_register: 1_u32 << PRECISION,
+            number_of_zero_register,
         }
     }
 
@@ -175,7 +185,7 @@ where
             registers.len()
         );
         let mut words = [0; ceil(1 << PRECISION, 32 / BITS)];
-        let number_of_zero_register = words
+        let number_of_zero_register = (words
             .iter_mut()
             .zip(registers.chunks(Self::NUMBER_OF_REGISTERS_IN_WORD))
             .fold(0, |mut number_of_zero_register, (word, word_registers)| {
@@ -190,7 +200,8 @@ where
                     *word |= register << (i * BITS);
                 }
                 number_of_zero_register
-            }) as u32;
+            }) as u32)
+            .min(u16::MAX as u32) as u16;
         Self {
             words,
             number_of_zero_register,
@@ -390,10 +401,10 @@ where
         union_zeros -= self.get_number_of_padding_registers();
 
         let union_estimate = self.adjust_estimate_with_zeros(raw_union_estimate, union_zeros);
-        let left_estimate =
-            self.adjust_estimate_with_zeros(raw_left_estimate, self.get_number_of_zero_registers());
+        let left_estimate = self
+            .adjust_estimate_with_zeros(raw_left_estimate, self.number_of_zero_register as usize);
         let right_estimate = self
-            .adjust_estimate_with_zeros(raw_right_estimate, other.get_number_of_zero_registers());
+            .adjust_estimate_with_zeros(raw_right_estimate, other.number_of_zero_register as usize);
 
         EstimatedUnionCardinalities::from((left_estimate, right_estimate, union_estimate))
     }
@@ -670,6 +681,19 @@ where
     /// // The number of padding registers is still the same
     /// assert_eq!(hll.get_number_of_padding_registers(), 1);
     /// ```
+    ///
+    /// For instance, in the case using the bare minimum bits per registers (4)
+    /// and the minimal precision (4), for a total of 16 registers, we expect
+    /// to not have any padding registers.
+    ///
+    /// ```
+    /// # use hyperloglog_rs::HyperLogLog;
+    ///
+    /// let hll = HyperLogLog::<4, 4>::new();
+    /// assert_eq!(hll.get_number_of_padding_registers(), 0);
+    ///
+    /// ```
+    ///
     pub const fn get_number_of_padding_registers(&self) -> usize {
         ceil(1 << PRECISION, 32 / BITS) * Self::NUMBER_OF_REGISTERS_IN_WORD
             - Self::NUMBER_OF_REGISTERS
@@ -698,7 +722,11 @@ where
     /// assert_eq!(number_of_zero_registers, 16381);
     /// ```
     pub fn get_number_of_zero_registers(&self) -> usize {
-        self.number_of_zero_register as usize
+        if PRECISION == 16 {
+            self.number_of_zero_register as usize + 1
+        } else {
+            self.number_of_zero_register as usize
+        }
     }
 
     #[inline(always)]
@@ -750,43 +778,6 @@ where
     /// Returns the array of words of the HyperLogLog counter.
     pub fn get_words(&self) -> [u32; ceil(1 << PRECISION, 32 / BITS)] {
         self.words
-    }
-
-    #[inline(always)]
-    /// Returns the hash value and the corresponding register's index for a given value.
-    ///
-    /// # Arguments
-    /// * `value` - A reference to the value to be hashed.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use hyperloglog_rs::HyperLogLog;
-    ///
-    /// let mut hll: HyperLogLog<8, 6> = HyperLogLog::new();
-    /// let value = 42;
-    /// let (hash, index) = hll.get_hash_and_index(&value);
-    ///
-    /// assert_eq!(index, 213, "Expected index {}, got {}.", 213, index);
-    /// assert_eq!(hash, 15387811073369036852, "Expected hash {}, got {}.", 15387811073369036852, hash);
-    /// ```
-    pub fn get_hash_and_index<T: Hash>(&self, value: &T) -> (u64, usize) {
-        // Create a new hasher.
-        let mut hasher = SipHasher13::new();
-        // Calculate the hash.
-        value.hash(&mut hasher);
-        let hash: u64 = hasher.finish();
-
-        // Calculate the register's index.
-        let index: usize = (hash >> (64 - PRECISION)) as usize;
-        debug_assert!(
-            index < Self::NUMBER_OF_REGISTERS,
-            "The index {} must be less than the number of registers {}.",
-            index,
-            Self::NUMBER_OF_REGISTERS
-        );
-
-        (hash, index)
     }
 
     #[inline(always)]
@@ -1534,6 +1525,43 @@ where
     }
 
     #[inline(always)]
+    /// Returns the hash value and the corresponding register's index for a given value.
+    ///
+    /// # Arguments
+    /// * `value` - A reference to the value to be hashed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hyperloglog_rs::HyperLogLog;
+    ///
+    /// let mut hll: HyperLogLog<8, 6> = HyperLogLog::new();
+    /// let value = 42;
+    /// let (hash, index) = hll.get_hash_and_index(&value);
+    ///
+    /// assert_eq!(hash, 15387811073369036852, "Expected hash {}, got {}.", 15387811073369036852, hash);
+    /// ```
+    pub fn get_hash_and_index<T: Hash>(&self, value: &T) -> (u64, usize) {
+        // Create a new hasher.
+        let mut hasher = SipHasher13::new();
+        // Calculate the hash.
+        value.hash(&mut hasher);
+        let hash: u64 = hasher.finish();
+
+        // Calculate the register's index using the lowest
+        // PRECISION bits of the hash.
+        let index: usize = hash as usize & Self::LOWER_PRECISION_MASK;
+        debug_assert!(
+            index < Self::NUMBER_OF_REGISTERS,
+            "The index {} must be less than the number of registers {}.",
+            index,
+            Self::NUMBER_OF_REGISTERS
+        );
+
+        (hash, index)
+    }
+
+    #[inline(always)]
     /// Adds an element to the HyperLogLog counter.
     ///
     /// # Arguments
@@ -1568,10 +1596,28 @@ where
         let (mut hash, index) = self.get_hash_and_index(&rhs);
 
         // Shift left the bits of the index.
-        hash = (hash << PRECISION) | (1 << (PRECISION - 1));
+        hash = hash << PRECISION;
+
+        if BITS < 6 {
+            hash |= 1 << (64 - (1 << BITS) + 1);
+        } else {
+            hash |= 1 << (PRECISION - 1);
+        }
 
         // Count leading zeros.
         let number_of_zeros: u32 = 1 + hash.leading_zeros();
+
+        debug_assert!(
+            number_of_zeros < (1 << BITS),
+            concat!(
+                "The number of leading zeros {} must be less than the number of bits {}. ",
+                "You have obtained this values starting from the hash {:064b} and the precision {}."
+            ),
+            number_of_zeros,
+            1 << BITS,
+            hash,
+            PRECISION
+        );
 
         // Calculate the position of the register in the internal buffer array.
         let word_position = index / Self::NUMBER_OF_REGISTERS_IN_WORD;
@@ -1595,7 +1641,13 @@ where
 
         // Otherwise, update the register using a bit mask.
         if number_of_zeros > register_value {
-            self.number_of_zero_register -= (register_value == 0) as u32;
+            if PRECISION == 16 {
+                self.number_of_zero_register = self
+                    .number_of_zero_register
+                    .saturating_sub((register_value == 0) as u16);
+            } else {
+                self.number_of_zero_register -= (register_value == 0) as u16;
+            }
             self.words[word_position] &=
                 !(Self::LOWER_REGISTER_MASK << (register_position_in_u32 * BITS));
             self.words[word_position] |= number_of_zeros << (register_position_in_u32 * BITS);
