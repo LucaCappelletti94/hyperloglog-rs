@@ -99,6 +99,7 @@ pub mod prelude {
     pub use crate::bitor::*;
     pub use crate::zeros::*;
     pub use crate::primitive::*;
+    pub use crate::max_min::*;
     pub use crate::precisions::*;
     pub use crate::utils::*;
     pub use crate::hyperloglog_array::*;
