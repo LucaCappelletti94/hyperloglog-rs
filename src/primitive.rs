@@ -5,7 +5,7 @@
 
 use std::{
     iter::Sum,
-    ops::{Add, AddAssign, Div, Mul, Sub},
+    ops::{Add, AddAssign, Div, Mul, Sub, MulAssign, SubAssign, DivAssign},
 };
 
 use crate::max_min::MaxMin;
@@ -19,6 +19,9 @@ pub trait Primitive<U>:
     + Sub<Self, Output = Self>
     + Add<Self, Output = Self>
     + AddAssign
+    + MulAssign
+    + SubAssign
+    + DivAssign
     + PartialOrd
     + Mul<Self, Output = Self>
     + Div<Self, Output = Self>
