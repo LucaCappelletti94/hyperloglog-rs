@@ -125,3 +125,63 @@ impl MaxMin for usize {
         self.min(other)
     }
 }
+
+impl MaxMin for i8 {
+    #[inline(always)]
+    fn get_max(self, other: Self) -> Self {
+        self.max(other)
+    }
+
+    #[inline(always)]
+    fn get_min(self, other: Self) -> Self {
+        self.min(other)
+    }
+}
+
+impl MaxMin for i16 {
+    #[inline(always)]
+    fn get_max(self, other: Self) -> Self {
+        self.max(other)
+    }
+
+    #[inline(always)]
+    fn get_min(self, other: Self) -> Self {
+        self.min(other)
+    }
+}
+
+impl MaxMin for i32 {
+    #[inline(always)]
+    fn get_max(self, other: Self) -> Self {
+        self.max(other)
+    }
+
+    #[inline(always)]
+    fn get_min(self, other: Self) -> Self {
+        self.min(other)
+    }
+}
+
+impl MaxMin for i64 {
+    #[inline(always)]
+    fn get_max(self, other: Self) -> Self {
+        self.max(other)
+    }
+
+    #[inline(always)]
+    fn get_min(self, other: Self) -> Self {
+        self.min(other)
+    }
+}
+
+impl MaxMin for i128 {
+    #[inline(always)]
+    fn get_max(self, other: Self) -> Self {
+        self.max(other)
+    }
+
+    #[inline(always)]
+    fn get_min(self, other: Self) -> Self {
+        self.min(other)
+    }
+}
