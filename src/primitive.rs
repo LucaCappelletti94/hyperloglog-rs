@@ -13,6 +13,8 @@ use crate::max_min::MaxMin;
 pub trait Primitive<U>:
     Sized
     + Copy
+    + Send
+    + Sync
     + Sum
     + Sub<Self, Output = Self>
     + Add<Self, Output = Self>
