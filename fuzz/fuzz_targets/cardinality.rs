@@ -1,6 +1,5 @@
 //! Fuzzing harness to test whether the cardinality estimation works as expected.
 #![no_main]
-#![feature(generic_const_exprs)]
 
 use arbitrary::Arbitrary;
 use hyperloglog_rs::prelude::*;

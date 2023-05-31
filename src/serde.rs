@@ -30,7 +30,6 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Serialize
     /// which in this case is `HyperLogLogArray`.
     ///
     /// ```rust
-    /// #![feature(generic_const_exprs)]
     /// use serde::Serialize;
     /// use serde_json::Serializer;
     /// use hyperloglog_rs::prelude::*;
@@ -198,7 +197,6 @@ impl<'de, PRECISION: Precision<BITS>, const BITS: usize> Deserialize<'de>
     /// # Example
     ///
     /// ```
-    /// #![feature(generic_const_exprs)]
     /// use serde::de::Deserialize;
     /// use serde_json::Deserializer;
     /// use hyperloglog_rs::prelude::*;

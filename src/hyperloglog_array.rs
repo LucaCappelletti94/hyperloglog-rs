@@ -23,7 +23,6 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Default
     /// # Example
     ///
     /// ```rust
-    /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
     ///
     /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::default();
@@ -44,7 +43,6 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize>
     /// # Example
     ///
     /// ```
-    /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
     ///
     /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::new();
@@ -64,7 +62,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize>
     /// # Returns
     /// The estimated overlap cardinality matrices with the provided HyperLogLogArray.
     ///
-    pub fn estimate_overlap_cardinalities(&self, other: &Self) -> [[f32; N]; N] {
+    pub fn estimate_overlap_cardinalities<F: Primitive<f32>>(&self, other: &Self) -> [[F; N]; N] {
         HyperLogLog::estimated_overlap_cardinality_matrix(self.as_ref(), other.as_ref())
     }
 
@@ -77,10 +75,10 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize>
     /// # Returns
     /// The estimated difference cardinality matrices with the provided HyperLogLogArray.
     ///
-    pub fn estimated_difference_cardinality_vector(
+    pub fn estimated_difference_cardinality_vector<F: Primitive<f32>>(
         &self,
         other: &HyperLogLog<PRECISION, BITS>,
-    ) -> [f32; N] {
+    ) -> [F; N] {
         HyperLogLog::estimated_difference_cardinality_vector(self.as_ref(), other)
     }
 
@@ -92,10 +90,10 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize>
     ///
     /// # Returns
     /// The estimated overlap and difference cardinality matrices and vectors with the provided HyperLogLogArray.
-    pub fn estimated_overlap_and_differences_cardinality_matrices(
+    pub fn estimated_overlap_and_differences_cardinality_matrices<F: Primitive<f32>>(
         &self,
         other: &Self,
-    ) -> ([[f32; N]; N], [f32; N], [f32; N]) {
+    ) -> ([[F; N]; N], [F; N], [F; N]) {
         HyperLogLog::estimated_overlap_and_differences_cardinality_matrices(
             self.as_ref(),
             other.as_ref(),
@@ -149,7 +147,6 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Index<usize>
     /// # Example
     ///
     /// ```rust
-    /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
     ///
     /// let mut hll_array = HyperLogLogArray::<Precision12, 6, 4>::new();
@@ -194,7 +191,6 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize> IndexMut<usi
     /// # Example
     ///
     /// ```rust
-    /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
     ///
     /// let mut hll_array = HyperLogLogArray::<Precision12, 6, 4>::new();
@@ -236,7 +232,6 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize>
     /// # Example
     ///
     /// ```rust
-    /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
     ///
     /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::from([
@@ -265,7 +260,6 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize, H: Hash> Fro
     /// # Example
     ///
     /// ```rust
-    /// #![feature(generic_const_exprs)]
     /// use core::hash::Hash;
     /// use hyperloglog_rs::prelude::*;
     ///
@@ -301,7 +295,6 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize>
     /// # Example
     ///
     /// ```rust
-    /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
     ///
     /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::from(vec![
@@ -336,7 +329,6 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize>
     /// # Example
     ///
     /// ```rust
-    /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
     ///
     /// let counters = vec![HyperLogLog::new(), HyperLogLog::new(), HyperLogLog::new()];
@@ -369,7 +361,6 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize, H: Hash> Fro
     /// # Example
     ///
     /// ```rust
-    /// #![feature(generic_const_exprs)]
     /// use core::hash::Hash;
     /// use hyperloglog_rs::prelude::*;
     ///
@@ -409,7 +400,6 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize, H: Hash> Fro
     /// # Example
     ///
     /// ```rust
-    /// #![feature(generic_const_exprs)]
     /// use core::hash::Hash;
     /// use hyperloglog_rs::prelude::*;
     ///

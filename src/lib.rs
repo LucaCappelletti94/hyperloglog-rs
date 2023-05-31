@@ -87,6 +87,7 @@ mod precisions;
 mod primitive;
 mod zeros;
 mod array_default;
+mod max_min;
 
 pub use crate::hyperloglog::HyperLogLog;
 pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;

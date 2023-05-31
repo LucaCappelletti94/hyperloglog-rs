@@ -1,7 +1,7 @@
 #![no_main]
 
 use arbitrary::Arbitrary;
-use hyperloglog_rs::HyperLogLog;
+use hyperloglog_rs::prelude::*;
 use libfuzzer_sys::fuzz_target;
 
 #[derive(Arbitrary, Debug)]
@@ -109,19 +109,19 @@ fuzz_target!(|data: FuzzCase| {
                 let right_zero_registers = right_registers.iter().filter(|&&x| x == 0).count();
 
                 assert!(
-                    left.estimate_cardinality() >= ((1 << PRECISION) - left_zero_registers) as f32,
+                    left.estimate_cardinality() >= ((left.get_number_of_registers()) - left_zero_registers) as f32,
                     "Estimate should be greater or equal to the number of registers minus the number of zero registers. Estimate: {}, number of zero registers: {}, number of registers: {}",
                     left.estimate_cardinality(),
                     left_zero_registers,
-                    1 << PRECISION
+                    left.get_number_of_registers()
                 );
 
                 assert!(
-                    right.estimate_cardinality() >= ((1 << PRECISION) - right_zero_registers) as f32,
+                    right.estimate_cardinality() >= ((left.get_number_of_registers()) - right_zero_registers) as f32,
                     "Estimate should be greater or equal to the number of registers minus the number of zero registers. Estimate: {}, number of zero registers: {}, number of registers: {}",
                     right.estimate_cardinality(),
                     right_zero_registers,
-                    1 << PRECISION
+                    left.get_number_of_registers()
                 );
             }
             RandomCommand::ResetCounter => {
@@ -133,15 +133,15 @@ fuzz_target!(|data: FuzzCase| {
             }
             RandomCommand::FromRegisters => {
                 if idx < 1 << BITS {
-                    left = HyperLogLog::from_registers(&[idx; 1 << PRECISION]);
-                    right = HyperLogLog::from_registers(&[idx; 1 << PRECISION]);
+                    left = HyperLogLog::from_registers(&[idx; <Precision8 as Precision<BITS>>::NUMBER_OF_REGISTERS]);
+                    right = HyperLogLog::from_registers(&[idx; <Precision8 as Precision<BITS>>::NUMBER_OF_REGISTERS]);
                 }
             }
             RandomCommand::FromCounter => {
                 left = HyperLogLog::from(idx);
                 right = HyperLogLog::default();
                 right.insert(&idx);
-                
+
                 // After having inserted an element
                 // the registers should never appear empty.
 

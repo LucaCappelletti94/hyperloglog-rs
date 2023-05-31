@@ -1,6 +1,5 @@
 //! Fuzzing harness to test whether the cardinality estimation works as expected.
 #![no_main]
-#![feature(generic_const_exprs)]
 
 use arbitrary::Arbitrary;
 use hyperloglog_rs::prelude::*;
@@ -124,18 +123,9 @@ fuzz_target!(|data: FuzzCase| {
         left_array.estimate_overlap_cardinalities(&right_array);
 
     // Secondly, we compute the estimated exclusive differences cardinalities:
-
-    let left_difference_cardinalities: [f32; N] =
-        left_array.estimated_difference_cardinality_vector(&right_array[N - 1]);
-    let right_difference_cardinalities: [f32; N] =
-        right_array.estimated_difference_cardinality_vector(&left_array[N - 1]);
+    left_array.estimated_difference_cardinality_vector::<f32>(&right_array[N - 1]);
+    right_array.estimated_difference_cardinality_vector::<f32>(&left_array[N - 1]);
 
     // Thirdly, we compute the estimated exclusive overlap and difference cardinalities at once:
-
-    let (
-        at_once_overlap_cardinalities,
-        at_once_left_difference_cardinalities,
-        at_once_right_difference_cardinalities,
-    ): ([[f32; N]; N], [f32; N], [f32; N]) =
-        left_array.estimated_overlap_and_differences_cardinality_matrices(&right_array);
+    left_array.estimated_overlap_and_differences_cardinality_matrices::<f32>(&right_array);
 });

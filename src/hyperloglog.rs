@@ -356,7 +356,10 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
 
     #[inline(always)]
     /// Returns an estimate of the cardinality of the two HLL counters union.
-    pub fn estimate_union_and_sets_cardinality(&self, other: &Self) -> EstimatedUnionCardinalities {
+    pub fn estimate_union_and_sets_cardinality<F: Primitive<f32>>(
+        &self,
+        other: &Self,
+    ) -> EstimatedUnionCardinalities<F> {
         let mut raw_union_estimate = 0.0;
         let mut raw_left_estimate = 0.0;
         let mut raw_right_estimate = 0.0;
@@ -387,13 +390,17 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
 
         union_zeros -= self.get_number_of_padding_registers();
 
-        let union_estimate = self.adjust_estimate_with_zeros(raw_union_estimate, union_zeros);
-        let left_estimate = self
-            .adjust_estimate_with_zeros(raw_left_estimate, self.number_of_zero_register.convert());
-        let right_estimate = self.adjust_estimate_with_zeros(
+        let union_estimate =
+            F::reverse(self.adjust_estimate_with_zeros(raw_union_estimate, union_zeros));
+        let left_estimate =
+            F::reverse(self.adjust_estimate_with_zeros(
+                raw_left_estimate,
+                self.number_of_zero_register.convert(),
+            ));
+        let right_estimate = F::reverse(self.adjust_estimate_with_zeros(
             raw_right_estimate,
             other.number_of_zero_register.convert(),
-        );
+        ));
 
         EstimatedUnionCardinalities::from((left_estimate, right_estimate, union_estimate))
     }
@@ -424,12 +431,12 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     /// hll2.insert(&2);
     /// hll2.insert(&3);
     ///
-    /// let intersection_cardinality = hll1.estimate_intersection_cardinality(&hll2);
+    /// let intersection_cardinality: f32 = hll1.estimate_intersection_cardinality(&hll2);
     ///
     /// assert!(intersection_cardinality >= 1.0 * 0.9 &&
     ///         intersection_cardinality <= 1.0 * 1.1);
     /// ```
-    pub fn estimate_intersection_cardinality(&self, other: &Self) -> f32 {
+    pub fn estimate_intersection_cardinality<F: Primitive<f32>>(&self, other: &Self) -> F {
         self.estimate_union_and_sets_cardinality(other)
             .get_intersection_cardinality()
     }
@@ -500,12 +507,12 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     /// hll2.insert(&5);
     /// hll2.insert(&6);
     ///
-    /// let difference_cardinality = hll1.estimate_difference_cardinality(&hll2);
+    /// let difference_cardinality: f32 = hll1.estimate_difference_cardinality(&hll2);
     ///
     /// assert!(difference_cardinality >= 2.0 * 0.9 &&
     ///        difference_cardinality <= 2.0 * 1.1);
     /// ```
-    pub fn estimate_difference_cardinality(&self, other: &Self) -> f32 {
+    pub fn estimate_difference_cardinality<F: Primitive<f32>>(&self, other: &Self) -> F {
         self.estimate_union_and_sets_cardinality(other)
             .get_left_difference_cardinality()
     }
@@ -902,10 +909,10 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     ///     right[1] = right_tmp;
     ///
     ///     let (overlap_cardinality_matrix, left_difference_cardinality_vector, right_difference_cardinality_vector) =
-    ///         HyperLogLog::<Precision12, 6>::estimated_overlap_and_differences_cardinality_matrices(&left, &right);
-    ///     let overlap_cardinality_matrix_singular = HyperLogLog::estimated_overlap_cardinality_matrix(&left, &right);
-    ///     let left_difference_cardinality_vector_singular = HyperLogLog::estimated_difference_cardinality_vector(&left, &right[1]);
-    ///     let right_difference_cardinality_vector_singular = HyperLogLog::estimated_difference_cardinality_vector(&right, &left[1]);
+    ///         HyperLogLog::<Precision12, 6>::estimated_overlap_and_differences_cardinality_matrices::<f32, 2, 2>(&left, &right);
+    ///     let overlap_cardinality_matrix_singular: [[f32; 2]; 2] = HyperLogLog::estimated_overlap_cardinality_matrix(&left, &right);
+    ///     let left_difference_cardinality_vector_singular: [f32; 2] = HyperLogLog::estimated_difference_cardinality_vector(&left, &right[1]);
+    ///     let right_difference_cardinality_vector_singular: [f32; 2] = HyperLogLog::estimated_difference_cardinality_vector(&right, &left[1]);
     ///
     ///    for i in 0..2 {
     ///        for j in 0..2 {
@@ -946,12 +953,13 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     /// ```
     ///
     pub fn estimated_overlap_and_differences_cardinality_matrices<
+        F: Primitive<f32>,
         const L: usize,
         const R: usize,
     >(
         left: &[Self; L],
         right: &[Self; R],
-    ) -> ([[f32; R]; L], [f32; L], [f32; R]) {
+    ) -> ([[F; R]; L], [F; L], [F; R]) {
         // When we are not in release mode, we check that the HLL are increasing in size.
         #[cfg(debug_assertions)]
         for i in 1..L {
@@ -978,32 +986,32 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
             );
         }
 
-        let mut overlap_cardinality_matrix = [[0.0; R]; L];
-        let mut left_difference_cardinality_vector = [0.0; L];
-        let mut right_difference_cardinality_vector = [0.0; R];
-        let mut left_comulative_estimated_cardinality = 0.0;
-        let mut right_comulative_estimated_cardinality = 0.0;
+        let mut overlap_cardinality_matrix = [[F::reverse(0.0); R]; L];
+        let mut left_difference_cardinality_vector = [F::reverse(0.0); L];
+        let mut right_difference_cardinality_vector = [F::reverse(0.0); R];
+        let mut left_comulative_estimated_cardinality = F::reverse(0.0);
+        let mut right_comulative_estimated_cardinality = F::reverse(0.0);
 
         for i in 0..(L - 1) {
             for j in 0..(R - 1) {
                 overlap_cardinality_matrix[i][j] = (left[i]
-                    .estimate_intersection_cardinality(&right[j])
+                    .estimate_intersection_cardinality::<F>(&right[j])
                     // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
                     // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
                     // with a smaller index than the current one.
                     - overlap_cardinality_matrix[0..(i+1)]
                         .iter()
-                        .map(|row| row[0..(j+1)].iter().sum::<f32>())
-                        .sum::<f32>())
-                .max(0.0);
+                        .map(|row| row[0..(j+1)].iter().copied().sum::<F>())
+                        .sum::<F>())
+                .get_max(F::reverse(0.0));
             }
 
             // We handle separately the case for j = R - 1, since we need to also compute
             // the difference cardinality of the left HLL.
-            let estimate = left[i].estimate_union_and_sets_cardinality(&right[R - 1]);
+            let estimate = left[i].estimate_union_and_sets_cardinality::<F>(&right[R - 1]);
             left_difference_cardinality_vector[i] = (estimate.get_left_difference_cardinality()
                 - left_comulative_estimated_cardinality)
-                .max(0.0);
+                .get_max(F::reverse(0.0));
             left_comulative_estimated_cardinality += left_difference_cardinality_vector[i];
             overlap_cardinality_matrix[i][R - 1] = (estimate.get_intersection_cardinality()
                 // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
@@ -1011,9 +1019,9 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
                 // with a smaller index than the current one.
                 - overlap_cardinality_matrix[0..(i+1)]
                     .iter()
-                    .map(|row| row[0..R].iter().sum::<f32>())
-                    .sum::<f32>())
-            .max(0.0);
+                    .map(|row| row[0..R].iter().copied().sum::<F>())
+                    .sum::<F>())
+            .get_max(F::reverse(0.0));
         }
 
         // We handle separately the case for i = L - 1, since we need to also compute
@@ -1022,10 +1030,10 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
         // all the elements of right.
 
         for j in 0..(R - 1) {
-            let estimate = left[L - 1].estimate_union_and_sets_cardinality(&right[j]);
+            let estimate = left[L - 1].estimate_union_and_sets_cardinality::<F>(&right[j]);
             right_difference_cardinality_vector[j] = (estimate.get_right_difference_cardinality()
                 - right_comulative_estimated_cardinality)
-                .max(0.0);
+                .get_max(F::reverse(0.0));
             right_comulative_estimated_cardinality += right_difference_cardinality_vector[j];
             overlap_cardinality_matrix[L - 1][j] = (estimate.get_intersection_cardinality()
                 // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
@@ -1033,20 +1041,29 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
                 // with a smaller index than the current one.
                 - overlap_cardinality_matrix[0..L]
                     .iter()
-                    .map(|row| row[0..(j+1)].iter().sum::<f32>())
-                    .sum::<f32>())
-            .max(0.0);
+                    .map(|row| row[0..(j+1)].iter().copied().sum::<F>())
+                    .sum::<F>())
+            .get_max(F::reverse(0.0));
         }
 
         // We handle separately the case for i = L - 1 and j = R - 1, since we need to also compute
         // the difference cardinality of the left and right HLL.
-        let estimate = left[L - 1].estimate_union_and_sets_cardinality(&right[R - 1]);
+        let estimate = left[L - 1].estimate_union_and_sets_cardinality::<F>(&right[R - 1]);
         left_difference_cardinality_vector[L - 1] = (estimate.get_left_difference_cardinality()
             - left_comulative_estimated_cardinality)
-            .max(0.0);
+            .get_max(F::reverse(0.0));
         right_difference_cardinality_vector[R - 1] = (estimate.get_right_difference_cardinality()
             - right_comulative_estimated_cardinality)
-            .max(0.0);
+            .get_max(F::reverse(0.0));
+        overlap_cardinality_matrix[L - 1][R - 1] = (estimate.get_intersection_cardinality()
+                // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
+                // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
+                // with a smaller index than the current one.
+                - overlap_cardinality_matrix[0..L]
+                    .iter()
+                    .map(|row| row[0..R].iter().copied().sum::<F>())
+                    .sum::<F>())
+        .get_max(F::reverse(0.0));
 
         (
             overlap_cardinality_matrix,
@@ -1085,7 +1102,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     /// hll2.insert(&42);
     /// hll2.insert(&43);
     ///
-    /// let result = HyperLogLog::estimated_overlap_cardinality_matrix(&[hll1,], &[hll2,]);
+    /// let result = HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 1, 1>(&[hll1,], &[hll2,]);
     ///
     /// assert!(
     ///     result[0][0] < 2.0 * 1.1 &&
@@ -1131,7 +1148,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     /// hll4.insert(&43);
     /// hll4.insert(&44);
     ///
-    /// let result = HyperLogLog::estimated_overlap_cardinality_matrix(&[hll1, hll3], &[hll2, hll4]);
+    /// let result = HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 2, 2>(&[hll1, hll3], &[hll2, hll4]);
     ///
     /// assert!(
     ///     result[0][0] < 2.0 * 1.1 &&
@@ -1204,7 +1221,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     /// hll6.insert(&45);
     /// hll6.insert(&46);
     ///
-    /// let result = HyperLogLog::estimated_overlap_cardinality_matrix(&[hll1, hll3, hll6], &[hll2, hll4, hll5]);
+    /// let result = HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 3, 3>(&[hll1, hll3, hll6], &[hll2, hll4, hll5]);
     ///
     /// assert!(
     ///     result[0][0] < 3.0 * 1.1 &&
@@ -1231,7 +1248,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     ///     vec![result[0][0]],
     ///     0,
     ///     1,
-    ///     hll1.estimate_intersection_cardinality(&hll4),
+    ///     hll1.estimate_intersection_cardinality::<f32>(&hll4),
     /// );
     ///
     /// assert!(
@@ -1248,7 +1265,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     ///     vec![result[0][0]],
     ///     1,
     ///     0,
-    ///     hll3.estimate_intersection_cardinality(&hll2),
+    ///     hll3.estimate_intersection_cardinality::<f32>(&hll2),
     /// );
     ///
     /// assert!(
@@ -1265,7 +1282,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     ///     vec![result[0][0], result[1][0], result[0][1]],
     ///     1,
     ///     1,
-    ///     hll3.estimate_intersection_cardinality(&hll4),
+    ///     hll3.estimate_intersection_cardinality::<f32>(&hll4),
     /// );
     ///
     /// assert!(
@@ -1282,7 +1299,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     ///     vec![result[0][0], result[1][0], result[0][1], result[1][1]],
     ///     1,
     ///     2,
-    ///     hll3.estimate_intersection_cardinality(&hll5),
+    ///     hll3.estimate_intersection_cardinality::<f32>(&hll5),
     /// );
     ///
     /// assert!(
@@ -1299,7 +1316,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     ///     vec![result[0][0], result[1][0],],
     ///     2,
     ///     0,
-    ///     hll6.estimate_intersection_cardinality(&hll2),
+    ///     hll6.estimate_intersection_cardinality::<f32>(&hll2),
     /// );
     ///
     /// assert!(
@@ -1316,7 +1333,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     ///     vec![result[0][0], result[1][0], result[2][0]],
     ///     2,
     ///     1,
-    ///     hll6.estimate_intersection_cardinality(&hll4),
+    ///     hll6.estimate_intersection_cardinality::<f32>(&hll4),
     /// );
     ///
     /// assert!(
@@ -1333,15 +1350,19 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     ///     vec![result[0][0], result[1][0], result[0][1], result[2][0], result[0][2], result[2][1], result[1][2]],
     ///     2,
     ///     2,
-    ///     hll6.estimate_intersection_cardinality(&hll5),
+    ///     hll6.estimate_intersection_cardinality::<f32>(&hll5),
     /// );
     ///
     /// ```
     ///
-    pub fn estimated_overlap_cardinality_matrix<const L: usize, const R: usize>(
+    pub fn estimated_overlap_cardinality_matrix<
+        F: Primitive<f32>,
+        const L: usize,
+        const R: usize,
+    >(
         left: &[Self; L],
         right: &[Self; R],
-    ) -> [[f32; R]; L] {
+    ) -> [[F; R]; L] {
         // When we are not in release mode, we check that the HLL are increasing in size.
         #[cfg(debug_assertions)]
         for i in 1..L {
@@ -1368,20 +1389,20 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
             );
         }
 
-        let mut overlap_cardinality_matrix = [[0.0; R]; L];
+        let mut overlap_cardinality_matrix = [[F::reverse(0.0); R]; L];
 
         for i in 0..L {
             for j in 0..R {
                 overlap_cardinality_matrix[i][j] = (left[i]
-                    .estimate_intersection_cardinality(&right[j])
+                    .estimate_intersection_cardinality::<F>(&right[j])
                     // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
                     // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
                     // with a smaller index than the current one.
                     - overlap_cardinality_matrix[0..(i+1)]
                         .iter()
-                        .map(|row| row[0..(j+1)].iter().sum::<f32>())
-                        .sum::<f32>())
-                .max(0.0);
+                        .map(|row| row[0..(j+1)].iter().copied().sum::<F>())
+                        .sum::<F>())
+                .get_max(F::reverse(0.0));
             }
         }
 
@@ -1419,7 +1440,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     /// hll2.insert(&42);
     /// hll2.insert(&43);
     ///
-    /// let result = HyperLogLog::estimated_difference_cardinality_vector(&[hll1,], &hll2);
+    /// let result: [f32; 1] = HyperLogLog::estimated_difference_cardinality_vector(&[hll1,], &hll2);
     ///
     /// assert!(
     ///    result[0] < 1.0 * 1.1 &&
@@ -1459,7 +1480,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     /// hll3.insert(&44);
     /// hll3.insert(&45);
     ///
-    /// let result = HyperLogLog::estimated_difference_cardinality_vector(&[hll1, hll3], &hll2);
+    /// let result: [f32; 2] = HyperLogLog::estimated_difference_cardinality_vector(&[hll1, hll3], &hll2);
     ///
     /// assert!(
     ///     result[0] < 1.0 * 1.1 &&
@@ -1477,10 +1498,10 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     ///
     /// ```
     ///
-    pub fn estimated_difference_cardinality_vector<const N: usize>(
+    pub fn estimated_difference_cardinality_vector<F: Primitive<f32>, const N: usize>(
         array: &[Self; N],
         other: &Self,
-    ) -> [f32; N] {
+    ) -> [F; N] {
         // When we are not in release mode, we check that the HLL are increasing in size.
         #[cfg(debug_assertions)]
         for i in 1..N {
@@ -1494,17 +1515,17 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
             );
         }
 
-        let mut difference_cardinality_vector = [0.0; N];
-        let mut comulative_estimated_cardinality = 0.0;
+        let mut difference_cardinality_vector = [F::reverse(0.0); N];
+        let mut comulative_estimated_cardinality = F::reverse(0.0);
 
         for i in 0..N {
             difference_cardinality_vector[i] = (array[i]
-                .estimate_difference_cardinality(other)
+                .estimate_difference_cardinality::<F>(other)
                 // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
                 // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
                 // with a smaller index than the current one.
                 - comulative_estimated_cardinality)
-                .max(0.0);
+                .get_max(F::reverse(0.0));
 
             comulative_estimated_cardinality += difference_cardinality_vector[i];
         }

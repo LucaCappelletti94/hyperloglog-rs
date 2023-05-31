@@ -5,7 +5,6 @@
 //! * That the estimated exclusive differences cardinalities are correct for the given two vector sets
 //! * That the method that produces at once the overlap and difference cardinalities is consistent with the two previous methods
 #![no_main]
-#![feature(generic_const_exprs)]
 
 use arbitrary::Arbitrary;
 use hyperloglog_rs::prelude::*;
@@ -210,7 +209,7 @@ fuzz_target!(|data: FuzzCase| {
             right_sets,
             left_array[0].estimate_cardinality(),
             right_array[0].estimate_cardinality(),
-            left_array[0].estimate_union_and_sets_cardinality(&right_array[0]),
+            left_array[0].estimate_union_and_sets_cardinality::<f32>(&right_array[0]),
         );
 
         // The value in the position (0, 1) of the overlaps cardinalities matrix should be
@@ -422,8 +421,6 @@ fuzz_target!(|data: FuzzCase| {
         // overlap and difference cardinalities is consistent with the two previous methods.
         // We expect that the two methods match cell-by-cell within an epsilon.
 
-        return;
-
         for i in 0..N {
             assert!(
                 (at_once_left_difference_cardinalities[i] - left_difference_cardinalities[i]).abs()
@@ -446,11 +443,16 @@ fuzz_target!(|data: FuzzCase| {
                     concat!(
                         "The estimated overlap cardinality of the {}-th vector in the left ",
                         "set and the {}-th vector in the right set is inconsistent between the two methods. ",
-                        "Expected: {}, got: {}"
+                        "Expected: {}, got: {}. ",
+                        "The exact values were: [{}, {}, {}, {}]"
                     ),
                     i, j,
                     overlap_cardinalities[i][j],
-                    at_once_overlap_cardinalities[i][j]
+                    at_once_overlap_cardinalities[i][j],
+                    expected_intersection_cardinality,
+                    expected_exclusive_overlaps_cardinality_a,
+                    expected_exclusive_overlaps_cardinality_b,
+                    expected_exclusive_overlaps_cardinality
                 );
             }
         }

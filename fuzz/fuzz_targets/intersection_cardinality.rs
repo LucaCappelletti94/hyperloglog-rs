@@ -1,6 +1,5 @@
 //! Fuzzing harness to test whether the intersection estimation works as expected.
 #![no_main]
-#![feature(generic_const_exprs)]
 
 use arbitrary::Arbitrary;
 use hyperloglog_rs::prelude::*;
@@ -103,14 +102,14 @@ fuzz_target!(|data: FuzzCase| {
         .filter(|item| right_unique.contains(item))
         .count();
 
-    let estimated_intersection = left.estimate_intersection_cardinality(&right);
+    let estimated_intersection: f32 = left.estimate_intersection_cardinality(&right);
 
     assert!(
         estimated_intersection >= exact_intersection_size as f32 * 0.9 - error,
         "Estimated intersection size was too small: {} vs {} - {:?}",
         estimated_intersection,
         exact_intersection_size,
-        left.estimate_union_and_sets_cardinality(&right)
+        left.estimate_union_and_sets_cardinality::<f32>(&right)
     );
 
     assert!(
@@ -118,6 +117,6 @@ fuzz_target!(|data: FuzzCase| {
         "Estimated intersection size was too large: {} vs {} - {:?}",
         estimated_intersection,
         exact_intersection_size,
-        left.estimate_union_and_sets_cardinality(&right)
+        left.estimate_union_and_sets_cardinality::<f32>(&right)
     );
 });

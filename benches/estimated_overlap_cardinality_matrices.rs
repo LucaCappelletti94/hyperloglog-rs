@@ -44,7 +44,7 @@ fn bench_estimated_overlap_cardinality_matrix_2(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(HyperLogLog::estimated_overlap_cardinality_matrix(
+        black_box(HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 2, 2>(
             &left, &right,
         ));
     });
@@ -56,7 +56,7 @@ fn bench_estimated_overlap_cardinality_matrix_3(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(HyperLogLog::estimated_overlap_cardinality_matrix(
+        black_box(HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 3, 3>(
             &left, &right,
         ));
     });
@@ -68,7 +68,7 @@ fn bench_estimated_overlap_cardinality_matrix_4(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(HyperLogLog::estimated_overlap_cardinality_matrix(
+        black_box(HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 4, 4>(
             &left, &right,
         ));
     });
@@ -80,7 +80,7 @@ fn bench_estimated_overlap_cardinality_matrix_5(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(HyperLogLog::estimated_overlap_cardinality_matrix(
+        black_box(HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 5, 5>(
             &left, &right,
         ));
     });

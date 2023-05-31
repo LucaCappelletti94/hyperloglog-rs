@@ -1,18 +1,20 @@
 use serde::{Deserialize, Serialize};
 
+use crate::prelude::Primitive;
+
 #[derive(Clone, Copy, Debug, PartialEq, Default, Deserialize, Serialize)]
 /// A struct for more readable code.
-pub struct EstimatedUnionCardinalities {
+pub struct EstimatedUnionCardinalities<F> {
     /// The estimated cardinality of the left set.
-    left_cardinality: f32,
+    left_cardinality: F,
     /// The estimated cardinality of the right set.
-    right_cardinality: f32,
+    right_cardinality: F,
     /// The estimated cardinality of the union of the two sets.
-    union_cardinality: f32,
+    union_cardinality: F,
 }
 
-impl From<(f32, f32, f32)> for EstimatedUnionCardinalities {
-    fn from(value: (f32, f32, f32)) -> Self {
+impl<F> From<(F, F, F)> for EstimatedUnionCardinalities<F> {
+    fn from(value: (F, F, F)) -> Self {
         Self {
             left_cardinality: value.0,
             right_cardinality: value.1,
@@ -21,7 +23,7 @@ impl From<(f32, f32, f32)> for EstimatedUnionCardinalities {
     }
 }
 
-impl EstimatedUnionCardinalities {
+impl<F: Primitive<f32>> EstimatedUnionCardinalities<F> {
     #[inline(always)]
     /// Returns the estimated cardinality of the left set.
     ///
@@ -37,7 +39,7 @@ impl EstimatedUnionCardinalities {
     /// assert_eq!(left_cardinality, 2.0);
     ///
     /// ```
-    pub fn get_left_cardinality(&self) -> f32 {
+    pub fn get_left_cardinality(&self) -> F {
         self.left_cardinality
     }
 
@@ -56,7 +58,7 @@ impl EstimatedUnionCardinalities {
     /// assert_eq!(right_cardinality, 3.0);
     ///
     /// ```
-    pub fn get_right_cardinality(&self) -> f32 {
+    pub fn get_right_cardinality(&self) -> F {
         self.right_cardinality
     }
 
@@ -75,7 +77,7 @@ impl EstimatedUnionCardinalities {
     /// assert_eq!(union_cardinality, 4.0);
     ///
     /// ```
-    pub fn get_union_cardinality(&self) -> f32 {
+    pub fn get_union_cardinality(&self) -> F {
         self.union_cardinality
     }
 
@@ -94,8 +96,9 @@ impl EstimatedUnionCardinalities {
     /// assert_eq!(intersection_cardinality, 1.0);
     ///
     /// ```
-    pub fn get_intersection_cardinality(&self) -> f32 {
-        (self.left_cardinality + self.right_cardinality - self.union_cardinality).max(0.0)
+    pub fn get_intersection_cardinality(&self) -> F {
+        (self.left_cardinality + self.right_cardinality - self.union_cardinality)
+            .get_max(F::reverse(0.0))
     }
 
     #[inline(always)]
@@ -113,8 +116,8 @@ impl EstimatedUnionCardinalities {
     /// assert_eq!(left_minus_right_cardinality, 1.0);
     ///
     /// ```
-    pub fn get_left_difference_cardinality(&self) -> f32 {
-        (self.left_cardinality - self.get_intersection_cardinality()).max(0.0)
+    pub fn get_left_difference_cardinality(&self) -> F {
+        (self.left_cardinality - self.get_intersection_cardinality()).get_max(F::reverse(0.0))
     }
 
     #[inline(always)]
@@ -132,8 +135,8 @@ impl EstimatedUnionCardinalities {
     /// assert_eq!(right_minus_left_cardinality, 2.0);
     ///
     /// ```
-    pub fn get_right_difference_cardinality(&self) -> f32 {
-        (self.right_cardinality - self.get_intersection_cardinality()).max(0.0)
+    pub fn get_right_difference_cardinality(&self) -> F {
+        (self.right_cardinality - self.get_intersection_cardinality()).get_max(F::reverse(0.0))
     }
 
     #[inline(always)]
@@ -151,9 +154,10 @@ impl EstimatedUnionCardinalities {
     /// assert_eq!(symmetric_difference_cardinality, 3.0);
     ///
     /// ```
-    pub fn get_symmetric_difference_cardinality(&self) -> f32 {
-        (self.left_cardinality + self.right_cardinality - 2.0 * self.get_intersection_cardinality())
-            .max(0.0)
+    pub fn get_symmetric_difference_cardinality(&self) -> F {
+        (self.left_cardinality + self.right_cardinality
+            - F::reverse(2.0) * self.get_intersection_cardinality())
+        .get_max(F::reverse(0.0))
     }
 
     #[inline(always)]
@@ -172,9 +176,9 @@ impl EstimatedUnionCardinalities {
     ///
     /// ```
     ///
-    pub fn get_jaccard_index(&self) -> f32 {
-        (self.get_intersection_cardinality() / (self.union_cardinality).max(f32::EPSILON))
-            .max(0.0)
-            .min(1.0)
+    pub fn get_jaccard_index(&self) -> F {
+        (self.get_intersection_cardinality() / self.union_cardinality)
+            .get_max(F::reverse(0.0))
+            .get_min(F::reverse(1.0))
     }
 }

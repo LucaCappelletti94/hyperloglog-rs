@@ -15,7 +15,9 @@ use crate::{
     zeros::Zero,
 };
 
-pub trait Precision<const BITS: usize>: Default + Copy + Eq + Serialize + Debug + Send + Sync{
+pub trait Precision<const BITS: usize>:
+    Default + Copy + Eq + Serialize + Debug + Send + Sync
+{
     /// The data type to use for the number of zeros registers counter.
     /// This should be the smallest possinle data type that allows us to count
     /// all the registers without overflowing. We can tollerate a one-off error

@@ -3,7 +3,25 @@
 //! it is available in other crates - we do not intend to use them as dependencies, as we want to keep
 //! the dependencies to the very bare minimum.
 
-pub trait Primitive<U>: Sized {
+use std::{
+    iter::Sum,
+    ops::{Add, AddAssign, Div, Mul, Sub},
+};
+
+use crate::max_min::MaxMin;
+
+pub trait Primitive<U>:
+    Sized
+    + Copy
+    + Sum
+    + Sub<Self, Output = Self>
+    + Add<Self, Output = Self>
+    + AddAssign
+    + PartialOrd
+    + Mul<Self, Output = Self>
+    + Div<Self, Output = Self>
+    + MaxMin
+{
     fn convert(self) -> U;
     fn reverse(other: U) -> Self;
 }
@@ -464,99 +482,50 @@ impl Primitive<bool> for usize {
     }
 }
 
-impl Primitive<u8> for bool {
+impl Primitive<f32> for f32 {
     #[inline(always)]
-    fn convert(self) -> u8 {
-        if self {
-            1
-        } else {
-            0
-        }
+    fn convert(self) -> f32 {
+        self
     }
 
     #[inline(always)]
-    fn reverse(other: u8) -> Self {
-        other != 0
+    fn reverse(other: f32) -> Self {
+        other
     }
 }
 
-impl Primitive<u16> for bool {
+impl Primitive<f64> for f64 {
     #[inline(always)]
-    fn convert(self) -> u16 {
-        if self {
-            1
-        } else {
-            0
-        }
+    fn convert(self) -> f64 {
+        self
     }
 
     #[inline(always)]
-    fn reverse(other: u16) -> Self {
-        other != 0
+    fn reverse(other: f64) -> Self {
+        other
     }
 }
 
-impl Primitive<u32> for bool {
+impl Primitive<f32> for f64 {
     #[inline(always)]
-    fn convert(self) -> u32 {
-        if self {
-            1
-        } else {
-            0
-        }
+    fn convert(self) -> f32 {
+        self as f32
     }
 
     #[inline(always)]
-    fn reverse(other: u32) -> Self {
-        other != 0
+    fn reverse(other: f32) -> Self {
+        other as f64
     }
 }
 
-impl Primitive<u64> for bool {
+impl Primitive<f64> for f32 {
     #[inline(always)]
-    fn convert(self) -> u64 {
-        if self {
-            1
-        } else {
-            0
-        }
+    fn convert(self) -> f64 {
+        self as f64
     }
 
     #[inline(always)]
-    fn reverse(other: u64) -> Self {
-        other != 0
+    fn reverse(other: f64) -> Self {
+        other as f32
     }
 }
-
-impl Primitive<u128> for bool {
-    #[inline(always)]
-    fn convert(self) -> u128 {
-        if self {
-            1
-        } else {
-            0
-        }
-    }
-
-    #[inline(always)]
-    fn reverse(other: u128) -> Self {
-        other != 0
-    }
-}
-
-impl Primitive<usize> for bool {
-    #[inline(always)]
-    fn convert(self) -> usize {
-        if self {
-            1
-        } else {
-            0
-        }
-    }
-
-    #[inline(always)]
-    fn reverse(other: usize) -> Self {
-        other != 0
-    }
-}
-
