@@ -1,4 +1,4 @@
-use std::{
+use core::{
     hash::Hash,
     ops::{Index, IndexMut},
 };
@@ -7,17 +7,12 @@ use crate::prelude::*;
 
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct HyperLogLogArray<const PRECISION: usize, const BITS: usize, const N: usize>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
-{
+pub struct HyperLogLogArray<PRECISION: Precision<BITS>, const BITS: usize, const N: usize> {
     counters: [HyperLogLog<PRECISION, BITS>; N],
 }
 
-impl<const PRECISION: usize, const BITS: usize, const N: usize> Default
+impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Default
     for HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray with the given precision and number of bits.
@@ -31,7 +26,7 @@ where
     /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let hll_array = HyperLogLogArray::<12, 6, 3>::default();
+    /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::default();
     /// ```
     fn default() -> Self {
         Self {
@@ -40,9 +35,8 @@ where
     }
 }
 
-impl<const PRECISION: usize, const BITS: usize, const N: usize> HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
+impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize>
+    HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray with the given precision and number of bits.
@@ -53,7 +47,7 @@ where
     /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let hll_array = HyperLogLogArray::<12, 6, 3>::new();
+    /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::new();
     /// ```
     pub fn new() -> Self {
         Self {
@@ -109,10 +103,8 @@ where
     }
 }
 
-impl<const PRECISION: usize, const BITS: usize, const N: usize>
+impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize>
     AsRef<[HyperLogLog<PRECISION, BITS>; N]> for HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     #[inline(always)]
     /// Returns a reference to the underlying array of HyperLogLog counters.
@@ -124,10 +116,8 @@ where
     }
 }
 
-impl<const PRECISION: usize, const BITS: usize, const N: usize>
+impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize>
     AsMut<[HyperLogLog<PRECISION, BITS>; N]> for HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     #[inline(always)]
     /// Returns a mutable reference to the underlying array of HyperLogLog counters.
@@ -139,10 +129,8 @@ where
     }
 }
 
-impl<const PRECISION: usize, const BITS: usize, const N: usize> Index<usize>
+impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Index<usize>
     for HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     type Output = HyperLogLog<PRECISION, BITS>;
 
@@ -164,7 +152,7 @@ where
     /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll_array = HyperLogLogArray::<12, 6, 4>::new();
+    /// let mut hll_array = HyperLogLogArray::<Precision12, 6, 4>::new();
     /// hll_array[0].insert(&1);
     /// hll_array[1].insert(&2);
     /// hll_array[2].insert(&3);
@@ -188,10 +176,8 @@ where
     }
 }
 
-impl<const PRECISION: usize, const BITS: usize, const N: usize> IndexMut<usize>
+impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize> IndexMut<usize>
     for HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     #[inline(always)]
     /// Returns a mutable reference to the HyperLogLog counter at the given index.
@@ -211,7 +197,7 @@ where
     /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll_array = HyperLogLogArray::<12, 6, 4>::new();
+    /// let mut hll_array = HyperLogLogArray::<Precision12, 6, 4>::new();
     /// hll_array[0].insert(&1);
     /// hll_array[1].insert(&2);
     /// hll_array[2].insert(&3);
@@ -235,10 +221,8 @@ where
     }
 }
 
-impl<const PRECISION: usize, const BITS: usize, const N: usize>
+impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize>
     From<[HyperLogLog<PRECISION, BITS>; N]> for HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given array of HyperLogLog counters.
@@ -255,7 +239,7 @@ where
     /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let hll_array = HyperLogLogArray::<12, 6, 3>::from([
+    /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::from([
     ///     HyperLogLog::new(),
     ///     HyperLogLog::new(),
     ///     HyperLogLog::new(),
@@ -266,10 +250,8 @@ where
     }
 }
 
-impl<const PRECISION: usize, const BITS: usize, const N: usize, H: Hash>
-    From<&[Vec<H>; N]> for HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
+impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize, H: Hash> From<&[Vec<H>; N]>
+    for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given array of vectors of hashable items.
@@ -284,10 +266,10 @@ where
     ///
     /// ```rust
     /// #![feature(generic_const_exprs)]
-    /// use std::hash::Hash;
+    /// use core::hash::Hash;
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let hll_array = HyperLogLogArray::<12, 6, 3>::from(&[
+    /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::from(&[
     ///     vec![1, 2, 3],
     ///     vec![4, 5, 6],
     ///     vec![7, 8, 9],
@@ -304,10 +286,8 @@ where
     }
 }
 
-impl<const PRECISION: usize, const BITS: usize, const N: usize>
+impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize>
     From<Vec<HyperLogLog<PRECISION, BITS>>> for HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given vector of HyperLogLog counters.
@@ -324,7 +304,7 @@ where
     /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let hll_array = HyperLogLogArray::<12, 6, 3>::from(vec![
+    /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::from(vec![
     ///     HyperLogLog::new(),
     ///     HyperLogLog::new(),
     ///     HyperLogLog::new(),
@@ -341,10 +321,8 @@ where
     }
 }
 
-impl<const PRECISION: usize, const BITS: usize, const N: usize>
+impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize>
     From<&[HyperLogLog<PRECISION, BITS>]> for HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given slice of HyperLogLog counters.
@@ -360,10 +338,10 @@ where
     /// ```rust
     /// #![feature(generic_const_exprs)]
     /// use hyperloglog_rs::prelude::*;
-    /// 
+    ///
     /// let counters = vec![HyperLogLog::new(), HyperLogLog::new(), HyperLogLog::new()];
-    /// 
-    /// let hll_array = HyperLogLogArray::<12, 6, 3>::from(counters.as_slice());
+    ///
+    /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::from(counters.as_slice());
     /// ```
     fn from(counters: &[HyperLogLog<PRECISION, BITS>]) -> Self {
         assert_eq!(counters.len(), N, concat!(
@@ -376,10 +354,8 @@ where
     }
 }
 
-impl<const PRECISION: usize, const BITS: usize, const N: usize, H: Hash> From<Vec<Vec<H>>>
+impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize, H: Hash> From<Vec<Vec<H>>>
     for HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given vector of vectors of hashable items.
@@ -394,10 +370,10 @@ where
     ///
     /// ```rust
     /// #![feature(generic_const_exprs)]
-    /// use std::hash::Hash;
+    /// use core::hash::Hash;
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let hll_array = HyperLogLogArray::<12, 6, 3>::from(vec![
+    /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::from(vec![
     ///     vec![1, 2, 3],
     ///     vec![4, 5, 6],
     ///     vec![7, 8, 9],
@@ -418,10 +394,8 @@ where
     }
 }
 
-impl<const PRECISION: usize, const BITS: usize, const N: usize, H: Hash> From<&[Vec<H>]>
+impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize, H: Hash> From<&[Vec<H>]>
     for HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given slice of vectors of hashable items.
@@ -436,10 +410,10 @@ where
     ///
     /// ```rust
     /// #![feature(generic_const_exprs)]
-    /// use std::hash::Hash;
+    /// use core::hash::Hash;
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let hll_array = HyperLogLogArray::<12, 6, 3>::from(&[
+    /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::from(&[
     ///     vec![1, 2, 3],
     ///     vec![4, 5, 6],
     ///     vec![7, 8, 9],

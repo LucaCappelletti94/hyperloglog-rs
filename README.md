@@ -62,9 +62,7 @@ This crate is designed to be as lightweight as possible and does not require any
 All functionality of this crate can be used without std, and the prelude module provides easy access to all the relevant types and traits. If you encounter any issues using this crate in a no_std environment, please don't hesitate to open an issue or submit a pull request on GitHub.
 
 ## Required features
-Note that some of the features used by this crate, such as #![feature(generic_const_exprs)], require a nightly Rust compiler. If you are using a stable or beta version of Rust, you may need to switch to nightly or disable certain features to use this crate.
-
-The **generic_const_exprs** feature allows for using constant expressions as generic type parameters, which is necessary in this implementation to pass compile-time constant values as template arguments.
+Note that some of the features used by this crate, such as #![feature(const_float_bits_conv)], require a nightly Rust compiler. If you are using a stable or beta version of Rust, you may need to switch to nightly or disable certain features to use this crate.
 
 The **const_float_bits_conv** feature provides the ability to convert floating-point values to their corresponding bit patterns at compile time, which is useful in computing hash values.
 

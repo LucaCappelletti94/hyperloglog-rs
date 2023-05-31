@@ -13,7 +13,6 @@ struct FuzzCase {
 }
 
 const BITS: usize = 6;
-const PRECISION: usize = 10;
 
 fuzz_target!(|data: FuzzCase| {
     let mut left_unique = data.left.clone();
@@ -24,8 +23,8 @@ fuzz_target!(|data: FuzzCase| {
     right_unique.sort_unstable();
     right_unique.dedup();
 
-    let mut left: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
-    let mut right: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
+    let mut left: HyperLogLog<Precision10, BITS> = HyperLogLog::new();
+    let mut right: HyperLogLog<Precision10, BITS> = HyperLogLog::new();
     for item in data.left.iter() {
         // If the item is causing a collision, we stop the test early
         // as it is a known limitation of the data structure and 

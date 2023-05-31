@@ -39,11 +39,11 @@
 //! ```rust
 //! use hyperloglog_rs::prelude::*;
 //!
-//! let mut hll = HyperLogLog::<14, 5>::new();
+//! let mut hll = HyperLogLog::<Precision14, 5>::new();
 //! hll.insert(&1);
 //! hll.insert(&2);
 //!
-//! let mut hll2 = HyperLogLog::<14, 5>::new();
+//! let mut hll2 = HyperLogLog::<Precision14, 5>::new();
 //! hll2.insert(&2);
 //! hll2.insert(&3);
 //!
@@ -70,8 +70,6 @@
 //! ## References
 //!
 //! * [Flajolet, Philippe](https://en.wikipedia.org/wiki/Philippe_Flajolet), Éric Fusy, Olivier Gandouet, and Frédéric Meunier. "[Hyperloglog: the analysis of a near-optimal cardinality estimation algorithm.](https://hal.science/file/index/docid/406166/filename/FlFuGaMe07.pdf)" In Proceedings of the 2007 conference on analysis of algorithms, pp. 127-146. 2007.
-#![feature(return_position_impl_trait_in_trait)]
-#![feature(generic_const_exprs)]
 #![feature(const_float_bits_conv)]
 #![feature(const_fn_floating_point_arithmetic)]
 
@@ -85,6 +83,10 @@ pub mod hyperloglog_array;
 pub mod estimated_union_cardinalities;
 mod bias;
 mod raw_estimate_data;
+mod precisions;
+mod primitive;
+mod zeros;
+mod array_default;
 
 pub use crate::hyperloglog::HyperLogLog;
 pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
@@ -94,8 +96,12 @@ pub mod prelude {
     pub use crate::estimated_union_cardinalities::*;
     pub use crate::iter::*;
     pub use crate::bitor::*;
+    pub use crate::zeros::*;
+    pub use crate::primitive::*;
+    pub use crate::precisions::*;
     pub use crate::utils::*;
     pub use crate::hyperloglog_array::*;
     pub use crate::serde::*;
+    pub use crate::precisions::*;
     pub use core::ops::{BitOr, BitOrAssign};
 }

@@ -22,12 +22,11 @@ enum RandomCommand {
 }
 
 const BITS: usize = 5;
-const PRECISION: usize = 8;
 
 fuzz_target!(|data: FuzzCase| {
     let mut idx: u32 = 0;
-    let mut left: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
-    let mut right: HyperLogLog<PRECISION, BITS> = HyperLogLog::default();
+    let mut left: HyperLogLog<Precision8, BITS> = HyperLogLog::new();
+    let mut right: HyperLogLog<Precision8, BITS> = HyperLogLog::default();
     for command in data.commands {
         match command {
             RandomCommand::Multiply => {

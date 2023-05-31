@@ -1,11 +1,11 @@
 #![feature(test)]
 extern crate test;
 
-use hyperloglog_rs::HyperLogLog;
+use hyperloglog_rs::prelude::*;
 
 use test::{black_box, Bencher};
 
-fn populate_vectors<const N: usize>() -> ([HyperLogLog<4, 4>; N], [HyperLogLog<4, 4>; N]) {
+fn populate_vectors<const N: usize>() -> ([HyperLogLog<Precision4, 4>; N], [HyperLogLog<Precision4, 4>; N]) {
     // Optionally include some setup
     const NUMBER_OF_ELEMENTS: usize = 100;
 
@@ -14,8 +14,8 @@ fn populate_vectors<const N: usize>() -> ([HyperLogLog<4, 4>; N], [HyperLogLog<4
     // estimated overlap cardinality matrices:
 
     // Create the counters
-    let mut left: [HyperLogLog<4, 4>; N] = [HyperLogLog::new(); N];
-    let mut right: [HyperLogLog<4, 4>; N] = [HyperLogLog::new(); N];
+    let mut left: [HyperLogLog<Precision4, 4>; N] = [HyperLogLog::new(); N];
+    let mut right: [HyperLogLog<Precision4, 4>; N] = [HyperLogLog::new(); N];
 
     left[0].insert(&56);
     right[0].insert(&32);

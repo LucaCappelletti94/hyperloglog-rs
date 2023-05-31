@@ -3,14 +3,14 @@ use hyperloglog_rs::prelude::*;
 
 
 #[test]
-pub fn test_hyper_log_log_at_precision_12_and_bits_4() {
-    type PRECISION = Precision12;
+pub fn test_hyper_log_log_at_precision_17_and_bits_4() {
+    type PRECISION = Precision17;
     const BITS: usize = 4;
     
     for number_of_elements in [
         5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000
     ]{
-        if BITS <= 4 && 12 <= 5 && number_of_elements > 10_000{
+        if BITS <= 4 && 17 <= 5 && number_of_elements > 10_000{
             continue;
         }
     
@@ -50,14 +50,14 @@ pub fn test_hyper_log_log_at_precision_12_and_bits_4() {
 
 
 #[test]
-pub fn test_hyper_log_log_at_precision_12_and_bits_5() {
-    type PRECISION = Precision12;
+pub fn test_hyper_log_log_at_precision_17_and_bits_5() {
+    type PRECISION = Precision17;
     const BITS: usize = 5;
     
     for number_of_elements in [
         5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000
     ]{
-        if BITS <= 4 && 12 <= 5 && number_of_elements > 10_000{
+        if BITS <= 4 && 17 <= 5 && number_of_elements > 10_000{
             continue;
         }
     
@@ -97,14 +97,14 @@ pub fn test_hyper_log_log_at_precision_12_and_bits_5() {
 
 
 #[test]
-pub fn test_hyper_log_log_at_precision_12_and_bits_6() {
-    type PRECISION = Precision12;
+pub fn test_hyper_log_log_at_precision_17_and_bits_6() {
+    type PRECISION = Precision17;
     const BITS: usize = 6;
     
     for number_of_elements in [
         5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000
     ]{
-        if BITS <= 4 && 12 <= 5 && number_of_elements > 10_000{
+        if BITS <= 4 && 17 <= 5 && number_of_elements > 10_000{
             continue;
         }
     

@@ -12,14 +12,13 @@ struct FuzzCase {
 }
 
 const BITS: usize = 6;
-const PRECISION: usize = 10;
 
 fuzz_target!(|data: FuzzCase| {
     let mut unique = data.value.clone();
     unique.sort_unstable();
     unique.dedup();
 
-    let mut hll: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
+    let mut hll: HyperLogLog<Precision10, BITS> = HyperLogLog::new();
 
     for item in data.value.iter() {
         // If the item is causing a collision, we stop the test early

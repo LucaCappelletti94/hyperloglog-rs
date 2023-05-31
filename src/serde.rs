@@ -1,13 +1,14 @@
+use crate::array_default::ArrayDefault;
 use crate::prelude::*;
+use crate::primitive::Primitive;
+use crate::zeros::Zero;
 use serde::de::Visitor;
 use serde::ser::SerializeSeq;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-impl<const PRECISION: usize, const BITS: usize, const N: usize> Serialize
+impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Serialize
     for HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     #[inline(always)]
     /// Serializes the HyperLogLog counter using the given serializer.
@@ -34,7 +35,7 @@ where
     /// use serde_json::Serializer;
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll_array = HyperLogLogArray::<12, 6, 3>::new();
+    /// let mut hll_array = HyperLogLogArray::<Precision12, 6, 3>::new();
     /// hll_array[0].insert(&1);
     /// hll_array[1].insert(&2);
     /// hll_array[2].insert(&3);
@@ -57,10 +58,8 @@ where
     }
 }
 
-impl<'de, const PRECISION: usize, const BITS: usize, const N: usize> Deserialize<'de>
+impl<'de, PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Deserialize<'de>
     for HyperLogLogArray<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     #[inline(always)]
     /// Deserializes the HyperLogLog counter using the given deserializer.
@@ -75,15 +74,19 @@ where
     /// The deserialization result, indicating success or failure.
     ///
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        Ok(Self::from(deserializer.deserialize_seq(HLLArrayVisitor)?))
+        Ok(Self::from(
+            deserializer.deserialize_seq(HLLArrayVisitor::default())?,
+        ))
     }
 }
 
 #[derive(Default)]
 /// Struct to deserialize a vector of u32
-pub struct HLLArrayVisitor<const PRECISION: usize, const BITS: usize, const N: usize>;
+pub struct HLLArrayVisitor<PRECISION: Precision<BITS>, const BITS: usize, const N: usize> {
+    _precision: core::marker::PhantomData<PRECISION>,
+}
 
-/// A visitor implementation used for deserializing an array of HLL into a fixed-size array.
+/// A visitor implementation used for deserializing an array of HLL into a fixed-size array
 ///
 /// This visitor is used internally by the `serde` deserialization process for the HyperLogLog struct.
 /// It converts the deserialized sequence of HLL values into a fixed-size array.
@@ -94,10 +97,6 @@ pub struct HLLArrayVisitor<const PRECISION: usize, const BITS: usize, const N: u
 /// * `PRECISION`: The precision parameter of the HyperLogLog counter.
 /// * `BITS`: The number of bits used for each register in the HyperLogLog counter.
 ///
-/// # Constraints
-/// The visitor requires the following constraints:
-///
-/// * The precision and bits parameters must satisfy the condition `[(); ceil(1 << PRECISION, 32 / BITS)]:`.
 ///
 /// # Associated Types
 ///
@@ -114,7 +113,7 @@ pub struct HLLArrayVisitor<const PRECISION: usize, const BITS: usize, const N: u
 /// * `formatter`: A mutable reference to the formatter used to format the error message.
 ///
 /// ### Returns
-/// A `std::fmt::Result` indicating the success or failure of the formatting operation.
+/// A `core::fmt::Result` indicating the success or failure of the formatting operation.
 ///
 /// ## visit_seq
 /// Processes the deserialized sequence and converts it into a fixed-size array of HLL values.
@@ -124,14 +123,12 @@ pub struct HLLArrayVisitor<const PRECISION: usize, const BITS: usize, const N: u
 ///
 /// ### Returns
 /// The resulting fixed-size array of u32 values, or an error if the deserialization failed.
-impl<'de, const PRECISION: usize, const BITS: usize, const N: usize> Visitor<'de>
+impl<'de, PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Visitor<'de>
     for HLLArrayVisitor<PRECISION, BITS, N>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     type Value = [HyperLogLog<PRECISION, BITS>; N];
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("an array of HLL")
     }
 
@@ -149,10 +146,7 @@ where
     }
 }
 
-impl<const PRECISION: usize, const BITS: usize> Serialize for HyperLogLog<PRECISION, BITS>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
-{
+impl<PRECISION: Precision<BITS>, const BITS: usize> Serialize for HyperLogLog<PRECISION, BITS> {
     #[inline(always)]
     /// Serializes the HyperLogLog counter using the given serializer.
     ///
@@ -172,24 +166,22 @@ where
     /// use serde_json::Serializer;
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let hll = HyperLogLog::<12, 6>::new();
+    /// let hll = HyperLogLog::<Precision12, 6>::new();
     /// let mut serializer = Serializer::new(Vec::new());
     /// let result = hll.serialize(&mut serializer);
     /// assert!(result.is_ok(), "Serialization failed, error: {:?}", result.err());
     /// ```
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut seq = serializer.serialize_seq(Some(self.words.len()))?;
-        for word in self.words {
-            seq.serialize_element(&word)?;
+        for word in self.words.iter_elements() {
+            seq.serialize_element(word)?;
         }
         seq.end()
     }
 }
 
-impl<'de, const PRECISION: usize, const BITS: usize> Deserialize<'de>
+impl<'de, PRECISION: Precision<BITS>, const BITS: usize> Deserialize<'de>
     for HyperLogLog<PRECISION, BITS>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {
     #[inline(always)]
     /// Deserializes the HyperLogLog counter using the given deserializer.
@@ -214,28 +206,24 @@ where
     /// let words = [0, 0, 0, 0, 5, 0, 4, 0, 0, 3, 0, 0, 0];
     /// let words_str = "[0, 0, 0, 0, 5, 0, 4, 0, 0, 3, 0, 0, 0]";
     /// let mut deserializer = Deserializer::from_str(words_str);
-    /// let result = HyperLogLog::<6, 6>::deserialize(&mut deserializer);
+    /// let result = HyperLogLog::<Precision6, 6>::deserialize(&mut deserializer);
     /// assert!(result.is_ok(), "Deserialization failed, error: {:?}", result.err());
     /// let hll = result.unwrap();
     /// hll.get_words().iter().zip(words.iter()).for_each(|(a, b)| assert_eq!(a, b, "Deserialized words do not match, expected: {}, actual: {}", b, a));
     /// ```
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let words: [u32; ceil(1 << PRECISION, 32 / BITS)] =
-            deserializer.deserialize_seq(U32ArrayVisitor)?;
+        let words: PRECISION::Words =
+            deserializer.deserialize_seq(WordsVisitor::<PRECISION, BITS>::default())?;
 
         let mut hll = Self {
             words,
-            number_of_zero_register: 0,
+            number_of_zero_register: PRECISION::NumberOfZeros::ZERO,
         };
 
         let number_of_zero_register = hll.iter().filter(|register| *register == 0).count();
 
         // We update the number of zeroed registers.
-        if PRECISION == 16 {
-            hll.number_of_zero_register = number_of_zero_register.min(u16::MAX as usize) as u16;
-        } else {
-            hll.number_of_zero_register = number_of_zero_register as u16;
-        }
+        hll.number_of_zero_register = PRECISION::NumberOfZeros::reverse(number_of_zero_register);
 
         Ok(hll)
     }
@@ -243,7 +231,9 @@ where
 
 #[derive(Default)]
 /// Struct to deserialize a vector of u32
-pub struct U32ArrayVisitor<const PRECISION: usize, const BITS: usize>;
+pub struct WordsVisitor<PRECISION: Precision<BITS>, const BITS: usize> {
+    _precision: core::marker::PhantomData<PRECISION>,
+}
 
 /// A visitor implementation used for deserializing an array of u32 into a fixed-size array.
 ///
@@ -255,11 +245,6 @@ pub struct U32ArrayVisitor<const PRECISION: usize, const BITS: usize>;
 /// * `'de`: Lifetime specifier for the deserialization process.
 /// * `PRECISION`: The precision parameter of the HyperLogLog counter.
 /// * `BITS`: The number of bits used for each register in the HyperLogLog counter.
-///
-/// # Constraints
-/// The visitor requires the following constraints:
-///
-/// * The precision and bits parameters must satisfy the condition `[(); ceil(1 << PRECISION, 32 / BITS)]:`.
 ///
 /// # Associated Types
 ///
@@ -276,7 +261,7 @@ pub struct U32ArrayVisitor<const PRECISION: usize, const BITS: usize>;
 /// * `formatter`: A mutable reference to the formatter used to format the error message.
 ///
 /// ### Returns
-/// A `std::fmt::Result` indicating the success or failure of the formatting operation.
+/// A `core::fmt::Result` indicating the success or failure of the formatting operation.
 ///
 /// ## visit_seq
 /// Processes the deserialized sequence and converts it into a fixed-size array of u32 values.
@@ -286,25 +271,26 @@ pub struct U32ArrayVisitor<const PRECISION: usize, const BITS: usize>;
 ///
 /// ### Returns
 /// The resulting fixed-size array of u32 values, or an error if the deserialization failed.
-impl<'de, const PRECISION: usize, const BITS: usize> Visitor<'de>
-    for U32ArrayVisitor<PRECISION, BITS>
-where
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
+impl<'de, PRECISION: Precision<BITS>, const BITS: usize> Visitor<'de>
+    for WordsVisitor<PRECISION, BITS>
 {
-    type Value = [u32; ceil(1 << PRECISION, 32 / BITS)];
+    type Value = PRECISION::Words;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("a tuple with an array of u32 and a u32 scalar")
     }
 
     fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let mut words_array = [0; ceil(1 << PRECISION, 32 / BITS)];
-        let mut words_array_iter = words_array.iter_mut();
-        while let Some(value) = seq.next_element()? {
-            if let Some(target) = words_array_iter.next() {
-                *target = value;
-            } else {
-                return Err(serde::de::Error::invalid_length(words_array.len(), &self));
+        let mut words_array = PRECISION::Words::default_array();
+        let number_of_elements = words_array.len();
+        {
+            let mut words_array_iter = words_array.iter_elements_mut();
+            while let Some(value) = seq.next_element()? {
+                if let Some(target) = words_array_iter.next() {
+                    *target = value;
+                } else {
+                    return Err(serde::de::Error::invalid_length(number_of_elements, &self));
+                }
             }
         }
         Ok(words_array)

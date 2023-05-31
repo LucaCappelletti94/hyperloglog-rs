@@ -7,7 +7,7 @@
 //! use hyperloglog_rs::prelude::*;
 //!
 //! let v = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-//! let cardinality_estimate = v.iter().estimate_cardinality::<12, 5>();
+//! let cardinality_estimate = v.iter().estimate_cardinality::<Precision12, 5>();
 //! assert!((cardinality_estimate - 10.0).abs() < 1.0);
 //! ```
 //!
@@ -17,7 +17,7 @@
 //! use hyperloglog_rs::prelude::*;
 //!
 //! let v = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-//! let hll: HyperLogLog<12, 6> = v.into_iter().map(|index|{
+//! let hll: HyperLogLog<Precision12, 6> = v.into_iter().map(|index|{
 //!     HyperLogLog::from(index)
 //! }).union();
 //! let cardinality_estimate = hll.estimate_cardinality();
@@ -40,25 +40,21 @@ pub trait EstimateIterCardinality {
     /// * `PRECISION` - The precision to use for the HyperLogLog counter.
     /// * `BITS` - The number of bits per register in the HyperLogLog counter.
     ///
-    fn estimate_cardinality<const PRECISION: usize, const BITS: usize>(self) -> f32
-    where
-        [(); ceil(1 << PRECISION, 32 / BITS)]:;
+    fn estimate_cardinality<PRECISION: Precision<BITS>, const BITS: usize>(self) -> f32;
 }
 
 impl<I, T: Hash> EstimateIterCardinality for I
 where
     I: Iterator<Item = T>,
 {
-    fn estimate_cardinality<const PRECISION: usize, const BITS: usize>(self) -> f32
-    where
-        [(); ceil(1 << PRECISION, 32 / BITS)]:,
+    fn estimate_cardinality<PRECISION: Precision<BITS>, const BITS: usize>(self) -> f32
     {
         let hll: HyperLogLog<PRECISION, BITS> = self.collect();
         hll.estimate_cardinality()
     }
 }
 
-pub trait HyperLogLogIterator<const PRECISION: usize, const BITS: usize> {
+pub trait HyperLogLogIterator<PRECISION: Precision<BITS>, const BITS: usize> {
     /// Returns a HyperLogLog that is the union of all HyperLogLogs in the iterator.
     ///
     /// # Example
@@ -66,15 +62,15 @@ pub trait HyperLogLogIterator<const PRECISION: usize, const BITS: usize> {
     /// ```rust
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll1 = HyperLogLog::<12, 6>::new();
+    /// let mut hll1 = HyperLogLog::<Precision12, 6>::new();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
     ///
-    /// let mut hll2 = HyperLogLog::<12, 6>::new();
+    /// let mut hll2 = HyperLogLog::<Precision12, 6>::new();
     /// hll2.insert(&3);
     /// hll2.insert(&4);
     ///
-    /// let mut hll3 = HyperLogLog::<12, 6>::new();
+    /// let mut hll3 = HyperLogLog::<Precision12, 6>::new();
     /// hll3.insert(&5);
     /// hll3.insert(&6);
     ///
@@ -82,21 +78,16 @@ pub trait HyperLogLogIterator<const PRECISION: usize, const BITS: usize> {
     ///
     /// assert!(hll_union.estimate_cardinality() - 6.0 < 1.0, "Expected 6.0, got {}", hll_union.estimate_cardinality());
     /// ```
-    fn union(self) -> HyperLogLog<PRECISION, BITS>
-    where
-        [(); ceil(1 << PRECISION, 32 / BITS)]:;
+    fn union(self) -> HyperLogLog<PRECISION, BITS>;
 }
 
-impl<const PRECISION: usize, const BITS: usize, I, C> HyperLogLogIterator<PRECISION, BITS> for I
+impl<PRECISION: Precision<BITS>, const BITS: usize, I, C> HyperLogLogIterator<PRECISION, BITS> for I
 where
     I: Iterator<Item = C>,
     HyperLogLog<PRECISION, BITS>: BitOr<C, Output = HyperLogLog<PRECISION, BITS>>,
-    [(); ceil(1 << PRECISION, 32 / BITS)]:,
 {   
     #[inline(always)]
     fn union(self) -> HyperLogLog<PRECISION, BITS>
-    where
-        [(); ceil(1 << PRECISION, 32 / BITS)]:,
     {
         self.fold(HyperLogLog::default(), |acc, hll| acc | hll)
     }
