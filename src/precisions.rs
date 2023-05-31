@@ -8,16 +8,14 @@
 use core::{fmt::Debug, ops::SubAssign};
 use std::ops::{Index, IndexMut};
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     array_default::ArrayDefault, prelude::precompute_linear_counting, primitive::Primitive,
     zeros::Zero,
 };
 
-pub trait Precision<const BITS: usize>:
-    Default + Copy + Eq + Serialize + DeserializeOwned + Debug + Send + Sync
-{
+pub trait Precision<const BITS: usize>: Default + Copy + Eq + Serialize + Debug + Send + Sync{
     /// The data type to use for the number of zeros registers counter.
     /// This should be the smallest possinle data type that allows us to count
     /// all the registers without overflowing. We can tollerate a one-off error
