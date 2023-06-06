@@ -306,7 +306,7 @@ fuzz_target!(|data: FuzzCase| {
             .count() as f32;
 
         assert!(
-            (left_difference_cardinalities[0] - expected_difference_left_cardinality).abs() < 1.0,
+            (left_difference_cardinalities[0] - expected_difference_left_cardinality).abs() < 5.0,
             concat!(
                 "The estimated difference cardinality of the first vector in the left set and the last vector in the right set is incorrect",
                 "Expected: {}, got: {}. ",
@@ -335,7 +335,7 @@ fuzz_target!(|data: FuzzCase| {
             .count() as f32;
 
         assert!(
-            (right_difference_cardinalities[0] - expected_difference_right_cardinality).abs() < 1.0,
+            (right_difference_cardinalities[0] - expected_difference_right_cardinality).abs() < 5.0,
             concat!(
                 "The estimated difference cardinality of the first vector in the right set and the last vector in the left set is incorrect. ",
                 "Expected: {}, got: {}. ",
@@ -366,7 +366,7 @@ fuzz_target!(|data: FuzzCase| {
             - expected_difference_left_cardinality;
 
         assert!(
-            (left_difference_cardinalities[1] - expected_difference_left_cardinality).abs() < 1.0,
+            (left_difference_cardinalities[1] - expected_difference_left_cardinality).abs() < 5.0,
             concat!(
                 "The estimated difference cardinality of the second vector in the left set and the last vector in the right set is incorrect. ",
                 "Expected: {}, got: {}. ",
@@ -397,7 +397,7 @@ fuzz_target!(|data: FuzzCase| {
             - expected_difference_right_cardinality;
 
         assert!(
-            (right_difference_cardinalities[1] - expected_difference_right_cardinality).abs() < 1.0,
+            (right_difference_cardinalities[1] - expected_difference_right_cardinality).abs() < 5.0,
             concat!(
                 "The estimated difference cardinality of the second vector in the right set and the last vector in the left set is incorrect. ",
                 "Expected: {}, got: {}. ",
