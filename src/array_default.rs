@@ -21,6 +21,9 @@ pub trait ArrayIter<T> {
     fn iter_elements(&self) -> Self::Iter<'_>;
     fn iter_elements_mut(&mut self) -> Self::IterMut<'_>;
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl<T: Default + Copy, const N: usize> ArrayDefault<T> for [T; N] {

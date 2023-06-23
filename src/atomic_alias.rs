@@ -2,8 +2,6 @@ use core::fmt::Debug;
 /// Module providing Atomic Alias, a trait that allows to define a mapping between a type and its atomic version.
 use core::sync::atomic::{AtomicU16, AtomicU32, AtomicU64, AtomicU8, AtomicUsize};
 
-
-
 pub trait AtomicAlias {
     type Alias: Debug;
 
@@ -81,10 +79,9 @@ impl<const N: usize> AtomicAlias for [u8; N] {
 
     fn into_atomic(self) -> Self::Alias {
         let ptr = &self as *const Self as *const Self::Alias;
-        let new_value = unsafe { ptr.read() };
-        new_value
+        unsafe { ptr.read() }
     }
-    
+
     fn from_atomic(atomic: Self::Alias) -> Self {
         unsafe { *(atomic.as_ptr() as *const [u8; N]) }
     }
@@ -95,10 +92,9 @@ impl<const N: usize> AtomicAlias for [u16; N] {
 
     fn into_atomic(self) -> Self::Alias {
         let ptr = &self as *const Self as *const Self::Alias;
-        let new_value = unsafe { ptr.read() };
-        new_value
+        unsafe { ptr.read() }
     }
-    
+
     fn from_atomic(atomic: Self::Alias) -> Self {
         unsafe { *(atomic.as_ptr() as *const [u16; N]) }
     }
@@ -109,10 +105,9 @@ impl<const N: usize> AtomicAlias for [u32; N] {
 
     fn into_atomic(self) -> Self::Alias {
         let ptr = &self as *const Self as *const Self::Alias;
-        let new_value = unsafe { ptr.read() };
-        new_value
+        unsafe { ptr.read() }
     }
-    
+
     fn from_atomic(atomic: Self::Alias) -> Self {
         unsafe { *(atomic.as_ptr() as *const [u32; N]) }
     }
@@ -123,10 +118,9 @@ impl<const N: usize> AtomicAlias for [u64; N] {
 
     fn into_atomic(self) -> Self::Alias {
         let ptr = &self as *const Self as *const Self::Alias;
-        let new_value = unsafe { ptr.read() };
-        new_value
+        unsafe { ptr.read() }
     }
-    
+
     fn from_atomic(atomic: Self::Alias) -> Self {
         unsafe { *(atomic.as_ptr() as *const [u64; N]) }
     }
@@ -137,10 +131,9 @@ impl<const N: usize> AtomicAlias for [usize; N] {
 
     fn into_atomic(self) -> Self::Alias {
         let ptr = &self as *const Self as *const Self::Alias;
-        let new_value = unsafe { ptr.read() };
-        new_value
+        unsafe { ptr.read() }
     }
-    
+
     fn from_atomic(atomic: Self::Alias) -> Self {
         unsafe { *(atomic.as_ptr() as *const [usize; N]) }
     }
