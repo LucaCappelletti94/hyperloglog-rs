@@ -1,4 +1,4 @@
-use crate::array_default::ArrayDefault;
+use crate::array_default::{ArrayDefault, ArrayIter};
 use crate::bias::BIAS_DATA;
 use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
 use crate::precisions::Precision;

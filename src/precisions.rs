@@ -11,8 +11,8 @@ use std::ops::{Index, IndexMut};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    array_default::ArrayDefault, prelude::precompute_linear_counting, primitive::Primitive,
-    zeros::Zero,
+    array_default::ArrayDefault, array_default::ArrayIter, atomic_alias::AtomicAlias, prelude::precompute_linear_counting,
+    primitive::Primitive, zeros::Zero,
 };
 
 pub trait Precision<const BITS: usize>:
@@ -25,6 +25,7 @@ pub trait Precision<const BITS: usize>:
     /// the cardinality as it is known before hand whether this can happen at all.
     type NumberOfZeros: Copy
         + Debug
+        + AtomicAlias
         + Eq
         + PartialEq
         + Primitive<usize>
@@ -56,12 +57,14 @@ pub trait Precision<const BITS: usize>:
     ///
     type Words: Copy
         + Debug
+        + AtomicAlias
         + IndexMut<usize, Output = u32>
         + Index<usize, Output = u32>
         + Send
         + Sync
         + Eq
         + PartialEq
+        + ArrayIter<u32>
         + ArrayDefault<u32>; // = [u32; ceil(PRECISION::NUMBER_OF_REGISTERS, 32 / BITS)]
 }
 
