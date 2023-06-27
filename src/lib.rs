@@ -88,7 +88,6 @@ mod primitive;
 mod zeros;
 mod array_default;
 mod max_min;
-mod atomic_alias;
 
 pub use crate::hyperloglog::HyperLogLog;
 pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
@@ -107,6 +106,5 @@ pub mod prelude {
     pub use crate::serde::*;
     pub use crate::precisions::*;
     pub use crate::array_default::*;
-    pub use crate::atomic_alias::*;
     pub use core::ops::{BitOr, BitOrAssign};
 }

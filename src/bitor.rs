@@ -1,8 +1,6 @@
 use crate::primitive::Primitive;
 use crate::{array_default::ArrayIter, prelude::*};
 use core::ops::{BitOr, BitOrAssign};
-use core::sync::atomic::Ordering;
-use std::sync::atomic::AtomicU32;
 
 #[allow(clippy::suspicious_op_assign_impl)]
 impl<PRECISION: Precision<BITS>, const BITS: usize> BitOrAssign<Self>
@@ -119,61 +117,6 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> BitOrAssign<&Self>
                 new_number_of_zeros += (left_register == 0) as usize;
                 left_word_copy >>= BITS;
                 right_word >>= BITS;
-            }
-        }
-
-        new_number_of_zeros -= self.get_number_of_padding_registers();
-
-        self.number_of_zero_register = PRECISION::NumberOfZeros::reverse(new_number_of_zeros);
-    }
-}
-
-#[allow(clippy::suspicious_op_assign_impl)]
-impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
-where
-    <<PRECISION as Precision<BITS>>::Words as AtomicAlias>::Alias: ArrayIter<AtomicU32>,
-{
-    #[inline(always)]
-    /// Computes atomic union between HLL counters ignoring the number of zeros.
-    /// 
-    /// # Safety
-    /// This function IGNORES the number of zeros. It puts the counter in an illegal state.
-    /// You ALWAYS have to update the number of zeros after calling this function. After using
-    /// this function, you have to call `update_number_of_zeros` to update the number of zeros.
-    pub unsafe fn fetch_bitor_assign_ignoring_number_of_zeros(&self, rhs: &Self, order: Ordering) {
-        for (left_word, mut right_word) in self
-            .words
-            .into_atomic()
-            .iter_elements()
-            .zip(rhs.words.into_atomic().iter_elements().map(|word| word.load(order)))
-        {
-            left_word.fetch_update(
-                order,
-                order,
-                |left_word| {
-                    let mut left_word_copy = left_word;
-                    for i in 0..Self::NUMBER_OF_REGISTERS_IN_WORD {
-                        let mut left_register = left_word_copy & Self::LOWER_REGISTER_MASK;
-                        let right_register = right_word & Self::LOWER_REGISTER_MASK;
-                        left_register = (left_register).max(right_register);
-                        left_word_copy &= !(Self::LOWER_REGISTER_MASK << (i * BITS));
-                        left_word_copy |= left_register << (i * BITS);
-                        left_word_copy >>= BITS;
-                        right_word >>= BITS;
-                    }
-                    Some(left_word)
-                },
-            ).unwrap();
-        }
-    }
-
-    #[inline(always)]
-    pub fn update_number_of_zeros(&mut self) {
-        let mut new_number_of_zeros = 0;
-        for word in self.words.iter_elements() {
-            for i in 0..Self::NUMBER_OF_REGISTERS_IN_WORD {
-                let register = (word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
-                new_number_of_zeros += (register == 0) as usize;
             }
         }
 
