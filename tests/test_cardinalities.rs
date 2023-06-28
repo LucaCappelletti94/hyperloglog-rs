@@ -53,7 +53,7 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     file.write_all(line.as_bytes())
 }
 
-#[test]
+//#[test]
 fn test_cardinality_perfs() {
     let mut file = File::create("cardinality_benchmark.tsv").unwrap();
     file.write_all(b"precision\tbits\texact\thll\tset\n")

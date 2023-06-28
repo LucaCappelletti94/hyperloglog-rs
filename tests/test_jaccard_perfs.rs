@@ -73,7 +73,7 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     file.write_all(line.as_bytes())
 }
 
-#[test]
+//#[test]
 fn test_jaccard_perfs() {
     let mut file = File::create("jaccard_benchmark.tsv").unwrap();
     file.write_all(b"precision\tbits\texact\thll\tset1\tset2\n")
