@@ -47,7 +47,7 @@ fn write_line<PRECISION: Precision<BITS>, const BITS: usize>(
         BITS,
         exact_cardinality,
         hll.estimate_cardinality(),
-        "", //set_str,
+        set_str,
     );
 
     file.write_all(line.as_bytes())
