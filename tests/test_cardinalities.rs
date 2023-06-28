@@ -33,7 +33,7 @@ fn xorshift(mut x: u64) -> u64 {
     x
 }
 
-fn write_line<PRECISION: Precision<BITS>, const BITS: usize>(
+fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     set: &HashSet<u64>,
     set_str: &str,
     exact_cardinality: usize,

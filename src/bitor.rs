@@ -3,7 +3,7 @@ use crate::{array_default::ArrayIter, prelude::*};
 use core::ops::{BitOr, BitOrAssign};
 
 #[allow(clippy::suspicious_op_assign_impl)]
-impl<PRECISION: Precision<BITS>, const BITS: usize> BitOrAssign<Self>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self>
     for HyperLogLog<PRECISION, BITS>
 {
     #[inline(always)]
@@ -54,7 +54,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> BitOrAssign<Self>
 }
 
 #[allow(clippy::suspicious_op_assign_impl)]
-impl<PRECISION: Precision<BITS>, const BITS: usize> BitOrAssign<&Self>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self>
     for HyperLogLog<PRECISION, BITS>
 {
     #[inline(always)]
@@ -126,7 +126,9 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> BitOrAssign<&Self>
     }
 }
 
-impl<PRECISION: Precision<BITS>, const BITS: usize> BitOr<Self> for HyperLogLog<PRECISION, BITS> {
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOr<Self>
+    for HyperLogLog<PRECISION, BITS>
+{
     type Output = Self;
 
     #[inline(always)]
@@ -192,7 +194,9 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> BitOr<Self> for HyperLogLog<
     }
 }
 
-impl<PRECISION: Precision<BITS>, const BITS: usize> BitOr<&Self> for HyperLogLog<PRECISION, BITS> {
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self>
+    for HyperLogLog<PRECISION, BITS>
+{
     type Output = Self;
 
     #[inline(always)]

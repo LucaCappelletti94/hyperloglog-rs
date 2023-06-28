@@ -7,7 +7,7 @@ use serde::ser::SerializeSeq;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Serialize
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Serialize
     for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
@@ -57,7 +57,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Serialize
     }
 }
 
-impl<'de, PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Deserialize<'de>
+impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Deserialize<'de>
     for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
@@ -81,7 +81,8 @@ impl<'de, PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Deseria
 
 #[derive(Default)]
 /// Struct to deserialize a vector of u32
-pub struct HLLArrayVisitor<PRECISION: Precision<BITS>, const BITS: usize, const N: usize> {
+pub struct HLLArrayVisitor<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize>
+{
     _precision: core::marker::PhantomData<PRECISION>,
 }
 
@@ -122,7 +123,7 @@ pub struct HLLArrayVisitor<PRECISION: Precision<BITS>, const BITS: usize, const 
 ///
 /// ### Returns
 /// The resulting fixed-size array of u32 values, or an error if the deserialization failed.
-impl<'de, PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Visitor<'de>
+impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Visitor<'de>
     for HLLArrayVisitor<PRECISION, BITS, N>
 {
     type Value = [HyperLogLog<PRECISION, BITS>; N];
@@ -145,7 +146,9 @@ impl<'de, PRECISION: Precision<BITS>, const BITS: usize, const N: usize> Visitor
     }
 }
 
-impl<PRECISION: Precision<BITS>, const BITS: usize> Serialize for HyperLogLog<PRECISION, BITS> {
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Serialize
+    for HyperLogLog<PRECISION, BITS>
+{
     #[inline(always)]
     /// Serializes the HyperLogLog counter using the given serializer.
     ///
@@ -179,7 +182,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> Serialize for HyperLogLog<PR
     }
 }
 
-impl<'de, PRECISION: Precision<BITS>, const BITS: usize> Deserialize<'de>
+impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize> Deserialize<'de>
     for HyperLogLog<PRECISION, BITS>
 {
     #[inline(always)]
@@ -229,7 +232,7 @@ impl<'de, PRECISION: Precision<BITS>, const BITS: usize> Deserialize<'de>
 
 #[derive(Default)]
 /// Struct to deserialize a vector of u32
-pub struct WordsVisitor<PRECISION: Precision<BITS>, const BITS: usize> {
+pub struct WordsVisitor<PRECISION: Precision + WordType<BITS>, const BITS: usize> {
     _precision: core::marker::PhantomData<PRECISION>,
 }
 
@@ -269,7 +272,7 @@ pub struct WordsVisitor<PRECISION: Precision<BITS>, const BITS: usize> {
 ///
 /// ### Returns
 /// The resulting fixed-size array of u32 values, or an error if the deserialization failed.
-impl<'de, PRECISION: Precision<BITS>, const BITS: usize> Visitor<'de>
+impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize> Visitor<'de>
     for WordsVisitor<PRECISION, BITS>
 {
     type Value = PRECISION::Words;

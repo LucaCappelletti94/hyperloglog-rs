@@ -40,7 +40,7 @@ fn jaccard(set1: &HashSet<u64>, set2: &HashSet<u64>) -> f32 {
     intersection / union
 }
 
-fn jaccard_hll<PRECISION: Precision<BITS>, const BITS: usize>(
+fn jaccard_hll<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     set1: &HashSet<u64>,
     set2: &HashSet<u64>,
 ) -> f32 {
@@ -50,7 +50,7 @@ fn jaccard_hll<PRECISION: Precision<BITS>, const BITS: usize>(
     hll1.estimate_jaccard_cardinality(&hll2)
 }
 
-fn write_line<PRECISION: Precision<BITS>, const BITS: usize>(
+fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     set1: &HashSet<u64>,
     set2: &HashSet<u64>,
     set1_str: &str,

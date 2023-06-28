@@ -1,7 +1,7 @@
 use crate::array_default::{ArrayDefault, ArrayIter};
 use crate::bias::BIAS_DATA;
 use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
-use crate::precisions::Precision;
+use crate::precisions::{Precision, WordType};
 use crate::prelude::linear_counting_threshold;
 use crate::primitive::Primitive;
 use crate::raw_estimate_data::RAW_ESTIMATE_DATA;
@@ -56,12 +56,12 @@ use siphasher::sip::SipHasher13;
 /// * Flajolet, Philippe, et al. "HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm." DMTCS Proceedings 1 (2007): 127-146.
 /// * Heule, Stefan, Marc Nunkesser, and Alexander Hall. "HyperLogLog in practice: algorithmic engineering of a state of the art cardinality estimation algorithm." Proceedings of the 16th International Conference on Extending Database Technology. 2013.
 ///
-pub struct HyperLogLog<PRECISION: Precision<BITS>, const BITS: usize> {
+pub struct HyperLogLog<PRECISION: Precision + WordType<BITS>, const BITS: usize> {
     pub(crate) words: PRECISION::Words,
     pub(crate) number_of_zero_register: PRECISION::NumberOfZeros,
 }
 
-impl<PRECISION: Precision<BITS>, const BITS: usize, T: Hash> From<T>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T>
     for HyperLogLog<PRECISION, BITS>
 {
     /// Create a new HyperLogLog counter from a value.
@@ -102,14 +102,14 @@ impl<PRECISION: Precision<BITS>, const BITS: usize, T: Hash> From<T>
 /// assert_eq!(hll.len(), 1024);
 /// assert_eq!(hll.get_number_of_bits(), 6);
 /// ```
-impl<PRECISION: Precision<BITS>, const BITS: usize> Default for HyperLogLog<PRECISION, BITS> {
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Default for HyperLogLog<PRECISION, BITS> {
     /// Returns a new HyperLogLog instance with default configuration settings.
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS> {
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS> {
     /// The threshold value used in the small range correction of the HyperLogLog algorithm.
     pub const INTERMEDIATE_RANGE_CORRECTION_THRESHOLD: f32 =
         5.0_f32 * (PRECISION::NUMBER_OF_REGISTERS as f32);
@@ -126,7 +126,8 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     /// The mask representing the bits that are never used in the u32 word in the cases
     /// where the number of bits is not a divisor of 32, such as 5 or 6.
     /// We set the LEADING bits as the padding bits, the unused one, so the leftmost bits.
-    pub const PADDING_BITS_MASK: u32 = !((1_u64 << (BITS * Self::NUMBER_OF_REGISTERS_IN_WORD)) - 1_u64) as u32;
+    pub const PADDING_BITS_MASK: u32 =
+        !((1_u64 << (BITS * Self::NUMBER_OF_REGISTERS_IN_WORD)) - 1_u64) as u32;
 
     /// The mask used to obtain the upper precision bits in the HyperLogLog algorithm.
     pub const UPPER_PRECISION_MASK: usize =
@@ -1570,7 +1571,8 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
         let hash: u64 = hasher.finish();
 
         // Calculate the register's index using the highest bits of the hash.
-        let index: usize = (hash as usize & Self::UPPER_PRECISION_MASK) >> (64 - PRECISION::EXPONENT);
+        let index: usize =
+            (hash as usize & Self::UPPER_PRECISION_MASK) >> (64 - PRECISION::EXPONENT);
         // And we delete the used bits from the hash.
         let hash: u64 = hash << PRECISION::EXPONENT;
         debug_assert!(
@@ -1688,7 +1690,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     }
 }
 
-impl<PRECISION: Precision<BITS>, const BITS: usize, A: Hash> core::iter::FromIterator<A>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, A: Hash> core::iter::FromIterator<A>
     for HyperLogLog<PRECISION, BITS>
 {
     #[inline(always)]
