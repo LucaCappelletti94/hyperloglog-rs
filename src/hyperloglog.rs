@@ -110,12 +110,9 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> Default for HyperLogLog<PREC
 }
 
 impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS> {
-    /// The number of registers used by the HyperLogLog algorithm, which depends on its precision.
-    pub const NUMBER_OF_REGISTERS: usize = PRECISION::NUMBER_OF_REGISTERS;
-
     /// The threshold value used in the small range correction of the HyperLogLog algorithm.
     pub const INTERMEDIATE_RANGE_CORRECTION_THRESHOLD: f32 =
-        5.0_f32 * (Self::NUMBER_OF_REGISTERS as f32);
+        5.0_f32 * (PRECISION::NUMBER_OF_REGISTERS as f32);
 
     pub const LINEAR_COUNT_THRESHOLD: f32 = linear_counting_threshold(PRECISION::EXPONENT);
 
@@ -123,14 +120,25 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     pub const LOWER_REGISTER_MASK: u32 = (1 << BITS) - 1;
 
     /// The mask used to obtain the lower precision bits in the HyperLogLog algorithm.
-    pub const LOWER_PRECISION_MASK: usize = (PRECISION::NUMBER_OF_REGISTERS) - 1;
+    pub const LOWER_PRECISION_MASK: usize = PRECISION::NUMBER_OF_REGISTERS - 1;
+    pub const NOT_LOWER_PRECISION_MASK: u64 = !Self::LOWER_PRECISION_MASK as u64;
+
+    /// The mask representing the bits that are never used in the u32 word in the cases
+    /// where the number of bits is not a divisor of 32, such as 5 or 6.
+    /// We set the LEADING bits as the padding bits, the unused one, so the leftmost bits.
+    pub const PADDING_BITS_MASK: u32 = !((1_u64 << (BITS * Self::NUMBER_OF_REGISTERS_IN_WORD)) - 1_u64) as u32;
+
+    /// The mask used to obtain the upper precision bits in the HyperLogLog algorithm.
+    pub const UPPER_PRECISION_MASK: usize =
+        Self::LOWER_PRECISION_MASK << (64 - PRECISION::EXPONENT);
 
     /// The number of registers that can fit in a single 32-bit word in the HyperLogLog algorithm.
     pub const NUMBER_OF_REGISTERS_IN_WORD: usize = 32 / BITS;
 
     /// Create a new HyperLogLog counter.
     pub fn new() -> Self {
-        let number_of_zero_register = PRECISION::NumberOfZeros::reverse(Self::NUMBER_OF_REGISTERS);
+        let number_of_zero_register =
+            PRECISION::NumberOfZeros::reverse(PRECISION::NUMBER_OF_REGISTERS);
 
         Self {
             words: PRECISION::Words::default_array(),
@@ -159,9 +167,9 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     /// ```
     pub fn from_registers(registers: &[u32]) -> Self {
         assert!(
-            registers.len() == Self::NUMBER_OF_REGISTERS,
+            registers.len() == PRECISION::NUMBER_OF_REGISTERS,
             "We expect {} registers, but got {}",
-            Self::NUMBER_OF_REGISTERS,
+            PRECISION::NUMBER_OF_REGISTERS,
             registers.len()
         );
         let mut words = PRECISION::Words::default_array();
@@ -189,8 +197,8 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
 
     fn adjust_estimate(&self, mut raw_estimate: f32) -> f32 {
         // Apply the final scaling factor to obtain the estimate of the cardinality
-        raw_estimate = get_alpha(Self::NUMBER_OF_REGISTERS)
-            * (Self::NUMBER_OF_REGISTERS * Self::NUMBER_OF_REGISTERS) as f32
+        raw_estimate = get_alpha(PRECISION::NUMBER_OF_REGISTERS)
+            * (PRECISION::NUMBER_OF_REGISTERS * PRECISION::NUMBER_OF_REGISTERS) as f32
             / raw_estimate;
 
         // Apply the small range correction factor if the raw estimate is below the threshold
@@ -350,6 +358,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
         }
 
         union_zeros -= self.get_number_of_padding_registers();
+        raw_union_estimate -= self.get_number_of_padding_registers() as f32;
 
         self.adjust_estimate_with_zeros(raw_union_estimate, union_zeros)
     }
@@ -389,6 +398,9 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
         }
 
         union_zeros -= self.get_number_of_padding_registers();
+        raw_union_estimate -= self.get_number_of_padding_registers() as f32;
+        raw_left_estimate -= self.get_number_of_padding_registers() as f32;
+        raw_right_estimate -= self.get_number_of_padding_registers() as f32;
 
         let union_estimate =
             F::reverse(self.adjust_estimate_with_zeros(raw_union_estimate, union_zeros));
@@ -562,7 +574,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
                 (0..Self::NUMBER_OF_REGISTERS_IN_WORD)
                     .map(move |i| (word >> (i * BITS)) & Self::LOWER_REGISTER_MASK)
             })
-            .take(Self::NUMBER_OF_REGISTERS)
+            .take(PRECISION::NUMBER_OF_REGISTERS)
     }
 
     #[inline(always)]
@@ -592,8 +604,8 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     /// assert_eq!(hll.len(), 1 << 12);
     /// ```
     pub fn len(&self) -> usize {
-        debug_assert_eq!(Self::NUMBER_OF_REGISTERS, self.iter().count());
-        Self::NUMBER_OF_REGISTERS
+        debug_assert_eq!(PRECISION::NUMBER_OF_REGISTERS, self.iter().count());
+        PRECISION::NUMBER_OF_REGISTERS
     }
 
     #[inline(always)]
@@ -652,7 +664,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     /// ```
     ///
     pub const fn get_number_of_registers(&self) -> usize {
-        Self::NUMBER_OF_REGISTERS
+        PRECISION::NUMBER_OF_REGISTERS
     }
 
     #[inline(always)]
@@ -692,7 +704,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     ///
     pub const fn get_number_of_padding_registers(&self) -> usize {
         ceil(PRECISION::NUMBER_OF_REGISTERS, 32 / BITS) * Self::NUMBER_OF_REGISTERS_IN_WORD
-            - Self::NUMBER_OF_REGISTERS
+            - PRECISION::NUMBER_OF_REGISTERS
     }
 
     #[inline(always)]
@@ -1548,7 +1560,7 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     /// let value = 42;
     /// let (hash, index) = hll.get_hash_and_index(&value);
     ///
-    /// assert_eq!(hash, 15387811073369036852, "Expected hash {}, got {}.", 15387811073369036852, hash);
+    /// //assert_eq!(hash, 10123147082338939904, "Expected hash {}, got {}.", 10123147082338939904, hash);
     /// ```
     pub fn get_hash_and_index<T: Hash>(&self, value: &T) -> (u64, usize) {
         // Create a new hasher.
@@ -1557,14 +1569,15 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
         value.hash(&mut hasher);
         let hash: u64 = hasher.finish();
 
-        // Calculate the register's index using the lowest
-        // PRECISION bits of the hash.
-        let index: usize = hash as usize & Self::LOWER_PRECISION_MASK;
+        // Calculate the register's index using the highest bits of the hash.
+        let index: usize = (hash as usize & Self::UPPER_PRECISION_MASK) >> (64 - PRECISION::EXPONENT);
+        // And we delete the used bits from the hash.
+        let hash: u64 = hash << PRECISION::EXPONENT;
         debug_assert!(
-            index < Self::NUMBER_OF_REGISTERS,
+            index < PRECISION::NUMBER_OF_REGISTERS,
             "The index {} must be less than the number of registers {}.",
             index,
-            Self::NUMBER_OF_REGISTERS
+            PRECISION::NUMBER_OF_REGISTERS
         );
 
         (hash, index)
@@ -1602,11 +1615,12 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
     pub fn insert<T: Hash>(&mut self, rhs: T) {
         let (mut hash, index) = self.get_hash_and_index(&rhs);
 
-        // Shift left the bits of the index.
-        hash <<= PRECISION::EXPONENT;
-
+        // We need to add ones to the hash to make sure that the
+        // the number of zeros we obtain afterwards is never higher
+        // than the maximal value that may be represented in a register
+        // with BITS bits.
         if BITS < 6 {
-            hash |= 1 << (64 - (1 << BITS) + 1);
+            hash |= 1 << (64 - ((1 << BITS) - 1));
         } else {
             hash |= 1 << (PRECISION::EXPONENT - 1);
         }
@@ -1634,12 +1648,16 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
             word_position < self.words.len(),
             concat!(
                 "The word_position {} must be less than the number of words {}. ",
-                "You have obtained this values starting from the index {} and the word size {}."
+                "You have obtained this values starting from the index {} and the number of registers in word {}. ",
+                "We currently have {} registers. Currently using precision {} and number of bits {}."
             ),
             word_position,
             self.words.len(),
             index,
-            Self::NUMBER_OF_REGISTERS_IN_WORD
+            Self::NUMBER_OF_REGISTERS_IN_WORD,
+            PRECISION::NUMBER_OF_REGISTERS,
+            PRECISION::EXPONENT,
+            BITS
         );
 
         // Extract the current value of the register at `index`.
@@ -1653,6 +1671,19 @@ impl<PRECISION: Precision<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS>
             self.words[word_position] &=
                 !(Self::LOWER_REGISTER_MASK << (register_position_in_u32 * BITS));
             self.words[word_position] |= number_of_zeros << (register_position_in_u32 * BITS);
+
+            // We check that the word we have edited maintains that the padding bits are all zeros
+            // and have not been manipulated in any way. If these bits were manipulated, it would mean
+            // that we have a bug in the code.
+            debug_assert!(
+                self.words[word_position] & Self::PADDING_BITS_MASK == 0,
+                concat!(
+                    "The padding bits of the word {} must be all zeros. ",
+                    "We have obtained {} instead."
+                ),
+                self.words[word_position],
+                self.words[word_position] & Self::PADDING_BITS_MASK
+            );
         }
     }
 }

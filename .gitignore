@@ -14,3 +14,4 @@ Cargo.lock
 *.pdb
 .ipynb_checkpoints/
 *.bkp
+*.tsv

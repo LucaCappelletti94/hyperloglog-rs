@@ -95,14 +95,14 @@ fn test_jaccard_perfs() {
         let mut set1 = HashSet::new();
         let mut set2 = HashSet::new();
 
-        for _ in 0..100 {
-            let value = xorshift(rng) % 100;
+        for _ in 0..1_000 {
+            let value = xorshift(rng) % 1000;
             set1.insert(value);
             rng = splitmix64(rng);
         }
 
-        for _ in 0..100 {
-            let value = xorshift(rng) % 100;
+        for _ in 0..1_000 {
+            let value = xorshift(rng) % 1000;
             set2.insert(value);
             rng = splitmix64(rng);
         }
@@ -120,44 +120,95 @@ fn test_jaccard_perfs() {
             .collect::<Vec<String>>()
             .join(",");
 
+        write_line::<Precision4, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision4, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision4, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision4, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision4, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision4, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision5, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision5, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision5, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision5, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision5, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision5, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision6, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision6, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision6, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision6, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision6, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision6, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision7, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision7, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision7, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision7, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision7, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision7, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision8, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision8, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision8, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision8, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision8, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision8, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision9, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision9, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision9, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision9, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision9, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision9, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision10, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision10, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision10, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision10, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision10, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision10, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision11, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision11, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision11, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision11, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision11, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision11, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision12, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision12, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision12, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision12, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision12, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision12, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision13, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision13, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision13, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision13, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision13, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision13, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision14, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision14, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision14, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision14, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision14, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision14, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision15, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision15, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision15, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision15, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision15, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision15, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision16, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision16, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision16, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision16, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision16, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
         write_line::<Precision16, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision17, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision17, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision17, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision17, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision17, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        write_line::<Precision17, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        // write_line::<Precision18, 1>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        // write_line::<Precision18, 2>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        // write_line::<Precision18, 3>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        // write_line::<Precision18, 4>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        // write_line::<Precision18, 5>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
+        // write_line::<Precision18, 6>(&set1, &set2, &set1_str, &set2_str, exact, &mut file).unwrap();
     }
 }
