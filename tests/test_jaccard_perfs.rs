@@ -76,7 +76,7 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
 //#[test]
 fn test_jaccard_perfs() {
     let mut file = File::create("jaccard_benchmark.tsv").unwrap();
-    file.write_all(b"precision\tbits\texact\thll\tset1\tset2\n")
+    file.write_all(b"precision\tbits\texact\tapproximation\tset1\tset2\n")
         .unwrap();
 
     // since both the precision and the number of bits are compile time constants, we can
