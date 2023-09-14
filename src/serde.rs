@@ -1,7 +1,5 @@
 use crate::array_default::ArrayDefault;
 use crate::prelude::*;
-use crate::primitive::Primitive;
-use crate::zeros::Zero;
 use serde::de::Visitor;
 use serde::ser::SerializeSeq;
 
@@ -216,17 +214,7 @@ impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize> Deserialize<
         let words: PRECISION::Words =
             deserializer.deserialize_seq(WordsVisitor::<PRECISION, BITS>::default())?;
 
-        let mut hll = Self {
-            words,
-            number_of_zero_register: PRECISION::NumberOfZeros::ZERO,
-        };
-
-        let number_of_zero_register = hll.iter().filter(|register| *register == 0).count();
-
-        // We update the number of zeroed registers.
-        hll.number_of_zero_register = PRECISION::NumberOfZeros::reverse(number_of_zero_register);
-
-        Ok(hll)
+        Ok(Self::from_words(&words))
     }
 }
 

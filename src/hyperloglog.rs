@@ -7,8 +7,6 @@ use crate::prelude::{linear_counting_threshold, MaxMin};
 use crate::primitive::Primitive;
 use crate::raw_estimate_data::RAW_ESTIMATE_DATA;
 use crate::utils::{ceil, get_alpha};
-use crate::zeros::Zero;
-use crate::prelude::*;
 use core::hash::{Hash, Hasher};
 use siphasher::sip::SipHasher13;
 
@@ -60,7 +58,7 @@ use siphasher::sip::SipHasher13;
 ///
 pub struct HyperLogLog<PRECISION: Precision + WordType<BITS>, const BITS: usize> {
     pub(crate) words: PRECISION::Words,
-    pub(crate) number_of_zero_register: PRECISION::NumberOfZeros,
+    pub(crate) multeplicities: PRECISION::RegisterMultiplicities,
 }
 
 impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T>
@@ -142,12 +140,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
 
     /// Create a new HyperLogLog counter.
     pub fn new() -> Self {
-        let number_of_zero_register =
-            PRECISION::NumberOfZeros::reverse(PRECISION::NUMBER_OF_REGISTERS);
-
+        let mut multeplicities= PRECISION::RegisterMultiplicities::default_array();
+        multeplicities[0] = PRECISION::NumberOfZeros::reverse(Self::get_number_of_registers());
         Self {
             words: PRECISION::Words::default_array(),
-            number_of_zero_register,
+            multeplicities
         }
     }
 
@@ -178,10 +175,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
             registers.len()
         );
         let mut words = PRECISION::Words::default_array();
-        let number_of_zero_register = words
+        let mut multeplicities = PRECISION::RegisterMultiplicities::default_array();
+        words
             .iter_elements_mut()
             .zip(registers.chunks(Self::NUMBER_OF_REGISTERS_IN_WORD))
-            .fold(0, |mut number_of_zero_register, (word, word_registers)| {
+            .for_each(|(word, word_registers)| {
                 for (i, register) in word_registers.iter().copied().enumerate() {
                     assert!(
                         register <= Self::LOWER_REGISTER_MASK,
@@ -189,15 +187,48 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
                         register,
                         BITS
                     );
-                    number_of_zero_register += (register == 0) as usize;
+                    multeplicities[register as usize] += PRECISION::NumberOfZeros::ONE;
                     *word |= register << (i * BITS);
                 }
-                number_of_zero_register
             });
         Self {
             words,
-            number_of_zero_register: PRECISION::NumberOfZeros::reverse(number_of_zero_register),
+            multeplicities
         }
+    }
+
+    /// Create a new HyperLogLog counter from an array of words.
+    /// 
+    /// # Arguments
+    /// * `words` - An array of u64 words to use for the HyperLogLog counter.
+    /// 
+    /// # Returns
+    /// A new HyperLogLog counter initialized with the given words.
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use hyperloglog_rs::prelude::*;
+    /// 
+    /// let words = [0_u32; 4];
+    /// let hll = HyperLogLog::<Precision4, 6>::from_words(&words);
+    /// assert_eq!(hll.len(), 16);
+    /// ```
+    pub fn from_words(words: &PRECISION::Words) -> Self {        
+        let mut hll = Self {
+            words: *words,
+            multeplicities: PRECISION::RegisterMultiplicities::default_array(),
+        };
+
+        let mut multeplicities = PRECISION::RegisterMultiplicities::default_array();
+
+        hll.iter().for_each(|register|{
+            multeplicities[register as usize] += PRECISION::NumberOfZeros::ONE;
+        });
+
+        hll.multeplicities = multeplicities;
+
+        hll
     }
 
     fn adjust_estimate(&self, mut raw_estimate: f32) -> f32 {
@@ -259,8 +290,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     /// linear counting algorithm can be used to estimate the cardinality. The threshold for using
     /// the linear counting algorithm is determined by the number of registers in the HLL counter.
     pub fn use_small_range_correction(&self) -> bool {
-        self.number_of_zero_register > PRECISION::NumberOfZeros::ZERO
-            && PRECISION::SMALL_CORRECTIONS[self.number_of_zero_register.convert() - 1]
+        self.get_number_of_zero_registers() > 0
+            && PRECISION::SMALL_CORRECTIONS[self.get_number_of_zero_registers() - 1]
                 <= Self::LINEAR_COUNT_THRESHOLD
     }
 
@@ -284,9 +315,9 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     /// # Returns
     /// * `f32` - The estimated cardinality of the set.
     pub fn estimate_cardinality(&self) -> f32 {
-        if self.number_of_zero_register > PRECISION::NumberOfZeros::ZERO {
+        if self.get_number_of_zero_registers() > 0 {
             let low_range_correction =
-                PRECISION::SMALL_CORRECTIONS[self.number_of_zero_register.convert() - 1];
+                PRECISION::SMALL_CORRECTIONS[self.get_number_of_zero_registers() - 1];
             if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
                 return low_range_correction;
             }
@@ -304,130 +335,29 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
             raw_estimate += partial;
         }
 
-        raw_estimate -= self.get_number_of_padding_registers() as f32;
+        raw_estimate -= Self::get_number_of_padding_registers() as f32;
 
         self.adjust_estimate(raw_estimate)
     }
 
     #[inline(always)]
     pub fn estimate_cardinality_with_multiplicities(&self) -> f32 {
-        let multeplicities = self.get_register_multeplicities();
-
-        if self.number_of_zero_register > PRECISION::NumberOfZeros::ZERO {
+        if self.get_number_of_zero_registers() > 0 {
             let low_range_correction =
-                PRECISION::SMALL_CORRECTIONS[self.number_of_zero_register.convert() - 1];
+                PRECISION::SMALL_CORRECTIONS[self.get_number_of_zero_registers() - 1];
             if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
                 return low_range_correction;
             }
         }
 
         let mut raw_estimate = 0.0;
-        let mut current_register: i32 = 0;
 
-        for multeplicity in multeplicities.iter_elements() {
-            let two_to_minus_register: i32 = (127 - current_register) << 23;
-            current_register += 1;
+        for (current_register, multeplicity) in self.multeplicities.iter_elements().enumerate() {
+            let two_to_minus_register: i32 = (127 - current_register as i32) << 23;
             raw_estimate += (multeplicity.convert() as f32) * f32::from_le_bytes(two_to_minus_register.to_le_bytes());
         }
 
         self.adjust_estimate(raw_estimate)
-    }
-
-    #[inline(always)]
-    pub fn estimate_cardinality_mle(&self) -> f32 {
-        let multeplicities = self.get_register_multeplicities();
-
-        // If the multeplicity associated to the last register
-        // is equal to the number of registers, we return infinity.
-        if multeplicities.last().unwrap().convert() == PRECISION::NUMBER_OF_REGISTERS {
-            return f32::INFINITY;
-        }
-        
-        let q = multeplicities.len() - 2;
-
-        debug_assert!(q > 0);
-
-        let smallest_register_value = multeplicities.first_non_zero_index().unwrap().get_max(1);
-        // TODO! CHECK IF THIS GET MAX IS NECESSARY! IN THE PAPER IT IS NOT PRESENT!
-        let largest_register_value = multeplicities.last_non_zero_index().unwrap().get_min(q);
-
-        debug_assert!(smallest_register_value > 0);
-        debug_assert!(largest_register_value > 0);
-
-        let mut raw_estimate = 0.0;
-
-        for k in (smallest_register_value..largest_register_value).rev() {
-            // TODO! POSSIBLE PAPER ERROR! POSSIBLY HERE BRACKETS ARE MISSING!
-            // ALSO IN THE CODE THEY ARE MISSING, SO MAYBE CORRECT?
-            raw_estimate = 0.5 * raw_estimate + multeplicities[k].convert() as f32;
-        }
-
-        let two_to_minus_smallest_register: i32 = (127 - smallest_register_value as i32) << 23;
-        raw_estimate *= f32::from_le_bytes(two_to_minus_smallest_register.to_le_bytes());
-
-        // TODO! THIS C COEFFICIENT IS WEIRD!
-        let c = multeplicities.last().unwrap().convert() as f32 + multeplicities[largest_register_value].convert() as f32;
-
-        let mut g_prev = 0.0;
-        let a = raw_estimate + multeplicities[0].convert() as f32;
-
-        let two_to_minus_q: i32 = (127 - q as i32) << 23;
-        let b = raw_estimate + multeplicities.last().unwrap().convert() as f32 * f32::from_le_bytes(two_to_minus_q.to_le_bytes());
-
-        let number_of_non_zero_registers = self.get_number_of_non_zero_registers() as f32;
-
-        let mut x = if b <= 1.5 * a {
-            number_of_non_zero_registers / (0.5 * b + a)
-        } else {
-            (number_of_non_zero_registers / b) * (b / a).ln_1p()
-        };
-
-        // We begin the secant method iterations.
-        let mut delta_x = x;
-        let delta = 1e-4 / (self.get_number_of_registers() as f32).sqrt();
-        while delta_x > x * delta {
-            // In the C++ implementation they call frexp.
-            let kappa_minus_one = x.log2().floor() as usize;
-
-            // We compute the terms for the Taylor series.
-            let maximal = (largest_register_value + 1).max(kappa_minus_one + 2);
-            let two_to_minus_maximal: i32 = (127 - maximal as i32) << 23;
-            let mut x_first = x * f32::from_le_bytes(two_to_minus_maximal.to_le_bytes());
-            let x_second = x_first * x_first;
-            let x_forth = x_second * x_second;
-            let mut taylor_series_approximation = x_first - x_second / 3.0 + x_forth * (1.0 / 45.0 - x_second / 472.5);
-
-            // If kappa - 1 is smaller than the maximal register value
-            for _k in (largest_register_value.saturating_sub(1)..kappa_minus_one).rev() {
-                let taylor_series_approximation_prime = 1.0 - taylor_series_approximation;
-                taylor_series_approximation = (x_first + taylor_series_approximation * taylor_series_approximation_prime) / (x_first + taylor_series_approximation_prime);
-
-                // And we double the x first:
-                x_first *= 2.0;
-            }
-
-            let mut g = c * taylor_series_approximation;
-
-            for k in (smallest_register_value.saturating_sub(1)..largest_register_value.saturating_sub(1)).rev() {
-                let taylor_series_approximation_prime = 1.0 - taylor_series_approximation;
-                taylor_series_approximation = (x_first + taylor_series_approximation * taylor_series_approximation_prime) / (x_first + taylor_series_approximation_prime);
-                g += multeplicities[k].convert() as f32 * taylor_series_approximation;
-                x_first *= 2.0;
-            }
-
-            g += x * a;
-
-            if g > g_prev && number_of_non_zero_registers >= g {
-                delta_x *= (number_of_non_zero_registers - g) / (g - g_prev);
-            } else {
-                delta_x = 0.0;
-            };
-
-            x += delta_x;
-            g_prev = g;
-        }
-
-        self.get_number_of_registers() as f32 * x
     }
 
     #[inline(always)]
@@ -483,8 +413,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
             raw_union_estimate += partial;
         }
 
-        union_zeros -= self.get_number_of_padding_registers();
-        raw_union_estimate -= self.get_number_of_padding_registers() as f32;
+        union_zeros -= Self::get_number_of_padding_registers();
+        raw_union_estimate -= Self::get_number_of_padding_registers() as f32;
 
         self.adjust_estimate_with_zeros(raw_union_estimate, union_zeros)
     }
@@ -523,24 +453,24 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
             raw_right_estimate += right_partial;
         }
 
-        union_zeros -= self.get_number_of_padding_registers();
+        union_zeros -= Self::get_number_of_padding_registers();
 
         // We need to subtract the padding registers from the raw estimates
         // as for each such register we are adding a one.
-        raw_union_estimate -= self.get_number_of_padding_registers() as f32;
-        raw_left_estimate -= self.get_number_of_padding_registers() as f32;
-        raw_right_estimate -= self.get_number_of_padding_registers() as f32;
+        raw_union_estimate -= Self::get_number_of_padding_registers() as f32;
+        raw_left_estimate -= Self::get_number_of_padding_registers() as f32;
+        raw_right_estimate -= Self::get_number_of_padding_registers() as f32;
 
         let union_estimate =
             F::reverse(self.adjust_estimate_with_zeros(raw_union_estimate, union_zeros));
         let left_estimate =
             F::reverse(self.adjust_estimate_with_zeros(
                 raw_left_estimate,
-                self.number_of_zero_register.convert(),
+                self.get_number_of_zero_registers(),
             ));
         let right_estimate = F::reverse(self.adjust_estimate_with_zeros(
             raw_right_estimate,
-            other.number_of_zero_register.convert(),
+            other.get_number_of_zero_registers(),
         ));
 
         EstimatedUnionCardinalities::from((left_estimate, right_estimate, union_estimate))
@@ -755,7 +685,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     /// assert!(!hll.is_empty());
     /// ```
     pub fn is_empty(&self) -> bool {
-        self.len() == self.number_of_zero_register.convert()
+        self.len() == self.get_number_of_zero_registers()
     }
 
     #[inline(always)]
@@ -786,13 +716,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// let hll = HyperLogLog::<Precision10, 6>::new();
-    ///
-    /// assert_eq!(hll.get_number_of_registers(), 1024);
+    /// assert_eq!(HyperLogLog::<Precision10, 6>::get_number_of_registers(), 1024);
     ///
     /// ```
     ///
-    pub const fn get_number_of_registers(&self) -> usize {
+    pub const fn get_number_of_registers() -> usize {
         PRECISION::NUMBER_OF_REGISTERS
     }
 
@@ -800,23 +728,13 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     /// Returns the number of extra registers that are not actually used.
     ///
     /// # Examples
+    /// Since the number of registers is not a multiple of the number of registers in a word,
+    /// there are padding registers that are not actually used.
     ///
     /// ```
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// // Create a HyperLogLog counter with precision 10 and 6-bit registers
-    /// let mut hll = HyperLogLog::<Precision10, 6>::new();
-    ///
-    /// // Since the number of registers is not a multiple of the number of registers in a word,
-    /// // there are padding registers that are not actually used.
-    /// assert_eq!(hll.get_number_of_padding_registers(), 1);
-    ///
-    /// // Insert some elements into the counter
-    /// hll.insert(&1);
-    /// hll.insert(&2);
-    ///
-    /// // The number of padding registers is still the same
-    /// assert_eq!(hll.get_number_of_padding_registers(), 1);
+    /// assert_eq!(HyperLogLog::<Precision10, 6>::get_number_of_padding_registers(), 1);
     /// ```
     ///
     /// For instance, in the case using the bare minimum bits per registers (4)
@@ -826,12 +744,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     /// ```
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// let hll = HyperLogLog::<Precision4, 4>::new();
-    /// assert_eq!(hll.get_number_of_padding_registers(), 0);
+    /// assert_eq!(HyperLogLog::<Precision4, 4>::get_number_of_padding_registers(), 0);
     ///
     /// ```
     ///
-    pub const fn get_number_of_padding_registers(&self) -> usize {
+    pub const fn get_number_of_padding_registers() -> usize {
         ceil(PRECISION::NUMBER_OF_REGISTERS, 32 / BITS) * Self::NUMBER_OF_REGISTERS_IN_WORD
             - PRECISION::NUMBER_OF_REGISTERS
     }
@@ -859,11 +776,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     /// assert_eq!(number_of_zero_registers, 16381);
     /// ```
     pub fn get_number_of_zero_registers(&self) -> usize {
-        // Here we must be aware that when the precision is 8 or 16,
-        // in order to save space, we cannot store really a number
-        // equal to the number of registers, but at most number of
-        // registers minus one.
-        self.number_of_zero_register.convert()
+        self.multeplicities[0].convert()
     }
 
     #[inline(always)]
@@ -1578,8 +1491,9 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
 
         // Otherwise, update the register using a bit mask.
         if number_of_zeros > register_value {
-            self.number_of_zero_register -=
-                PRECISION::NumberOfZeros::reverse((register_value == 0) as usize);
+            self.multeplicities[register_value as usize] -= PRECISION::NumberOfZeros::ONE;
+            self.multeplicities[number_of_zeros as usize] += PRECISION::NumberOfZeros::ONE;
+
             self.words[word_position] &=
                 !(Self::LOWER_REGISTER_MASK << (register_position_in_u32 * BITS));
             self.words[word_position] |= number_of_zeros << (register_position_in_u32 * BITS);

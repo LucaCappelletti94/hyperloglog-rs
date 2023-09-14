@@ -42,13 +42,12 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     let hll: HyperLogLog<PRECISION, BITS> = set.iter().collect();
 
     let line = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\n",
+        "{}\t{}\t{}\t{}\t{}\n",
         PRECISION::EXPONENT,
         BITS,
         exact_cardinality,
         hll.estimate_cardinality(),
         hll.estimate_cardinality_with_multiplicities(),
-        hll.estimate_cardinality_mle(),
         //set_str,
     );
 
@@ -58,7 +57,7 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
 #[test]
 fn test_cardinality_perfs() {
     let mut file = File::create("cardinality_benchmark.tsv").unwrap();
-    file.write_all(b"precision\tbits\texact\thll\thll_multiplicity\tmle\n")
+    file.write_all(b"precision\tbits\texact\thll\thll_multiplicity\n")
         .unwrap();
 
     // since both the precision and the number of bits are compile time constants, we can

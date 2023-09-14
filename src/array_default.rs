@@ -22,6 +22,11 @@ pub trait ArrayIter<T: Default + PartialEq> {
     fn iter_elements_mut(&mut self) -> Self::IterMut<'_>;
     fn len(&self) -> usize;
     fn last(&self) -> Option<&T>;
+    fn reset(&mut self) {
+        for element in self.iter_elements_mut() {
+            *element = T::default();
+        }
+    }
     fn is_empty(&self) -> bool {
         self.len() == 0
     }

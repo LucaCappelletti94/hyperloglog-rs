@@ -64,6 +64,8 @@ pub trait WordType<const BITS: usize>: Precision {
     type RegisterMultiplicities: Index<usize, Output = Self::NumberOfZeros>
         + IndexMut<usize, Output = Self::NumberOfZeros>
         + Copy
+        + Debug
+        + Eq
         + ArrayIterArgmin<Self::NumberOfZeros>
         + ArrayIterArgmax<Self::NumberOfZeros>
         + ArrayDefault<Self::NumberOfZeros>

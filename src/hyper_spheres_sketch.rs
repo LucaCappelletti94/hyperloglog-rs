@@ -87,9 +87,9 @@ pub trait HyperSpheresSketch: Sized {
         let mut right_difference_cardinality_vector = [I::default(); R];
 
         // Populate the overlap cardinality matrix.
-        for i in 0..L {
-            for j in 0..R {
-                overlap_cardinality_matrix[i][j] = (left[i].intersection_size(&right[j])
+        for (i, left_hll) in left.iter().enumerate() {
+            for (j, right_hll) in right.iter().enumerate() {
+                overlap_cardinality_matrix[i][j] = (left_hll.intersection_size(right_hll)
                     - (0..(i + 1).min(L))
                         .flat_map(|sub_i| {
                             (0..(j + 1).min(R))
