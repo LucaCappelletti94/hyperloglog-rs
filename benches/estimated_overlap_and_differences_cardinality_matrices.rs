@@ -42,13 +42,13 @@ fn populate_vectors<const N: usize>() -> (
 }
 
 #[bench]
-fn bench_estimated_overlap_and_differences_cardinality_matrices_2(b: &mut Bencher) {
+fn bench_overlap_and_differences_cardinality_matrices_2(b: &mut Bencher) {
     let (left, right) = populate_vectors::<2>();
 
     b.iter(|| {
         // Inner closure, the actual test
         black_box(
-            HyperLogLog::estimated_overlap_and_differences_cardinality_matrices::<f32, 2, 2>(
+            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 2, 2>(
                 &left, &right,
             ),
         );
@@ -56,13 +56,13 @@ fn bench_estimated_overlap_and_differences_cardinality_matrices_2(b: &mut Benche
 }
 
 #[bench]
-fn bench_estimated_overlap_and_differences_cardinality_matrices_3(b: &mut Bencher) {
+fn bench_overlap_and_differences_cardinality_matrices_3(b: &mut Bencher) {
     let (left, right) = populate_vectors::<3>();
 
     b.iter(|| {
         // Inner closure, the actual test
         black_box(
-            HyperLogLog::estimated_overlap_and_differences_cardinality_matrices::<f32, 3, 3>(
+            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 3, 3>(
                 &left, &right,
             ),
         );
@@ -70,13 +70,13 @@ fn bench_estimated_overlap_and_differences_cardinality_matrices_3(b: &mut Benche
 }
 
 #[bench]
-fn bench_estimated_overlap_and_differences_cardinality_matrices_4(b: &mut Bencher) {
+fn bench_overlap_and_differences_cardinality_matrices_4(b: &mut Bencher) {
     let (left, right) = populate_vectors::<4>();
 
     b.iter(|| {
         // Inner closure, the actual test
         black_box(
-            HyperLogLog::estimated_overlap_and_differences_cardinality_matrices::<f32, 4, 4>(
+            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 4, 4>(
                 &left, &right,
             ),
         );
@@ -84,13 +84,13 @@ fn bench_estimated_overlap_and_differences_cardinality_matrices_4(b: &mut Benche
 }
 
 #[bench]
-fn bench_estimated_overlap_and_differences_cardinality_matrices_5(b: &mut Bencher) {
+fn bench_overlap_and_differences_cardinality_matrices_5(b: &mut Bencher) {
     let (left, right) = populate_vectors::<5>();
 
     b.iter(|| {
         // Inner closure, the actual test
         black_box(
-            HyperLogLog::estimated_overlap_and_differences_cardinality_matrices::<f32, 5, 5>(
+            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 5, 5>(
                 &left, &right,
             ),
         );

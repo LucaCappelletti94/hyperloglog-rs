@@ -94,11 +94,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize>
     ///
     /// # Returns
     /// The estimated overlap and difference cardinality matrices and vectors with the provided HyperLogLogArray.
-    pub fn estimated_overlap_and_differences_cardinality_matrices<F: Primitive<f32>>(
+    pub fn overlap_and_differences_cardinality_matrices<F: Primitive<f32>>(
         &self,
         other: &Self,
     ) -> ([[F; N]; N], [F; N], [F; N]) {
-        HyperLogLog::estimated_overlap_and_differences_cardinality_matrices(
+        HyperLogLog::overlap_and_differences_cardinality_matrices(
             self.as_ref(),
             other.as_ref(),
         )
@@ -418,6 +418,41 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize, H
             "The length of the slice of vectors of hashable items must be equal to the number of counters ",
             "in the HyperLogLogArray."
         ));
+        let mut array = [HyperLogLog::new(); N];
+        for (i, item) in items.iter().enumerate() {
+            for item in item.iter() {
+                array[i].insert(item);
+            }
+        }
+        Self { counters: array }
+    }
+}
+
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize, H: Hash>
+    From<[Vec<H>; N]> for HyperLogLogArray<PRECISION, BITS, N>
+{
+    #[inline(always)]
+    /// Creates a new HyperLogLogArray from the given array of vectors of hashable items.
+    ///
+    /// # Arguments
+    /// * `items`: The array of vectors of hashable items to create the HyperLogLogArray from.
+    ///
+    /// # Returns
+    /// A new HyperLogLogArray from the given array of vectors of hashable items.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use core::hash::Hash;
+    /// use hyperloglog_rs::prelude::*;
+    ///
+    /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::from([
+    ///     vec![1, 2, 3],
+    ///     vec![4, 5, 6],
+    ///     vec![7, 8, 9],
+    /// ]);
+    /// ```
+    fn from(items: [Vec<H>; N]) -> Self {
         let mut array = [HyperLogLog::new(); N];
         for (i, item) in items.iter().enumerate() {
             for item in item.iter() {

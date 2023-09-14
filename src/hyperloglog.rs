@@ -1,12 +1,14 @@
 use crate::array_default::{ArrayDefault, ArrayIter};
 use crate::bias::BIAS_DATA;
 use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
+use crate::ones::One;
 use crate::precisions::{Precision, WordType};
-use crate::prelude::linear_counting_threshold;
+use crate::prelude::{linear_counting_threshold, MaxMin};
 use crate::primitive::Primitive;
 use crate::raw_estimate_data::RAW_ESTIMATE_DATA;
 use crate::utils::{ceil, get_alpha};
 use crate::zeros::Zero;
+use crate::prelude::*;
 use core::hash::{Hash, Hasher};
 use siphasher::sip::SipHasher13;
 
@@ -102,7 +104,9 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T>
 /// assert_eq!(hll.len(), 1024);
 /// assert_eq!(hll.get_number_of_bits(), 6);
 /// ```
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Default for HyperLogLog<PRECISION, BITS> {
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Default
+    for HyperLogLog<PRECISION, BITS>
+{
     /// Returns a new HyperLogLog instance with default configuration settings.
     fn default() -> Self {
         Self::new()
@@ -306,6 +310,127 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     }
 
     #[inline(always)]
+    pub fn estimate_cardinality_with_multiplicities(&self) -> f32 {
+        let multeplicities = self.get_register_multeplicities();
+
+        if self.number_of_zero_register > PRECISION::NumberOfZeros::ZERO {
+            let low_range_correction =
+                PRECISION::SMALL_CORRECTIONS[self.number_of_zero_register.convert() - 1];
+            if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
+                return low_range_correction;
+            }
+        }
+
+        let mut raw_estimate = 0.0;
+        let mut current_register: i32 = 0;
+
+        for multeplicity in multeplicities.iter_elements() {
+            let two_to_minus_register: i32 = (127 - current_register) << 23;
+            current_register += 1;
+            raw_estimate += (multeplicity.convert() as f32) * f32::from_le_bytes(two_to_minus_register.to_le_bytes());
+        }
+
+        self.adjust_estimate(raw_estimate)
+    }
+
+    #[inline(always)]
+    pub fn estimate_cardinality_mle(&self) -> f32 {
+        let multeplicities = self.get_register_multeplicities();
+
+        // If the multeplicity associated to the last register
+        // is equal to the number of registers, we return infinity.
+        if multeplicities.last().unwrap().convert() == PRECISION::NUMBER_OF_REGISTERS {
+            return f32::INFINITY;
+        }
+        
+        let q = multeplicities.len() - 2;
+
+        debug_assert!(q > 0);
+
+        let smallest_register_value = multeplicities.first_non_zero_index().unwrap().get_max(1);
+        // TODO! CHECK IF THIS GET MAX IS NECESSARY! IN THE PAPER IT IS NOT PRESENT!
+        let largest_register_value = multeplicities.last_non_zero_index().unwrap().get_min(q);
+
+        debug_assert!(smallest_register_value > 0);
+        debug_assert!(largest_register_value > 0);
+
+        let mut raw_estimate = 0.0;
+
+        for k in (smallest_register_value..largest_register_value).rev() {
+            // TODO! POSSIBLE PAPER ERROR! POSSIBLY HERE BRACKETS ARE MISSING!
+            // ALSO IN THE CODE THEY ARE MISSING, SO MAYBE CORRECT?
+            raw_estimate = 0.5 * raw_estimate + multeplicities[k].convert() as f32;
+        }
+
+        let two_to_minus_smallest_register: i32 = (127 - smallest_register_value as i32) << 23;
+        raw_estimate *= f32::from_le_bytes(two_to_minus_smallest_register.to_le_bytes());
+
+        // TODO! THIS C COEFFICIENT IS WEIRD!
+        let c = multeplicities.last().unwrap().convert() as f32 + multeplicities[largest_register_value].convert() as f32;
+
+        let mut g_prev = 0.0;
+        let a = raw_estimate + multeplicities[0].convert() as f32;
+
+        let two_to_minus_q: i32 = (127 - q as i32) << 23;
+        let b = raw_estimate + multeplicities.last().unwrap().convert() as f32 * f32::from_le_bytes(two_to_minus_q.to_le_bytes());
+
+        let number_of_non_zero_registers = self.get_number_of_non_zero_registers() as f32;
+
+        let mut x = if b <= 1.5 * a {
+            number_of_non_zero_registers / (0.5 * b + a)
+        } else {
+            (number_of_non_zero_registers / b) * (b / a).ln_1p()
+        };
+
+        // We begin the secant method iterations.
+        let mut delta_x = x;
+        let delta = 1e-4 / (self.get_number_of_registers() as f32).sqrt();
+        while delta_x > x * delta {
+            // In the C++ implementation they call frexp.
+            let kappa_minus_one = x.log2().floor() as usize;
+
+            // We compute the terms for the Taylor series.
+            let maximal = (largest_register_value + 1).max(kappa_minus_one + 2);
+            let two_to_minus_maximal: i32 = (127 - maximal as i32) << 23;
+            let mut x_first = x * f32::from_le_bytes(two_to_minus_maximal.to_le_bytes());
+            let x_second = x_first * x_first;
+            let x_forth = x_second * x_second;
+            let mut taylor_series_approximation = x_first - x_second / 3.0 + x_forth * (1.0 / 45.0 - x_second / 472.5);
+
+            // If kappa - 1 is smaller than the maximal register value
+            for _k in (largest_register_value.saturating_sub(1)..kappa_minus_one).rev() {
+                let taylor_series_approximation_prime = 1.0 - taylor_series_approximation;
+                taylor_series_approximation = (x_first + taylor_series_approximation * taylor_series_approximation_prime) / (x_first + taylor_series_approximation_prime);
+
+                // And we double the x first:
+                x_first *= 2.0;
+            }
+
+            let mut g = c * taylor_series_approximation;
+
+            for k in (smallest_register_value.saturating_sub(1)..largest_register_value.saturating_sub(1)).rev() {
+                let taylor_series_approximation_prime = 1.0 - taylor_series_approximation;
+                taylor_series_approximation = (x_first + taylor_series_approximation * taylor_series_approximation_prime) / (x_first + taylor_series_approximation_prime);
+                g += multeplicities[k].convert() as f32 * taylor_series_approximation;
+                x_first *= 2.0;
+            }
+
+            g += x * a;
+
+            if g > g_prev && number_of_non_zero_registers >= g {
+                delta_x *= (number_of_non_zero_registers - g) / (g - g_prev);
+            } else {
+                delta_x = 0.0;
+            };
+
+            x += delta_x;
+            g_prev = g;
+        }
+
+        self.get_number_of_registers() as f32 * x
+    }
+
+    #[inline(always)]
     /// Returns an estimate of the cardinality of the union of two HyperLogLog counters.
     ///
     /// This method calculates an estimate of the cardinality of the union of two HyperLogLog counters
@@ -366,7 +491,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
 
     #[inline(always)]
     /// Returns an estimate of the cardinality of the two HLL counters union.
-    pub fn estimate_union_and_sets_cardinality<F: Primitive<f32>>(
+    pub fn estimate_union_and_sets_cardinality<F: Primitive<f32> + MaxMin>(
         &self,
         other: &Self,
     ) -> EstimatedUnionCardinalities<F> {
@@ -399,6 +524,9 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
         }
 
         union_zeros -= self.get_number_of_padding_registers();
+
+        // We need to subtract the padding registers from the raw estimates
+        // as for each such register we are adding a one.
         raw_union_estimate -= self.get_number_of_padding_registers() as f32;
         raw_left_estimate -= self.get_number_of_padding_registers() as f32;
         raw_right_estimate -= self.get_number_of_padding_registers() as f32;
@@ -865,224 +993,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
             }
         }
         true
-    }
-
-    /// Returns estimated overlapping and differences cardinality matrices of the provided HyperLogLog counters.
-    ///
-    /// # Arguments
-    /// * `left` - Array of `L` HyperLogLog counters describing increasingly large surroundings of a first element.
-    /// * `right` - Array of `R` HyperLogLog counters describing increasingly large surroundings of a second element.
-    ///
-    /// # Returns
-    /// * `overlap_cardinality_matrix` - Matrix of estimated overlapping cardinalities between the elements of the left and right arrays.
-    /// * `left_difference_cardinality_vector` - Vector of estimated difference cardinalities between the elements of the left array and the last element of the right array.
-    /// * `right_difference_cardinality_vector` - Vector of estimated difference cardinalities between the elements of the right array and the last element of the left array.
-    ///
-    /// # Implementative details
-    /// We expect the elements of the left and right arrays to be increasingly contained in the next one.
-    ///
-    /// # Examples
-    /// In the following illustration, we show that for two vectors left and right of three elements,
-    /// we expect to compute the exclusively overlap matrix $A_{ij}$ and the exclusively differences vectors $B_i$.    
-    ///
-    /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/triple_overlap.png?raw=true)
-    ///
-    /// Very similarly, for the case of vectors of two elements:
-    ///
-    /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/tuple_overlap.png?raw=true)
-    ///
-    /// In this crate, we make available the singular method to compute the estimated overlapping
-    /// and differences cardinality matrices and vectors. In some instances, it is necessary to
-    /// compute both of these matrices and vectors at once, and as they have a lot of common
-    /// computations, it is more efficient to compute them at once. We expect that the two methods
-    /// provide the same results, and we test this in the following example.
-    ///
-    /// In this example, we populate randomly two arrays of two HLL each, and we compute the
-    /// estimated overlapping and differences cardinality matrices and vectors using the method
-    /// computing the values at once, and we compare them to the values computed using the methods
-    /// which compute the values separately.
-    ///
-    /// ```rust
-    /// # use hyperloglog_rs::prelude::*;
-    ///
-    /// for k in 0..1000 {
-    ///     let mut left = [HyperLogLog::<Precision12, 6>::new(), HyperLogLog::<Precision12, 6>::new()];
-    ///     let mut right = [HyperLogLog::<Precision12, 6>::new(), HyperLogLog::<Precision12, 6>::new()];
-    ///
-    ///     for i in 0..2 {
-    ///          for j in 0..100 {
-    ///             left[i].insert((k + 1) * (i + 1) * (j + 1) % 50);
-    ///             right[i].insert((k + 1) * (i + 1) * (j + 1) % 30);
-    ///         }
-    ///     }
-    ///
-    ///     let left_tmp = left[0] | left[1];
-    ///     left[1] = left_tmp;
-    ///     let right_tmp = right[0] | right[1];
-    ///     right[1] = right_tmp;
-    ///
-    ///     let (overlap_cardinality_matrix, left_difference_cardinality_vector, right_difference_cardinality_vector) =
-    ///         HyperLogLog::<Precision12, 6>::estimated_overlap_and_differences_cardinality_matrices::<f32, 2, 2>(&left, &right);
-    ///     let overlap_cardinality_matrix_singular: [[f32; 2]; 2] = HyperLogLog::estimated_overlap_cardinality_matrix(&left, &right);
-    ///     let left_difference_cardinality_vector_singular: [f32; 2] = HyperLogLog::estimated_difference_cardinality_vector(&left, &right[1]);
-    ///     let right_difference_cardinality_vector_singular: [f32; 2] = HyperLogLog::estimated_difference_cardinality_vector(&right, &left[1]);
-    ///
-    ///    for i in 0..2 {
-    ///        for j in 0..2 {
-    ///             assert!(
-    ///                 overlap_cardinality_matrix[i][j] >= overlap_cardinality_matrix_singular[i][j] * 0.9 &&
-    ///                 overlap_cardinality_matrix[i][j] <= overlap_cardinality_matrix_singular[i][j] * 1.1,
-    ///                 "The value of the overlap cardinality matrix at position ({}, {}) is not the same when computed at once and separately.",
-    ///                 i,
-    ///                 j
-    ///             );
-    ///         }
-    ///     }
-    ///
-    /// for i in 0..2 {
-    ///     assert!(
-    ///         left_difference_cardinality_vector[i] >= left_difference_cardinality_vector_singular[i] * 0.9 - 0.1 &&
-    ///         left_difference_cardinality_vector[i] <= left_difference_cardinality_vector_singular[i] * 1.1 + 0.1,
-    ///         "The value of the left difference cardinality vector at position {} is not the same when computed at once and separately.",
-    ///         i
-    ///     );
-    ///
-    ///     assert!(
-    ///         right_difference_cardinality_vector[i] >= right_difference_cardinality_vector_singular[i] * 0.9 - 0.1 &&
-    ///         right_difference_cardinality_vector[i] <= right_difference_cardinality_vector_singular[i] * 1.1 + 0.1,
-    ///         concat!(
-    ///             "The value of the right difference cardinality vector at position {} ",
-    ///             "is not the same when computed at once and separately.",
-    ///             "We expected {} but got {}."
-    ///         ),
-    ///         i,
-    ///         right_difference_cardinality_vector_singular[i],
-    ///         right_difference_cardinality_vector[i]
-    ///     );
-    /// }
-    ///
-    /// }
-    ///
-    /// ```
-    ///
-    pub fn estimated_overlap_and_differences_cardinality_matrices<
-        F: Primitive<f32>,
-        const L: usize,
-        const R: usize,
-    >(
-        left: &[Self; L],
-        right: &[Self; R],
-    ) -> ([[F; R]; L], [F; L], [F; R]) {
-        // When we are not in release mode, we check that the HLL are increasing in size.
-        #[cfg(debug_assertions)]
-        for i in 1..L {
-            assert!(
-                left[i].may_contain_all(&left[i - 1]),
-                concat!(
-                    "We expected for all the elements of the left array to be contained in the next one, ",
-                    "but this is not the case for the element at position {}."
-                ),
-                i
-            );
-        }
-
-        // When we are not in release mode, we check that the HLL are increasing in size.
-        #[cfg(debug_assertions)]
-        for i in 1..R {
-            assert!(
-                right[i].may_contain_all(&right[i - 1]),
-                concat!(
-                    "We expected for all the elements of the right array to be contained in the next one, ",
-                    "but this is not the case for the element at position {}."
-                ),
-                i
-            );
-        }
-
-        let mut overlap_cardinality_matrix = [[F::reverse(0.0); R]; L];
-        let mut left_difference_cardinality_vector = [F::reverse(0.0); L];
-        let mut right_difference_cardinality_vector = [F::reverse(0.0); R];
-        let mut left_comulative_estimated_cardinality = F::reverse(0.0);
-        let mut right_comulative_estimated_cardinality = F::reverse(0.0);
-
-        for i in 0..(L - 1) {
-            for j in 0..(R - 1) {
-                overlap_cardinality_matrix[i][j] = (left[i]
-                    .estimate_intersection_cardinality::<F>(&right[j])
-                    // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
-                    // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
-                    // with a smaller index than the current one.
-                    - overlap_cardinality_matrix[0..(i+1)]
-                        .iter()
-                        .map(|row| row[0..(j+1)].iter().copied().sum::<F>())
-                        .sum::<F>())
-                .get_max(F::reverse(0.0));
-            }
-
-            // We handle separately the case for j = R - 1, since we need to also compute
-            // the difference cardinality of the left HLL.
-            let estimate = left[i].estimate_union_and_sets_cardinality::<F>(&right[R - 1]);
-            left_difference_cardinality_vector[i] = (estimate.get_left_difference_cardinality()
-                - left_comulative_estimated_cardinality)
-                .get_max(F::reverse(0.0));
-            left_comulative_estimated_cardinality += left_difference_cardinality_vector[i];
-            overlap_cardinality_matrix[i][R - 1] = (estimate.get_intersection_cardinality()
-                // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
-                // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
-                // with a smaller index than the current one.
-                - overlap_cardinality_matrix[0..(i+1)]
-                    .iter()
-                    .map(|row| row[0..R].iter().copied().sum::<F>())
-                    .sum::<F>())
-            .get_max(F::reverse(0.0));
-        }
-
-        // We handle separately the case for i = L - 1, since we need to also compute
-        // the difference cardinality of the left and right HLL. We still have to compute
-        // all difference cardinalities between the last element of left (the L-1 one) and
-        // all the elements of right.
-
-        for j in 0..(R - 1) {
-            let estimate = left[L - 1].estimate_union_and_sets_cardinality::<F>(&right[j]);
-            right_difference_cardinality_vector[j] = (estimate.get_right_difference_cardinality()
-                - right_comulative_estimated_cardinality)
-                .get_max(F::reverse(0.0));
-            right_comulative_estimated_cardinality += right_difference_cardinality_vector[j];
-            overlap_cardinality_matrix[L - 1][j] = (estimate.get_intersection_cardinality()
-                // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
-                // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
-                // with a smaller index than the current one.
-                - overlap_cardinality_matrix[0..L]
-                    .iter()
-                    .map(|row| row[0..(j+1)].iter().copied().sum::<F>())
-                    .sum::<F>())
-            .get_max(F::reverse(0.0));
-        }
-
-        // We handle separately the case for i = L - 1 and j = R - 1, since we need to also compute
-        // the difference cardinality of the left and right HLL.
-        let estimate = left[L - 1].estimate_union_and_sets_cardinality::<F>(&right[R - 1]);
-        left_difference_cardinality_vector[L - 1] = (estimate.get_left_difference_cardinality()
-            - left_comulative_estimated_cardinality)
-            .get_max(F::reverse(0.0));
-        right_difference_cardinality_vector[R - 1] = (estimate.get_right_difference_cardinality()
-            - right_comulative_estimated_cardinality)
-            .get_max(F::reverse(0.0));
-        overlap_cardinality_matrix[L - 1][R - 1] = (estimate.get_intersection_cardinality()
-                // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
-                // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
-                // with a smaller index than the current one.
-                - overlap_cardinality_matrix[0..L]
-                    .iter()
-                    .map(|row| row[0..R].iter().copied().sum::<F>())
-                    .sum::<F>())
-        .get_max(F::reverse(0.0));
-
-        (
-            overlap_cardinality_matrix,
-            left_difference_cardinality_vector,
-            right_difference_cardinality_vector,
-        )
     }
 
     /// Returns estimated overlapping cardinality matrices of the provided HyperLogLog counters.
@@ -1687,6 +1597,44 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
                 self.words[word_position] & Self::PADDING_BITS_MASK
             );
         }
+    }
+
+    #[inline(always)]
+    /// Returns array with multeplicity of the registers values.
+    ///
+    /// # Examples
+    /// We create an HyperLogLog from the registers, and then we
+    /// compute the multeplicities of the registers checking that
+    /// they match the expected values. By testing this on a HLL
+    /// with precision 4, we need to provide 16 registers.
+    ///
+    /// ```rust
+    /// # use hyperloglog_rs::prelude::*;
+    ///
+    /// let registers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2];
+    /// let mut hll = HyperLogLog::<Precision4, 6>::from_registers(&registers);
+    /// let multeplicity = hll.get_register_multeplicities();
+    ///
+    /// assert_eq!(multeplicity[0], 1, "The multeplicity of the register 0 should be 1, but it is {}.", multeplicity[0]);
+    /// assert_eq!(multeplicity[1], 1, "The multeplicity of the register 1 should be 1, but it is {}.", multeplicity[1]);
+    /// assert_eq!(multeplicity[2], 2, "The multeplicity of the register 2 should be 2, but it is {}.", multeplicity[2]);
+    /// assert_eq!(multeplicity[3], 2, "The multeplicity of the register 3 should be 2, but it is {}.", multeplicity[3]);
+    /// assert_eq!(multeplicity[4], 2, "The multeplicity of the register 4 should be 2, but it is {}.", multeplicity[4]);
+    /// assert_eq!(multeplicity[5], 2, "The multeplicity of the register 5 should be 2, but it is {}.", multeplicity[5]);
+    /// assert_eq!(multeplicity[6], 2, "The multeplicity of the register 6 should be 2, but it is {}.", multeplicity[6]);
+    /// assert_eq!(multeplicity[7], 2, "The multeplicity of the register 7 should be 2, but it is {}.", multeplicity[7]);
+    /// assert_eq!(multeplicity[8], 2, "The multeplicity of the register 8 should be 2, but it is {}.", multeplicity[8]);
+    /// ```
+    ///
+    pub fn get_register_multeplicities(&self) -> PRECISION::RegisterMultiplicities {
+        // We allocate an array of the same size as the number of registers.
+        let mut register_multeplicities = PRECISION::RegisterMultiplicities::default_array();
+        // We iterate over the registers and we increment the corresponding
+        self.iter().for_each(|register| {
+            register_multeplicities[register as usize] += PRECISION::NumberOfZeros::ONE;
+        });
+        // And we return the array.
+        register_multeplicities
     }
 }
 

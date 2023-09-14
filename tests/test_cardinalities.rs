@@ -42,21 +42,23 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     let hll: HyperLogLog<PRECISION, BITS> = set.iter().collect();
 
     let line = format!(
-        "{}\t{}\t{}\t{}\t{}\n",
+        "{}\t{}\t{}\t{}\t{}\t{}\n",
         PRECISION::EXPONENT,
         BITS,
         exact_cardinality,
         hll.estimate_cardinality(),
-        set_str,
+        hll.estimate_cardinality_with_multiplicities(),
+        hll.estimate_cardinality_mle(),
+        //set_str,
     );
 
     file.write_all(line.as_bytes())
 }
 
-//#[test]
+#[test]
 fn test_cardinality_perfs() {
     let mut file = File::create("cardinality_benchmark.tsv").unwrap();
-    file.write_all(b"precision\tbits\texact\thll\tset\n")
+    file.write_all(b"precision\tbits\texact\thll\thll_multiplicity\tmle\n")
         .unwrap();
 
     // since both the precision and the number of bits are compile time constants, we can
@@ -68,13 +70,13 @@ fn test_cardinality_perfs() {
 
     // For each precision and number of bits, we generate 1000 random sets and write them to the file.
     // We also write the exact cardinality and the estimated cardinality using HyperLogLog.
-    for i in 0..10_u64 {
+    for i in 0..1000_u64 {
         let seed = (i + 1).wrapping_mul(234567898765);
         let mut rng = splitmix64(seed);
 
         let mut set = HashSet::new();
 
-        for _ in 0..10_000_000 {
+        for _ in 0..100_000 {
             let value = xorshift(rng) % 10_000_000;
             set.insert(value);
             rng = splitmix64(rng);

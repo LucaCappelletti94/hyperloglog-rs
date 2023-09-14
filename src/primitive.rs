@@ -16,6 +16,7 @@ pub trait Primitive<U>:
     + Send
     + Sync
     + Sum
+    + Default
     + Sub<Self, Output = Self>
     + Add<Self, Output = Self>
     + AddAssign

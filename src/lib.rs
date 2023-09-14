@@ -8,7 +8,7 @@
 //! determines the number of bits used to index a register, and `BITS` determines the number of bits used to represent
 //! the hashed value of an element. The optimal values of these constants depend on the expected number of distinct elements
 //! and the available memory.
-//! 
+//!
 //! This implementation already provides almost all the benefits available from [HyperLogLog++](https://static.googleusercontent.com/media/research.google.com/it//pubs/archive/40671.pdf).
 //! We **do not** intend to integrate the sparse registers feature, as the use cases for this library focus of cases
 //! where registers need to be a relatively small number and a dense set. Except for that, all
@@ -73,38 +73,44 @@
 #![feature(const_float_bits_conv)]
 #![feature(const_fn_floating_point_arithmetic)]
 
-pub mod hyperloglog;
-pub mod iter;
-pub mod bitor;
-pub mod log;
-pub mod serde;
-pub mod utils;
-pub mod hyperloglog_array;
-pub mod estimated_union_cardinalities;
+mod array_default;
 mod bias;
-mod raw_estimate_data;
+pub mod bitor;
+pub mod bitand;
+pub mod estimated_union_cardinalities;
+pub mod hyper_spheres_sketch;
+pub mod hyperloglog;
+pub mod hyperloglog_array;
+pub mod iter;
+pub mod log;
+mod max_min;
 mod precisions;
 mod primitive;
+mod raw_estimate_data;
+pub mod serde;
+pub mod utils;
 mod zeros;
-mod array_default;
-mod max_min;
+mod ones;
 
-pub use crate::hyperloglog::HyperLogLog;
 pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
+pub use crate::hyperloglog::HyperLogLog;
 
 pub mod prelude {
-    pub use crate::hyperloglog::*;
-    pub use crate::estimated_union_cardinalities::*;
-    pub use crate::iter::*;
+    pub use crate::array_default::*;
     pub use crate::bitor::*;
-    pub use crate::zeros::*;
-    pub use crate::primitive::*;
+    pub use crate::bitand::*;
+    pub use crate::estimated_union_cardinalities::*;
+    pub use crate::hyper_spheres_sketch::*;
+    pub use crate::hyperloglog::*;
+    pub use crate::hyperloglog_array::*;
+    pub use crate::iter::*;
     pub use crate::max_min::*;
     pub use crate::precisions::*;
-    pub use crate::utils::*;
-    pub use crate::hyperloglog_array::*;
-    pub use crate::serde::*;
     pub use crate::precisions::*;
-    pub use crate::array_default::*;
+    pub use crate::primitive::*;
+    pub use crate::serde::*;
+    pub use crate::utils::*;
+    pub use crate::zeros::*;
+    pub use crate::ones::*;
     pub use core::ops::{BitOr, BitOrAssign};
 }
