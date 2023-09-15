@@ -5,9 +5,10 @@
 //! You can estimate the cardinality of an iterator using the `estimate_cardinality` method.
 //! ```
 //! use hyperloglog_rs::prelude::*;
+//! use siphasher::sip::SipHasher13;
 //!
 //! let v = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-//! let cardinality_estimate = v.iter().estimate_cardinality::<Precision12, 5>();
+//! let cardinality_estimate = v.iter().estimate_cardinality::<Precision12, 5, SipHasher13>();
 //! assert!((cardinality_estimate - 10.0).abs() < 1.0);
 //! ```
 //!

@@ -8,7 +8,6 @@ use hyperloglog_rs::prelude::*;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
-use siphasher::sip::SipHasher;
 use siphasher::sip::SipHasher13;
 use std::collections::HashSet;
 

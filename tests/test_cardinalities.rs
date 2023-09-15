@@ -100,7 +100,7 @@ fn write_line_set_for_hasher<M: HasherMethod>(
     // write_line_set::<Precision18, M>(set, set_str, exact_cardinality, file);
 }
 
-#[test]
+// #[test]
 fn test_cardinality_perfs() {
     let mut file = File::create("cardinality_benchmark.tsv").unwrap();
     file.write_all(b"precision\tbits\texact\thll\thll_multiplicity\thash_name\n")

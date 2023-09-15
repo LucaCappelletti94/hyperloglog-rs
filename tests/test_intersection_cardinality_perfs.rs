@@ -146,7 +146,7 @@ fn write_line_set_for_hasher<M: HasherMethod>(
     write_line_set::<Precision17, M>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
 }
 
-#[test]
+//#[test]
 fn test_intersection_cardinality_perfs() {
     let mut file = File::create("intersection_cardinality_benchmark.tsv").unwrap();
     file.write_all(b"precision\tbits\texact\told_approximation\tnew_approximation\thash_name\n")

@@ -48,7 +48,7 @@ fn jaccard_hll<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     let hll1: HyperLogLog<PRECISION, BITS, SipHasher13> = set1.iter().collect();
     let hll2: HyperLogLog<PRECISION, BITS, SipHasher13> = set2.iter().collect();
 
-    hll1.estimate_jaccard_cardinality(&hll2)
+    hll1.estimate_jaccard_index(&hll2)
 }
 
 fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(

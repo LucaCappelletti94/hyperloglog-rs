@@ -5,7 +5,7 @@ use serde::ser::SerializeSeq;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize, M: HasherMethod> Serialize
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize, M: HasherMethod + Copy> Serialize
     for HyperLogLogArray<PRECISION, BITS, N, M>
 {
     #[inline(always)]

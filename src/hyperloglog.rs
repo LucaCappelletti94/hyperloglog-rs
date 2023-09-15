@@ -1,3 +1,5 @@
+use siphasher::sip::SipHasher13;
+
 use crate::array_default::{ArrayDefault, ArrayIter};
 use crate::bias::BIAS_DATA;
 use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
@@ -57,7 +59,7 @@ use std::marker::PhantomData;
 /// * Flajolet, Philippe, et al. "HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm." DMTCS Proceedings 1 (2007): 127-146.
 /// * Heule, Stefan, Marc Nunkesser, and Alexander Hall. "HyperLogLog in practice: algorithmic engineering of a state of the art cardinality estimation algorithm." Proceedings of the 16th International Conference on Extending Database Technology. 2013.
 ///
-pub struct HyperLogLog<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> {
+pub struct HyperLogLog<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod = SipHasher13> {
     pub(crate) words: PRECISION::Words,
     pub(crate) multeplicities: PRECISION::RegisterMultiplicities,
     pub(crate) _phantom: PhantomData<M>,
@@ -501,7 +503,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
         raw_left_estimate -= Self::get_number_of_padding_registers() as f32;
         raw_right_estimate -= Self::get_number_of_padding_registers() as f32;
 
-        let union_estimate =
+        let mut union_estimate =
             F::reverse(self.adjust_estimate_with_zeros(raw_union_estimate, union_zeros));
         let left_estimate = F::reverse(
             self.adjust_estimate_with_zeros(raw_left_estimate, self.get_number_of_zero_registers()),
@@ -511,6 +513,9 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
                 raw_right_estimate,
                 other.get_number_of_zero_registers(),
             ));
+
+        // The union estimate cannot be higher than the sum of the left and right estimates.
+        union_estimate = union_estimate.get_min(left_estimate + right_estimate);
 
         EstimatedUnionCardinalities::from((left_estimate, right_estimate, union_estimate))
     }
@@ -582,14 +587,14 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
     /// hll2.insert(&5);
     /// hll2.insert(&6);
     ///
-    /// let jaccard_index = hll1.estimate_jaccard_cardinality(&hll2);
+    /// let jaccard_index = hll1.estimate_jaccard_index(&hll2);
     ///
     /// let expected = 2.0 / 6.0;
     ///
     /// assert!(jaccard_index >= expected * 0.9 &&
     ///         jaccard_index <= expected * 1.1);
     /// ```
-    pub fn estimate_jaccard_cardinality(&self, other: &Self) -> f32 {
+    pub fn estimate_jaccard_index(&self, other: &Self) -> f32 {
         self.estimate_union_and_sets_cardinality(other)
             .get_jaccard_index()
     }
