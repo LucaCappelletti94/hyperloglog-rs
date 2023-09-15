@@ -3,19 +3,23 @@ extern crate test;
 
 use hyperloglog_rs::prelude::*;
 
+use siphasher::sip::SipHasher13;
 use test::{black_box, Bencher};
 
-fn populate_vectors<const N: usize>() -> ([HyperLogLog<Precision4, 4>; N], [HyperLogLog<Precision4, 4>; N]) {
+fn populate_vectors<const N: usize>() -> (
+    [HyperLogLog<Precision4, 4, SipHasher13>; N],
+    [HyperLogLog<Precision4, 4, SipHasher13>; N],
+) {
     // Optionally include some setup
-    const NUMBER_OF_ELEMENTS: usize = 100;
+    const NUMBER_OF_ELEMENTS: usize = 10000;
 
     // We create the counters, populate them with data and
     // then we create the arrays to use to estimate the
     // estimated overlap cardinality matrices:
 
     // Create the counters
-    let mut left: [HyperLogLog<Precision4, 4>; N] = [HyperLogLog::new(); N];
-    let mut right: [HyperLogLog<Precision4, 4>; N] = [HyperLogLog::new(); N];
+    let mut left: [HyperLogLog<Precision4, 4, SipHasher13>; N] = [HyperLogLog::new(); N];
+    let mut right: [HyperLogLog<Precision4, 4, SipHasher13>; N] = [HyperLogLog::new(); N];
 
     left[0].insert(&56);
     right[0].insert(&32);
@@ -44,9 +48,9 @@ fn bench_estimated_overlap_cardinality_matrix_2(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 2, 2>(
-            &left, &right,
-        ));
+        black_box(for _ in 0..10_000 {
+            HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 2, 2>(&left, &right);
+        });
     });
 }
 
@@ -56,9 +60,9 @@ fn bench_estimated_overlap_cardinality_matrix_3(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 3, 3>(
-            &left, &right,
-        ));
+        black_box(for _ in 0..10_000 {
+            HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 3, 3>(&left, &right);
+        });
     });
 }
 
@@ -68,9 +72,9 @@ fn bench_estimated_overlap_cardinality_matrix_4(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 4, 4>(
-            &left, &right,
-        ));
+        black_box(for _ in 0..10_000 {
+            HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 4, 4>(&left, &right);
+        });
     });
 }
 
@@ -80,8 +84,8 @@ fn bench_estimated_overlap_cardinality_matrix_5(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 5, 5>(
-            &left, &right,
-        ));
+        black_box(for _ in 0..10_000 {
+            HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 5, 5>(&left, &right);
+        });
     });
 }

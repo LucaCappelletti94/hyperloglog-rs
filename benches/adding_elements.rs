@@ -3,6 +3,7 @@ extern crate test;
 
 use hyperloglog_rs::prelude::*;
 
+use siphasher::sip::SipHasher13;
 use test::{black_box, Bencher};
 
 #[bench]
@@ -10,7 +11,7 @@ fn bench_add(b: &mut Bencher) {
     // Optionally include some setup
     const NUMBER_OF_ELEMENTS: usize = 1_000_000;
     const BITS: usize = 6;
-    let mut hll: HyperLogLog<Precision4, BITS> = HyperLogLog::new();
+    let mut hll: HyperLogLog<Precision4, BITS, SipHasher13> = HyperLogLog::new();
 
     b.iter(|| {
         // Inner closure, the actual test

@@ -3,8 +3,8 @@ use crate::{array_default::ArrayIter, prelude::*};
 use core::ops::{BitOr, BitOrAssign};
 
 #[allow(clippy::suspicious_op_assign_impl)]
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self>
-    for HyperLogLog<PRECISION, BITS>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> BitOrAssign<Self>
+    for HyperLogLog<PRECISION, BITS, M>
 {
     #[inline(always)]
     /// Computes union between HLL counters.
@@ -54,8 +54,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self>
 }
 
 #[allow(clippy::suspicious_op_assign_impl)]
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self>
-    for HyperLogLog<PRECISION, BITS>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> BitOrAssign<&Self>
+    for HyperLogLog<PRECISION, BITS, M>
 {
     #[inline(always)]
     /// Computes union between HLL counters.
@@ -124,8 +124,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOr<Self>
-    for HyperLogLog<PRECISION, BITS>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> BitOr<Self>
+    for HyperLogLog<PRECISION, BITS, M>
 {
     type Output = Self;
 
@@ -192,8 +192,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOr<Self>
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self>
-    for HyperLogLog<PRECISION, BITS>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> BitOr<&Self>
+    for HyperLogLog<PRECISION, BITS, M>
 {
     type Output = Self;
 

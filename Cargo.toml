@@ -19,10 +19,13 @@ categories = [
 
 [dependencies]
 siphasher = "0.3"
+highway = "1.1.0"
+fasthash = "0.4.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
 serde_json = "1.0"
+indicatif = "0.15.0"
 rand = "0.8"
 
 [profile.test]

@@ -1,16 +1,17 @@
 use crate::array_default::{ArrayDefault, ArrayIter};
 use crate::bias::BIAS_DATA;
 use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
+use crate::hasher_method::HasherMethod;
 use crate::ones::One;
 use crate::precisions::{Precision, WordType};
 use crate::prelude::{linear_counting_threshold, MaxMin};
 use crate::primitive::Primitive;
 use crate::raw_estimate_data::RAW_ESTIMATE_DATA;
 use crate::utils::{ceil, get_alpha};
-use core::hash::{Hash, Hasher};
-use siphasher::sip::SipHasher13;
+use core::hash::Hash;
+use std::marker::PhantomData;
 
-#[derive(Clone, Debug, Eq, PartialEq, Copy)]
+#[derive(Clone, Debug, Copy, Eq)]
 /// A probabilistic algorithm for estimating the number of distinct elements in a set.
 ///
 /// HyperLogLog is a probabilistic algorithm designed to estimate the number
@@ -56,13 +57,69 @@ use siphasher::sip::SipHasher13;
 /// * Flajolet, Philippe, et al. "HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm." DMTCS Proceedings 1 (2007): 127-146.
 /// * Heule, Stefan, Marc Nunkesser, and Alexander Hall. "HyperLogLog in practice: algorithmic engineering of a state of the art cardinality estimation algorithm." Proceedings of the 16th International Conference on Extending Database Technology. 2013.
 ///
-pub struct HyperLogLog<PRECISION: Precision + WordType<BITS>, const BITS: usize> {
+pub struct HyperLogLog<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> {
     pub(crate) words: PRECISION::Words,
     pub(crate) multeplicities: PRECISION::RegisterMultiplicities,
+    pub(crate) _phantom: PhantomData<M>,
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T>
-    for HyperLogLog<PRECISION, BITS>
+/// Implements PartialEq for HyperLogLog.
+///
+/// # Implementative details
+/// Two HyperLogLog counters are considered equal if they have the same words.
+///
+/// # Examples
+///
+/// ```
+/// # use hyperloglog_rs::prelude::*;
+///
+/// let mut hll1 = HyperLogLog::<Precision14, 5>::new();
+/// hll1.insert(&2);
+///
+/// let mut hll2 = HyperLogLog::<Precision14, 5>::new();
+/// hll2.insert(&2);
+/// hll2.insert(&3);
+///
+/// assert_ne!(hll1, hll2);
+///
+/// hll1 |= hll2;
+///
+/// assert_eq!(hll1, hll2);
+/// ```
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> PartialEq
+    for HyperLogLog<PRECISION, BITS, M>
+{
+    /// Returns whether the two HyperLogLog counters are equal.
+    fn eq(&self, other: &Self) -> bool {
+        self.words == other.words
+    }
+}
+
+/// Implements the Default trait for HyperLogLog.
+///
+/// HyperLogLog is a probabilistic cardinality estimator that uses a fixed
+/// amount of memory to estimate the number of distinct elements in a set.
+///
+/// # Examples
+///
+/// ```rust
+/// # use hyperloglog_rs::prelude::*;
+///
+/// let hll: HyperLogLog<Precision10, 6> = Default::default();
+/// assert_eq!(hll.len(), 1024);
+/// assert_eq!(hll.get_number_of_bits(), 6);
+/// ```
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> Default
+    for HyperLogLog<PRECISION, BITS, M>
+{
+    /// Returns a new HyperLogLog instance with default configuration settings.
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, T: Hash, M: HasherMethod> From<T>
+    for HyperLogLog<PRECISION, BITS, M>
 {
     /// Create a new HyperLogLog counter from a value.
     ///
@@ -88,30 +145,9 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T>
     }
 }
 
-/// Implements the Default trait for HyperLogLog.
-///
-/// HyperLogLog is a probabilistic cardinality estimator that uses a fixed
-/// amount of memory to estimate the number of distinct elements in a set.
-///
-/// # Examples
-///
-/// ```rust
-/// # use hyperloglog_rs::prelude::*;
-///
-/// let hll: HyperLogLog<Precision10, 6> = Default::default();
-/// assert_eq!(hll.len(), 1024);
-/// assert_eq!(hll.get_number_of_bits(), 6);
-/// ```
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Default
-    for HyperLogLog<PRECISION, BITS>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
+    HyperLogLog<PRECISION, BITS, M>
 {
-    /// Returns a new HyperLogLog instance with default configuration settings.
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS> {
     /// The threshold value used in the small range correction of the HyperLogLog algorithm.
     pub const INTERMEDIATE_RANGE_CORRECTION_THRESHOLD: f32 =
         5.0_f32 * (PRECISION::NUMBER_OF_REGISTERS as f32);
@@ -140,11 +176,12 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
 
     /// Create a new HyperLogLog counter.
     pub fn new() -> Self {
-        let mut multeplicities= PRECISION::RegisterMultiplicities::default_array();
+        let mut multeplicities = PRECISION::RegisterMultiplicities::default_array();
         multeplicities[0] = PRECISION::NumberOfZeros::reverse(Self::get_number_of_registers());
         Self {
             words: PRECISION::Words::default_array(),
-            multeplicities
+            multeplicities,
+            _phantom: PhantomData,
         }
     }
 
@@ -168,7 +205,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     /// assert_eq!(hll.len(), 1 << 4);
     /// ```
     pub fn from_registers(registers: &[u32]) -> Self {
-        assert!(
+        debug_assert!(
             registers.len() == PRECISION::NUMBER_OF_REGISTERS,
             "We expect {} registers, but got {}",
             PRECISION::NUMBER_OF_REGISTERS,
@@ -181,7 +218,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
             .zip(registers.chunks(Self::NUMBER_OF_REGISTERS_IN_WORD))
             .for_each(|(word, word_registers)| {
                 for (i, register) in word_registers.iter().copied().enumerate() {
-                    assert!(
+                    debug_assert!(
                         register <= Self::LOWER_REGISTER_MASK,
                         "Register value {} is too large for the given number of bits {}",
                         register,
@@ -193,36 +230,38 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
             });
         Self {
             words,
-            multeplicities
+            multeplicities,
+            _phantom: PhantomData,
         }
     }
 
     /// Create a new HyperLogLog counter from an array of words.
-    /// 
+    ///
     /// # Arguments
     /// * `words` - An array of u64 words to use for the HyperLogLog counter.
-    /// 
+    ///
     /// # Returns
     /// A new HyperLogLog counter initialized with the given words.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// use hyperloglog_rs::prelude::*;
-    /// 
+    ///
     /// let words = [0_u32; 4];
     /// let hll = HyperLogLog::<Precision4, 6>::from_words(&words);
     /// assert_eq!(hll.len(), 16);
     /// ```
-    pub fn from_words(words: &PRECISION::Words) -> Self {        
+    pub fn from_words(words: &PRECISION::Words) -> Self {
         let mut hll = Self {
             words: *words,
             multeplicities: PRECISION::RegisterMultiplicities::default_array(),
+            _phantom: PhantomData,
         };
 
         let mut multeplicities = PRECISION::RegisterMultiplicities::default_array();
 
-        hll.iter().for_each(|register|{
+        hll.iter().for_each(|register| {
             multeplicities[register as usize] += PRECISION::NumberOfZeros::ONE;
         });
 
@@ -354,7 +393,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
 
         for (current_register, multeplicity) in self.multeplicities.iter_elements().enumerate() {
             let two_to_minus_register: i32 = (127 - current_register as i32) << 23;
-            raw_estimate += (multeplicity.convert() as f32) * f32::from_le_bytes(two_to_minus_register.to_le_bytes());
+            raw_estimate += (multeplicity.convert() as f32)
+                * f32::from_le_bytes(two_to_minus_register.to_le_bytes());
         }
 
         self.adjust_estimate(raw_estimate)
@@ -463,15 +503,14 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
 
         let union_estimate =
             F::reverse(self.adjust_estimate_with_zeros(raw_union_estimate, union_zeros));
-        let left_estimate =
+        let left_estimate = F::reverse(
+            self.adjust_estimate_with_zeros(raw_left_estimate, self.get_number_of_zero_registers()),
+        );
+        let right_estimate =
             F::reverse(self.adjust_estimate_with_zeros(
-                raw_left_estimate,
-                self.get_number_of_zero_registers(),
+                raw_right_estimate,
+                other.get_number_of_zero_registers(),
             ));
-        let right_estimate = F::reverse(self.adjust_estimate_with_zeros(
-            raw_right_estimate,
-            other.get_number_of_zero_registers(),
-        ));
 
         EstimatedUnionCardinalities::from((left_estimate, right_estimate, union_estimate))
     }
@@ -842,7 +881,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     /// assert_eq!(hll.may_contain(&42), true);
     /// ```
     pub fn may_contain<T: Hash>(&self, rhs: &T) -> bool {
-        let (_hash, index) = self.get_hash_and_index(&rhs);
+        let (_hash, index) = self.get_hash_and_index::<T>(rhs);
 
         // Calculate the position of the register in the internal buffer array.
         let word_position = index / Self::NUMBER_OF_REGISTERS_IN_WORD;
@@ -1387,11 +1426,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     /// //assert_eq!(hash, 10123147082338939904, "Expected hash {}, got {}.", 10123147082338939904, hash);
     /// ```
     pub fn get_hash_and_index<T: Hash>(&self, value: &T) -> (u64, usize) {
-        // Create a new hasher.
-        let mut hasher = SipHasher13::new();
-        // Calculate the hash.
-        value.hash(&mut hasher);
-        let hash: u64 = hasher.finish();
+        let hash: u64 = M::hash(value);
 
         // Calculate the register's index using the highest bits of the hash.
         let index: usize =
@@ -1438,7 +1473,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     ///
     /// This function does not return any errors.
     pub fn insert<T: Hash>(&mut self, rhs: T) {
-        let (mut hash, index) = self.get_hash_and_index(&rhs);
+        let (mut hash, index) = self.get_hash_and_index::<T>(&rhs);
 
         // We need to add ones to the hash to make sure that the
         // the number of zeros we obtain afterwards is never higher
@@ -1552,8 +1587,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, A: Hash> core::iter::FromIterator<A>
-    for HyperLogLog<PRECISION, BITS>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, A: Hash, M: HasherMethod>
+    core::iter::FromIterator<A> for HyperLogLog<PRECISION, BITS, M>
 {
     #[inline(always)]
     /// Creates a new HyperLogLog counter and adds all elements from an iterator to it.

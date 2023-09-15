@@ -16,8 +16,12 @@
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
-
+use fasthash::MetroHasher;
+use highway::HighwayHasher;
+use indicatif::ProgressIterator;
 use hyperloglog_rs::prelude::*;
+use siphasher::sip::{SipHasher13, SipHasher24};
+
 
 fn splitmix64(mut x: u64) -> u64 {
     x = x.wrapping_add(0x9E3779B97F4A7C15);
@@ -33,31 +37,73 @@ fn xorshift(mut x: u64) -> u64 {
     x
 }
 
-fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
+fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>(
     set: &HashSet<u64>,
     set_str: &str,
     exact_cardinality: usize,
     file: &mut File,
 ) -> std::io::Result<()> {
-    let hll: HyperLogLog<PRECISION, BITS> = set.iter().collect();
+    let hll: HyperLogLog<PRECISION, BITS, M> = set.iter().collect();
 
     let line = format!(
-        "{}\t{}\t{}\t{}\t{}\n",
+        "{}\t{}\t{}\t{}\t{}\t{}\n",
         PRECISION::EXPONENT,
         BITS,
         exact_cardinality,
         hll.estimate_cardinality(),
         hll.estimate_cardinality_with_multiplicities(),
+        // We write out the name of the hasher method being imployed
+        std::any::type_name::<M>(),
         //set_str,
     );
 
     file.write_all(line.as_bytes())
 }
 
+fn write_line_set<
+    PRECISION: Precision + WordType<1> + WordType<2> + WordType<3> + WordType<4> + WordType<5> + WordType<6>,
+    M: HasherMethod,
+>(
+    set: &HashSet<u64>,
+    set_str: &str,
+    exact_cardinality: usize,
+    file: &mut File,
+) {
+    write_line::<PRECISION, 1, M>(set, set_str, exact_cardinality, file).unwrap();
+    write_line::<PRECISION, 2, M>(set, set_str, exact_cardinality, file).unwrap();
+    write_line::<PRECISION, 3, M>(set, set_str, exact_cardinality, file).unwrap();
+    write_line::<PRECISION, 4, M>(set, set_str, exact_cardinality, file).unwrap();
+    write_line::<PRECISION, 5, M>(set, set_str, exact_cardinality, file).unwrap();
+    write_line::<PRECISION, 6, M>(set, set_str, exact_cardinality, file).unwrap();
+}
+
+fn write_line_set_for_hasher<M: HasherMethod>(
+    set: &HashSet<u64>,
+    set_str: &str,
+    exact_cardinality: usize,
+    file: &mut File,
+) {
+    write_line_set::<Precision4, M>(set, set_str, exact_cardinality, file);
+    write_line_set::<Precision5, M>(set, set_str, exact_cardinality, file);
+    write_line_set::<Precision6, M>(set, set_str, exact_cardinality, file);
+    write_line_set::<Precision7, M>(set, set_str, exact_cardinality, file);
+    write_line_set::<Precision8, M>(set, set_str, exact_cardinality, file);
+    write_line_set::<Precision9, M>(set, set_str, exact_cardinality, file);
+    write_line_set::<Precision10, M>(set, set_str, exact_cardinality, file);
+    write_line_set::<Precision11, M>(set, set_str, exact_cardinality, file);
+    write_line_set::<Precision12, M>(set, set_str, exact_cardinality, file);
+    write_line_set::<Precision13, M>(set, set_str, exact_cardinality, file);
+    write_line_set::<Precision14, M>(set, set_str, exact_cardinality, file);
+    write_line_set::<Precision15, M>(set, set_str, exact_cardinality, file);
+    write_line_set::<Precision16, M>(set, set_str, exact_cardinality, file);
+    write_line_set::<Precision17, M>(set, set_str, exact_cardinality, file);
+    // write_line_set::<Precision18, M>(set, set_str, exact_cardinality, file);
+}
+
 #[test]
 fn test_cardinality_perfs() {
     let mut file = File::create("cardinality_benchmark.tsv").unwrap();
-    file.write_all(b"precision\tbits\texact\thll\thll_multiplicity\n")
+    file.write_all(b"precision\tbits\texact\thll\thll_multiplicity\thash_name\n")
         .unwrap();
 
     // since both the precision and the number of bits are compile time constants, we can
@@ -69,7 +115,7 @@ fn test_cardinality_perfs() {
 
     // For each precision and number of bits, we generate 1000 random sets and write them to the file.
     // We also write the exact cardinality and the estimated cardinality using HyperLogLog.
-    for i in 0..1000_u64 {
+    for i in (0..1000_u64).progress() {
         let seed = (i + 1).wrapping_mul(234567898765);
         let mut rng = splitmix64(seed);
 
@@ -89,95 +135,9 @@ fn test_cardinality_perfs() {
             .collect::<Vec<String>>()
             .join(",");
 
-        write_line::<Precision4, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision4, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision4, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision4, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision4, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision4, 6>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision5, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision5, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision5, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision5, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision5, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision5, 6>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision6, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision6, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision6, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision6, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision6, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision6, 6>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision7, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision7, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision7, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision7, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision7, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision7, 6>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision8, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision8, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision8, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision8, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision8, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision8, 6>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision9, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision9, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision9, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision9, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision9, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision9, 6>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision10, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision10, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision10, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision10, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision10, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision10, 6>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision11, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision11, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision11, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision11, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision11, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision11, 6>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision12, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision12, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision12, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision12, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision12, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision12, 6>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision13, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision13, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision13, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision13, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision13, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision13, 6>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision14, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision14, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision14, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision14, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision14, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision14, 6>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision15, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision15, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision15, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision15, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision15, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision15, 6>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision16, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision16, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision16, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision16, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision16, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision16, 6>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision17, 1>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision17, 2>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision17, 3>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision17, 4>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision17, 5>(&set, &set_str, exact, &mut file).unwrap();
-        write_line::<Precision17, 6>(&set, &set_str, exact, &mut file).unwrap();
-        // write_line::<Precision18, 1>(&set, &set_str, exact, &mut file).unwrap();
-        // write_line::<Precision18, 2>(&set, &set_str, exact, &mut file).unwrap();
-        // write_line::<Precision18, 3>(&set, &set_str, exact, &mut file).unwrap();
-        // write_line::<Precision18, 4>(&set, &set_str, exact, &mut file).unwrap();
-        // write_line::<Precision18, 5>(&set, &set_str, exact, &mut file).unwrap();
-        // write_line::<Precision18, 6>(&set, &set_str, exact, &mut file).unwrap();
+        write_line_set_for_hasher::<MetroHasher>(&set, &set_str, exact, &mut file);
+        write_line_set_for_hasher::<HighwayHasher>(&set, &set_str, exact, &mut file);
+        write_line_set_for_hasher::<SipHasher13>(&set, &set_str, exact, &mut file);
+        write_line_set_for_hasher::<SipHasher24>(&set, &set_str, exact, &mut file);
     }
 }

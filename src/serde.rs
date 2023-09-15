@@ -5,8 +5,8 @@ use serde::ser::SerializeSeq;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Serialize
-    for HyperLogLogArray<PRECISION, BITS, N>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize, M: HasherMethod> Serialize
+    for HyperLogLogArray<PRECISION, BITS, N, M>
 {
     #[inline(always)]
     /// Serializes the HyperLogLog counter using the given serializer.
@@ -55,8 +55,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> S
     }
 }
 
-impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Deserialize<'de>
-    for HyperLogLogArray<PRECISION, BITS, N>
+impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize, M: HasherMethod + Copy> Deserialize<'de>
+    for HyperLogLogArray<PRECISION, BITS, N, M>
 {
     #[inline(always)]
     /// Deserializes the HyperLogLog counter using the given deserializer.
@@ -72,16 +72,28 @@ impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usi
     ///
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         Ok(Self::from(
-            deserializer.deserialize_seq(HLLArrayVisitor::default())?,
+            deserializer.deserialize_seq(HLLArrayVisitor::new())?,
         ))
     }
 }
 
-#[derive(Default)]
 /// Struct to deserialize a vector of u32
-pub struct HLLArrayVisitor<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize>
+pub struct HLLArrayVisitor<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize, M: HasherMethod>
 {
     _precision: core::marker::PhantomData<PRECISION>,
+    _hasher: core::marker::PhantomData<M>,
+}
+
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize, M: HasherMethod>
+    HLLArrayVisitor<PRECISION, BITS, N, M>
+{
+    /// Creates a new HLLArrayVisitor
+    pub fn new() -> Self {
+        Self {
+            _precision: core::marker::PhantomData,
+            _hasher: core::marker::PhantomData,
+        }
+    }
 }
 
 /// A visitor implementation used for deserializing an array of HLL into a fixed-size array
@@ -121,10 +133,10 @@ pub struct HLLArrayVisitor<PRECISION: Precision + WordType<BITS>, const BITS: us
 ///
 /// ### Returns
 /// The resulting fixed-size array of u32 values, or an error if the deserialization failed.
-impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Visitor<'de>
-    for HLLArrayVisitor<PRECISION, BITS, N>
+impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize, M: HasherMethod + Copy> Visitor<'de>
+    for HLLArrayVisitor<PRECISION, BITS, N, M>
 {
-    type Value = [HyperLogLog<PRECISION, BITS>; N];
+    type Value = [HyperLogLog<PRECISION, BITS, M>; N];
 
     fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("an array of HLL")
@@ -144,8 +156,8 @@ impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usi
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Serialize
-    for HyperLogLog<PRECISION, BITS>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> Serialize
+    for HyperLogLog<PRECISION, BITS, M>
 {
     #[inline(always)]
     /// Serializes the HyperLogLog counter using the given serializer.
@@ -180,8 +192,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Serialize
     }
 }
 
-impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize> Deserialize<'de>
-    for HyperLogLog<PRECISION, BITS>
+impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> Deserialize<'de>
+    for HyperLogLog<PRECISION, BITS, M>
 {
     #[inline(always)]
     /// Deserializes the HyperLogLog counter using the given deserializer.

@@ -8,6 +8,8 @@ use hyperloglog_rs::prelude::*;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
+use siphasher::sip::SipHasher;
+use siphasher::sip::SipHasher13;
 use std::collections::HashSet;
 
 /// We need to create a wrapper around HashSet
@@ -21,13 +23,22 @@ impl<T> From<HashSet<T>> for HashSetWrapper<T> {
     }
 }
 
-impl SetLike<usize> for HashSetWrapper<usize> {
-    fn intersection_size(&self, other: &Self) -> usize {
-        self.0.intersection(&other.0).count()
+impl<T> HashSetWrapper<T> {
+    fn len(&self) -> usize {
+        self.0.len()
     }
+}
 
-    fn difference_size(&self, other: &Self) -> usize {
-        self.0.difference(&other.0).count()
+impl SetLike<usize> for HashSetWrapper<usize> {
+    fn get_estimated_union_cardinality(&self, other: &Self) -> EstimatedUnionCardinalities<usize> {
+        let mut union = self.0.clone();
+        union.extend(other.0.clone());
+        let union_cardinality = union.len();
+        EstimatedUnionCardinalities::from((
+            self.len(),
+            other.len(),
+            union_cardinality,
+        ))
     }
 }
 
@@ -75,9 +86,9 @@ where
 
 fn get_random_hyper_spheres_hll<const N: usize>(
     random_state: u64,
-) -> HyperLogLogArray<Precision8, 6, N> {
+) -> HyperLogLogArray<Precision8, 6, N, SipHasher13> {
     let hyperspheres = get_random_hyper_spheres(random_state, N);
-    let mut hyperspheres_hll: HyperLogLogArray<Precision8, 6, N> = HyperLogLogArray::new();
+    let mut hyperspheres_hll: HyperLogLogArray<Precision8, 6, N, SipHasher13> = HyperLogLogArray::new();
     for (i, hyper_sphere) in hyperspheres.iter().enumerate() {
         for element in hyper_sphere {
             hyperspheres_hll[i].insert(element)

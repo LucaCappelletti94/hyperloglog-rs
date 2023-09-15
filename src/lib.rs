@@ -91,6 +91,7 @@ pub mod serde;
 pub mod utils;
 mod zeros;
 mod ones;
+mod hasher_method;
 
 pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
 pub use crate::hyperloglog::HyperLogLog;
@@ -112,5 +113,6 @@ pub mod prelude {
     pub use crate::utils::*;
     pub use crate::zeros::*;
     pub use crate::ones::*;
+    pub use crate::hasher_method::*;
     pub use core::ops::{BitOr, BitOrAssign};
 }

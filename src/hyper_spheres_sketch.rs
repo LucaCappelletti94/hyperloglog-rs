@@ -18,24 +18,18 @@
 use crate::prelude::*;
 use core::iter::Sum;
 use core::ops::AddAssign;
+use core::ops::{DivAssign, MulAssign, SubAssign};
 
 pub trait SetLike<I> {
-    /// Returns the estimated intersection cardinality between two sets.
-    fn intersection_size(&self, other: &Self) -> I;
-
-    /// Returns the estimated difference cardinality between two sets.
-    fn difference_size(&self, other: &Self) -> I;
+    /// Returns the estimated intersection and left and right difference cardinality between two sets.
+    fn get_estimated_union_cardinality(&self, other: &Self) -> EstimatedUnionCardinalities<I>;
 }
 
-impl<F: Primitive<f32>, PRECISION: Precision + WordType<BITS>, const BITS: usize> SetLike<F>
-    for HyperLogLog<PRECISION, BITS>
+impl<F: Primitive<f32>, PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> SetLike<F>
+    for HyperLogLog<PRECISION, BITS, M>
 {
-    fn intersection_size(&self, other: &Self) -> F {
-        self.estimate_intersection_cardinality(other)
-    }
-
-    fn difference_size(&self, other: &Self) -> F {
-        self.estimate_difference_cardinality(other)
+    fn get_estimated_union_cardinality(&self, other: &Self) -> EstimatedUnionCardinalities<F> {
+        self.estimate_union_and_sets_cardinality(other)
     }
 }
 
@@ -67,10 +61,18 @@ pub trait HyperSpheresSketch: Sized {
     fn overlap_and_differences_cardinality_matrices<
         I: Copy
             + Default
-            + std::ops::Add<Output = I>
-            + std::ops::Sub<Output = I>
+            + Primitive<f32>
+            + core::ops::Add<Output = I>
+            + core::ops::Sub<Output = I>
+            + core::ops::Div<Output = I>
+            + core::ops::Mul<Output = I>
             + Sum
+            + Send
+            + Sync
             + AddAssign
+            + SubAssign
+            + MulAssign
+            + DivAssign
             + MaxMin,
         const L: usize,
         const R: usize,
@@ -85,11 +87,15 @@ pub trait HyperSpheresSketch: Sized {
         let mut overlap_cardinality_matrix = [[I::default(); R]; L];
         let mut left_difference_cardinality_vector = [I::default(); L];
         let mut right_difference_cardinality_vector = [I::default(); R];
+        let mut euc: EstimatedUnionCardinalities<I> = EstimatedUnionCardinalities::default();
+        let mut last_left_difference: I = I::default();
 
         // Populate the overlap cardinality matrix.
         for (i, left_hll) in left.iter().enumerate() {
+            let mut last_right_difference: I = I::default();
             for (j, right_hll) in right.iter().enumerate() {
-                overlap_cardinality_matrix[i][j] = (left_hll.intersection_size(right_hll)
+                euc = left_hll.get_estimated_union_cardinality(right_hll);
+                overlap_cardinality_matrix[i][j] = (euc.get_intersection_cardinality()
                     - (0..(i + 1).min(L))
                         .flat_map(|sub_i| {
                             (0..(j + 1).min(R))
@@ -97,28 +103,19 @@ pub trait HyperSpheresSketch: Sized {
                         })
                         .sum::<I>())
                 .get_max(I::default());
+
+                // We always set the value of the right difference so that the
+                // last time we write this will necessarily be with the last
+                // and largest left set.
+                let this_difference = euc.get_right_difference_cardinality();
+                right_difference_cardinality_vector[j] = this_difference - last_right_difference;
+                last_right_difference = this_difference;
             }
+            let this_difference = euc.get_left_difference_cardinality();
+            left_difference_cardinality_vector[i] = this_difference - last_left_difference;
+            last_left_difference = this_difference;
         }
-
-        // Populate the difference cardinality vectors.
-        let mut last_difference: I = I::default();
-
-        // Populate the left difference cardinality vector.
-        for i in 0..L {
-            let this_difference = left[i].difference_size(&right[R - 1]);
-            left_difference_cardinality_vector[i] = this_difference - last_difference;
-            last_difference = this_difference;
-        }
-
-        last_difference = I::default();
-
-        // Populate the right difference cardinality vector.
-        for j in 0..R {
-            let this_difference = right[j].difference_size(&left[L - 1]);
-            right_difference_cardinality_vector[j] = this_difference - last_difference;
-            last_difference = this_difference;
-        }
-
+        
         (
             overlap_cardinality_matrix,
             left_difference_cardinality_vector,
@@ -127,7 +124,7 @@ pub trait HyperSpheresSketch: Sized {
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperSpheresSketch
-    for HyperLogLog<PRECISION, BITS>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> HyperSpheresSketch
+    for HyperLogLog<PRECISION, BITS, M>
 {
 }

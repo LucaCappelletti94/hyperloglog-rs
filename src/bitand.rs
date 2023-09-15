@@ -3,8 +3,8 @@ use crate::{array_default::ArrayIter, prelude::*};
 use core::ops::{BitAnd, BitAndAssign};
 
 #[allow(clippy::suspicious_op_assign_impl)]
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitAndAssign<Self>
-    for HyperLogLog<PRECISION, BITS>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> BitAndAssign<Self>
+    for HyperLogLog<PRECISION, BITS, M>
 {
     #[inline(always)]
     /// Computes intersection between HLL counters.
@@ -53,8 +53,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitAndAssign<Self
 }
 
 #[allow(clippy::suspicious_op_assign_impl)]
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitAndAssign<&Self>
-    for HyperLogLog<PRECISION, BITS>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> BitAndAssign<&Self>
+    for HyperLogLog<PRECISION, BITS, M>
 {
     #[inline(always)]
     /// Computes intersection between HLL counters.
@@ -119,13 +119,13 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitAndAssign<&Sel
             }
         }
 
-        self.multeplicities[0] -= PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
-
+        self.multeplicities[0] -=
+            PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitAnd<Self>
-    for HyperLogLog<PRECISION, BITS>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> BitAnd<Self>
+    for HyperLogLog<PRECISION, BITS, M>
 {
     type Output = Self;
 
@@ -193,8 +193,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitAnd<Self>
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitAnd<&Self>
-    for HyperLogLog<PRECISION, BITS>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> BitAnd<&Self>
+    for HyperLogLog<PRECISION, BITS, M>
 {
     type Output = Self;
 
