@@ -37,13 +37,14 @@ fn xorshift(mut x: u64) -> u64 {
     x
 }
 
-fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>(
+fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod + Clone>(
     set: &HashSet<u64>,
     set_str: &str,
     exact_cardinality: usize,
     file: &mut File,
 ) -> std::io::Result<()> {
     let hll: HyperLogLog<PRECISION, BITS, M> = set.iter().collect();
+    let hll2: HyperLogLogWithMulteplicities<PRECISION, BITS, M> = hll.clone().into();
 
     let line = format!(
         "{}\t{}\t{}\t{}\t{}\t{}\n",
@@ -51,7 +52,7 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: Hashe
         BITS,
         exact_cardinality,
         hll.estimate_cardinality(),
-        hll.estimate_cardinality_with_multiplicities(),
+        hll2.estimate_cardinality(),
         // We write out the name of the hasher method being imployed
         std::any::type_name::<M>(),
         //set_str,
@@ -62,7 +63,7 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: Hashe
 
 fn write_line_set<
     PRECISION: Precision + WordType<1> + WordType<2> + WordType<3> + WordType<4> + WordType<5> + WordType<6>,
-    M: HasherMethod,
+    M: HasherMethod + Clone,
 >(
     set: &HashSet<u64>,
     set_str: &str,
@@ -77,7 +78,7 @@ fn write_line_set<
     write_line::<PRECISION, 6, M>(set, set_str, exact_cardinality, file).unwrap();
 }
 
-fn write_line_set_for_hasher<M: HasherMethod>(
+fn write_line_set_for_hasher<M: HasherMethod + Clone>(
     set: &HashSet<u64>,
     set_str: &str,
     exact_cardinality: usize,

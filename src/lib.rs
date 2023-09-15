@@ -92,6 +92,8 @@ pub mod utils;
 mod zeros;
 mod ones;
 mod hasher_method;
+mod hyperloglog_multeplicities;
+mod hyperloglog_trait;
 
 pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
 pub use crate::hyperloglog::HyperLogLog;
@@ -103,6 +105,8 @@ pub mod prelude {
     pub use crate::estimated_union_cardinalities::*;
     pub use crate::hyper_spheres_sketch::*;
     pub use crate::hyperloglog::*;
+    pub use crate::hyperloglog_multeplicities::*;
+    pub use crate::hyperloglog_trait::*;
     pub use crate::hyperloglog_array::*;
     pub use crate::iter::*;
     pub use crate::max_min::*;

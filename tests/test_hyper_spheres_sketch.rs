@@ -5,6 +5,7 @@
 //! the results of the hyper spheres sketch of the HashSet.
 //!
 use hyperloglog_rs::prelude::*;
+use indicatif::ProgressIterator;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
@@ -26,6 +27,28 @@ impl<T> HashSetWrapper<T> {
     fn len(&self) -> usize {
         self.0.len()
     }
+
+    fn intersection(&self, other: &Self) -> HashSetWrapper<T>
+    where
+        T: Eq + std::hash::Hash + Clone,
+    {
+        let intersection: HashSet<T> = self.0.intersection(&other.0).cloned().collect();
+        intersection.into()
+    }
+
+    fn difference(&self, other: &Self) -> usize
+    where
+        T: Eq + std::hash::Hash + Clone,
+    {
+        self.0.difference(&other.0).count()
+    }
+
+    fn intersection_size(&self, other: &Self) -> usize
+    where
+        T: Eq + std::hash::Hash + Clone,
+    {
+        self.intersection(other).len()
+    }
 }
 
 impl SetLike<usize> for HashSetWrapper<usize> {
@@ -33,11 +56,7 @@ impl SetLike<usize> for HashSetWrapper<usize> {
         let mut union = self.0.clone();
         union.extend(other.0.clone());
         let union_cardinality = union.len();
-        EstimatedUnionCardinalities::from((
-            self.len(),
-            other.len(),
-            union_cardinality,
-        ))
+        EstimatedUnionCardinalities::from((self.len(), other.len(), union_cardinality))
     }
 }
 
@@ -87,7 +106,8 @@ fn get_random_hyper_spheres_hll<const N: usize>(
     random_state: u64,
 ) -> HyperLogLogArray<Precision8, 6, N, SipHasher13> {
     let hyperspheres = get_random_hyper_spheres(random_state, N);
-    let mut hyperspheres_hll: HyperLogLogArray<Precision8, 6, N, SipHasher13> = HyperLogLogArray::new();
+    let mut hyperspheres_hll: HyperLogLogArray<Precision8, 6, N, SipHasher13> =
+        HyperLogLogArray::new();
     for (i, hyper_sphere) in hyperspheres.iter().enumerate() {
         for element in hyper_sphere {
             hyperspheres_hll[i].insert(element)
@@ -108,7 +128,7 @@ fn test_hyper_spheres_sketch() {
     let mut right_diff_squared_errors = Vec::with_capacity(number_of_tests);
 
     // We iterate over the number of tests.
-    for current_test in 0..number_of_tests {
+    for current_test in (0..number_of_tests).progress() {
         let random_state = current_test as u64 + 173845_u64;
         let left_sets = get_random_hyper_spheres_sets::<5>(random_state);
         let right_sets = get_random_hyper_spheres_sets::<5>(random_state * 2);
@@ -117,6 +137,69 @@ fn test_hyper_spheres_sketch() {
 
         let (overlap_sets, left_diff_sets, right_diff_sets) =
             HashSetWrapper::overlap_and_differences_cardinality_matrices(&left_sets, &right_sets);
+
+        // We can execute some self-consistency checks, namely that
+        // the sum of all values in the overlap cardinality matrix
+        // has to be equal to the cardinality of the intersection between
+        // the two largest sets left and right, which are the last.
+        let expected_intersection = left_sets
+            .last()
+            .unwrap()
+            .intersection_size(&right_sets.last().unwrap());
+
+        let overlap_summation = overlap_sets.iter().flatten().sum::<usize>();
+        assert_eq!(
+            overlap_summation, expected_intersection,
+            concat!(
+                "The sum of all values in the overlap cardinality matrix ",
+                "has to be equal to the cardinality of the intersection ",
+                "between the two largest sets left and right, which are ",
+                "the last. We expect {} but we got {} instead."
+            ),
+            expected_intersection, overlap_summation
+        );
+
+        // Furthermore, we can check that the sum of the left difference
+        // cardinality vector has to be equal to the cardinality of the
+        // difference between the largest set left and the largest set
+        // right.
+        let expected_left_difference = left_sets
+            .last()
+            .unwrap()
+            .difference(&right_sets.last().unwrap());
+
+        let left_diff_summation = left_diff_sets.iter().sum::<usize>();
+
+        assert_eq!(
+            left_diff_summation, expected_left_difference,
+            concat!(
+                "The sum of all values in the left difference cardinality ",
+                "vector has to be equal to the cardinality of the difference ",
+                "between the largest set left and the largest set right. ",
+                "We expect {} but we got {} instead."
+            ),
+            expected_left_difference, left_diff_summation
+        );
+
+        // Simmetrically, the same must hold for the right difference.
+        let expected_right_difference = right_sets
+            .last()
+            .unwrap()
+            .difference(&left_sets.last().unwrap());
+
+        let right_diff_summation = right_diff_sets.iter().sum::<usize>();
+
+        assert_eq!(
+            right_diff_summation, expected_right_difference,
+            concat!(
+                "The sum of all values in the right difference cardinality ",
+                "vector has to be equal to the cardinality of the difference ",
+                "between the largest set right and the largest set left. ",
+                "We expect {} but we got {} instead."
+            ),
+            expected_right_difference, right_diff_summation
+        );
+
         let (overlap_hll, left_diff_hll, right_diff_hll) =
             left_hll.overlap_and_differences_cardinality_matrices::<f32>(&right_hll);
 
@@ -178,18 +261,13 @@ fn test_hyper_spheres_sketch() {
     );
 }
 
-#[test]
-/// First of several tests to evaluate the correctness of the
-/// hyper spheres sketch.
-fn test_hand_picked_hyper_spheres_1() {
-    let left = [
-        vec![1_usize, 2, 3],
-        vec![1, 2, 3, 7],
-        vec![1, 2, 3, 4, 5, 7],
-    ];
-
-    let right = [vec![1_usize, 2], vec![1, 2, 6, 7], vec![1, 2, 3, 6, 7]];
-
+fn test_hyper_spheres(
+    left: &[Vec<usize>; 3],
+    right: &[Vec<usize>; 3],
+    expected_overlap_sets: [[usize; 3]; 3],
+    expected_left_diff_sets: [usize; 3],
+    expected_right_diff_sets: [usize; 3],
+) {
     let left_sets: [HashSetWrapper<usize>; 3] = [
         left[0].iter().copied().collect::<HashSet<usize>>().into(),
         left[1].iter().copied().collect::<HashSet<usize>>().into(),
@@ -204,12 +282,6 @@ fn test_hand_picked_hyper_spheres_1() {
 
     let (overlap_sets, left_diff_sets, right_diff_sets) =
         HashSetWrapper::overlap_and_differences_cardinality_matrices(&left_sets, &right_sets);
-
-    let expected_overlap_sets = [[2, 0, 1], [0, 1, 0], [0, 0, 0]];
-
-    let expected_left_diff_sets = [0, 0, 2];
-
-    let expected_right_diff_sets = [0, 1, 0];
 
     assert_eq!(
         overlap_sets, expected_overlap_sets,
@@ -239,9 +311,32 @@ fn test_hand_picked_hyper_spheres_1() {
     );
 }
 
-
 #[test]
 /// First of several tests to evaluate the correctness of the
+/// hyper spheres sketch.
+fn test_hand_picked_hyper_spheres_1() {
+    let left = [
+        vec![1_usize, 2, 3],
+        vec![1, 2, 3, 7],
+        vec![1, 2, 3, 4, 5, 7],
+    ];
+
+    let right = [vec![1_usize, 2], vec![1, 2, 6, 7], vec![1, 2, 3, 6, 7]];
+    let expected_overlap_sets = [[2, 0, 1], [0, 1, 0], [0, 0, 0]];
+    let expected_left_diff_sets = [0, 0, 2];
+    let expected_right_diff_sets = [0, 1, 0];
+
+    test_hyper_spheres(
+        &left,
+        &right,
+        expected_overlap_sets,
+        expected_left_diff_sets,
+        expected_right_diff_sets,
+    );
+}
+
+#[test]
+/// Second of several tests to evaluate the correctness of the
 /// hyper spheres sketch.
 fn test_hand_picked_hyper_spheres_2() {
     let left = [
@@ -250,53 +345,16 @@ fn test_hand_picked_hyper_spheres_2() {
         vec![1, 2, 3, 4, 5, 7],
     ];
 
-    let right = [vec![1_usize, 2], vec![1, 2, 6, 7], vec![1, 2, 3, 6, 7]];
-
-    let left_sets: [HashSetWrapper<usize>; 3] = [
-        left[0].iter().copied().collect::<HashSet<usize>>().into(),
-        left[1].iter().copied().collect::<HashSet<usize>>().into(),
-        left[2].iter().copied().collect::<HashSet<usize>>().into(),
-    ];
-
-    let right_sets: [HashSetWrapper<usize>; 3] = [
-        right[0].iter().copied().collect::<HashSet<usize>>().into(),
-        right[1].iter().copied().collect::<HashSet<usize>>().into(),
-        right[2].iter().copied().collect::<HashSet<usize>>().into(),
-    ];
-
-    let (overlap_sets, left_diff_sets, right_diff_sets) =
-        HashSetWrapper::overlap_and_differences_cardinality_matrices(&left_sets, &right_sets);
-
-    let expected_overlap_sets = [[2, 0, 1], [0, 1, 0], [0, 0, 0]];
-
+    let right = [vec![], vec![], vec![1, 2, 3, 6, 7]];
+    let expected_overlap_sets = [[0, 0, 3], [0, 0, 1], [0, 0, 0]];
     let expected_left_diff_sets = [0, 0, 2];
+    let expected_right_diff_sets = [0, 0, 1];
 
-    let expected_right_diff_sets = [0, 1, 0];
-
-    assert_eq!(
-        overlap_sets, expected_overlap_sets,
-        concat!(
-            "We expect the overlap cardinality matrix to be {:?} ",
-            "but we got {:?} instead."
-        ),
-        expected_overlap_sets, overlap_sets
-    );
-    assert_eq!(
-        left_diff_sets, expected_left_diff_sets,
-        concat!(
-            "We expect the left difference cardinality vector to be ",
-            "{:?} and the right difference cardinality vector to be ",
-            "{:?} but we got {:?} and {:?} respectively."
-        ),
-        expected_left_diff_sets, expected_right_diff_sets, left_diff_sets, right_diff_sets
-    );
-    assert_eq!(
-        right_diff_sets, expected_right_diff_sets,
-        concat!(
-            "We expect the left difference cardinality vector to be ",
-            "{:?} and the right difference cardinality vector to be ",
-            "{:?} but we got {:?} and {:?} respectively."
-        ),
-        expected_left_diff_sets, expected_right_diff_sets, left_diff_sets, right_diff_sets
+    test_hyper_spheres(
+        &left,
+        &right,
+        expected_overlap_sets,
+        expected_left_diff_sets,
+        expected_right_diff_sets,
     );
 }

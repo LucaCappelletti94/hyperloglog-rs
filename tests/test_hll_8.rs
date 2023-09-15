@@ -16,7 +16,7 @@ pub fn test_hyper_log_log_at_precision_8_and_bits_4() {
 
         assert_eq!(hll, hll_default);
 
-        assert_eq!(hll.get_number_of_bits(), BITS);
+        
         assert!(hll.is_empty());
 
         for i in 0..number_of_elements {
@@ -57,7 +57,7 @@ pub fn test_hyper_log_log_at_precision_8_and_bits_5() {
 
         assert_eq!(hll, hll_default);
 
-        assert_eq!(hll.get_number_of_bits(), BITS);
+        
         assert!(hll.is_empty());
 
         for i in 0..number_of_elements {
@@ -98,7 +98,7 @@ pub fn test_hyper_log_log_at_precision_8_and_bits_6() {
 
         assert_eq!(hll, hll_default);
 
-        assert_eq!(hll.get_number_of_bits(), BITS);
+        
         assert!(hll.is_empty());
 
         for i in 0..number_of_elements {

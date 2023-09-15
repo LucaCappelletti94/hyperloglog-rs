@@ -100,7 +100,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> 
     /// assert!(hll3.estimate_cardinality() < 4.0 + 0.1, "Expected a value equal to around 4, got {}", hll3.estimate_cardinality());
     /// ```
     fn bitor_assign(&mut self, rhs: &Self) {
-        self.multeplicities.reset();
+        self.number_of_zero_registers = PRECISION::NumberOfZeros::ZERO;
         for (left_word, mut right_word) in self
             .words
             .iter_elements_mut()
@@ -114,13 +114,13 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> 
                 left_register = (left_register).max(right_register);
                 *left_word &= !(Self::LOWER_REGISTER_MASK << (i * BITS));
                 *left_word |= left_register << (i * BITS);
-                self.multeplicities[left_register as usize] += PRECISION::NumberOfZeros::ONE;
+                self.number_of_zero_registers +=
+                    PRECISION::NumberOfZeros::reverse((left_register == 0) as usize);
                 left_word_copy >>= BITS;
                 right_word >>= BITS;
             }
         }
-
-        self.multeplicities[0] -= PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
+        self.number_of_zero_registers -= PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
     }
 }
 
