@@ -15,6 +15,124 @@ pub struct HyperLogLogWithMulteplicities<
 }
 
 impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
+    HyperLogLogWithMulteplicities<PRECISION, BITS, M>
+{
+    #[inline(always)]
+    pub fn estimate_cardinality_mle(&self) -> f32 {
+        // If the multeplicity associated to the last register
+        // is equal to the number of registers, we return infinity.
+        if self.multeplicities.last().unwrap().convert() == PRECISION::NUMBER_OF_REGISTERS {
+            return f32::INFINITY;
+        }
+
+        let q = self.multeplicities.len() - 2;
+
+        debug_assert!(q > 0);
+
+        let smallest_register_value = self
+            .multeplicities
+            .first_non_zero_index()
+            .unwrap()
+            .get_max(1);
+        // TODO! CHECK IF THIS GET MAX IS NECESSARY! IN THE PAPER IT IS NOT PRESENT!
+        let largest_register_value = self
+            .multeplicities
+            .last_non_zero_index()
+            .unwrap()
+            .get_min(q);
+
+        debug_assert!(smallest_register_value > 0);
+        debug_assert!(largest_register_value > 0);
+
+        let mut raw_estimate = 0.0;
+
+        for k in (smallest_register_value..largest_register_value).rev() {
+            // TODO! POSSIBLE PAPER ERROR! POSSIBLY HERE BRACKETS ARE MISSING!
+            // ALSO IN THE CODE THEY ARE MISSING, SO MAYBE CORRECT?
+            raw_estimate = 0.5 * raw_estimate + self.multeplicities[k].convert() as f32;
+        }
+
+        let two_to_minus_smallest_register: i32 = (127 - smallest_register_value as i32) << 23;
+        raw_estimate *= f32::from_le_bytes(two_to_minus_smallest_register.to_le_bytes());
+
+        // TODO! THIS C COEFFICIENT IS WEIRD!
+        let c = self.multeplicities.last().unwrap().convert() as f32
+            + self.multeplicities[largest_register_value].convert() as f32;
+
+        let mut g_prev = 0.0;
+        let a = raw_estimate + self.multeplicities[0].convert() as f32;
+
+        let two_to_minus_q: i32 = (127 - q as i32) << 23;
+        let b = raw_estimate
+            + self.multeplicities.last().unwrap().convert() as f32
+                * f32::from_le_bytes(two_to_minus_q.to_le_bytes());
+
+        let number_of_non_zero_registers = self.get_number_of_non_zero_registers() as f32;
+
+        let mut x = if b <= 1.5 * a {
+            number_of_non_zero_registers / (0.5 * b + a)
+        } else {
+            (number_of_non_zero_registers / b) * (b / a).ln_1p()
+        };
+
+        // We begin the secant method iterations.
+        let mut delta_x = x;
+        let delta = 1e-4 / (PRECISION::NUMBER_OF_REGISTERS as f32).sqrt();
+        while delta_x > x * delta {
+            // In the C++ implementation they call frexp.
+            let kappa_minus_one: usize = x.log2().floor() as usize;
+
+            // We compute the terms for the Taylor series.
+            let maximal: usize = (largest_register_value + 1).max(kappa_minus_one + 2);
+            let two_to_minus_maximal: i32 = (127 - maximal as i32) << 23;
+            let mut x_first = x * f32::from_le_bytes(two_to_minus_maximal.to_le_bytes());
+            let x_second = x_first * x_first;
+            let x_forth = x_second * x_second;
+            let mut taylor_series_approximation =
+                x_first - x_second / 3.0 + x_forth * (1.0 / 45.0 - x_second / 472.5);
+
+            // If kappa - 1 is smaller than the maximal register value
+            for _k in (largest_register_value.saturating_sub(1)..kappa_minus_one).rev() {
+                let taylor_series_approximation_prime = 1.0 - taylor_series_approximation;
+                taylor_series_approximation = (x_first
+                    + taylor_series_approximation * taylor_series_approximation_prime)
+                    / (x_first + taylor_series_approximation_prime);
+
+                // And we double the x first:
+                x_first *= 2.0;
+            }
+
+            let mut g = c * taylor_series_approximation;
+
+            for k in (smallest_register_value.saturating_sub(1)
+                ..largest_register_value.saturating_sub(1))
+                .rev()
+            {
+                let taylor_series_approximation_prime = 1.0 - taylor_series_approximation;
+                taylor_series_approximation = (x_first
+                    + taylor_series_approximation * taylor_series_approximation_prime)
+                    / (x_first + taylor_series_approximation_prime);
+                g += self.multeplicities[k].convert() as f32 * taylor_series_approximation;
+                x_first *= 2.0;
+            }
+
+            g += x * a;
+
+            if g > g_prev && number_of_non_zero_registers >= g {
+                delta_x *= (number_of_non_zero_registers - g) / (g - g_prev);
+            } else {
+                delta_x = 0.0;
+            };
+
+            x += delta_x;
+            g_prev = g;
+        }
+
+        PRECISION::NUMBER_OF_REGISTERS as f32 * x
+    }
+}
+
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
     From<HyperLogLog<PRECISION, BITS, M>> for HyperLogLogWithMulteplicities<PRECISION, BITS, M>
 {
     fn from(hll: HyperLogLog<PRECISION, BITS, M>) -> Self {
