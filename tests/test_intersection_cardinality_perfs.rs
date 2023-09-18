@@ -55,20 +55,6 @@ fn old_intersection_hll<
     hll1.estimate_intersection_cardinality(&hll2)
 }
 
-fn new_intersection_hll<
-    PRECISION: Precision + WordType<BITS>,
-    const BITS: usize,
-    M: HasherMethod,
->(
-    set1: &HashSet<u64>,
-    set2: &HashSet<u64>,
-) -> f32 {
-    let hll1: HyperLogLog<PRECISION, BITS, M> = set1.iter().collect();
-    let hll2: HyperLogLog<PRECISION, BITS, M> = set2.iter().collect();
-
-    (hll1 & hll2).estimate_cardinality()
-}
-
 fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>(
     set1: &HashSet<u64>,
     set2: &HashSet<u64>,
@@ -78,15 +64,13 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: Hashe
     file: &mut File,
 ) -> std::io::Result<()> {
     let old_hll = old_intersection_hll::<PRECISION, BITS, M>(&set1, &set2);
-    let new_hll = new_intersection_hll::<PRECISION, BITS, M>(&set1, &set2);
 
     let line = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\n",
+        "{}\t{}\t{}\t{}\t{}\n",
         PRECISION::EXPONENT,
         BITS,
         exact_intersection,
         old_hll,
-        new_hll,
         // We convert to string the name of the HasherMethod struct that we provided,
         // so to be able to log it.
         std::any::type_name::<M>(),
@@ -146,10 +130,10 @@ fn write_line_set_for_hasher<M: HasherMethod>(
     write_line_set::<Precision17, M>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
 }
 
-//#[test]
+#[test]
 fn test_intersection_cardinality_perfs() {
     let mut file = File::create("intersection_cardinality_benchmark.tsv").unwrap();
-    file.write_all(b"precision\tbits\texact\told_approximation\tnew_approximation\thash_name\n")
+    file.write_all(b"precision\tbits\texact\told_approximation\thash_name\n")
         .unwrap();
 
     // since both the precision and the number of bits are compile time constants, we can
@@ -196,14 +180,26 @@ fn test_intersection_cardinality_perfs() {
         write_line_set_for_hasher::<SipHasher13>(
             &set1, &set2, &set1_str, &set2_str, exact, &mut file,
         );
-        write_line_set_for_hasher::<SipHasher24>(
-            &set1, &set2, &set1_str, &set2_str, exact, &mut file,
-        );
-        write_line_set_for_hasher::<MetroHasher>(
-            &set1, &set2, &set1_str, &set2_str, exact, &mut file,
-        );
-        write_line_set_for_hasher::<HighwayHasher>(
-            &set1, &set2, &set1_str, &set2_str, exact, &mut file,
-        );
+        // write_line_set_for_hasher::<SipHasher24>(
+        //     &set1, &set2, &set1_str, &set2_str, exact, &mut file,
+        // );
+        // write_line_set_for_hasher::<MetroHasher>(
+        //     &set1, &set2, &set1_str, &set2_str, exact, &mut file,
+        // );
+        // write_line_set_for_hasher::<HighwayHasher>(
+        //     &set1, &set2, &set1_str, &set2_str, exact, &mut file,
+        // );
+        // write_line_set_for_hasher::<DoubleSipHasher13>(
+        //     &set1, &set2, &set1_str, &set2_str, exact, &mut file,
+        // );
+        // write_line_set_for_hasher::<DoubleSipHasher24>(
+        //     &set1, &set2, &set1_str, &set2_str, exact, &mut file,
+        // );
+        // write_line_set_for_hasher::<DoubleMetroHasher>(
+        //     &set1, &set2, &set1_str, &set2_str, exact, &mut file,
+        // );
+        // write_line_set_for_hasher::<DoubleHighwayHasher>(
+        //     &set1, &set2, &set1_str, &set2_str, exact, &mut file,
+        // );
     }
 }

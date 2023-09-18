@@ -118,7 +118,7 @@ fn get_random_hyper_spheres_hll<const N: usize>(
 
 #[test]
 fn test_hyper_spheres_sketch() {
-    let number_of_tests = 100;
+    let number_of_tests = 50_000;
 
     // We run multiple MSE to have an estimate of how much the
     // HyperLogLog approximation is off when compared to the

@@ -89,35 +89,6 @@ impl<
     }
 
     #[inline(always)]
-    /// Returns the estimated overlap cardinality matrices with the provided HyperLogLogArray.
-    ///
-    /// # Arguments
-    /// * `other`: The HyperLogLogArray to estimate the overlap cardinality matrices with.
-    ///
-    /// # Returns
-    /// The estimated overlap cardinality matrices with the provided HyperLogLogArray.
-    ///
-    pub fn estimate_overlap_cardinalities<F: Primitive<f32>>(&self, other: &Self) -> [[F; N]; N] {
-        HyperLogLog::estimated_overlap_cardinality_matrix(self.as_ref(), other.as_ref())
-    }
-
-    #[inline(always)]
-    /// Returns the estimated difference cardinality matrices with the provided HyperLogLog.
-    ///
-    /// # Arguments
-    /// * `other`: The HyperLogLog to estimate the difference cardinality matrices with.
-    ///
-    /// # Returns
-    /// The estimated difference cardinality matrices with the provided HyperLogLogArray.
-    ///
-    pub fn estimated_difference_cardinality_vector<F: Primitive<f32>>(
-        &self,
-        other: &HyperLogLog<PRECISION, BITS, M>,
-    ) -> [F; N] {
-        HyperLogLog::estimated_difference_cardinality_vector(self.as_ref(), other)
-    }
-
-    #[inline(always)]
     /// Returns the estimated overlap and difference cardinality matrices and vectors with the provided HyperLogLogArray.
     ///
     /// # Arguments

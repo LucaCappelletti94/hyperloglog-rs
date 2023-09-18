@@ -9,7 +9,7 @@ use crate::primitive::Primitive;
 use core::hash::Hash;
 use std::marker::PhantomData;
 
-#[derive(Clone, Debug, Copy, Eq)]
+#[derive(Clone, Debug, Copy)]
 /// A probabilistic algorithm for estimating the number of distinct elements in a set.
 ///
 /// HyperLogLog is a probabilistic algorithm designed to estimate the number
@@ -62,6 +62,7 @@ pub struct HyperLogLog<
 > {
     pub(crate) words: PRECISION::Words,
     pub(crate) number_of_zero_registers: PRECISION::NumberOfZeros,
+    pub(crate) upper_bound: usize,
     pub(crate) _phantom: PhantomData<M>,
 }
 
@@ -70,6 +71,14 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
 {
     fn from(hll: HyperLogLogWithMulteplicities<PRECISION, BITS, M>) -> Self {
         Self::from_words(hll.get_words())
+    }
+}
+
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> Eq
+    for HyperLogLog<PRECISION, BITS, M>
+{
+    fn assert_receiver_is_total_eq(&self) {
+        // This is a no-op because we know that `Self` is `Eq`.
     }
 }
 
@@ -164,6 +173,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
             number_of_zero_registers: PRECISION::NumberOfZeros::reverse(
                 PRECISION::NUMBER_OF_REGISTERS,
             ),
+            upper_bound: 0,
             _phantom: PhantomData,
         }
     }
@@ -215,11 +225,14 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
                     )
                 }),
         );
-        Self {
+        let mut hll = Self {
             words,
             number_of_zero_registers,
+            upper_bound: usize::MAX,
             _phantom: PhantomData,
-        }
+        };
+        hll.upper_bound = hll.estimate_cardinality() as usize;
+        hll
     }
 
     /// Create a new HyperLogLog counter from an array of words.
@@ -254,11 +267,18 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
                 }),
         );
 
-        Self {
+        let mut hll = Self {
             words: *words,
             number_of_zero_registers,
+            upper_bound: usize::MAX,
             _phantom: PhantomData,
-        }
+        };
+        hll.upper_bound = hll.estimate_cardinality() as usize;
+        hll
+    }
+
+    fn get_upper_bound(&self) -> f32 {
+        self.upper_bound as f32
     }
 
     #[inline(always)]
@@ -291,12 +311,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
     /// Returns the array of words of the HyperLogLog counter.
     fn get_words(&self) -> &PRECISION::Words {
         &self.words
-    }
-
-    #[inline(always)]
-    /// Returns the number of bits used to represent the hashed value of an element.
-    fn get_words_mut(&mut self) -> &mut PRECISION::Words {
-        &mut self.words
     }
 
     #[inline(always)]
@@ -381,11 +395,13 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
             >> (register_position_in_u32 * BITS))
             & Self::LOWER_REGISTER_MASK;
 
+        self.upper_bound += 1;
+
         // Otherwise, update the register using a bit mask.
         if number_of_zeros > register_value {
-            self.get_words_mut()[word_position] &=
+            self.words[word_position] &=
                 !(Self::LOWER_REGISTER_MASK << (register_position_in_u32 * BITS));
-            self.get_words_mut()[word_position] |=
+            self.words[word_position] |=
                 number_of_zeros << (register_position_in_u32 * BITS);
             self.number_of_zero_registers -=
                 PRECISION::NumberOfZeros::reverse((register_value == 0) as usize);

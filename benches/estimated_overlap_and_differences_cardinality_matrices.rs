@@ -48,11 +48,9 @@ fn bench_overlap_and_differences_cardinality_matrices_2(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(
-            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 2, 2>(
-                &left, &right,
-            ),
-        );
+        black_box(for _ in 0..10_000 {
+            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 2, 2>(&left, &right);
+        });
     });
 }
 
@@ -62,11 +60,9 @@ fn bench_overlap_and_differences_cardinality_matrices_3(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(
-            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 3, 3>(
-                &left, &right,
-            ),
-        );
+        black_box(for _ in 0..10_000 {
+            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 3, 3>(&left, &right);
+        });
     });
 }
 
@@ -76,11 +72,9 @@ fn bench_overlap_and_differences_cardinality_matrices_4(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(
-            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 4, 4>(
-                &left, &right,
-            ),
-        );
+        black_box(for _ in 0..10_000 {
+            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 4, 4>(&left, &right);
+        });
     });
 }
 
@@ -90,10 +84,8 @@ fn bench_overlap_and_differences_cardinality_matrices_5(b: &mut Bencher) {
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(
-            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 5, 5>(
-                &left, &right,
-            ),
-        );
+        black_box(for _ in 0..10_000 {
+            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 5, 5>(&left, &right);
+        });
     });
 }

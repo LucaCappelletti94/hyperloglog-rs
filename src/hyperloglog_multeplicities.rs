@@ -11,6 +11,7 @@ pub struct HyperLogLogWithMulteplicities<
 > {
     pub(crate) words: PRECISION::Words,
     pub(crate) multeplicities: PRECISION::RegisterMultiplicities,
+    pub(crate) upper_bound: usize,
     pub(crate) _phantom: PhantomData<M>,
 }
 
@@ -46,16 +47,13 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
 
         let mut raw_estimate = 0.0;
 
-        for k in (smallest_register_value..largest_register_value).rev() {
-            // TODO! POSSIBLE PAPER ERROR! POSSIBLY HERE BRACKETS ARE MISSING!
-            // ALSO IN THE CODE THEY ARE MISSING, SO MAYBE CORRECT?
+        for k in (smallest_register_value..=largest_register_value).rev() {
             raw_estimate = 0.5 * raw_estimate + self.multeplicities[k].convert() as f32;
         }
 
         let two_to_minus_smallest_register: i32 = (127 - smallest_register_value as i32) << 23;
         raw_estimate *= f32::from_le_bytes(two_to_minus_smallest_register.to_le_bytes());
 
-        // TODO! THIS C COEFFICIENT IS WEIRD!
         let c = self.multeplicities.last().unwrap().convert() as f32
             + self.multeplicities[largest_register_value].convert() as f32;
 
@@ -77,8 +75,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
 
         // We begin the secant method iterations.
         let mut delta_x = x;
-        let delta = 1e-4 / (PRECISION::NUMBER_OF_REGISTERS as f32).sqrt();
-        while delta_x > x * delta {
+        let relative_error_limit = 1e-2 / (PRECISION::NUMBER_OF_REGISTERS as f32).sqrt();
+        while delta_x > x * relative_error_limit {
             // In the C++ implementation they call frexp.
             let kappa_minus_one: usize = x.log2().floor() as usize;
 
@@ -92,7 +90,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
                 x_first - x_second / 3.0 + x_forth * (1.0 / 45.0 - x_second / 472.5);
 
             // If kappa - 1 is smaller than the maximal register value
-            for _k in (largest_register_value.saturating_sub(1)..kappa_minus_one).rev() {
+            for _k in (largest_register_value..=kappa_minus_one).rev() {
                 let taylor_series_approximation_prime = 1.0 - taylor_series_approximation;
                 taylor_series_approximation = (x_first
                     + taylor_series_approximation * taylor_series_approximation_prime)
@@ -104,10 +102,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
 
             let mut g = c * taylor_series_approximation;
 
-            for k in (smallest_register_value.saturating_sub(1)
-                ..largest_register_value.saturating_sub(1))
-                .rev()
-            {
+            for k in (smallest_register_value..=largest_register_value.saturating_sub(1)).rev() {
                 let taylor_series_approximation_prime = 1.0 - taylor_series_approximation;
                 taylor_series_approximation = (x_first
                     + taylor_series_approximation * taylor_series_approximation_prime)
@@ -150,7 +145,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
 
         Self {
             words: PRECISION::Words::default_array(),
-            multeplicities: PRECISION::RegisterMultiplicities::default_array(),
+            multeplicities,
+            upper_bound: 0,
             _phantom: PhantomData,
         }
     }
@@ -171,7 +167,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
     /// use hyperloglog_rs::prelude::*;
     ///
     /// let registers = [0_u32; 1 << 4];
-    /// let hll = HyperLogLog::<Precision4, 6>::from_registers(&registers);
+    /// let hll = HyperLogLogWithMulteplicities::<Precision4, 6>::from_registers(&registers);
     /// assert_eq!(hll.len(), 1 << 4);
     /// ```
     fn from_registers(registers: &[u32]) -> Self {
@@ -198,11 +194,15 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
                     *word |= register << (i * BITS);
                 }
             });
-        Self {
+
+        let mut hll = Self {
             words,
             multeplicities,
+            upper_bound: usize::MAX,
             _phantom: PhantomData,
-        }
+        };
+        hll.upper_bound = hll.estimate_cardinality() as usize;
+        hll
     }
 
     /// Create a new HyperLogLog counter from an array of words.
@@ -219,7 +219,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
     /// use hyperloglog_rs::prelude::*;
     ///
     /// let words = [0_u32; 4];
-    /// let hll = HyperLogLog::<Precision4, 6>::from_words(&words);
+    /// let hll = HyperLogLogWithMulteplicities::<Precision4, 6>::from_words(&words);
     /// assert_eq!(hll.len(), 16);
     /// ```
     fn from_words(words: &PRECISION::Words) -> Self {
@@ -232,11 +232,17 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
             });
         });
 
-        Self {
+        multeplicities[0] -=
+            PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
+
+        let mut hll = Self {
             words: *words,
             multeplicities,
+            upper_bound: usize::MAX,
             _phantom: PhantomData,
-        }
+        };
+        hll.upper_bound = hll.estimate_cardinality() as usize;
+        hll
     }
 
     #[inline(always)]
@@ -257,18 +263,16 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
                 * f32::from_le_bytes(two_to_minus_register.to_le_bytes());
         }
 
-        self.adjust_estimate(raw_estimate)
+        Self::adjust_estimate(raw_estimate).min(self.get_upper_bound())
+    }
+
+    fn get_upper_bound(&self) -> f32 {
+        self.upper_bound as f32
     }
 
     /// Returns a reference to the words vector.
     fn get_words(&self) -> &PRECISION::Words {
         &self.words
-    }
-
-    #[inline(always)]
-    /// Returns the number of bits used to represent the hashed value of an element.
-    fn get_words_mut(&mut self) -> &mut PRECISION::Words {
-        &mut self.words
     }
 
     #[inline(always)]
@@ -281,7 +285,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
     /// # use hyperloglog_rs::prelude::*;
     ///
     /// // Create a new HyperLogLog counter with precision 14 and 5 bits per register.
-    /// let mut hll = HyperLogLog::<Precision14, 5>::new();
+    /// let mut hll = HyperLogLogWithMulteplicities::<Precision14, 5>::new();
     ///
     /// // Add some elements to the counter.
     /// hll.insert(&1);
@@ -308,7 +312,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
     /// ```
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll = HyperLogLog::<Precision10, 6>::new();
+    /// let mut hll = HyperLogLogWithMulteplicities::<Precision10, 6>::new();
     ///
     /// hll.insert("Hello");
     /// hll.insert("World");
@@ -378,8 +382,14 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
         let register_value: u32 = (self.words[word_position] >> (register_position_in_u32 * BITS))
             & Self::LOWER_REGISTER_MASK;
 
+        self.upper_bound += 1;
+
         // Otherwise, update the register using a bit mask.
         if number_of_zeros > register_value {
+            debug_assert!(
+                self.multeplicities[register_value as usize] > PRECISION::NumberOfZeros::ZERO,
+            );
+
             self.multeplicities[register_value as usize] -= PRECISION::NumberOfZeros::ONE;
             self.multeplicities[number_of_zeros as usize] += PRECISION::NumberOfZeros::ONE;
 

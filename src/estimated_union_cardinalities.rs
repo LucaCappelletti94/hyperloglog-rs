@@ -155,7 +155,8 @@ impl<F: Primitive<f32>> EstimatedUnionCardinalities<F> {
     /// ```
     pub fn get_symmetric_difference_cardinality(&self) -> F {
         self.left_cardinality + self.right_cardinality
-            - F::reverse(2.0) * self.get_intersection_cardinality()
+            - self.get_intersection_cardinality()
+            - self.get_intersection_cardinality()
     }
 
     #[inline(always)]
@@ -175,7 +176,6 @@ impl<F: Primitive<f32>> EstimatedUnionCardinalities<F> {
     /// ```
     ///
     pub fn get_jaccard_index(&self) -> F {
-        (self.get_intersection_cardinality() / self.union_cardinality)
-            .get_min(F::reverse(1.0))
+        (self.get_intersection_cardinality() / self.union_cardinality).get_min(F::reverse(1.0))
     }
 }

@@ -83,7 +83,7 @@ pub trait HyperLogLogTrait<
     /// ```
     fn from_words(words: &PRECISION::Words) -> Self;
 
-    fn adjust_estimate(&self, mut raw_estimate: f32) -> f32 {
+    fn adjust_estimate(mut raw_estimate: f32) -> f32 {
         // Apply the final scaling factor to obtain the estimate of the cardinality
         raw_estimate = get_alpha(PRECISION::NUMBER_OF_REGISTERS)
             * (PRECISION::NUMBER_OF_REGISTERS * PRECISION::NUMBER_OF_REGISTERS) as f32
@@ -125,14 +125,14 @@ pub trait HyperLogLogTrait<
         }
     }
 
-    fn adjust_estimate_with_zeros(&self, raw_estimate: f32, number_of_zeros: usize) -> f32 {
+    fn adjust_estimate_with_zeros(raw_estimate: f32, number_of_zeros: usize) -> f32 {
         if number_of_zeros > 0 {
             let low_range_correction = PRECISION::SMALL_CORRECTIONS[number_of_zeros - 1];
             if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
                 return low_range_correction;
             }
         }
-        self.adjust_estimate(raw_estimate)
+        Self::adjust_estimate(raw_estimate)
     }
 
     /// Returns whether the cardinality of this HLL will be computed using the small-range correction.
@@ -189,8 +189,10 @@ pub trait HyperLogLogTrait<
 
         raw_estimate -= Self::get_number_of_padding_registers() as f32;
 
-        self.adjust_estimate(raw_estimate)
+        Self::adjust_estimate(raw_estimate).min(self.get_upper_bound())
     }
+
+    fn get_upper_bound(&self) -> f32;
 
     #[inline(always)]
     /// Returns an estimate of the cardinality of the union of two HyperLogLog counters.
@@ -270,16 +272,24 @@ pub trait HyperLogLogTrait<
         raw_left_estimate -= Self::get_number_of_padding_registers() as f32;
         raw_right_estimate -= Self::get_number_of_padding_registers() as f32;
 
-        let mut union_estimate =
-            F::reverse(self.adjust_estimate_with_zeros(raw_union_estimate, union_zeros));
+        raw_union_estimate = raw_union_estimate.get_min(raw_left_estimate + raw_right_estimate);
+
+        let mut union_estimate = F::reverse(Self::adjust_estimate_with_zeros(
+            raw_union_estimate,
+            union_zeros,
+        ));
         let left_estimate = F::reverse(
-            self.adjust_estimate_with_zeros(raw_left_estimate, self.get_number_of_zero_registers()),
+            Self::adjust_estimate_with_zeros(
+                raw_left_estimate,
+                self.get_number_of_zero_registers(),
+            ).min(self.get_upper_bound())
         );
-        let right_estimate =
-            F::reverse(self.adjust_estimate_with_zeros(
+        let right_estimate = F::reverse(
+            Self::adjust_estimate_with_zeros(
                 raw_right_estimate,
                 other.get_number_of_zero_registers(),
-            ));
+            ).min(other.get_upper_bound())
+        );
 
         // The union estimate cannot be higher than the sum of the left and right estimates.
         union_estimate = union_estimate.get_min(left_estimate + right_estimate);
@@ -550,9 +560,6 @@ pub trait HyperLogLogTrait<
     /// Returns the array of words of the HyperLogLog counter.
     fn get_words(&self) -> &PRECISION::Words;
 
-    /// Returns a mutable reference to the array of words of the HyperLogLog counter.
-    fn get_words_mut(&mut self) -> &mut PRECISION::Words;
-
     #[inline(always)]
     /// Returns `true` if the HyperLogLog counter may contain the given element.
     ///
@@ -636,463 +643,6 @@ pub trait HyperLogLogTrait<
             }
         }
         true
-    }
-
-    /// Returns estimated overlapping cardinality matrices of the provided HyperLogLog counters.
-    ///
-    /// # Arguments
-    /// * `left` - Array of `L` HyperLogLog counters describing increasingly large surroundings of a first element.
-    /// * `right` - Array of `R` HyperLogLog counters describing increasingly large surroundings of a second element.
-    ///
-    /// # Implementation details
-    /// Both arrays are expected to contain HyperLogLog counters increasing in size, i.e. the first element of `left`
-    /// should be contained in the second element of `left`, which should be contained in the third element of `left`,
-    /// and so on. The same applies to `right`.
-    ///
-    /// # Examples
-    ///
-    /// We start with a trivial example with solely two counters.
-    /// In this case, the result will have to contain a single element
-    /// which is the estimated intersection cardinality of the two counters.
-    ///
-    /// ```rust
-    /// # use hyperloglog_rs::prelude::*;
-    ///
-    /// let mut hll1: HyperLogLog<Precision9, 6> = HyperLogLog::new();
-    /// let mut hll2: HyperLogLog<Precision9, 6> = HyperLogLog::new();
-    ///
-    /// hll1.insert(&42);
-    /// hll1.insert(&43);
-    /// hll1.insert(&44);
-    ///
-    /// hll2.insert(&42);
-    /// hll2.insert(&43);
-    ///
-    /// let result = HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 1, 1>(&[hll1,], &[hll2,]);
-    ///
-    /// assert!(
-    ///     result[0][0] < 2.0 * 1.1 &&
-    ///     result[0][0] > 2.0 * 0.9,
-    ///     "The estimated intersection cardinality should be around 2, but it is {}.",
-    ///     result[0][0]
-    /// );
-    /// ```
-    ///
-    /// Now we consider a more complex example with two arrays of counters.
-    /// We start with two arrays of two elements each. This means that in the end we will have a 2x2 matrix.
-    /// The value in position (0,0) of the matrix will be the estimated intersection cardinality of the first element
-    /// of the first array and the first element of the second array. The value of the subsequent positions
-    /// are less trivial, as we will have to take into account the difference of the elements present in the
-    /// smaller sets which we do not want to count multiple times.
-    ///
-    /// It follows that, for the value in position (0, 1), we will need to subtract the value in position (0,0).
-    /// For the value in position (1, 0), we will need to subtract the value in position (0,0). And finally, for
-    /// the value in position (1, 1), we will need to subtract the values in positions (0,0), (0,1) and (1,0).
-    ///
-    /// ```rust
-    /// # use hyperloglog_rs::prelude::*;
-    ///
-    /// let mut hll1: HyperLogLog<Precision9, 6> = HyperLogLog::new();
-    /// let mut hll2: HyperLogLog<Precision9, 6> = HyperLogLog::new();
-    ///
-    /// hll1.insert(&42);
-    /// hll1.insert(&43);
-    /// hll1.insert(&44);
-    ///    
-    /// hll2.insert(&42);
-    /// hll2.insert(&43);
-    ///
-    /// let mut hll3: HyperLogLog<Precision9, 6> = HyperLogLog::new();
-    /// let mut hll4: HyperLogLog<Precision9, 6> = HyperLogLog::new();
-    ///
-    /// hll3.insert(&42);
-    /// hll3.insert(&43);
-    /// hll3.insert(&44);
-    /// hll3.insert(&45);
-    ///
-    /// hll4.insert(&42);
-    /// hll4.insert(&43);
-    /// hll4.insert(&44);
-    ///
-    /// let result = HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 2, 2>(&[hll1, hll3], &[hll2, hll4]);
-    ///
-    /// assert!(
-    ///     result[0][0] < 2.0 * 1.1 &&
-    ///     result[0][0] > 2.0 * 0.9,
-    ///     "Test 1a: The estimated intersection cardinality should be around 2, but it is {}.",
-    ///     result[0][0]
-    /// );
-    ///
-    /// assert!(
-    ///     result[0][1] < 1.0 * 1.1 &&
-    ///     result[0][1] > 1.0 * 0.9,
-    ///     "Test 2a: The estimated intersection cardinality should be around 1, but it is {}.",
-    ///     result[0][1]
-    /// );
-    ///
-    /// assert!(
-    ///     result[1][0] < 0.1 &&
-    ///     result[1][0] > -0.1,
-    ///     "Test 3a: The estimated intersection cardinality should be around 0, but it is {}.",
-    ///     result[1][0]
-    /// );
-    ///
-    /// assert!(
-    ///     result[1][1] < 0.1 &&
-    ///     result[1][1] > -0.1,
-    ///     "Test 4a: The estimated intersection cardinality should be around 0, but it is {}.",
-    ///     result[1][1]
-    /// );
-    ///
-    /// ```
-    ///
-    /// We now consider a more complex example, with two arrays of three elements each.
-    ///
-    /// ```rust
-    /// # use hyperloglog_rs::prelude::*;
-    ///
-    /// let mut hll1: HyperLogLog<Precision8, 6> = HyperLogLog::new();
-    /// let mut hll2: HyperLogLog<Precision8, 6> = HyperLogLog::new();
-    /// let mut hll3: HyperLogLog<Precision8, 6> = HyperLogLog::new();
-    ///
-    /// let mut hll4: HyperLogLog<Precision8, 6> = HyperLogLog::new();
-    /// let mut hll5: HyperLogLog<Precision8, 6> = HyperLogLog::new();
-    /// let mut hll6: HyperLogLog<Precision8, 6> = HyperLogLog::new();
-    ///
-    /// hll1.insert(&42);
-    /// hll1.insert(&43);
-    /// hll1.insert(&44);
-    ///
-    /// hll2.insert(&42);
-    /// hll2.insert(&43);
-    /// hll2.insert(&44);
-    ///
-    /// hll3.insert(&42);
-    /// hll3.insert(&43);
-    /// hll3.insert(&44);
-    /// hll3.insert(&45);
-    ///
-    /// hll4.insert(&42);
-    /// hll4.insert(&43);
-    /// hll4.insert(&44);
-    ///
-    /// hll5.insert(&42);
-    /// hll5.insert(&43);
-    /// hll5.insert(&44);
-    /// hll5.insert(&45);
-    ///
-    /// hll6.insert(&42);
-    /// hll6.insert(&43);
-    /// hll6.insert(&44);
-    /// hll6.insert(&45);
-    /// hll6.insert(&46);
-    ///
-    /// let result = HyperLogLog::estimated_overlap_cardinality_matrix::<f32, 3, 3>(&[hll1, hll3, hll6], &[hll2, hll4, hll5]);
-    ///
-    /// assert!(
-    ///     result[0][0] < 3.0 * 1.1 &&
-    ///     result[0][0] > 3.0 * 0.9,
-    ///     concat!(
-    ///         "Test 1b: The estimated intersection cardinality should be around 3, but it is {}. ",
-    ///         "This is because the value in cell {:?} is dependent on no previous intersection.",
-    ///     ),
-    ///     result[0][0],
-    ///     (0, 0),
-    /// );
-    ///
-    /// assert!(
-    ///     result[0][1] < 0.1 &&
-    ///     result[0][1] > -0.1,
-    ///     concat!(
-    ///         "Test 2b: The estimated intersection cardinality should be around 0, but it is {}. ",
-    ///         "This is because the value in cell {:?} is dependent on the previous intersection ",
-    ///         "values {:?}, and is not equal to the simple intersection of the HLL counters in ",
-    ///         "positions {} and {}, which would have been an estimated cardinality of {}."
-    ///     ),
-    ///     result[0][1],
-    ///     (0, 1),
-    ///     vec![result[0][0]],
-    ///     0,
-    ///     1,
-    ///     hll1.estimate_intersection_cardinality::<f32>(&hll4),
-    /// );
-    ///
-    /// assert!(
-    ///     result[1][0] < 0.1 &&
-    ///     result[1][0] > -0.1,
-    ///     concat!(
-    ///         "Test 3b: The estimated intersection cardinality should be around 1, but it is {}. ",
-    ///         "This is because the value in cell {:?} is dependent on the previous intersection ",
-    ///         "values {:?}, and is not equal to the simple intersection of the HLL counters in ",
-    ///         "positions {} and {}, which would have been an estimated cardinality of {}."
-    ///     ),
-    ///     result[1][0],
-    ///     (1, 0),
-    ///     vec![result[0][0]],
-    ///     1,
-    ///     0,
-    ///     hll3.estimate_intersection_cardinality::<f32>(&hll2),
-    /// );
-    ///
-    /// assert!(
-    ///     result[1][1] < 0.1 &&
-    ///     result[1][1] > -0.1,
-    ///     concat!(
-    ///         "Test 4b: The estimated intersection cardinality should be around 2, but it is {}. ",
-    ///         "This is because the value in cell {:?} is dependent on the previous intersection ",
-    ///         "values {:?}, and is not equal to the simple intersection of the HLL counters in ",
-    ///         "positions {} and {}, which would have been an estimated cardinality of {}."
-    ///     ),
-    ///     result[1][1],
-    ///     (1, 1),
-    ///     vec![result[0][0], result[1][0], result[0][1]],
-    ///     1,
-    ///     1,
-    ///     hll3.estimate_intersection_cardinality::<f32>(&hll4),
-    /// );
-    ///
-    /// assert!(
-    ///     result[1][2] < 1.0 * 1.1 &&
-    ///     result[1][2] > 1.0 * 0.9,
-    ///     concat!(
-    ///         "Test 5b: The estimated intersection cardinality should be around 1, but it is {}. ",
-    ///         "This is because the value in cell {:?} is dependent on the previous intersection ",
-    ///         "values {:?}, and is not equal to the simple intersection of the HLL counters in ",
-    ///         "positions {} and {}, which would have been an estimated cardinality of {}."
-    ///     ),
-    ///     result[1][2],
-    ///     (1, 2),
-    ///     vec![result[0][0], result[1][0], result[0][1], result[1][1]],
-    ///     1,
-    ///     2,
-    ///     hll3.estimate_intersection_cardinality::<f32>(&hll5),
-    /// );
-    ///
-    /// assert!(
-    ///     result[2][0] < 0.1 &&
-    ///     result[2][0] > -0.1,
-    ///     concat!(
-    ///         "Test 6b: The estimated intersection cardinality should be around 0, but it is {}. ",
-    ///         "This is because the value in cell {:?} is dependent on the previous intersection ",
-    ///         "values {:?}, and is not equal to the simple intersection of the HLL counters in ",
-    ///         "positions {} and {}, which would have been an estimated cardinality of {}."
-    ///     ),
-    ///     result[2][0],
-    ///     (2, 0),
-    ///     vec![result[0][0], result[1][0],],
-    ///     2,
-    ///     0,
-    ///     hll6.estimate_intersection_cardinality::<f32>(&hll2),
-    /// );
-    ///
-    /// assert!(
-    ///     result[2][1] < 0.1 &&
-    ///     result[2][1] > -0.1,
-    ///     concat!(
-    ///         "Test 7b: The estimated intersection cardinality should be around 0, but it is {}." ,
-    ///         "This is because the value in cell {:?} is dependent on the previous intersection ",
-    ///         "values {:?}, and is not equal to the simple intersection of the HLL counters in ",
-    ///         "positions {} and {}, which would have been an estimated cardinality of {}."
-    ///     ),
-    ///     result[2][1],
-    ///     (2, 1),
-    ///     vec![result[0][0], result[1][0], result[2][0]],
-    ///     2,
-    ///     1,
-    ///     hll6.estimate_intersection_cardinality::<f32>(&hll4),
-    /// );
-    ///
-    /// assert!(
-    ///     result[2][2] < 0.1 &&
-    ///     result[2][2] > -0.1,
-    ///     concat!(
-    ///         "Test 8b: The estimated intersection cardinality should be around 0, but it is {}. ",
-    ///         "This is because the value in cell {:?} is dependent on the previous intersection ",
-    ///         "values {:?}, and is not equal to the simple intersection of the HLL counters in ",
-    ///         "positions {} and {}, which would have been an estimated cardinality of {}."
-    ///     ),
-    ///     result[2][2],
-    ///     (2, 2),
-    ///     vec![result[0][0], result[1][0], result[0][1], result[2][0], result[0][2], result[2][1], result[1][2]],
-    ///     2,
-    ///     2,
-    ///     hll6.estimate_intersection_cardinality::<f32>(&hll5),
-    /// );
-    ///
-    /// ```
-    ///
-    fn estimated_overlap_cardinality_matrix<F: Primitive<f32>, const L: usize, const R: usize>(
-        left: &[Self; L],
-        right: &[Self; R],
-    ) -> [[F; R]; L] {
-        // When we are not in release mode, we check that the HLL are increasing in size.
-        #[cfg(debug_assertions)]
-        for i in 1..L {
-            assert!(
-                left[i].may_contain_all(&left[i - 1]),
-                concat!(
-                    "We expected for all the elements of the left array to be contained in the next one, ",
-                    "but this is not the case for the element at position {}."
-                ),
-                i
-            );
-        }
-
-        // When we are not in release mode, we check that the HLL are increasing in size.
-        #[cfg(debug_assertions)]
-        for i in 1..R {
-            assert!(
-                right[i].may_contain_all(&right[i - 1]),
-                concat!(
-                    "We expected for all the elements of the right array to be contained in the next one, ",
-                    "but this is not the case for the element at position {}."
-                ),
-                i
-            );
-        }
-
-        let mut overlap_cardinality_matrix = [[F::reverse(0.0); R]; L];
-
-        for i in 0..L {
-            for j in 0..R {
-                overlap_cardinality_matrix[i][j] = (left[i]
-                    .estimate_intersection_cardinality::<F>(&right[j])
-                    // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
-                    // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
-                    // with a smaller index than the current one.
-                    - overlap_cardinality_matrix[0..(i+1)]
-                        .iter()
-                        .map(|row| row[0..(j+1)].iter().copied().sum::<F>())
-                        .sum::<F>())
-                .get_max(F::reverse(0.0));
-            }
-        }
-
-        overlap_cardinality_matrix
-    }
-
-    #[inline(always)]
-    /// Returns estimated overlapping cardinality vectors of the provided HyperLogLog counters.
-    ///
-    /// # Arguments
-    /// * `left` - Array of `N` HyperLogLog counters describing increasingly large surroundings of a first element.
-    /// * `right` - A single HyperLogLog counter describing, usually, the largest surroundings of a second element.
-    ///
-    /// # Implementation details
-    /// The array of HyperLogLog counters is expected to contain HyperLogLog counters increasing in size, i.e. the first element of `left`
-    /// should be contained in the second element of `left`, which should be contained in the third element of `left`,
-    /// and so on.
-    ///
-    /// # Examples
-    ///
-    /// We start with a trivial example with solely two counters.
-    /// In this case, the result will have to contain a single element
-    /// which is the estimated left-difference cardinality of the two counters.
-    ///
-    /// ```rust
-    /// # use hyperloglog_rs::prelude::*;
-    ///
-    /// let mut hll1: HyperLogLog<Precision8, 6> = HyperLogLog::new();
-    /// let mut hll2: HyperLogLog<Precision8, 6> = HyperLogLog::new();
-    ///
-    /// hll1.insert(&42);
-    /// hll1.insert(&43);
-    /// hll1.insert(&44);
-    ///
-    /// hll2.insert(&42);
-    /// hll2.insert(&43);
-    ///
-    /// let result: [f32; 1] = HyperLogLog::estimated_difference_cardinality_vector(&[hll1,], &hll2);
-    ///
-    /// assert!(
-    ///    result[0] < 1.0 * 1.1 &&
-    ///   result[0] > 1.0 * 0.9,
-    ///  "The estimated left-difference cardinality should be around 1, but it is {}.",
-    /// result[0]
-    /// );
-    ///
-    /// ```
-    ///
-    /// Now we consider a more complex example with two arrays of counters.
-    /// We start with two arrays of two elements each. This means that in the end we will have a 2x1 vector.
-    /// The value in position (0) of the vector will be the estimated left-difference cardinality of the first element
-    /// of the first array and the first element of the second array. The value of the subsequent positions
-    /// are less trivial, as we will have to take into account the difference of the elements present in the
-    /// smaller sets which we do not want to count multiple times.
-    ///
-    /// It follows that, for the value in position (1), we will need to subtract the value in position (0).
-    ///
-    /// ```rust
-    /// # use hyperloglog_rs::prelude::*;
-    ///
-    /// let mut hll1: HyperLogLog<Precision8, 6> = HyperLogLog::new();
-    /// let mut hll2: HyperLogLog<Precision8, 6> = HyperLogLog::new();
-    ///
-    /// hll1.insert(&42);
-    /// hll1.insert(&43);
-    /// hll1.insert(&44);
-    ///
-    /// hll2.insert(&42);
-    /// hll2.insert(&43);
-    ///
-    /// let mut hll3: HyperLogLog<Precision8, 6> = HyperLogLog::new();
-    ///
-    /// hll3.insert(&42);
-    /// hll3.insert(&43);
-    /// hll3.insert(&44);
-    /// hll3.insert(&45);
-    ///
-    /// let result: [f32; 2] = HyperLogLog::estimated_difference_cardinality_vector(&[hll1, hll3], &hll2);
-    ///
-    /// assert!(
-    ///     result[0] < 1.0 * 1.1 &&
-    ///     result[0] > 1.0 * 0.9,
-    ///     "Test 1a: The estimated left-difference cardinality should be around 1, but it is {}.",
-    ///     result[0]
-    /// );
-    ///
-    /// assert!(
-    ///     result[1] < 1.1 &&
-    ///     result[1] > 0.9,
-    ///     "Test 2a: The estimated left-difference cardinality should be around 1, but it is {}.",
-    ///     result[1]
-    /// );
-    ///
-    /// ```
-    ///
-    fn estimated_difference_cardinality_vector<F: Primitive<f32>, const N: usize>(
-        array: &[Self; N],
-        other: &Self,
-    ) -> [F; N] {
-        // When we are not in release mode, we check that the HLL are increasing in size.
-        #[cfg(debug_assertions)]
-        for i in 1..N {
-            assert!(
-                array[i].may_contain_all(&array[i - 1]),
-                concat!(
-                    "We expected for all the elements of the array to be contained in the next one, ",
-                    "but this is not the case for the element at position {}."
-                ),
-                i
-            );
-        }
-
-        let mut difference_cardinality_vector = [F::reverse(0.0); N];
-        let mut comulative_estimated_cardinality = F::reverse(0.0);
-
-        for i in 0..N {
-            difference_cardinality_vector[i] = (array[i]
-                .estimate_difference_cardinality::<F>(other)
-                // Since we need to compute the exclusive overlap cardinality, i.e. we exclude the elements
-                // contained in the smaller HLLs, we need to subtract all of the partial cardinality of elements
-                // with a smaller index than the current one.
-                - comulative_estimated_cardinality)
-                .get_max(F::reverse(0.0));
-
-            comulative_estimated_cardinality += difference_cardinality_vector[i];
-        }
-
-        difference_cardinality_vector
     }
 
     #[inline(always)]

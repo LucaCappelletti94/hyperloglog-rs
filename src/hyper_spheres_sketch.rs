@@ -22,14 +22,69 @@ use core::ops::{DivAssign, MulAssign, SubAssign};
 
 pub trait SetLike<I> {
     /// Returns the estimated intersection and left and right difference cardinality between two sets.
-    fn get_estimated_union_cardinality(&self, other: &Self) -> EstimatedUnionCardinalities<I>;
+    fn get_estimated_union_cardinality(
+        &self,
+        self_cardinality: I,
+        other: &Self,
+        other_cardinality: I,
+    ) -> EstimatedUnionCardinalities<I>;
+
+    /// Returns the cardinality of the set.
+    fn get_cardinality(&self) -> I;
 }
 
-impl<F: Primitive<f32>, PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> SetLike<F>
-    for HyperLogLog<PRECISION, BITS, M>
+impl<
+        F: Primitive<f32>,
+        PRECISION: Precision + WordType<BITS>,
+        const BITS: usize,
+        M: HasherMethod,
+    > SetLike<F> for HyperLogLog<PRECISION, BITS, M>
 {
-    fn get_estimated_union_cardinality(&self, other: &Self) -> EstimatedUnionCardinalities<F> {
-        self.estimate_union_and_sets_cardinality(other)
+    fn get_estimated_union_cardinality(
+        &self,
+        self_cardinality: F,
+        other: &Self,
+        other_cardinality: F,
+    ) -> EstimatedUnionCardinalities<F> {
+        let mut raw_union_estimate = 0.0;
+
+        let mut union_zeros = 0;
+        for (left_word, right_word) in self
+            .get_words()
+            .iter_elements()
+            .copied()
+            .zip(other.get_words().iter_elements().copied())
+        {
+            let mut union_partial: f32 = 0.0;
+            for i in 0..Self::NUMBER_OF_REGISTERS_IN_WORD {
+                let left_register = (left_word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
+                let right_register = (right_word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
+                let maximal_register = (left_register).max(right_register);
+                union_partial += f32::from_le_bytes(((127 - maximal_register) << 23).to_le_bytes());
+                union_zeros += (maximal_register == 0) as usize;
+            }
+            raw_union_estimate += union_partial;
+        }
+
+        union_zeros -= Self::get_number_of_padding_registers();
+
+        // We need to subtract the padding registers from the raw estimates
+        // as for each such register we are adding a one.
+        raw_union_estimate -= Self::get_number_of_padding_registers() as f32;
+
+        let mut union_estimate = F::reverse(Self::adjust_estimate_with_zeros(
+            raw_union_estimate,
+            union_zeros,
+        ));
+
+        // The union estimate cannot be higher than the sum of the left and right estimates.
+        union_estimate = union_estimate.get_min(self_cardinality + other_cardinality);
+
+        EstimatedUnionCardinalities::from((self_cardinality, other_cardinality, union_estimate))
+    }
+
+    fn get_cardinality(&self) -> F {
+        F::reverse(self.estimate_cardinality())
     }
 }
 
@@ -84,8 +139,17 @@ pub trait HyperSpheresSketch: Sized {
         Self: SetLike<I>,
     {
         // Initialize overlap and differences cardinality matrices/vectors.
-        let mut overlap_cardinality_matrix = [[I::default(); R]; L];
+        let mut last_row = [I::default(); R];
+        let mut differential_overlap_cardinality_matrix = [[I::default(); R]; L];
         let mut left_difference_cardinality_vector = [I::default(); L];
+        let mut right_cardinalities = [I::default(); R];
+
+        right.iter().zip(right_cardinalities.iter_mut()).for_each(
+            |(right_hll, right_cardinality)| {
+                *right_cardinality = right_hll.get_cardinality();
+            },
+        );
+
         let mut right_difference_cardinality_vector = [I::default(); R];
         let mut euc: EstimatedUnionCardinalities<I> = EstimatedUnionCardinalities::default();
         let mut last_left_difference: I = I::default();
@@ -93,16 +157,21 @@ pub trait HyperSpheresSketch: Sized {
         // Populate the overlap cardinality matrix.
         for (i, left_hll) in left.iter().enumerate() {
             let mut last_right_difference: I = I::default();
-            for (j, right_hll) in right.iter().enumerate() {
-                euc = left_hll.get_estimated_union_cardinality(right_hll);
-                overlap_cardinality_matrix[i][j] = (euc.get_intersection_cardinality()
-                    - (0..(i + 1).min(L))
-                        .flat_map(|sub_i| {
-                            (0..(j + 1).min(R))
-                                .map(move |sub_j| overlap_cardinality_matrix[sub_i][sub_j])
-                        })
-                        .sum::<I>())
-                .get_max(I::default());
+            let left_cardinality = left_hll.get_cardinality();
+            let mut comulative_row = I::default();
+            for (j, (right_hll, right_cardinality)) in
+                right.iter().zip(right_cardinalities).enumerate()
+            {
+                euc = left_hll.get_estimated_union_cardinality(
+                    left_cardinality,
+                    right_hll,
+                    right_cardinality,
+                );
+                let delta = last_row[j] + comulative_row;
+                differential_overlap_cardinality_matrix[i][j] =
+                    (euc.get_intersection_cardinality() - delta).get_max(I::default());
+                last_row[j] = euc.get_intersection_cardinality().get_max(delta);
+                comulative_row += differential_overlap_cardinality_matrix[i][j];
 
                 // We always set the value of the right difference so that the
                 // last time we write this will necessarily be with the last
@@ -115,9 +184,9 @@ pub trait HyperSpheresSketch: Sized {
             left_difference_cardinality_vector[i] = this_difference - last_left_difference;
             last_left_difference = this_difference;
         }
-        
+
         (
-            overlap_cardinality_matrix,
+            differential_overlap_cardinality_matrix,
             left_difference_cardinality_vector,
             right_difference_cardinality_vector,
         )

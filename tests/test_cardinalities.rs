@@ -52,7 +52,7 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: Hashe
         BITS,
         exact_cardinality,
         hll.estimate_cardinality(),
-        hll2.estimate_cardinality(),
+        hll2.estimate_cardinality_mle(),
         // We write out the name of the hasher method being imployed
         std::any::type_name::<M>(),
         //set_str,
@@ -101,10 +101,10 @@ fn write_line_set_for_hasher<M: HasherMethod + Clone>(
     // write_line_set::<Precision18, M>(set, set_str, exact_cardinality, file);
 }
 
-// #[test]
+#[test]
 fn test_cardinality_perfs() {
     let mut file = File::create("cardinality_benchmark.tsv").unwrap();
-    file.write_all(b"precision\tbits\texact\thll\thll_multiplicity\thash_name\n")
+    file.write_all(b"precision\tbits\texact\thll\thll_mle\thash_name\n")
         .unwrap();
 
     // since both the precision and the number of bits are compile time constants, we can
@@ -116,13 +116,16 @@ fn test_cardinality_perfs() {
 
     // For each precision and number of bits, we generate 1000 random sets and write them to the file.
     // We also write the exact cardinality and the estimated cardinality using HyperLogLog.
-    for i in (0..1000_u64).progress() {
+    for i in (0..1_000_u64).progress() {
         let seed = (i + 1).wrapping_mul(234567898765);
         let mut rng = splitmix64(seed);
 
         let mut set = HashSet::new();
 
-        for _ in 0..100_000 {
+        let cardinality = xorshift(rng) % 100_000;
+        rng = splitmix64(rng);
+
+        for _ in 0..cardinality {
             let value = xorshift(rng) % 10_000_000;
             set.insert(value);
             rng = splitmix64(rng);
@@ -136,9 +139,13 @@ fn test_cardinality_perfs() {
             .collect::<Vec<String>>()
             .join(",");
 
-        write_line_set_for_hasher::<MetroHasher>(&set, &set_str, exact, &mut file);
-        write_line_set_for_hasher::<HighwayHasher>(&set, &set_str, exact, &mut file);
+        // write_line_set_for_hasher::<MetroHasher>(&set, &set_str, exact, &mut file);
+        // write_line_set_for_hasher::<HighwayHasher>(&set, &set_str, exact, &mut file);
         write_line_set_for_hasher::<SipHasher13>(&set, &set_str, exact, &mut file);
-        write_line_set_for_hasher::<SipHasher24>(&set, &set_str, exact, &mut file);
+        // write_line_set_for_hasher::<SipHasher24>(&set, &set_str, exact, &mut file);
+        // write_line_set_for_hasher::<DoubleSipHasher13>(&set, &set_str, exact, &mut file);
+        // write_line_set_for_hasher::<DoubleSipHasher24>(&set, &set_str, exact, &mut file);
+        // write_line_set_for_hasher::<DoubleMetroHasher>(&set, &set_str, exact, &mut file);
+        // write_line_set_for_hasher::<DoubleHighwayHasher>(&set, &set_str, exact, &mut file);
     }
 }
