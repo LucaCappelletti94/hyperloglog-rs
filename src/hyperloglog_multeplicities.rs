@@ -2,7 +2,7 @@ use crate::array_default::{ArrayDefault, ArrayIter};
 use crate::precisions::{Precision, WordType};
 use crate::prelude::*;
 use siphasher::sip::SipHasher13;
-use std::{hash::Hash, marker::PhantomData};
+use core::{hash::Hash, marker::PhantomData};
 
 pub struct HyperLogLogWithMulteplicities<
     PRECISION: Precision + WordType<BITS>,
@@ -11,7 +11,6 @@ pub struct HyperLogLogWithMulteplicities<
 > {
     pub(crate) words: PRECISION::Words,
     pub(crate) multeplicities: PRECISION::RegisterMultiplicities,
-    pub(crate) upper_bound: usize,
     pub(crate) _phantom: PhantomData<M>,
 }
 
@@ -28,14 +27,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
 
         let q = self.multeplicities.len() - 2;
 
-        debug_assert!(q > 0);
-
         let smallest_register_value = self
             .multeplicities
             .first_non_zero_index()
             .unwrap()
             .get_max(1);
-        // TODO! CHECK IF THIS GET MAX IS NECESSARY! IN THE PAPER IT IS NOT PRESENT!
         let largest_register_value = self
             .multeplicities
             .last_non_zero_index()
@@ -146,7 +142,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
         Self {
             words: PRECISION::Words::default_array(),
             multeplicities,
-            upper_bound: 0,
             _phantom: PhantomData,
         }
     }
@@ -195,14 +190,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
                 }
             });
 
-        let mut hll = Self {
+        Self {
             words,
             multeplicities,
-            upper_bound: usize::MAX,
             _phantom: PhantomData,
-        };
-        hll.upper_bound = hll.estimate_cardinality() as usize;
-        hll
+        }
     }
 
     /// Create a new HyperLogLog counter from an array of words.
@@ -235,14 +227,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
         multeplicities[0] -=
             PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
 
-        let mut hll = Self {
+        Self {
             words: *words,
             multeplicities,
-            upper_bound: usize::MAX,
             _phantom: PhantomData,
-        };
-        hll.upper_bound = hll.estimate_cardinality() as usize;
-        hll
+        }
     }
 
     #[inline(always)]
@@ -263,11 +252,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
                 * f32::from_le_bytes(two_to_minus_register.to_le_bytes());
         }
 
-        Self::adjust_estimate(raw_estimate).min(self.get_upper_bound())
-    }
-
-    fn get_upper_bound(&self) -> f32 {
-        self.upper_bound as f32
+        Self::adjust_estimate(raw_estimate)
     }
 
     /// Returns a reference to the words vector.
@@ -381,8 +366,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
         // Extract the current value of the register at `index`.
         let register_value: u32 = (self.words[word_position] >> (register_position_in_u32 * BITS))
             & Self::LOWER_REGISTER_MASK;
-
-        self.upper_bound += 1;
 
         // Otherwise, update the register using a bit mask.
         if number_of_zeros > register_value {

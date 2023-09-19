@@ -3,6 +3,7 @@ use crate::bias::BIAS_DATA;
 use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
 use crate::hasher_method::HasherMethod;
 use crate::precisions::{Precision, WordType};
+use crate::prelude::*;
 use crate::prelude::{linear_counting_threshold, MaxMin};
 use crate::primitive::Primitive;
 use crate::raw_estimate_data::RAW_ESTIMATE_DATA;
@@ -189,10 +190,8 @@ pub trait HyperLogLogTrait<
 
         raw_estimate -= Self::get_number_of_padding_registers() as f32;
 
-        Self::adjust_estimate(raw_estimate).min(self.get_upper_bound())
+        Self::adjust_estimate(raw_estimate)
     }
-
-    fn get_upper_bound(&self) -> f32;
 
     #[inline(always)]
     /// Returns an estimate of the cardinality of the union of two HyperLogLog counters.
@@ -272,27 +271,79 @@ pub trait HyperLogLogTrait<
         raw_left_estimate -= Self::get_number_of_padding_registers() as f32;
         raw_right_estimate -= Self::get_number_of_padding_registers() as f32;
 
-        raw_union_estimate = raw_union_estimate.get_min(raw_left_estimate + raw_right_estimate);
-
         let mut union_estimate = F::reverse(Self::adjust_estimate_with_zeros(
             raw_union_estimate,
             union_zeros,
         ));
-        let left_estimate = F::reverse(
-            Self::adjust_estimate_with_zeros(
-                raw_left_estimate,
-                self.get_number_of_zero_registers(),
-            ).min(self.get_upper_bound())
-        );
-        let right_estimate = F::reverse(
-            Self::adjust_estimate_with_zeros(
-                raw_right_estimate,
-                other.get_number_of_zero_registers(),
-            ).min(other.get_upper_bound())
-        );
+        let left_estimate = F::reverse(Self::adjust_estimate_with_zeros(
+            raw_left_estimate,
+            self.get_number_of_zero_registers(),
+        ));
+        let right_estimate = F::reverse(Self::adjust_estimate_with_zeros(
+            raw_right_estimate,
+            other.get_number_of_zero_registers(),
+        ));
 
         // The union estimate cannot be higher than the sum of the left and right estimates.
         union_estimate = union_estimate.get_min(left_estimate + right_estimate);
+
+        EstimatedUnionCardinalities::from((left_estimate, right_estimate, union_estimate))
+    }
+
+    #[inline(always)]
+    /// Returns an estimate of the cardinality of the two HLL counters union.
+    fn estimate_union_and_sets_cardinality_old<F: Primitive<f32> + MaxMin>(
+        &self,
+        other: &Self,
+    ) -> EstimatedUnionCardinalities<F> {
+        let mut raw_union_estimate = 0.0;
+        let mut raw_left_estimate = 0.0;
+        let mut raw_right_estimate = 0.0;
+
+        let mut union_zeros = 0;
+        for (left_word, right_word) in self
+            .get_words()
+            .iter_elements()
+            .copied()
+            .zip(other.get_words().iter_elements().copied())
+        {
+            let mut union_partial: f32 = 0.0;
+            let mut left_partial: f32 = 0.0;
+            let mut right_partial: f32 = 0.0;
+            for i in 0..Self::NUMBER_OF_REGISTERS_IN_WORD {
+                let left_register = (left_word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
+                let right_register = (right_word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
+                let maximal_register = (left_register).max(right_register);
+                union_partial += f32::from_le_bytes(((127 - maximal_register) << 23).to_le_bytes());
+                left_partial += f32::from_le_bytes(((127 - left_register) << 23).to_le_bytes());
+                right_partial += f32::from_le_bytes(((127 - right_register) << 23).to_le_bytes());
+                union_zeros += (maximal_register == 0) as usize;
+            }
+            raw_union_estimate += union_partial;
+            raw_left_estimate += left_partial;
+            raw_right_estimate += right_partial;
+        }
+
+        union_zeros -= Self::get_number_of_padding_registers();
+
+        // We need to subtract the padding registers from the raw estimates
+        // as for each such register we are adding a one.
+        raw_union_estimate -= Self::get_number_of_padding_registers() as f32;
+        raw_left_estimate -= Self::get_number_of_padding_registers() as f32;
+        raw_right_estimate -= Self::get_number_of_padding_registers() as f32;
+
+        let union_estimate = F::reverse(Self::adjust_estimate_with_zeros(
+            raw_union_estimate,
+            union_zeros,
+        ));
+        let left_estimate = F::reverse(Self::adjust_estimate_with_zeros(
+            raw_left_estimate,
+            self.get_number_of_zero_registers(),
+        ));
+        let right_estimate = F::reverse(Self::adjust_estimate_with_zeros(
+            raw_right_estimate,
+            other.get_number_of_zero_registers(),
+        ));
 
         EstimatedUnionCardinalities::from((left_estimate, right_estimate, union_estimate))
     }
@@ -546,15 +597,19 @@ pub trait HyperLogLogTrait<
     /// let mut hll = HyperLogLog::<Precision4, 6>::from_registers(&expected);
     /// assert_eq!(hll.get_registers(), expected, "Expected {:?}, got {:?}", expected, hll.get_registers());
     /// ```
-    fn get_registers(&self) -> Vec<u32> {
+    fn get_registers(&self) -> PRECISION::Registers {
+        let mut registers = PRECISION::Registers::default_array();
         self.get_words()
             .iter_elements()
             .flat_map(|word| {
                 (0..Self::NUMBER_OF_REGISTERS_IN_WORD)
-                    .map(move |i| (word >> (i * BITS)) & Self::LOWER_REGISTER_MASK)
+                    .map(move |i: usize| (word >> (i * BITS)) & Self::LOWER_REGISTER_MASK)
             })
-            .take(PRECISION::NUMBER_OF_REGISTERS)
-            .collect()
+            .zip(registers.iter_elements_mut())
+            .for_each(|(value, cell): (u32, &mut u32)| {
+                *cell = value;
+            });
+        registers
     }
 
     /// Returns the array of words of the HyperLogLog counter.

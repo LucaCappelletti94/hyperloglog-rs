@@ -28,6 +28,11 @@ serde_json = "1.0"
 indicatif = "0.15.0"
 rand = "0.8"
 
+[features]
+default = []
+std = []
+alloc = []
+
 [profile.test]
 overflow-checks = true   # Disable integer overflow checks.
 debug = false            # Include debug info.

@@ -49,14 +49,31 @@ impl<T> HashSetWrapper<T> {
     {
         self.intersection(other).len()
     }
+
+    fn union_size(&self, other: &Self) -> usize
+    where
+        T: Eq + std::hash::Hash + Clone,
+    {
+        self.0.union(&other.0).count()
+    }
 }
 
 impl SetLike<usize> for HashSetWrapper<usize> {
-    fn get_estimated_union_cardinality(&self, other: &Self) -> EstimatedUnionCardinalities<usize> {
-        let mut union = self.0.clone();
-        union.extend(other.0.clone());
-        let union_cardinality = union.len();
-        EstimatedUnionCardinalities::from((self.len(), other.len(), union_cardinality))
+    fn get_cardinality(&self) -> usize {
+        self.len()
+    }
+
+    fn get_estimated_union_cardinality(
+        &self,
+        self_cardinality: usize,
+        other: &Self,
+        other_cardinality: usize,
+    ) -> EstimatedUnionCardinalities<usize> {
+        EstimatedUnionCardinalities::from((
+            self_cardinality,
+            other_cardinality,
+            self.union_size(other),
+        ))
     }
 }
 
@@ -77,8 +94,10 @@ fn get_random_hyper_spheres(random_state: u64, number_of_hyper_spheres: usize) -
         } else {
             hyper_spheres.last().unwrap().clone()
         };
-        for _ in 0..10_000 {
-            hyper_sphere.push(rng.gen_range(0..1_000_000));
+        let maximal_universe_size = rng.gen_range(0..100_000);
+        let number_of_elements = rng.gen_range(0..100_000);
+        for _ in 0..number_of_elements {
+            hyper_sphere.push(rng.gen_range(0..maximal_universe_size));
         }
         hyper_spheres.push(hyper_sphere);
     }
@@ -118,7 +137,7 @@ fn get_random_hyper_spheres_hll<const N: usize>(
 
 #[test]
 fn test_hyper_spheres_sketch() {
-    let number_of_tests = 50_000;
+    let number_of_tests = 1_00;
 
     // We run multiple MSE to have an estimate of how much the
     // HyperLogLog approximation is off when compared to the

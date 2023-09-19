@@ -72,6 +72,7 @@
 //! * [Flajolet, Philippe](https://en.wikipedia.org/wiki/Philippe_Flajolet), Éric Fusy, Olivier Gandouet, and Frédéric Meunier. "[Hyperloglog: the analysis of a near-optimal cardinality estimation algorithm.](https://hal.science/file/index/docid/406166/filename/FlFuGaMe07.pdf)" In Proceedings of the 2007 conference on analysis of algorithms, pp. 127-146. 2007.
 #![feature(const_float_bits_conv)]
 #![feature(const_fn_floating_point_arithmetic)]
+#![cfg_attr(not(feature="std"), no_std)]
 
 mod array_default;
 mod bias;

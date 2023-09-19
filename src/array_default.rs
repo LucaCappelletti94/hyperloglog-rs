@@ -32,17 +32,18 @@ pub trait ArrayIter<T: Default + PartialEq> {
     }
     /// Returns the first element that is not equal to the default value.
     fn first_non_zero_index(&self) -> Option<usize> {
-        self.iter_elements()
-            .position(|a| *a != T::default())
+        self.iter_elements().position(|a| *a != T::default())
     }
     /// Returns the last element that is not equal to the default value.
     fn last_non_zero_index(&self) -> Option<usize> {
-        self.iter_elements()
-            .rposition(|a| *a != T::default())
+        self.iter_elements().rposition(|a| *a != T::default())
     }
 }
 
-pub trait ArrayIterArgmin<T>: ArrayIter<T> where T: PartialOrd + PartialEq + Default{
+pub trait ArrayIterArgmin<T>: ArrayIter<T>
+where
+    T: PartialOrd + PartialEq + Default,
+{
     /// Returns the index of the element with the smallest value.
     fn argmin(&self) -> Option<usize> {
         self.iter_elements()
@@ -50,7 +51,7 @@ pub trait ArrayIterArgmin<T>: ArrayIter<T> where T: PartialOrd + PartialEq + Def
             .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(i, _)| i)
     }
-    
+
     /// Returns the index of the element with the smallest value that is not equal to the default value.
     fn non_zero_argmin(&self) -> Option<usize> {
         self.iter_elements()
@@ -58,10 +59,13 @@ pub trait ArrayIterArgmin<T>: ArrayIter<T> where T: PartialOrd + PartialEq + Def
             .filter(|(_, a)| **a != T::default())
             .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(i, _)| i)
-    }    
+    }
 }
 
-pub trait ArrayIterArgmax<T>: ArrayIter<T> where T: PartialOrd + PartialEq + Default{
+pub trait ArrayIterArgmax<T>: ArrayIter<T>
+where
+    T: PartialOrd + PartialEq + Default,
+{
     /// Returns the index of the element with the largest value.
     fn argmax(&self) -> Option<usize> {
         self.iter_elements()
@@ -69,7 +73,7 @@ pub trait ArrayIterArgmax<T>: ArrayIter<T> where T: PartialOrd + PartialEq + Def
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(i, _)| i)
     }
-    
+
     /// Returns the index of the element with the largest value that is not equal to the default value.
     fn non_zero_argmax(&self) -> Option<usize> {
         self.iter_elements()

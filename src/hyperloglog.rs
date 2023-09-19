@@ -7,7 +7,7 @@ use crate::prelude::HyperLogLogTrait;
 use crate::prelude::*;
 use crate::primitive::Primitive;
 use core::hash::Hash;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 #[derive(Clone, Debug, Copy)]
 /// A probabilistic algorithm for estimating the number of distinct elements in a set.
@@ -62,7 +62,6 @@ pub struct HyperLogLog<
 > {
     pub(crate) words: PRECISION::Words,
     pub(crate) number_of_zero_registers: PRECISION::NumberOfZeros,
-    pub(crate) upper_bound: usize,
     pub(crate) _phantom: PhantomData<M>,
 }
 
@@ -173,7 +172,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
             number_of_zero_registers: PRECISION::NumberOfZeros::reverse(
                 PRECISION::NUMBER_OF_REGISTERS,
             ),
-            upper_bound: 0,
             _phantom: PhantomData,
         }
     }
@@ -225,14 +223,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
                     )
                 }),
         );
-        let mut hll = Self {
+        Self {
             words,
             number_of_zero_registers,
-            upper_bound: usize::MAX,
             _phantom: PhantomData,
-        };
-        hll.upper_bound = hll.estimate_cardinality() as usize;
-        hll
+        }
     }
 
     /// Create a new HyperLogLog counter from an array of words.
@@ -253,10 +248,10 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
     /// assert_eq!(hll.len(), 16);
     /// ```
     fn from_words(words: &PRECISION::Words) -> Self {
-        let number_of_zero_registers = PRECISION::NumberOfZeros::reverse(
-            words
-                .iter_elements()
-                .fold(0, |number_of_zero_registers, word| {
+        let number_of_zero_registers =
+            PRECISION::NumberOfZeros::reverse(words.iter_elements().fold(
+                0,
+                |number_of_zero_registers, word| {
                     (0..Self::NUMBER_OF_REGISTERS_IN_WORD).fold(
                         number_of_zero_registers,
                         |number_of_zero_registers, i| {
@@ -264,21 +259,14 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
                             number_of_zero_registers + (register == 0) as usize
                         },
                     )
-                }),
-        );
+                },
+            )) - PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
 
-        let mut hll = Self {
+        Self {
             words: *words,
             number_of_zero_registers,
-            upper_bound: usize::MAX,
             _phantom: PhantomData,
-        };
-        hll.upper_bound = hll.estimate_cardinality() as usize;
-        hll
-    }
-
-    fn get_upper_bound(&self) -> f32 {
-        self.upper_bound as f32
+        }
     }
 
     #[inline(always)]
@@ -395,14 +383,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
             >> (register_position_in_u32 * BITS))
             & Self::LOWER_REGISTER_MASK;
 
-        self.upper_bound += 1;
-
         // Otherwise, update the register using a bit mask.
         if number_of_zeros > register_value {
             self.words[word_position] &=
                 !(Self::LOWER_REGISTER_MASK << (register_position_in_u32 * BITS));
-            self.words[word_position] |=
-                number_of_zeros << (register_position_in_u32 * BITS);
+            self.words[word_position] |= number_of_zeros << (register_position_in_u32 * BITS);
             self.number_of_zero_registers -=
                 PRECISION::NumberOfZeros::reverse((register_value == 0) as usize);
 
@@ -410,13 +395,13 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
             // and have not been manipulated in any way. If these bits were manipulated, it would mean
             // that we have a bug in the code.
             debug_assert!(
-                self.get_words()[word_position] & Self::PADDING_BITS_MASK == 0,
+                self.words[word_position] & Self::PADDING_BITS_MASK == 0,
                 concat!(
                     "The padding bits of the word {} must be all zeros. ",
                     "We have obtained {} instead."
                 ),
-                self.get_words()[word_position],
-                self.get_words()[word_position] & Self::PADDING_BITS_MASK
+                self.words[word_position],
+                self.words[word_position] & Self::PADDING_BITS_MASK
             );
         }
     }

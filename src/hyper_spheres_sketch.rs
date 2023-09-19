@@ -72,13 +72,10 @@ impl<
         // as for each such register we are adding a one.
         raw_union_estimate -= Self::get_number_of_padding_registers() as f32;
 
-        let mut union_estimate = F::reverse(Self::adjust_estimate_with_zeros(
+        let union_estimate = F::reverse(Self::adjust_estimate_with_zeros(
             raw_union_estimate,
             union_zeros,
         ));
-
-        // The union estimate cannot be higher than the sum of the left and right estimates.
-        union_estimate = union_estimate.get_min(self_cardinality + other_cardinality);
 
         EstimatedUnionCardinalities::from((self_cardinality, other_cardinality, union_estimate))
     }

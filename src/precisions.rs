@@ -5,15 +5,18 @@
 //! using a number of registers equal or inferior to 65536, which would make us waste another byte.
 //!
 
+use core::ops::{Index, IndexMut};
 use core::{fmt::Debug, ops::SubAssign};
-use std::ops::{Index, IndexMut};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    array_default::ArrayDefault, array_default::{ArrayIter, ArrayIterArgmax}, prelude::{precompute_linear_counting, One},
+    array_default::ArrayDefault,
     array_default::ArrayIterArgmin,
-    primitive::Primitive, zeros::Zero,
+    array_default::{ArrayIter, ArrayIterArgmax},
+    prelude::{precompute_linear_counting, One},
+    primitive::Primitive,
+    zeros::Zero,
 };
 
 pub trait WordType<const BITS: usize>: Precision {
@@ -99,6 +102,7 @@ pub trait Precision: Default + Copy + Eq + Serialize + Debug + Send + Sync {
     const MAXIMAL: usize;
     /// Type for small corrections:
     type SmallCorrrections: Index<usize, Output = f32> + Copy;
+    type Registers: Index<usize, Output = u32> + Copy + ArrayDefault<u32> + ArrayIter<u32>;
     /// The precomputed small corrections used in the HyperLogLog algorithm for better performance.
     const SMALL_CORRECTIONS: Self::SmallCorrrections;
 }
@@ -111,7 +115,9 @@ impl Precision for Precision4 {
     const EXPONENT: usize = 4;
     const MAXIMAL: usize = u8::MAX as usize;
     type SmallCorrrections = [f32; 16];
-    const SMALL_CORRECTIONS: [f32; 16] = precompute_linear_counting::<16>();
+    type Registers = [u32; 16];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 
 impl WordType<1> for Precision4 {
@@ -121,7 +127,6 @@ impl WordType<1> for Precision4 {
 
 impl WordType<2> for Precision4 {
     type Words = [u32; 1];
-
     type RegisterMultiplicities = [Self::NumberOfZeros; 4];
 }
 
@@ -153,7 +158,9 @@ impl Precision for Precision5 {
     const EXPONENT: usize = 5;
     const MAXIMAL: usize = u8::MAX as usize;
     type SmallCorrrections = [f32; 32];
-    const SMALL_CORRECTIONS: [f32; 32] = precompute_linear_counting::<32>();
+    type Registers = [u32; 32];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 
 impl WordType<1> for Precision5 {
@@ -194,7 +201,9 @@ impl Precision for Precision6 {
     const EXPONENT: usize = 6;
     const MAXIMAL: usize = u8::MAX as usize;
     type SmallCorrrections = [f32; 64];
-    const SMALL_CORRECTIONS: [f32; 64] = precompute_linear_counting::<64>();
+    type Registers = [u32; 64];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 
 impl WordType<1> for Precision6 {
@@ -235,7 +244,9 @@ impl Precision for Precision7 {
     const EXPONENT: usize = 7;
     const MAXIMAL: usize = u8::MAX as usize;
     type SmallCorrrections = [f32; 128];
-    const SMALL_CORRECTIONS: [f32; 128] = precompute_linear_counting::<128>();
+    type Registers = [u32; 128];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 
 impl WordType<1> for Precision7 {
@@ -276,7 +287,9 @@ impl Precision for Precision8 {
     const EXPONENT: usize = 8;
     const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrrections = [f32; 256];
-    const SMALL_CORRECTIONS: [f32; 256] = precompute_linear_counting::<256>();
+    type Registers = [u32; 256];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision8 {
     type Words = [u32; 8];
@@ -316,7 +329,9 @@ impl Precision for Precision9 {
     const EXPONENT: usize = 9;
     const MAXIMAL: usize = 65536;
     type SmallCorrrections = [f32; 512];
-    const SMALL_CORRECTIONS: [f32; 512] = precompute_linear_counting::<512>();
+    type Registers = [u32; 512];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision9 {
     type Words = [u32; 16];
@@ -356,7 +371,9 @@ impl Precision for Precision10 {
     const EXPONENT: usize = 10;
     const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrrections = [f32; 1024];
-    const SMALL_CORRECTIONS: [f32; 1024] = precompute_linear_counting::<1024>();
+    type Registers = [u32; 1024];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision10 {
     type Words = [u32; 32];
@@ -396,7 +413,9 @@ impl Precision for Precision11 {
     const EXPONENT: usize = 11;
     const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrrections = [f32; 2048];
-    const SMALL_CORRECTIONS: [f32; 2048] = precompute_linear_counting::<2048>();
+    type Registers = [u32; 2048];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision11 {
     type Words = [u32; 64];
@@ -436,7 +455,9 @@ impl Precision for Precision12 {
     const EXPONENT: usize = 12;
     const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrrections = [f32; 4096];
-    const SMALL_CORRECTIONS: [f32; 4096] = precompute_linear_counting::<4096>();
+    type Registers = [u32; 4096];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision12 {
     type Words = [u32; 128];
@@ -476,7 +497,9 @@ impl Precision for Precision13 {
     const EXPONENT: usize = 13;
     const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrrections = [f32; 8192];
-    const SMALL_CORRECTIONS: [f32; 8192] = precompute_linear_counting::<8192>();
+    type Registers = [u32; 8192];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision13 {
     type Words = [u32; 256];
@@ -516,7 +539,9 @@ impl Precision for Precision14 {
     const EXPONENT: usize = 14;
     const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrrections = [f32; 16384];
-    const SMALL_CORRECTIONS: [f32; 16384] = precompute_linear_counting::<16384>();
+    type Registers = [u32; 16384];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision14 {
     type Words = [u32; 512];
@@ -556,7 +581,9 @@ impl Precision for Precision15 {
     const EXPONENT: usize = 15;
     const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrrections = [f32; 32768];
-    const SMALL_CORRECTIONS: [f32; 32768] = precompute_linear_counting::<32768>();
+    type Registers = [u32; 32768];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision15 {
     type Words = [u32; 1024];
@@ -598,7 +625,9 @@ impl Precision for Precision16 {
     const EXPONENT: usize = 16;
     const MAXIMAL: usize = u32::MAX as usize;
     type SmallCorrrections = [f32; 65536];
-    const SMALL_CORRECTIONS: [f32; 65536] = precompute_linear_counting::<65536>();
+    type Registers = [u32; 65536];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision16 {
     type Words = [u32; 2048];
@@ -638,7 +667,9 @@ impl Precision for Precision17 {
     const EXPONENT: usize = 17;
     const MAXIMAL: usize = u32::MAX as usize;
     type SmallCorrrections = [f32; 131072];
-    const SMALL_CORRECTIONS: [f32; 131072] = precompute_linear_counting::<131072>();
+    type Registers = [u32; 131072];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision17 {
     type Words = [u32; 4096];
@@ -678,7 +709,9 @@ impl Precision for Precision18 {
     const EXPONENT: usize = 18;
     const MAXIMAL: usize = u32::MAX as usize;
     type SmallCorrrections = [f32; 262144];
-    const SMALL_CORRECTIONS: [f32; 262144] = precompute_linear_counting::<262144>();
+    type Registers = [u32; 262144];
+    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision18 {
     type Words = [u32; 8192];

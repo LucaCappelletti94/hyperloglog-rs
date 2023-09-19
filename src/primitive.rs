@@ -3,7 +3,7 @@
 //! it is available in other crates - we do not intend to use them as dependencies, as we want to keep
 //! the dependencies to the very bare minimum.
 
-use std::{
+use core::{
     iter::Sum,
     ops::{Add, AddAssign, Div, Mul, Sub, MulAssign, SubAssign, DivAssign},
 };
