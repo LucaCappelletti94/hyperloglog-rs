@@ -1,6 +1,5 @@
 
 use hyperloglog_rs::prelude::*;
-use siphasher::sip::SipHasher13;
 
 #[test]
 pub fn test_hyper_log_log_at_precision_11_and_bits_4() {
@@ -14,8 +13,8 @@ pub fn test_hyper_log_log_at_precision_11_and_bits_4() {
             continue;
         }
     
-        let mut hll: HyperLogLog<PRECISION, BITS, SipHasher13> = HyperLogLog::new();
-        let hll_default: HyperLogLog<PRECISION, BITS, SipHasher13> = HyperLogLog::default();
+        let mut hll: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
+        let hll_default: HyperLogLog<PRECISION, BITS> = HyperLogLog::default();
         
         assert_eq!(hll, hll_default);
         
@@ -61,8 +60,8 @@ pub fn test_hyper_log_log_at_precision_11_and_bits_5() {
             continue;
         }
     
-        let mut hll: HyperLogLog<PRECISION, BITS, SipHasher13> = HyperLogLog::new();
-        let hll_default: HyperLogLog<PRECISION, BITS, SipHasher13> = HyperLogLog::default();
+        let mut hll: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
+        let hll_default: HyperLogLog<PRECISION, BITS> = HyperLogLog::default();
         
         assert_eq!(hll, hll_default);
         
@@ -108,8 +107,8 @@ pub fn test_hyper_log_log_at_precision_11_and_bits_6() {
             continue;
         }
     
-        let mut hll: HyperLogLog<PRECISION, BITS, SipHasher13> = HyperLogLog::new();
-        let hll_default: HyperLogLog<PRECISION, BITS, SipHasher13> = HyperLogLog::default();
+        let mut hll: HyperLogLog<PRECISION, BITS> = HyperLogLog::new();
+        let hll_default: HyperLogLog<PRECISION, BITS> = HyperLogLog::default();
         
         assert_eq!(hll, hll_default);
         

@@ -1,13 +1,9 @@
-use siphasher::sip::SipHasher13;
-
 use crate::array_default::{ArrayDefault, ArrayIter};
-use crate::hasher_method::HasherMethod;
 use crate::precisions::{Precision, WordType};
 use crate::prelude::HyperLogLogTrait;
 use crate::prelude::*;
 use crate::primitive::Primitive;
 use core::hash::Hash;
-use core::marker::PhantomData;
 
 #[derive(Clone, Debug, Copy)]
 /// A probabilistic algorithm for estimating the number of distinct elements in a set.
@@ -55,27 +51,20 @@ use core::marker::PhantomData;
 /// * Flajolet, Philippe, et al. "HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm." DMTCS Proceedings 1 (2007): 127-146.
 /// * Heule, Stefan, Marc Nunkesser, and Alexander Hall. "HyperLogLog in practice: algorithmic engineering of a state of the art cardinality estimation algorithm." Proceedings of the 16th International Conference on Extending Database Technology. 2013.
 ///
-pub struct HyperLogLog<
-    PRECISION: Precision + WordType<BITS>,
-    const BITS: usize,
-    M: HasherMethod = SipHasher13,
-> {
+pub struct HyperLogLog<PRECISION: Precision + WordType<BITS>, const BITS: usize> {
     pub(crate) words: PRECISION::Words,
     pub(crate) number_of_zero_registers: PRECISION::NumberOfZeros,
-    pub(crate) _phantom: PhantomData<M>,
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
-    From<HyperLogLogWithMulteplicities<PRECISION, BITS, M>> for HyperLogLog<PRECISION, BITS, M>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
+    From<HyperLogLogWithMulteplicities<PRECISION, BITS>> for HyperLogLog<PRECISION, BITS>
 {
-    fn from(hll: HyperLogLogWithMulteplicities<PRECISION, BITS, M>) -> Self {
+    fn from(hll: HyperLogLogWithMulteplicities<PRECISION, BITS>) -> Self {
         Self::from_words(hll.get_words())
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> Eq
-    for HyperLogLog<PRECISION, BITS, M>
-{
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Eq for HyperLogLog<PRECISION, BITS> {
     fn assert_receiver_is_total_eq(&self) {
         // This is a no-op because we know that `Self` is `Eq`.
     }
@@ -104,8 +93,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> 
 ///
 /// assert_eq!(hll1, hll2);
 /// ```
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> PartialEq
-    for HyperLogLog<PRECISION, BITS, M>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> PartialEq
+    for HyperLogLog<PRECISION, BITS>
 {
     /// Returns whether the two HyperLogLog counters are equal.
     fn eq(&self, other: &Self) -> bool {
@@ -126,8 +115,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> 
 /// let hll: HyperLogLog<Precision10, 6> = Default::default();
 /// assert_eq!(hll.len(), 1024);
 /// ```
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> Default
-    for HyperLogLog<PRECISION, BITS, M>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Default
+    for HyperLogLog<PRECISION, BITS>
 {
     /// Returns a new HyperLogLog instance with default configuration settings.
     fn default() -> Self {
@@ -135,8 +124,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> 
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, T: Hash, M: HasherMethod> From<T>
-    for HyperLogLog<PRECISION, BITS, M>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T>
+    for HyperLogLog<PRECISION, BITS>
 {
     /// Create a new HyperLogLog counter from a value.
     ///
@@ -162,8 +151,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, T: Hash, M: Hashe
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
-    HyperLogLogTrait<PRECISION, BITS, M> for HyperLogLog<PRECISION, BITS, M>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<PRECISION, BITS>
+    for HyperLogLog<PRECISION, BITS>
 {
     /// Create a new HyperLogLog counter.
     fn new() -> Self {
@@ -172,7 +161,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
             number_of_zero_registers: PRECISION::NumberOfZeros::reverse(
                 PRECISION::NUMBER_OF_REGISTERS,
             ),
-            _phantom: PhantomData,
         }
     }
 
@@ -226,7 +214,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
         Self {
             words,
             number_of_zero_registers,
-            _phantom: PhantomData,
         }
     }
 
@@ -265,7 +252,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
         Self {
             words: *words,
             number_of_zero_registers,
-            _phantom: PhantomData,
         }
     }
 
@@ -407,8 +393,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, A: Hash, M: HasherMethod>
-    core::iter::FromIterator<A> for HyperLogLog<PRECISION, BITS, M>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, A: Hash> core::iter::FromIterator<A>
+    for HyperLogLog<PRECISION, BITS>
 {
     #[inline(always)]
     /// Creates a new HyperLogLog counter and adds all elements from an iterator to it.

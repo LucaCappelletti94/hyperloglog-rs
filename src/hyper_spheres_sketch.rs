@@ -37,8 +37,7 @@ impl<
         F: Primitive<f32>,
         PRECISION: Precision + WordType<BITS>,
         const BITS: usize,
-        M: HasherMethod,
-    > SetLike<F> for HyperLogLog<PRECISION, BITS, M>
+    > SetLike<F> for HyperLogLog<PRECISION, BITS>
 {
     fn get_estimated_union_cardinality(
         &self,
@@ -190,7 +189,7 @@ pub trait HyperSpheresSketch: Sized {
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod> HyperSpheresSketch
-    for HyperLogLog<PRECISION, BITS, M>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperSpheresSketch
+    for HyperLogLog<PRECISION, BITS>
 {
 }

@@ -17,11 +17,8 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
 
-use fasthash::MetroHasher;
-use highway::HighwayHasher;
 use hyperloglog_rs::prelude::*;
 use indicatif::ProgressIterator;
-use siphasher::sip::{SipHasher13, SipHasher24};
 
 fn splitmix64(mut x: u64) -> u64 {
     x = x.wrapping_add(0x9E3779B97F4A7C15);
@@ -41,28 +38,28 @@ fn union(set1: &HashSet<u64>, set2: &HashSet<u64>) -> usize {
     set1.union(set2).count()
 }
 
-fn recent_union_hll<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>(
+fn recent_union_hll<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     vec1: &Vec<u64>,
     vec2: &Vec<u64>,
 ) -> f32 {
-    let hll1: HyperLogLog<PRECISION, BITS, M> = vec1.iter().collect();
-    let hll2: HyperLogLog<PRECISION, BITS, M> = vec2.iter().collect();
+    let hll1: HyperLogLog<PRECISION, BITS> = vec1.iter().collect();
+    let hll2: HyperLogLog<PRECISION, BITS> = vec2.iter().collect();
 
     hll1.estimate_union_cardinality(&hll2)
 }
 
-fn original_union_hll<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>(
+fn original_union_hll<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     vec1: &Vec<u64>,
     vec2: &Vec<u64>,
 ) -> f32 {
-    let hll1: HyperLogLog<PRECISION, BITS, M> = vec1.iter().collect();
-    let hll2: HyperLogLog<PRECISION, BITS, M> = vec2.iter().collect();
+    let hll1: HyperLogLog<PRECISION, BITS> = vec1.iter().collect();
+    let hll2: HyperLogLog<PRECISION, BITS> = vec2.iter().collect();
 
     hll1.estimate_union_and_sets_cardinality_old(&hll2)
         .get_union_cardinality()
 }
 
-fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>(
+fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     vec1: &Vec<u64>,
     vec2: &Vec<u64>,
     set1_str: &str,
@@ -70,19 +67,16 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: Hashe
     exact_union: usize,
     file: &mut File,
 ) -> std::io::Result<()> {
-    let old_hll = original_union_hll::<PRECISION, BITS, M>(&vec1, &vec2);
-    let recent_hll = recent_union_hll::<PRECISION, BITS, M>(&vec1, &vec2);
+    let old_hll = original_union_hll::<PRECISION, BITS>(&vec1, &vec2);
+    let recent_hll = recent_union_hll::<PRECISION, BITS>(&vec1, &vec2);
 
     let line = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\n",
+        "{}\t{}\t{}\t{}\t{}\n",
         PRECISION::EXPONENT,
         BITS,
         exact_union,
         old_hll,
         recent_hll,
-        // We convert to string the name of the HasherMethod struct that we provided,
-        // so to be able to log it.
-        std::any::type_name::<M>(),
         // set1_str,
         // set2_str
     );
@@ -92,7 +86,6 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: Hashe
 
 fn write_line_set<
     PRECISION: Precision + WordType<1> + WordType<2> + WordType<3> + WordType<4> + WordType<5> + WordType<6>,
-    M: HasherMethod,
 >(
     vec1: &Vec<u64>,
     vec2: &Vec<u64>,
@@ -101,15 +94,15 @@ fn write_line_set<
     exact_union: usize,
     file: &mut File,
 ) {
-    write_line::<PRECISION, 1, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file).unwrap();
-    write_line::<PRECISION, 2, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file).unwrap();
-    write_line::<PRECISION, 3, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file).unwrap();
-    write_line::<PRECISION, 4, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file).unwrap();
-    write_line::<PRECISION, 5, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file).unwrap();
-    write_line::<PRECISION, 6, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file).unwrap();
+    write_line::<PRECISION, 1>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file).unwrap();
+    write_line::<PRECISION, 2>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file).unwrap();
+    write_line::<PRECISION, 3>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file).unwrap();
+    write_line::<PRECISION, 4>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file).unwrap();
+    write_line::<PRECISION, 5>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file).unwrap();
+    write_line::<PRECISION, 6>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file).unwrap();
 }
 
-fn write_line_set_for_hasher<M: HasherMethod>(
+fn write_line_set_for_hasher(
     vec1: &Vec<u64>,
     vec2: &Vec<u64>,
     set1_str: &str,
@@ -117,20 +110,20 @@ fn write_line_set_for_hasher<M: HasherMethod>(
     exact_union: usize,
     file: &mut File,
 ) {
-    write_line_set::<Precision4, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
-    write_line_set::<Precision5, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
-    write_line_set::<Precision6, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
-    write_line_set::<Precision7, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
-    write_line_set::<Precision8, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
-    write_line_set::<Precision9, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
-    write_line_set::<Precision10, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
-    write_line_set::<Precision11, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
-    write_line_set::<Precision12, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
-    write_line_set::<Precision13, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
-    write_line_set::<Precision14, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
-    write_line_set::<Precision15, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
-    write_line_set::<Precision16, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
-    write_line_set::<Precision17, M>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision4>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision5>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision6>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision7>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision8>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision9>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision10>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision11>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision12>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision13>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision14>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision15>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision16>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
+    write_line_set::<Precision17>(&vec1, &vec2, &set1_str, &set2_str, exact_union, file);
 }
 
 //#[test]
@@ -194,7 +187,7 @@ fn test_union_cardinality_perfs() {
             .collect::<Vec<String>>()
             .join(",");
 
-        write_line_set_for_hasher::<SipHasher13>(
+        write_line_set_for_hasher(
             &vec1, &vec2, &set1_str, &set2_str, exact, &mut file,
         );
         // write_line_set_for_hasher::<SipHasher24>(

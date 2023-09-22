@@ -1,7 +1,5 @@
-use highway::HighwayHasher;
 use hyperloglog_rs::prelude::*;
 use indicatif::ProgressIterator;
-use siphasher::sip::{SipHasher13, SipHasher24};
 /// Example file which writes a reference TSV with two random sets and their exact cardinality,
 /// and the estimated cardinality using HyperLogLog. The file can be used to benchmark the
 /// accuracy of the HyperLogLog algorithm against other implementations. Of course, we need to run this
@@ -19,7 +17,6 @@ use siphasher::sip::{SipHasher13, SipHasher24};
 ///
 use std::collections::HashSet;
 use std::fs::File;
-use fasthash::MetroHasher;
 use std::io::Write;
 
 fn splitmix64(mut x: u64) -> u64 {
@@ -36,28 +33,26 @@ fn xorshift(mut x: u64) -> u64 {
     x
 }
 
-fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod + Clone>(
+fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     vector: &Vec<u64>,
     set_str: &str,
     exact_cardinality: usize,
     file: &mut File,
 ) -> std::io::Result<()> {
-    let hll: HyperLogLog<PRECISION, BITS, M> = vector.iter().collect();
-    let hll2: HyperLogLogWithMulteplicities<PRECISION, BITS, M> = hll.clone().into();
+    let hll: HyperLogLog<PRECISION, BITS> = vector.iter().collect();
+    let hll2: HyperLogLogWithMulteplicities<PRECISION, BITS> = hll.clone().into();
 
     let hll_cardinality = hll.estimate_cardinality();
 
     let mle_cardinality = hll2.estimate_cardinality_mle();
 
     let line = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\n",
+        "{}\t{}\t{}\t{}\t{}\n",
         PRECISION::EXPONENT,
         BITS,
         exact_cardinality,
         hll_cardinality,
         mle_cardinality,
-        // We write out the name of the hasher method being imployed
-        std::any::type_name::<M>(),
         //set_str,
     );
 
@@ -66,48 +61,47 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: Hashe
 
 fn write_line_set<
     PRECISION: Precision + WordType<1> + WordType<2> + WordType<3> + WordType<4> + WordType<5> + WordType<6>,
-    M: HasherMethod + Clone,
 >(
     vector: &Vec<u64>,
     set_str: &str,
     exact_cardinality: usize,
     file: &mut File,
 ) {
-    write_line::<PRECISION, 1, M>(vector, set_str, exact_cardinality, file).unwrap();
-    write_line::<PRECISION, 2, M>(vector, set_str, exact_cardinality, file).unwrap();
-    write_line::<PRECISION, 3, M>(vector, set_str, exact_cardinality, file).unwrap();
-    write_line::<PRECISION, 4, M>(vector, set_str, exact_cardinality, file).unwrap();
-    write_line::<PRECISION, 5, M>(vector, set_str, exact_cardinality, file).unwrap();
-    write_line::<PRECISION, 6, M>(vector, set_str, exact_cardinality, file).unwrap();
+    write_line::<PRECISION, 1>(vector, set_str, exact_cardinality, file).unwrap();
+    write_line::<PRECISION, 2>(vector, set_str, exact_cardinality, file).unwrap();
+    write_line::<PRECISION, 3>(vector, set_str, exact_cardinality, file).unwrap();
+    write_line::<PRECISION, 4>(vector, set_str, exact_cardinality, file).unwrap();
+    write_line::<PRECISION, 5>(vector, set_str, exact_cardinality, file).unwrap();
+    write_line::<PRECISION, 6>(vector, set_str, exact_cardinality, file).unwrap();
 }
 
-fn write_line_set_for_hasher<M: HasherMethod + Clone>(
+fn write_line_set_for_hasher(
     vector: &Vec<u64>,
     set_str: &str,
     exact_cardinality: usize,
     file: &mut File,
 ) {
-    write_line_set::<Precision4, M>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision5, M>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision6, M>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision7, M>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision8, M>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision9, M>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision10, M>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision11, M>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision12, M>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision13, M>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision14, M>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision15, M>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision16, M>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision17, M>(vector, set_str, exact_cardinality, file);
-    // write_line_set::<Precision18, M>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision4>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision5>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision6>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision7>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision8>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision9>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision10>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision11>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision12>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision13>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision14>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision15>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision16>(vector, set_str, exact_cardinality, file);
+    write_line_set::<Precision17>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision18>(vector, set_str, exact_cardinality, file);
 }
 
 // #[test]
 fn test_cardinality_perfs() {
     let mut file = File::create("cardinality_benchmark.tsv").unwrap();
-    file.write_all(b"precision\tbits\texact\thll\tmle\thash_name\n")
+    file.write_all(b"precision\tbits\texact\thll\tmle\n")
         .unwrap();
 
     // since both the precision and the number of bits are compile time constants, we can
@@ -146,9 +140,6 @@ fn test_cardinality_perfs() {
             .collect::<Vec<String>>()
             .join(",");
 
-        write_line_set_for_hasher::<MetroHasher>(&vector, &set_str, exact, &mut file);
-        write_line_set_for_hasher::<HighwayHasher>(&vector, &set_str, exact, &mut file);
-        write_line_set_for_hasher::<SipHasher13>(&vector, &set_str, exact, &mut file);
-        write_line_set_for_hasher::<SipHasher24>(&vector, &set_str, exact, &mut file);
+        write_line_set_for_hasher(&vector, &set_str, exact, &mut file);
     }
 }

@@ -15,7 +15,6 @@
 ///
 use std::collections::HashSet;
 use std::fs::File;
-use siphasher::sip::SipHasher13;
 use std::io::Write;
 
 use hyperloglog_rs::prelude::*;
@@ -45,8 +44,8 @@ fn jaccard_hll<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     set1: &HashSet<u64>,
     set2: &HashSet<u64>,
 ) -> f32 {
-    let hll1: HyperLogLog<PRECISION, BITS, SipHasher13> = set1.iter().collect();
-    let hll2: HyperLogLog<PRECISION, BITS, SipHasher13> = set2.iter().collect();
+    let hll1: HyperLogLog<PRECISION, BITS> = set1.iter().collect();
+    let hll2: HyperLogLog<PRECISION, BITS> = set2.iter().collect();
 
     hll1.estimate_jaccard_index(&hll2)
 }

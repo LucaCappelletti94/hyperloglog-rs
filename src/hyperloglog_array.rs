@@ -3,8 +3,6 @@ use core::{
     ops::{Index, IndexMut},
 };
 
-use siphasher::sip::SipHasher13;
-
 use crate::prelude::*;
 
 #[repr(transparent)]
@@ -13,17 +11,15 @@ pub struct HyperLogLogArray<
     PRECISION: Precision + WordType<BITS>,
     const BITS: usize,
     const N: usize,
-    M: HasherMethod + Copy = SipHasher13,
 > {
-    counters: [HyperLogLog<PRECISION, BITS, M>; N],
+    counters: [HyperLogLog<PRECISION, BITS>; N],
 }
 
 impl<
         PRECISION: Precision + WordType<BITS>,
         const BITS: usize,
         const N: usize,
-        M: HasherMethod + Copy,
-    > PartialEq for HyperLogLogArray<PRECISION, BITS, N, M>
+    > PartialEq for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Returns true if the HyperLogLogArray is equal to the other HyperLogLogArray.
@@ -42,8 +38,7 @@ impl<
         PRECISION: Precision + WordType<BITS>,
         const BITS: usize,
         const N: usize,
-        M: HasherMethod + Copy,
-    > Default for HyperLogLogArray<PRECISION, BITS, N, M>
+    > Default for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray with the given precision and number of bits.
@@ -69,8 +64,7 @@ impl<
         PRECISION: Precision + WordType<BITS>,
         const BITS: usize,
         const N: usize,
-        M: HasherMethod + Copy,
-    > HyperLogLogArray<PRECISION, BITS, N, M>
+    > HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray with the given precision and number of bits.
@@ -108,15 +102,14 @@ impl<
         PRECISION: Precision + WordType<BITS>,
         const BITS: usize,
         const N: usize,
-        M: HasherMethod + Copy,
-    > AsRef<[HyperLogLog<PRECISION, BITS, M>; N]> for HyperLogLogArray<PRECISION, BITS, N, M>
+    > AsRef<[HyperLogLog<PRECISION, BITS>; N]> for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Returns a reference to the underlying array of HyperLogLog counters.
     ///
     /// # Returns
     /// A reference to the underlying array of HyperLogLog counters.
-    fn as_ref(&self) -> &[HyperLogLog<PRECISION, BITS, M>; N] {
+    fn as_ref(&self) -> &[HyperLogLog<PRECISION, BITS>; N] {
         &self.counters
     }
 }
@@ -125,15 +118,14 @@ impl<
         PRECISION: Precision + WordType<BITS>,
         const BITS: usize,
         const N: usize,
-        M: HasherMethod + Copy,
-    > AsMut<[HyperLogLog<PRECISION, BITS, M>; N]> for HyperLogLogArray<PRECISION, BITS, N, M>
+    > AsMut<[HyperLogLog<PRECISION, BITS>; N]> for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Returns a mutable reference to the underlying array of HyperLogLog counters.
     ///
     /// # Returns
     /// A mutable reference to the underlying array of HyperLogLog counters.
-    fn as_mut(&mut self) -> &mut [HyperLogLog<PRECISION, BITS, M>; N] {
+    fn as_mut(&mut self) -> &mut [HyperLogLog<PRECISION, BITS>; N] {
         &mut self.counters
     }
 }
@@ -142,10 +134,9 @@ impl<
         PRECISION: Precision + WordType<BITS>,
         const BITS: usize,
         const N: usize,
-        M: HasherMethod + Copy,
-    > Index<usize> for HyperLogLogArray<PRECISION, BITS, N, M>
+    > Index<usize> for HyperLogLogArray<PRECISION, BITS, N>
 {
-    type Output = HyperLogLog<PRECISION, BITS, M>;
+    type Output = HyperLogLog<PRECISION, BITS>;
 
     #[inline(always)]
     /// Returns a reference to the HyperLogLog counter at the given index.
@@ -192,8 +183,7 @@ impl<
         PRECISION: Precision + WordType<BITS>,
         const BITS: usize,
         const N: usize,
-        M: HasherMethod + Copy,
-    > IndexMut<usize> for HyperLogLogArray<PRECISION, BITS, N, M>
+    > IndexMut<usize> for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Returns a mutable reference to the HyperLogLog counter at the given index.
@@ -240,8 +230,7 @@ impl<
         PRECISION: Precision + WordType<BITS>,
         const BITS: usize,
         const N: usize,
-        M: HasherMethod + Copy,
-    > From<[HyperLogLog<PRECISION, BITS, M>; N]> for HyperLogLogArray<PRECISION, BITS, N, M>
+    > From<[HyperLogLog<PRECISION, BITS>; N]> for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given array of HyperLogLog counters.
@@ -263,7 +252,7 @@ impl<
     ///     HyperLogLog::new(),
     /// ]);
     /// ```
-    fn from(counters: [HyperLogLog<PRECISION, BITS, M>; N]) -> Self {
+    fn from(counters: [HyperLogLog<PRECISION, BITS>; N]) -> Self {
         Self { counters }
     }
 }
@@ -273,8 +262,7 @@ impl<
         const BITS: usize,
         const N: usize,
         H: Hash,
-        M: HasherMethod + Copy,
-    > From<&[&[H]; N]> for HyperLogLogArray<PRECISION, BITS, N, M>
+    > From<&[&[H]; N]> for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given array of vectors of hashable items.
@@ -312,8 +300,7 @@ impl<
         PRECISION: Precision + WordType<BITS>,
         const BITS: usize,
         const N: usize,
-        M: HasherMethod + Copy,
-    > From<&[HyperLogLog<PRECISION, BITS, M>]> for HyperLogLogArray<PRECISION, BITS, N, M>
+    > From<&[HyperLogLog<PRECISION, BITS>]> for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given vector of HyperLogLog counters.
@@ -335,7 +322,7 @@ impl<
     ///     HyperLogLog::new(),
     /// ].as_slice());
     /// ```
-    fn from(counters: &[HyperLogLog<PRECISION, BITS, M>]) -> Self {
+    fn from(counters: &[HyperLogLog<PRECISION, BITS>]) -> Self {
         assert_eq!(counters.len(), N, concat!(
             "The length of the vector of HyperLogLog counters must be equal to the number of counters ",
             "in the HyperLogLogArray."
@@ -351,8 +338,7 @@ impl<
         const BITS: usize,
         const N: usize,
         H: Hash,
-        M: HasherMethod + Copy,
-    > From<&[&[H]]> for HyperLogLogArray<PRECISION, BITS, N, M>
+    > From<&[&[H]]> for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given vector of vectors of hashable items.
@@ -395,8 +381,7 @@ impl<
         const BITS: usize,
         const N: usize,
         H: Hash,
-        M: HasherMethod + Copy,
-    > From<[&[H]; N]> for HyperLogLogArray<PRECISION, BITS, N, M>
+    > From<[&[H]; N]> for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given array of vectors of hashable items.

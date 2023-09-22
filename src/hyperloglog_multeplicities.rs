@@ -1,23 +1,57 @@
 use crate::array_default::{ArrayDefault, ArrayIter};
 use crate::precisions::{Precision, WordType};
 use crate::prelude::*;
-use siphasher::sip::SipHasher13;
-use core::{hash::Hash, marker::PhantomData};
+use core::hash::Hash;
 
-pub struct HyperLogLogWithMulteplicities<
-    PRECISION: Precision + WordType<BITS>,
-    const BITS: usize,
-    M: HasherMethod = SipHasher13,
-> {
+
+/// A HyperLogLog counter with multeplicities.
+/// 
+/// # Implementation details
+/// This struct differs from the traditional HyperLogLog counter in that it stores the multeplicities
+/// of the registers. This allows us to speed up significantly the computation of the cardinality of
+/// the counter, as we do not need to compute the harmonic mean of the registers but we can instead
+/// use the multiplities instead, reducing by a large amount the sums we need to compute.
+/// 
+/// For instance, for a counter with 2^14 registers, we need to compute the harmonic mean of 2^14
+/// registers, i.e. 16384 registers. With the multeplicities, we only need to compute the sum of the
+/// multeplicities, which is much smaller, and at most equal to 52 when you use 6 bits per register.
+/// 
+/// That being said, when memory is an extreme concern, you may want to use the traditional HyperLogLog
+/// as this struct contains the multeplicities vector, which in the example case we considered above
+/// would be adding u16 * 52 = 104 bytes to the size of the counter.
+/// 
+/// Additionally, note that while one may expect to obtain better accuracy by executing less sums,
+/// we do not observe any statistically significant difference in the accuracy of the counter when
+/// using the multeplicities instead of the registers in our tests.
+/// 
+/// Note that this struct DOES NOT provide any other faster operation other than the estimation of the
+/// cardinality of the counter. All other operations, such as the union of two counters, are fast as
+/// they are implemented using the traditional HyperLogLog counter.
+/// 
+pub struct HyperLogLogWithMulteplicities<PRECISION: Precision + WordType<BITS>, const BITS: usize> {
     pub(crate) words: PRECISION::Words,
     pub(crate) multeplicities: PRECISION::RegisterMultiplicities,
-    pub(crate) _phantom: PhantomData<M>,
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
-    HyperLogLogWithMulteplicities<PRECISION, BITS, M>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
+    HyperLogLogWithMulteplicities<PRECISION, BITS>
 {
     #[inline(always)]
+    /// Returns the estimated cardinality of the counter using the MLE approach.
+    /// 
+    /// # References
+    /// The paper describing the MLE approach is [New cardinality estimation algorithms for HyperLogLog sketches](http://oertl.github.io/hyperloglog-sketch-estimation-paper/paper/paper.pdf).
+    /// 
+    /// # Differences with traditional method
+    /// The traditional method for estimating the cardinality of a HyperLogLog counter is to use the harmonic mean of the registers,
+    /// and then execute a correction step as described in the HLL++ paper. The MLE approach instead uses a maximum likelihood estimator
+    /// to estimate the cardinality of the counter. The MLE approach is statistically equivalent to the traditional approach, but it is
+    /// slower, with the advantage of not requiring the rather large parameters tables, so it works even for values for which we do not
+    /// have the correction tables.
+    /// 
+    /// It is this library's author opinion that in most cases you should use the HLL++ method, as it is faster and achieves a
+    /// similar accuracy in our tests.
+    /// 
     pub fn estimate_cardinality_mle(&self) -> f32 {
         // If the multeplicity associated to the last register
         // is equal to the number of registers, we return infinity.
@@ -123,16 +157,16 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
-    From<HyperLogLog<PRECISION, BITS, M>> for HyperLogLogWithMulteplicities<PRECISION, BITS, M>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> From<HyperLogLog<PRECISION, BITS>>
+    for HyperLogLogWithMulteplicities<PRECISION, BITS>
 {
-    fn from(hll: HyperLogLog<PRECISION, BITS, M>) -> Self {
+    fn from(hll: HyperLogLog<PRECISION, BITS>) -> Self {
         Self::from_words(hll.get_words())
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
-    HyperLogLogTrait<PRECISION, BITS, M> for HyperLogLogWithMulteplicities<PRECISION, BITS, M>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<PRECISION, BITS>
+    for HyperLogLogWithMulteplicities<PRECISION, BITS>
 {
     fn new() -> Self {
         let mut multeplicities = PRECISION::RegisterMultiplicities::default_array();
@@ -142,7 +176,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
         Self {
             words: PRECISION::Words::default_array(),
             multeplicities,
-            _phantom: PhantomData,
         }
     }
 
@@ -193,7 +226,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
         Self {
             words,
             multeplicities,
-            _phantom: PhantomData,
         }
     }
 
@@ -230,11 +262,16 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, M: HasherMethod>
         Self {
             words: *words,
             multeplicities,
-            _phantom: PhantomData,
         }
     }
 
     #[inline(always)]
+    /// Returns the number of registers in the counter.
+    /// 
+    /// # Implementation details
+    /// This function is overriding the estimate_cardinality function of the HyperLogLogTrait trait
+    /// as we can compute the cardinality of the counter using the multeplicities instead of the
+    /// registers. This is much faster as we do not need to compute the harmonic mean of the registers.
     fn estimate_cardinality(&self) -> f32 {
         if self.get_number_of_zero_registers() > 0 {
             let low_range_correction =

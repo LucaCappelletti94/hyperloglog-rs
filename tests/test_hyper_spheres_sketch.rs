@@ -9,7 +9,6 @@ use indicatif::ProgressIterator;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
-use siphasher::sip::SipHasher13;
 use std::collections::HashSet;
 
 /// We need to create a wrapper around HashSet
@@ -123,9 +122,9 @@ where
 
 fn get_random_hyper_spheres_hll<const N: usize>(
     random_state: u64,
-) -> HyperLogLogArray<Precision8, 6, N, SipHasher13> {
+) -> HyperLogLogArray<Precision8, 6, N> {
     let hyperspheres = get_random_hyper_spheres(random_state, N);
-    let mut hyperspheres_hll: HyperLogLogArray<Precision8, 6, N, SipHasher13> =
+    let mut hyperspheres_hll: HyperLogLogArray<Precision8, 6, N> =
         HyperLogLogArray::new();
     for (i, hyper_sphere) in hyperspheres.iter().enumerate() {
         for element in hyper_sphere {

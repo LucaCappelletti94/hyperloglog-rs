@@ -1,7 +1,9 @@
+use siphasher::sip::SipHasher13;
+
 use crate::array_default::ArrayIter;
 use crate::bias::BIAS_DATA;
 use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
-use crate::hasher_method::HasherMethod;
+use core::hash::Hasher;
 use crate::precisions::{Precision, WordType};
 use crate::prelude::*;
 use crate::prelude::{linear_counting_threshold, MaxMin};
@@ -13,7 +15,6 @@ use core::hash::Hash;
 pub trait HyperLogLogTrait<
     PRECISION: Precision + WordType<BITS>,
     const BITS: usize,
-    M: HasherMethod,
 >: Sized
 {
     /// The threshold value used in the small range correction of the HyperLogLog algorithm.
@@ -718,7 +719,9 @@ pub trait HyperLogLogTrait<
     /// //assert_eq!(hash, 10123147082338939904, "Expected hash {}, got {}.", 10123147082338939904, hash);
     /// ```
     fn get_hash_and_index<T: Hash>(&self, value: &T) -> (u64, usize) {
-        let hash: u64 = M::hash(value);
+        let mut hasher = SipHasher13::new();
+        value.hash(&mut hasher);
+        let hash: u64 = hasher.finish();
 
         // Calculate the register's index using the highest bits of the hash.
         let index: usize =

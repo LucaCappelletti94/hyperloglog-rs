@@ -92,7 +92,6 @@ pub mod serde;
 pub mod utils;
 mod zeros;
 mod ones;
-mod hasher_method;
 mod hyperloglog_multeplicities;
 mod hyperloglog_trait;
 
@@ -118,6 +117,5 @@ pub mod prelude {
     pub use crate::utils::*;
     pub use crate::zeros::*;
     pub use crate::ones::*;
-    pub use crate::hasher_method::*;
     pub use core::ops::{BitOr, BitOrAssign};
 }
