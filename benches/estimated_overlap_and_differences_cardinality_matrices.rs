@@ -3,7 +3,6 @@ extern crate test;
 
 use hyperloglog_rs::prelude::*;
 
-use siphasher::sip::SipHasher13;
 use test::{black_box, Bencher};
 
 fn populate_vectors<const N: usize>() -> (

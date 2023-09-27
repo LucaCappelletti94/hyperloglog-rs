@@ -166,7 +166,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitAndAssign<&Sel
     /// 
     /// ```
     /// 
-    /// 
     fn bitand_assign(&mut self, rhs: &Self) {
         self.number_of_zero_registers = PRECISION::NumberOfZeros::ZERO;
         for (left_word, mut right_word) in self
