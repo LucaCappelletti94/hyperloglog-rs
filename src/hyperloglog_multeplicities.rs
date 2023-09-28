@@ -164,6 +164,34 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
         PRECISION::NUMBER_OF_REGISTERS as f32 * x
     }
 
+    /// Returns the number of registers in the counter.
+    ///
+    /// # Implementation details
+    /// This function is overriding the estimate_cardinality function of the HyperLogLogTrait trait
+    /// as we can compute the cardinality of the counter using the multeplicities instead of the
+    /// registers. This is much faster as we do not need to compute the harmonic mean of the registers.
+    fn estimate_cardinality_from_multeplicities(
+        multeplicities: &PRECISION::Registermulteplicities,
+    ) -> f32 {
+        if multeplicities[0] > PRECISION::NumberOfZeros::ZERO {
+            let low_range_correction =
+                PRECISION::SMALL_CORRECTIONS[multeplicities[0].convert() - 1];
+            if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
+                return low_range_correction;
+            }
+        }
+
+        let mut raw_estimate = 0.0;
+
+        for (current_register, multeplicity) in multeplicities.iter_elements().enumerate() {
+            let two_to_minus_register: i32 = (127 - current_register as i32) << 23;
+            raw_estimate += (multeplicity.convert() as f32)
+                * f32::from_le_bytes(two_to_minus_register.to_le_bytes());
+        }
+
+        Self::adjust_estimate(raw_estimate)
+    }
+
     /// Returns estimated intersection cardinality object based on MLE joint cardinality estimation.
     ///
     /// # References
@@ -198,7 +226,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
     ///     hll2.insert(elem);
     /// }
     ///
-    /// let (left_difference, right_difference, intersection_cardinality) = hll1.joint_cardinality_estimation(&hll2);
+    /// let euc = hll1.joint_cardinality_estimation(&hll2);
+    ///
+    /// let left_difference = euc.get_left_difference_cardinality();
+    /// let right_difference = euc.get_right_difference_cardinality();
+    /// let intersection_cardinality = euc.get_intersection_cardinality();
     ///
     /// assert!(
     ///     left_difference < left_difference_true * 1.2,
@@ -276,7 +308,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
     ///    hll2.insert(elem);
     /// }
     ///
-    /// let (left_difference, right_difference, intersection_cardinality) = hll1.joint_cardinality_estimation(&hll2);
+    /// let euc = hll1.joint_cardinality_estimation(&hll2);
+    ///
+    /// let left_difference = euc.get_left_difference_cardinality();
+    /// let right_difference = euc.get_right_difference_cardinality();
+    /// let intersection_cardinality = euc.get_intersection_cardinality();
     ///
     /// assert!(
     ///     left_difference < left_difference_true * 1.2,
@@ -334,7 +370,10 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
     ///
     /// ```
     ///
-    pub fn joint_cardinality_estimation(&self, other: &Self) -> (f64, f64, f64) {
+    pub fn joint_cardinality_estimation<const ERROR: i32>(
+        &self,
+        other: &Self,
+    ) -> EstimatedUnionCardinalities<f64> {
         let mut left_multeplicities_larger = PRECISION::Registermulteplicities::default_array();
         let mut left_multeplicities_smaller = PRECISION::Registermulteplicities::default_array();
         let mut right_multeplicities_larger = PRECISION::Registermulteplicities::default_array();
@@ -376,7 +415,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
             + right_multeplicities_smaller[0].convert()
             == PRECISION::NUMBER_OF_REGISTERS
         {
-            return (left_cardinality, right_cardinality, 0.0);
+            return EstimatedUnionCardinalities::from((left_cardinality, right_cardinality, 0.0));
         }
 
         // Otherwise, we compute the multeplicities vector obtained
@@ -404,7 +443,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
         let left_difference = union_cardinality - right_cardinality;
         let right_difference = union_cardinality - left_cardinality;
 
-        let relative_error_limit = 1e-4 / (PRECISION::NUMBER_OF_REGISTERS as f64).sqrt();
+        let relative_error_limit =
+            10.0_f64.powi(-ERROR) / (PRECISION::NUMBER_OF_REGISTERS as f64).sqrt();
 
         // we introdce the following expressions to simplify the computation
         // of the gradient.
@@ -436,45 +476,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
         // We precompute q and q+1 for reference.
         let q_plus_one = self.multeplicities.len() - 1;
         let q = q_plus_one - 1;
-
-        // THE LIKELYHOOD FUNCTION IS NEVER USED WITHIN THIS CONTEXT
-        // let likelyhood = |left: f64, right: f64, joint: f64| -> f64 {
-        //     (1..=q)
-        //         .map(|k| {
-        //             (left_multeplicities_smaller[k].convert() as f64)
-        //                 * (z(joint, k) + y(joint, k) * z(left, k)).ln()
-        //                 + (right_multeplicities_smaller[k].convert() as f64)
-        //                     * (z(joint, k) + y(joint, k) * z(right, k)).ln()
-        //                 + (left_multeplicities_larger[k].convert() as f64) * z(left, k).ln()
-        //                 + (right_multeplicities_larger[k].convert() as f64) * z(right, k).ln()
-        //                 + (joint_multeplicities[k].convert() as f64)
-        //                     * (z(joint, k) + y(joint, k) * z(left, k) * z(right, k)).ln()
-        //         })
-        //         .sum::<f64>()
-        //         - (0..=q)
-        //             .map(|k| {
-        //                 (left_multeplicities_smaller[k]
-        //                     + left_multeplicities_larger[k]
-        //                     + joint_multeplicities[k])
-        //                     .convert() as f64
-        //                     * x(left, k).ln()
-        //                     + (right_multeplicities_smaller[k]
-        //                         + right_multeplicities_larger[k]
-        //                         + joint_multeplicities[k])
-        //                         .convert() as f64
-        //                         * x(right, k).ln()
-        //                     + (left_multeplicities_smaller[k]
-        //                         + joint_multeplicities[k]
-        //                         + right_multeplicities_smaller[k])
-        //                         .convert() as f64
-        //                         * x(joint, k).ln()
-        //             })
-        //             .sum::<f64>()
-        //         + left_multeplicities_larger[q_plus_one].convert() as f64 * z(left, q).ln()
-        //         + right_multeplicities_larger[q_plus_one].convert() as f64 * z(right, q).ln()
-        //         + joint_multeplicities[q_plus_one].convert() as f64
-        //             * (z(joint, q) + y(joint, q) * z(left, q) * z(right, q)).ln()
-        // };
 
         let hlls_gradient = |phi_joint: f64,
                              first_phi: f64,
@@ -525,6 +526,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
         let first_order_decay_factor = 0.9;
         let second_order_decay_factor = 0.999;
         let learning_rate = 0.001;
+        let convergence_patience = 10;
+        let mut patience = 0;
 
         loop {
             let left_phi_gradient: f64 = hlls_gradient(
@@ -602,7 +605,12 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
                 .max((phis[2] - phis_old[2]).abs())
                 <= relative_error_limit
             {
-                break;
+                patience += 1;
+                if patience >= convergence_patience {
+                    break;
+                }
+            } else {
+                patience = 0;
             }
 
             iteration += 1;
@@ -610,11 +618,15 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
             phis_old = phis;
         }
 
-        let left_cardinality = phis[0].exp();
-        let right_cardinality = phis[1].exp();
-        let joint_cardinality = phis[2].exp();
+        let left_difference = phis[0].exp();
+        let right_difference = phis[1].exp();
+        let intersection = phis[2].exp();
 
-        (left_cardinality, right_cardinality, joint_cardinality)
+        EstimatedUnionCardinalities::from((
+            left_difference + intersection,
+            right_difference + intersection,
+            left_difference + right_difference + intersection,
+        ))
     }
 }
 
@@ -734,23 +746,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
     /// as we can compute the cardinality of the counter using the multeplicities instead of the
     /// registers. This is much faster as we do not need to compute the harmonic mean of the registers.
     fn estimate_cardinality(&self) -> f32 {
-        if self.get_number_of_zero_registers() > 0 {
-            let low_range_correction =
-                PRECISION::SMALL_CORRECTIONS[self.get_number_of_zero_registers() - 1];
-            if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
-                return low_range_correction;
-            }
-        }
-
-        let mut raw_estimate = 0.0;
-
-        for (current_register, multeplicity) in self.multeplicities.iter_elements().enumerate() {
-            let two_to_minus_register: i32 = (127 - current_register as i32) << 23;
-            raw_estimate += (multeplicity.convert() as f32)
-                * f32::from_le_bytes(two_to_minus_register.to_le_bytes());
-        }
-
-        Self::adjust_estimate(raw_estimate)
+        Self::estimate_cardinality_from_multeplicities(&self.multeplicities)
     }
 
     /// Returns a reference to the words vector.

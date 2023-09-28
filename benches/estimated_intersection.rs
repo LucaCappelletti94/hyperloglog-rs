@@ -2,89 +2,160 @@
 extern crate test;
 
 use hyperloglog_rs::prelude::*;
-
+use rand::Rng;
+use rand::SeedableRng;
 use test::{black_box, Bencher};
 
-fn populate_vectors<const N: usize>() -> (
-    [HyperLogLog<Precision4, 4>; N],
-    [HyperLogLog<Precision4, 4>; N],
-) {
-    // Optionally include some setup
-    const NUMBER_OF_ELEMENTS: usize = 100;
-
-    // We create the counters, populate them with data and
-    // then we create the arrays to use to estimate the
-    // estimated overlap cardinality matrices:
-
+fn populate_vectors(random_state: u64) -> (HyperLogLog<Precision4, 6>, HyperLogLog<Precision4, 6>) {
     // Create the counters
-    let mut left: [HyperLogLog<Precision4, 4>; N] = [HyperLogLog::new(); N];
-    let mut right: [HyperLogLog<Precision4, 4>; N] = [HyperLogLog::new(); N];
+    let mut left = HyperLogLog::new();
+    let mut right = HyperLogLog::new();
 
-    left[0].insert(&56);
-    right[0].insert(&32);
+    // We randomize the number of elements to insert in the first
+    // counter, to make sure we test different cases.
+    let mut rng = rand::rngs::StdRng::seed_from_u64(random_state);
+    let left_size = rng.gen_range(0..100_000);
 
-    // Populate the counters
-    for i in 1..N {
-        // We make sure that all values in the leftmost
-        // counters are contained in the rightmost counters
-        let tmp = left[i] | &left[i - 1];
-        left[i] = tmp;
-        let tmp = right[i] | &right[i - 1];
-        right[i] = tmp;
-        for j in 1..NUMBER_OF_ELEMENTS {
-            // We populate the countes
-            left[i].insert(&((j * i * 3) % 20));
-            right[i].insert(&((j * i * 7) % 20));
-        }
+    // We update the random state to make sure the second counter
+    // is different from the first one.
+    let right_size = rng.gen_range(0..100_000);
+
+    // We also compute the maximal size of the left and right universe,
+    // to make sure we test different cases.
+    let left_max_size = rng.gen_range(0..100_000);
+    let right_max_size = rng.gen_range(0..100_000);
+
+    // We insert the elements in both counters
+    for _ in 0..left_size {
+        left.insert(&rng.gen::<u64>() % left_max_size);
+    }
+
+    for _ in 0..right_size {
+        right.insert(&rng.gen::<u64>() % right_max_size);
     }
 
     (left, right)
 }
 
 #[bench]
-fn bench_overlap_and_differences_cardinality_matrices_2(b: &mut Bencher) {
-    let (left, right) = populate_vectors::<2>();
+fn bench_intersection_hll(b: &mut Bencher) {
+    let mut cases = Vec::new();
+
+    let number_of_cases = 2;
+    for random_state in 0..number_of_cases {
+        let (left, right) = populate_vectors(random_state + 56);
+        cases.push((left, right));
+    }
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(for _ in 0..10_000 {
-            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 2, 2>(&left, &right);
+        black_box(for (left, right) in &cases {
+            left.estimate_intersection_cardinality::<f32>(&right);
         });
     });
 }
 
 #[bench]
-fn bench_overlap_and_differences_cardinality_matrices_3(b: &mut Bencher) {
-    let (left, right) = populate_vectors::<3>();
+fn bench_intersection_mle_2(b: &mut Bencher) {
+    let mut cases = Vec::new();
+
+    let number_of_cases = 2;
+
+    for random_state in 0..number_of_cases {
+        let (left, right) = populate_vectors(random_state + 56);
+        let left: HyperLogLogWithMulteplicities<Precision4, 6> = left.into();
+        let right: HyperLogLogWithMulteplicities<Precision4, 6> = right.into();
+        cases.push((left, right));
+    }
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(for _ in 0..10_000 {
-            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 3, 3>(&left, &right);
+        black_box(for (left, right) in &cases {
+            left.joint_cardinality_estimation::<2>(&right);
         });
     });
 }
 
 #[bench]
-fn bench_overlap_and_differences_cardinality_matrices_4(b: &mut Bencher) {
-    let (left, right) = populate_vectors::<4>();
+fn bench_intersection_mle_3(b: &mut Bencher) {
+    let mut cases = Vec::new();
+
+    let number_of_cases = 2;
+
+    for random_state in 0..number_of_cases {
+        let (left, right) = populate_vectors(random_state + 56);
+        let left: HyperLogLogWithMulteplicities<Precision4, 6> = left.into();
+        let right: HyperLogLogWithMulteplicities<Precision4, 6> = right.into();
+        cases.push((left, right));
+    }
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(for _ in 0..10_000 {
-            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 4, 4>(&left, &right);
+        black_box(for (left, right) in &cases {
+            left.joint_cardinality_estimation::<3>(&right);
         });
     });
 }
 
 #[bench]
-fn bench_overlap_and_differences_cardinality_matrices_5(b: &mut Bencher) {
-    let (left, right) = populate_vectors::<5>();
+fn bench_intersection_mle_4(b: &mut Bencher) {
+    let mut cases = Vec::new();
+
+    let number_of_cases = 2;
+
+    for random_state in 0..number_of_cases {
+        let (left, right) = populate_vectors(random_state + 56);
+        let left: HyperLogLogWithMulteplicities<Precision4, 6> = left.into();
+        let right: HyperLogLogWithMulteplicities<Precision4, 6> = right.into();
+        cases.push((left, right));
+    }
 
     b.iter(|| {
         // Inner closure, the actual test
-        black_box(for _ in 0..10_000 {
-            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 5, 5>(&left, &right);
+        black_box(for (left, right) in &cases {
+            left.joint_cardinality_estimation::<4>(&right);
+        });
+    });
+}
+
+#[bench]
+fn bench_intersection_mle_5(b: &mut Bencher) {
+    let mut cases = Vec::new();
+
+    let number_of_cases = 2;
+
+    for random_state in 0..number_of_cases {
+        let (left, right) = populate_vectors(random_state + 56);
+        let left: HyperLogLogWithMulteplicities<Precision4, 6> = left.into();
+        let right: HyperLogLogWithMulteplicities<Precision4, 6> = right.into();
+        cases.push((left, right));
+    }
+
+    b.iter(|| {
+        // Inner closure, the actual test
+        black_box(for (left, right) in &cases {
+            left.joint_cardinality_estimation::<5>(&right);
+        });
+    });
+}
+
+#[bench]
+fn bench_intersection_mle_6(b: &mut Bencher) {
+    let mut cases = Vec::new();
+
+    let number_of_cases = 2;
+
+    for random_state in 0..number_of_cases {
+        let (left, right) = populate_vectors(random_state + 56);
+        let left: HyperLogLogWithMulteplicities<Precision4, 6> = left.into();
+        let right: HyperLogLogWithMulteplicities<Precision4, 6> = right.into();
+        cases.push((left, right));
+    }
+
+    b.iter(|| {
+        // Inner closure, the actual test
+        black_box(for (left, right) in &cases {
+            left.joint_cardinality_estimation::<6>(&right);
         });
     });
 }
