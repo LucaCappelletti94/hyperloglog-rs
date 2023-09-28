@@ -226,7 +226,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
     ///     hll2.insert(elem);
     /// }
     ///
-    /// let euc = hll1.joint_cardinality_estimation(&hll2);
+    /// let euc = hll1.joint_cardinality_estimation::<4>(&hll2);
     ///
     /// let left_difference = euc.get_left_difference_cardinality();
     /// let right_difference = euc.get_right_difference_cardinality();
@@ -308,7 +308,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
     ///    hll2.insert(elem);
     /// }
     ///
-    /// let euc = hll1.joint_cardinality_estimation(&hll2);
+    /// let euc = hll1.joint_cardinality_estimation::<4>(&hll2);
     ///
     /// let left_difference = euc.get_left_difference_cardinality();
     /// let right_difference = euc.get_right_difference_cardinality();
