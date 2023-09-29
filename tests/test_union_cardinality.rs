@@ -113,7 +113,7 @@ fn test_union_cardinality_perfs() {
     // For each precision and number of bits, we generate 1000 random sets and write them to the file.
     // We also write the exact union similarity and the estimated union similarity using HyperLogLog.
     (0..100_000_000_u64).into_par_iter().progress().for_each(|i|{
-        let path = format!("union_cardinality_benchmark_{}.tsv", i);
+        let path = format!("union_test/union_cardinality_benchmark_{}.tsv", i);
 
         // If the path already exists, we skip it.
         if std::path::Path::new(&path).exists() {
