@@ -42,20 +42,26 @@ fn union(set1: &HashSet<u64>, set2: &HashSet<u64>) -> usize {
 fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     vec1: &Vec<u64>,
     vec2: &Vec<u64>,
+    left_cardinality: usize,
+    right_cardinality: usize,
     exact_union: usize,
     file: &mut File,
 ) -> std::io::Result<()> {
     let hll1: HyperLogLog<PRECISION, BITS> = vec1.iter().collect();
     let hll2: HyperLogLog<PRECISION, BITS> = vec2.iter().collect();
 
-    let approximation = hll1.estimate_union_cardinality(&hll2);
+    let approximation: EstimatedUnionCardinalities<f32> = hll1.estimate_union_and_sets_cardinality(&hll2);
 
     let line = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\n",
+        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
         PRECISION::EXPONENT,
         BITS,
+        left_cardinality,
+        right_cardinality,
         exact_union,
-        approximation,
+        approximation.get_left_cardinality(),
+        approximation.get_right_cardinality(),
+        approximation.get_union_cardinality(),
         hll1.get_number_of_zero_registers(),
         hll2.get_number_of_zero_registers(),
     );
@@ -68,37 +74,41 @@ fn write_line_set<
 >(
     vec1: &Vec<u64>,
     vec2: &Vec<u64>,
+    left_cardinality: usize,
+    right_cardinality: usize,
     exact_union: usize,
     file: &mut File,
 ) {
-    write_line::<PRECISION, 1>(&vec1, &vec2,  exact_union, file).unwrap();
-    write_line::<PRECISION, 2>(&vec1, &vec2,  exact_union, file).unwrap();
-    write_line::<PRECISION, 3>(&vec1, &vec2,  exact_union, file).unwrap();
-    write_line::<PRECISION, 4>(&vec1, &vec2,  exact_union, file).unwrap();
-    write_line::<PRECISION, 5>(&vec1, &vec2,  exact_union, file).unwrap();
-    write_line::<PRECISION, 6>(&vec1, &vec2,  exact_union, file).unwrap();
+    write_line::<PRECISION, 1>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, file).unwrap();
+    write_line::<PRECISION, 2>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, file).unwrap();
+    write_line::<PRECISION, 3>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, file).unwrap();
+    write_line::<PRECISION, 4>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, file).unwrap();
+    write_line::<PRECISION, 5>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, file).unwrap();
+    write_line::<PRECISION, 6>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, file).unwrap();
 }
 
 fn write_line_set_for_hasher(
     vec1: &Vec<u64>,
     vec2: &Vec<u64>,
+    left_cardinality: usize,
+    right_cardinality: usize,
     exact_union: usize,
     file: &mut File,
 ) {
-    write_line_set::<Precision4>(&vec1, &vec2, exact_union, file);
-    write_line_set::<Precision5>(&vec1, &vec2, exact_union, file);
-    write_line_set::<Precision6>(&vec1, &vec2, exact_union, file);
-    write_line_set::<Precision7>(&vec1, &vec2, exact_union, file);
-    write_line_set::<Precision8>(&vec1, &vec2, exact_union, file);
-    write_line_set::<Precision9>(&vec1, &vec2, exact_union, file);
-    write_line_set::<Precision10>(&vec1, &vec2, exact_union, file);
-    write_line_set::<Precision11>(&vec1, &vec2, exact_union, file);
-    write_line_set::<Precision12>(&vec1, &vec2, exact_union, file);
-    write_line_set::<Precision13>(&vec1, &vec2, exact_union, file);
-    write_line_set::<Precision14>(&vec1, &vec2, exact_union, file);
-    write_line_set::<Precision15>(&vec1, &vec2, exact_union, file);
-    write_line_set::<Precision16>(&vec1, &vec2, exact_union, file);
-    write_line_set::<Precision17>(&vec1, &vec2, exact_union, file);
+    write_line_set::<Precision4>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
+    write_line_set::<Precision5>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
+    write_line_set::<Precision6>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
+    write_line_set::<Precision7>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
+    write_line_set::<Precision8>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
+    write_line_set::<Precision9>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
+    write_line_set::<Precision10>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
+    write_line_set::<Precision11>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
+    write_line_set::<Precision12>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
+    write_line_set::<Precision13>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
+    write_line_set::<Precision14>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
+    write_line_set::<Precision15>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
+    write_line_set::<Precision16>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
+    write_line_set::<Precision17>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, file);
 }
 
 #[test]
@@ -121,7 +131,7 @@ fn test_union_cardinality_perfs() {
         }
 
         let mut file = File::create(path).unwrap();
-        file.write_all(b"precision\tbits\texact\tapproximation\tnumber_of_zeros_left\tnumber_of_zeros_right\n")
+        file.write_all(b"precision\tbits\tleft_cardinality\tright_cardinality\tunion_cardinality\tapproximated_left_cardinality\tapproximated_right_cardinality\tapproximated_union_cardinality\tnumber_of_zeros_left\tnumber_of_zeros_right\n")
             .unwrap();
         
         let seed = (i + 1).wrapping_mul(234567898765);
@@ -159,7 +169,7 @@ fn test_union_cardinality_perfs() {
         let exact = union(&set1, &set2);
 
         write_line_set_for_hasher(
-            &vec1, &vec2, exact, &mut file,
+            &vec1, &vec2, set1.len(), set2.len(), exact, &mut file,
         );
     });
 }
