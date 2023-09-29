@@ -113,16 +113,11 @@ fn write_line_set_for_hasher(
 
 #[test]
 fn test_union_cardinality_perfs() {
-    // since both the precision and the number of bits are compile time constants, we can
-    // not iterate over the precision and bits, but we need to manually change them, making
-    // the code a bit verbose:
 
-    // precision 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-    // bits 4, 5, 6
+    let number_of_tests = 100_000_000;
+    let progress_bar = indicatif::ProgressBar::new(number_of_tests);
 
-    // For each precision and number of bits, we generate 1000 random sets and write them to the file.
-    // We also write the exact union similarity and the estimated union similarity using HyperLogLog.
-    (0..100_000_000_u64).into_par_iter().progress().for_each(|i|{
+    (0..number_of_tests).into_par_iter().progress_with(progress_bar).for_each(|i|{
         let path = format!("union_test/union_cardinality_benchmark_{}.tsv", i);
 
         // If the path already exists, we skip it.
