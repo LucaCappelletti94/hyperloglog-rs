@@ -35,13 +35,13 @@ fn xorshift(mut x: u64) -> u64 {
     x
 }
 
-fn union(set1: &HashSet<u64>, set2: &HashSet<u64>) -> usize {
+fn union(set1: &HashSet<u32>, set2: &HashSet<u32>) -> usize {
     set1.union(set2).count()
 }
 
 fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
-    vec1: &Vec<u64>,
-    vec2: &Vec<u64>,
+    vec1: &Vec<u32>,
+    vec2: &Vec<u32>,
     left_cardinality: usize,
     right_cardinality: usize,
     exact_union: usize,
@@ -72,8 +72,8 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
 fn write_line_set<
     PRECISION: Precision + WordType<1> + WordType<2> + WordType<3> + WordType<4> + WordType<5> + WordType<6>,
 >(
-    vec1: &Vec<u64>,
-    vec2: &Vec<u64>,
+    vec1: &Vec<u32>,
+    vec2: &Vec<u32>,
     left_cardinality: usize,
     right_cardinality: usize,
     exact_union: usize,
@@ -88,8 +88,8 @@ fn write_line_set<
 }
 
 fn write_line_set_for_hasher(
-    vec1: &Vec<u64>,
-    vec2: &Vec<u64>,
+    vec1: &Vec<u32>,
+    vec2: &Vec<u32>,
     left_cardinality: usize,
     right_cardinality: usize,
     exact_union: usize,
@@ -132,8 +132,8 @@ fn test_union_cardinality_perfs() {
         let seed = (i + 1).wrapping_mul(234567898765);
         let mut rng = splitmix64(seed);
 
-        let mut set1 = HashSet::new();
-        let mut set2 = HashSet::new();
+        let mut set1: HashSet<u32> = HashSet::new();
+        let mut set2: HashSet<u32> = HashSet::new();
 
         let first_set_cardinality = xorshift(rng) % 100_000_000;
         rng = splitmix64(rng);
@@ -144,20 +144,20 @@ fn test_union_cardinality_perfs() {
         let second_world_size = xorshift(rng) % 100_000_000;
         rng = splitmix64(rng);
 
-        let mut vec1 = Vec::new();
-        let mut vec2 = Vec::new();
+        let mut vec1: Vec<u32> = Vec::new();
+        let mut vec2: Vec<u32> = Vec::new();
 
         for _ in 0..first_set_cardinality {
             let value = xorshift(rng) % first_world_size;
-            set1.insert(value);
-            vec1.push(value);
+            set1.insert(value as u32);
+            vec1.push(value as u32);
             rng = splitmix64(rng);
         }
 
         for _ in 0..second_set_cardinality {
             let value = xorshift(rng) % second_world_size;
-            set2.insert(value);
-            vec2.push(value);
+            set2.insert(value as u32);
+            vec2.push(value as u32);
             rng = splitmix64(rng);
         }
 
