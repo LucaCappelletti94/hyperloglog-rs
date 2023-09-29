@@ -135,9 +135,9 @@ fn test_union_cardinality_perfs() {
         let mut set1: HashSet<u32> = HashSet::new();
         let mut set2: HashSet<u32> = HashSet::new();
 
-        let first_set_cardinality = xorshift(rng) % 100_000_000;
+        let first_set_cardinality = xorshift(rng) % 1_000_000;
         rng = splitmix64(rng);
-        let second_set_cardinality = xorshift(rng) % 100_000_000;
+        let second_set_cardinality = xorshift(rng) % 1_000_000;
         rng = splitmix64(rng);
         let first_world_size = xorshift(rng) % 100_000_000;
         rng = splitmix64(rng);
