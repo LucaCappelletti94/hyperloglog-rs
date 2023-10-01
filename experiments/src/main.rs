@@ -322,7 +322,7 @@ impl Dense<6> {
             .iter_mut()
             .zip(adam_gradient.into_iter())
             .for_each(|(weight, gradient): (&mut f32, f32)| {
-                *weight -= gradient;
+                *weight += gradient;
             });
 
         history
