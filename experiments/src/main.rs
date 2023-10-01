@@ -380,7 +380,7 @@ impl Dense<6> {
 fn main() {
     let number_of_epochs = 1_000;
     let number_of_samples = 10_000;
-    let repetitions_per_batch = 1_000;
+    let repetitions_per_batch = 10_000;
     let random_state = 453465175128736;
 
     let mut model = Dense::<6>::random(random_state);
