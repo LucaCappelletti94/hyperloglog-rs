@@ -146,6 +146,7 @@ impl<const N: usize> Default for Adam<N> {
 
 impl<const N: usize> Adam<N> {
     fn update(&mut self, mut gradients: [f32; N]) -> [f32; N] {
+        self.time += 1;
         self.first_moments
             .iter_mut()
             .zip(self.second_moments.iter_mut())
@@ -156,9 +157,9 @@ impl<const N: usize> Adam<N> {
                 *second_moment = self.second_order_decay_factor * *second_moment
                     + (1.0 - self.second_order_decay_factor) * *gradient * *gradient;
                 *gradient = self.learning_rate * *first_moment
-                    / (1.0 - self.first_order_decay_factor.powi(self.time + 1)).sqrt()
+                    / (1.0 - self.first_order_decay_factor.powi(self.time)).sqrt()
                     / (*second_moment
-                        / (1.0 - self.second_order_decay_factor.powi(self.time + 1)).sqrt()
+                        / (1.0 - self.second_order_decay_factor.powi(self.time)).sqrt()
                         + 1e-8);
             });
         gradients
