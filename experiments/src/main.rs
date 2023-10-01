@@ -331,12 +331,13 @@ impl Dense<6> {
     fn train<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
         &mut self,
         number_of_epochs: usize,
+        repetitions_per_batch: usize,
         number_of_samples: usize,
         mut random_state: u64,
     ) -> Vec<EpochHistory> {
         // We use indicatif to create an extensive loading bar that can display
         // the data from the latest epoch history metadata.
-        let progress_bar = ProgressBar::new(number_of_epochs as u64);
+        let progress_bar = ProgressBar::new(repetitions_per_batch as u64 * number_of_epochs as u64);
         progress_bar.set_style(
             ProgressStyle::default_bar()
                 .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
@@ -350,13 +351,17 @@ impl Dense<6> {
             .map(|_| {
                 random_state = splitmix64(random_state);
                 let samples = generate_samples::<PRECISION, BITS>(number_of_samples, random_state);
-                let epoch_history = self.train_single_epoch(&samples);
+                let mut epoch_history = EpochHistory::default();
 
-                // We update the progress bar with the latest epoch history metadata.
-                progress_bar.set_message(&epoch_history.to_csv_line());
+                (0..repetitions_per_batch).for_each(|_| {
+                    epoch_history = self.train_single_epoch(&samples);
 
-                // We increment the progress bar.
-                progress_bar.inc(1);
+                    // We update the progress bar with the latest epoch history metadata.
+                    progress_bar.set_message(&epoch_history.to_csv_line());
+
+                    // We increment the progress bar.
+                    progress_bar.inc(1);
+                });
 
                 epoch_history
             })
@@ -375,8 +380,14 @@ impl Dense<6> {
 fn main() {
     let number_of_epochs = 1_000;
     let number_of_samples = 10_000;
+    let repetitions_per_batch = 1_000;
     let random_state = 453465175128736;
 
     let mut model = Dense::<6>::random(random_state);
-    model.train::<Precision6, 6>(number_of_epochs, number_of_samples, random_state);
+    model.train::<Precision6, 6>(
+        number_of_epochs,
+        repetitions_per_batch,
+        number_of_samples,
+        random_state,
+    );
 }
