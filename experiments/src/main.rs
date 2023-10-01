@@ -63,7 +63,7 @@ impl Sample {
     }
 
     fn get_prediction_squared_error_derivative(&self, prediction: f32) -> f32 {
-        2.0 * (self.union_cardinality as f32 - prediction)
+        - 2.0 * (self.union_cardinality as f32 - prediction)
     }
 
     fn get_hyperloglog_squared_error(&self) -> f32 {
