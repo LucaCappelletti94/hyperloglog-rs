@@ -371,8 +371,8 @@ impl Dense<5> {
 fn main() {
     let number_of_epochs = 100;
     let number_of_samples = 100_000;
-    let random_state = 0;
+    let random_state = 453465175128736;
 
-    let mut model = Dense::<5>::random(453465175128736);
+    let mut model = Dense::<5>::random(random_state);
     model.train::<Precision6, 6>(number_of_epochs, number_of_samples, random_state);
 }
