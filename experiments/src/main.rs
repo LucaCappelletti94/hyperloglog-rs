@@ -15,6 +15,7 @@ struct Sample {
     approximation_left_cardinality: usize,
     approximation_right_cardinality: usize,
     approximation_union_cardinality: usize,
+    approximation_intersection_cardinality: usize,
     left_number_of_zeros_rate: f32,
     right_number_of_zeros_rate: f32,
 }
@@ -28,16 +29,17 @@ impl Sample {
         let hll2: HyperLogLog<PRECISION, BITS> = right.iter().collect();
         let set1: HashSet<u32> = left.iter().copied().collect();
         let set2: HashSet<u32> = right.iter().copied().collect();
+        let euc: EstimatedUnionCardinalities<f32> = hll1.estimate_union_and_sets_cardinality(&hll2);
 
         Sample {
             // left_cardinality: set1.len(),
             // right_cardinality: set2.len(),
             union_cardinality: set1.union(&set2).count(),
-            approximation_left_cardinality: hll1.estimate_cardinality().round() as usize,
-            approximation_right_cardinality: hll2.estimate_cardinality().round() as usize,
-            approximation_union_cardinality: hll1
-                .estimate_union_and_sets_cardinality(&hll2)
-                .get_union_cardinality(),
+            approximation_left_cardinality: euc.get_left_cardinality().round() as usize,
+            approximation_right_cardinality: euc.get_right_cardinality().round() as usize,
+            approximation_union_cardinality: euc.get_union_cardinality().round() as usize,
+            approximation_intersection_cardinality: euc.get_intersection_cardinality().round()
+                as usize,
             left_number_of_zeros_rate: hll1.get_number_of_zero_registers() as f32
                 / PRECISION::NUMBER_OF_REGISTERS as f32,
             right_number_of_zeros_rate: hll2.get_number_of_zero_registers() as f32
@@ -45,11 +47,12 @@ impl Sample {
         }
     }
 
-    fn as_array(&self) -> [f32; 5] {
+    fn as_array(&self) -> [f32; 6] {
         [
             self.approximation_left_cardinality as f32,
             self.approximation_right_cardinality as f32,
             self.approximation_union_cardinality as f32,
+            self.approximation_intersection_cardinality as f32,
             self.left_number_of_zeros_rate,
             self.right_number_of_zeros_rate,
         ]
@@ -269,9 +272,9 @@ impl<const N: usize> Dense<N> {
     }
 }
 
-impl Dense<5> {
-    fn predict(&self, sample: &Sample) -> ([f32; 5], f32) {
-        let sample_values: [f32; 5] = sample.as_array();
+impl Dense<6> {
+    fn predict(&self, sample: &Sample) -> ([f32; 6], f32) {
+        let sample_values: [f32; 6] = sample.as_array();
         let prediction = sample_values
             .iter()
             .zip(self.weights.iter())
@@ -281,7 +284,7 @@ impl Dense<5> {
     }
 
     fn train_single_epoch(&mut self, samples: &[Sample]) -> EpochHistory {
-        let (mut total_gradient, history): ([f32; 5], EpochHistory) = samples
+        let (mut total_gradient, history): ([f32; 6], EpochHistory) = samples
             .par_iter()
             .map(|sample: &Sample| {
                 let (mut input, prediction) = self.predict(sample);
@@ -296,8 +299,8 @@ impl Dense<5> {
                 )
             })
             .reduce(
-                || ([0.0; 5], EpochHistory::default()),
-                |(mut total_weights_gradient, history): ([f32; 5], EpochHistory), (partial_weights_gradient, partial_history): ([f32; 5], EpochHistory)| {
+                || ([0.0; 6], EpochHistory::default()),
+                |(mut total_weights_gradient, history): ([f32; 6], EpochHistory), (partial_weights_gradient, partial_history): ([f32; 6], EpochHistory)| {
                     total_weights_gradient
                         .iter_mut()
                         .zip(partial_weights_gradient.into_iter())
@@ -360,7 +363,7 @@ impl Dense<5> {
             .collect()
     }
 
-    fn get_weights(&self) -> &[f32; 5] {
+    fn get_weights(&self) -> &[f32; 6] {
         &self.weights
     }
 
@@ -374,6 +377,6 @@ fn main() {
     let number_of_samples = 10_000;
     let random_state = 453465175128736;
 
-    let mut model = Dense::<5>::random(random_state);
+    let mut model = Dense::<6>::random(random_state);
     model.train::<Precision6, 6>(number_of_epochs, number_of_samples, random_state);
 }
