@@ -229,7 +229,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
     ///
     /// ```rust
     /// use hyperloglog_rs::prelude::*;
-    ///
+    ///                                                                                                                                                                                                                                                                    
     /// let words = [0_u32; 4];
     /// let hll = HyperLogLog::<Precision4, 6>::from_words(&words);
     /// assert_eq!(hll.len(), 16);
@@ -323,11 +323,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
         // the number of zeros we obtain afterwards is never higher
         // than the maximal value that may be represented in a register
         // with BITS bits.
-        if BITS < 6 {
-            hash |= 1 << (64 - ((1 << BITS) - 1));
+        hash |= if BITS < 6 {
+            1 << (64 - ((1 << BITS) - 1))
         } else {
-            hash |= 1 << (PRECISION::EXPONENT - 1);
-        }
+            1 << (PRECISION::EXPONENT - 1)
+        };
 
         // Count leading zeros.
         let number_of_zeros: u32 = 1 + hash.leading_zeros();

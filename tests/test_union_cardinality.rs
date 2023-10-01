@@ -98,20 +98,20 @@ fn write_line_set_for_hasher(
     exact_union: usize,
     writer: &mut impl Write,
 ) {
-    write_line_set::<Precision4>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    write_line_set::<Precision5>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    write_line_set::<Precision6>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    write_line_set::<Precision7>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    write_line_set::<Precision8>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    write_line_set::<Precision9>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    write_line_set::<Precision10>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    write_line_set::<Precision11>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision4>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision5>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision6>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision7>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision8>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision9>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision10>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision11>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
     write_line_set::<Precision12>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    write_line_set::<Precision13>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    write_line_set::<Precision14>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    write_line_set::<Precision15>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    write_line_set::<Precision16>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    write_line_set::<Precision17>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision13>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision14>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision15>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision16>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision17>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
 }
 
 #[test]
