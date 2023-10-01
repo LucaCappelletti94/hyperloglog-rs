@@ -370,8 +370,8 @@ impl Dense<5> {
 }
 
 fn main() {
-    let number_of_epochs = 100;
-    let number_of_samples = 100_000;
+    let number_of_epochs = 1_000;
+    let number_of_samples = 10_000;
     let random_state = 453465175128736;
 
     let mut model = Dense::<5>::random(random_state);
