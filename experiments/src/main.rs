@@ -245,8 +245,7 @@ struct Dense<const N: usize> {
 /// # Implementative details
 /// The square root of 6 is roughly: 2.45
 pub(crate) fn get_random_weight(random_state: u64, dimension_squared_root: f32) -> f32 {
-    ((1.0 + 1.0) * random_f32(splitmix64(random_state)) - 1.0) * (2.45 as f32)
-        / dimension_squared_root
+    (2.0 * random_f32(splitmix64(random_state)) - 1.0) * (2.45 as f32) / dimension_squared_root
 }
 
 impl<const N: usize> Dense<N> {
@@ -371,7 +370,7 @@ impl Dense<5> {
 
 fn main() {
     let number_of_epochs = 100;
-    let number_of_samples = 10_000;
+    let number_of_samples = 100_000;
     let random_state = 0;
 
     let mut model = Dense::<5>::random(453465175128736);
