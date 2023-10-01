@@ -84,13 +84,21 @@ fn generate_sample<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     let mut vec2: Vec<u32> = Vec::with_capacity(second_set_cardinality as usize);
 
     for _ in 0..first_set_cardinality {
-        let value = xorshift(random_state) % first_world_size;
+        let value = if first_world_size > 0 {
+            xorshift(random_state) % first_world_size
+        } else {
+            0
+        };
         vec1.push(value as u32);
         random_state = splitmix64(random_state);
     }
 
     for _ in 0..second_set_cardinality {
-        let value = xorshift(random_state) % second_world_size;
+        let value = if second_world_size > 0 {
+            xorshift(random_state) % second_world_size
+        } else {
+            0
+        };
         vec2.push(value as u32);
         random_state = splitmix64(random_state);
     }
