@@ -169,8 +169,15 @@ fn test_intersection_cardinality_perfs() {
 
     // For each precision and number of bits, we generate 1000 random sets and write them to the file.
     // We also write the exact intersection similarity and the estimated intersection similarity using HyperLogLog.
-    (0..2_000_usize).into_par_iter().progress().for_each(|i| {
-        let path = format!("intersection_cardinality_benchmark_{}.tsv", i);
+
+    let number_of_tests = 2_000;
+    let loading_bar = indicatif::ProgressBar::new(number_of_tests);
+
+    // We create the intersection_tests directory if it does not exist.
+    std::fs::create_dir_all("intersection_tests").unwrap();
+
+    (0..number_of_tests).into_par_iter().progress_with(loading_bar).for_each(|i| {
+        let path = format!("intersection_tests/intersection_cardinality_benchmark_{}.tsv", i);
 
         // If the file already exists we skip it.
         if std::path::Path::new(&path).exists() {

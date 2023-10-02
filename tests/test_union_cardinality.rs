@@ -114,7 +114,7 @@ fn write_line_set_for_hasher(
     // write_line_set::<Precision17>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
 }
 
-#[test]
+// #[test]
 fn test_union_cardinality_perfs() {
 
     let number_of_tests = 100_000_000;

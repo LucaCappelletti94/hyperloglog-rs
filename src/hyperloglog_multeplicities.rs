@@ -591,12 +591,12 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
                     *first_moment = first_order_decay_factor * *first_moment
                         + (1.0 - first_order_decay_factor) * *gradient;
                     *second_moment = second_order_decay_factor * *second_moment
-                        + (1.0 - second_order_decay_factor) * gradient * gradient;
-                    *phi += learning_rate * *first_moment
-                        / (1.0 - first_order_decay_factor.powi(iteration as i32 + 1)).sqrt()
-                        / (*second_moment
-                            / (1.0 - second_order_decay_factor.powi(iteration as i32 + 1)).sqrt()
-                            + 1e-8);
+                        + (1.0 - second_order_decay_factor) * (*gradient).powi(2);
+                    let adaptative_learning_rate = learning_rate
+                        * (1.0 - second_order_decay_factor.powi(iteration + 1)).sqrt()
+                        / (1.0 - first_order_decay_factor.powi(iteration + 1));
+                    *phi += adaptative_learning_rate * (*first_moment)
+                        / (*second_moment).sqrt().max(f64::EPSILON)
                 });
 
             if (phis[0] - phis_old[0])
