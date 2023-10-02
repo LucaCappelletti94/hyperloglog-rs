@@ -94,6 +94,7 @@ mod zeros;
 mod ones;
 mod hyperloglog_multeplicities;
 mod hyperloglog_trait;
+mod optimizers;
 
 pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
 pub use crate::hyperloglog::HyperLogLog;
@@ -113,6 +114,7 @@ pub mod prelude {
     pub use crate::precisions::*;
     pub use crate::precisions::*;
     pub use crate::primitive::*;
+    pub use crate::optimizers::*;
     pub use crate::serde::*;
     pub use crate::utils::*;
     pub use crate::zeros::*;
