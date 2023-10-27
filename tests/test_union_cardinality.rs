@@ -54,19 +54,15 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     let hll2: HyperLogLog<PRECISION, BITS> = vec2.iter().collect();
 
     let approximation: EstimatedUnionCardinalities<f32> = hll1.estimate_union_and_sets_cardinality(&hll2);
+    let nn_approximation: EstimatedUnionCardinalities<f32> = hll1.second_order_union_adjustment(&hll2);
 
     let line = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+        "{}\t{}\t{}\t{}\t{}\n",
         PRECISION::EXPONENT,
         BITS,
-        left_cardinality,
-        right_cardinality,
         exact_union,
-        approximation.get_left_cardinality().round() as usize,
-        approximation.get_right_cardinality().round() as usize,
-        approximation.get_union_cardinality().round() as usize,
-        hll1.get_number_of_zero_registers(),
-        hll2.get_number_of_zero_registers(),
+        approximation.get_union_cardinality(),
+        nn_approximation.get_union_cardinality(),
     );
 
     writer.write_all(line.as_bytes())
@@ -85,8 +81,8 @@ fn write_line_set<
     // write_line::<PRECISION, 1>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
     // write_line::<PRECISION, 2>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
     // write_line::<PRECISION, 3>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
-    write_line::<PRECISION, 4>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
-    write_line::<PRECISION, 5>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
+    // write_line::<PRECISION, 4>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
+    // write_line::<PRECISION, 5>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
     write_line::<PRECISION, 6>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
 }
 
@@ -102,11 +98,11 @@ fn write_line_set_for_hasher(
     // write_line_set::<Precision5>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
     // write_line_set::<Precision6>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
     // write_line_set::<Precision7>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    // write_line_set::<Precision8>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    write_line_set::<Precision8>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
     // write_line_set::<Precision9>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
     // write_line_set::<Precision10>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
     // write_line_set::<Precision11>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
-    write_line_set::<Precision12>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
+    // write_line_set::<Precision12>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
     // write_line_set::<Precision13>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
     // write_line_set::<Precision14>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
     // write_line_set::<Precision15>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
@@ -114,19 +110,19 @@ fn write_line_set_for_hasher(
     // write_line_set::<Precision17>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
 }
 
-// #[test]
+#[test]
 fn test_union_cardinality_perfs() {
 
-    let number_of_tests = 100_000_000;
+    let number_of_tests = 100_000;
     let progress_bar = indicatif::ProgressBar::new(number_of_tests);
 
     (0..number_of_tests).into_par_iter().progress_with(progress_bar).for_each(|i|{
         let path = format!("union_test/union_cardinality_benchmark_{}.tsv.gz", i);
 
         // If the path already exists, we skip it.
-        if std::path::Path::new(&path).exists() {
-            return;
-        }
+        // if std::path::Path::new(&path).exists() {
+        //     return;
+        // }
 
         let file = File::create(path).unwrap();
 
@@ -135,7 +131,7 @@ fn test_union_cardinality_perfs() {
             GzEncoder::new(file, Compression::default()),
         );
 
-        writer.write_all(b"precision\tbits\tleft_cardinality\tright_cardinality\tunion_cardinality\tapproximated_left_cardinality\tapproximated_right_cardinality\tapproximated_union_cardinality\tnumber_of_zeros_left\tnumber_of_zeros_right\n")
+        writer.write_all(b"precision\tbits\texact\thll\tnn\n")
             .unwrap();
         
         let seed = (i + 1).wrapping_mul(234567898765);
@@ -148,9 +144,9 @@ fn test_union_cardinality_perfs() {
         rng = splitmix64(rng);
         let second_set_cardinality = xorshift(rng) % 1_000_000;
         rng = splitmix64(rng);
-        let first_world_size = xorshift(rng) % 100_000_000;
+        let first_world_size = xorshift(rng) % 1_000_000;
         rng = splitmix64(rng);
-        let second_world_size = xorshift(rng) % 100_000_000;
+        let second_world_size = xorshift(rng) % 1_000_000;
         rng = splitmix64(rng);
 
         let mut vec1: Vec<u32> = Vec::new();

@@ -3,7 +3,6 @@ use siphasher::sip::SipHasher13;
 use crate::array_default::ArrayIter;
 use crate::bias::BIAS_DATA;
 use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
-use core::hash::Hasher;
 use crate::precisions::{Precision, WordType};
 use crate::prelude::*;
 use crate::prelude::{linear_counting_threshold, MaxMin};
@@ -11,11 +10,10 @@ use crate::primitive::Primitive;
 use crate::raw_estimate_data::RAW_ESTIMATE_DATA;
 use crate::utils::{ceil, get_alpha};
 use core::hash::Hash;
+use core::hash::Hasher;
 
-pub trait HyperLogLogTrait<
-    PRECISION: Precision + WordType<BITS>,
-    const BITS: usize,
->: Sized
+pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: usize>:
+    Sized
 {
     /// The threshold value used in the small range correction of the HyperLogLog algorithm.
     const INTERMEDIATE_RANGE_CORRECTION_THRESHOLD: f32 =
@@ -192,6 +190,80 @@ pub trait HyperLogLogTrait<
         raw_estimate -= Self::get_number_of_padding_registers() as f32;
 
         Self::adjust_estimate(raw_estimate)
+    }
+
+    fn second_order_cardinality_adjustment(&self) -> f32 {
+        assert!(PRECISION::EXPONENT == 8);
+        assert!(BITS == 6);
+        let approximation = self.estimate_cardinality();
+        let number_of_zeros = self.get_number_of_zero_registers() as f32;
+        let number_of_zeros_rate =
+            self.get_number_of_zero_registers() as f32 / PRECISION::NUMBER_OF_REGISTERS as f32;
+
+        let weights = [0.9228072, 0.0052479184, 0.16169931];
+        let bias = 13.130121;
+
+        ([approximation, number_of_zeros, number_of_zeros_rate]
+            .iter()
+            .zip(weights.iter())
+            .map(|(x, w)| x * w)
+            .sum::<f32>()
+            + bias)
+            .max(0.0)
+    }
+
+    fn second_order_union_adjustment(&self, other: &Self) -> EstimatedUnionCardinalities<f32> {
+        assert!(PRECISION::EXPONENT == 8);
+        assert!(BITS == 6);
+        let euc: EstimatedUnionCardinalities<f32> = self.estimate_union_and_sets_cardinality(other);
+        let approximation_left_cardinality = euc.get_left_cardinality();
+        let approximation_right_cardinality = euc.get_right_cardinality();
+        let approximation_union_cardinality = euc.get_union_cardinality();
+        let approximation_intersection_cardinality = euc.get_intersection_cardinality();
+        let approximation_left_difference = euc.get_left_difference_cardinality();
+        let approximation_right_difference = euc.get_right_difference_cardinality();
+        let approximation_symmetric_difference = euc.get_symmetric_difference_cardinality();
+        let left_number_of_zeros = self.get_number_of_zero_registers();
+        let right_number_of_zeros = other.get_number_of_zero_registers();
+
+        let input = [
+            approximation_left_cardinality as f32,
+            approximation_right_cardinality as f32,
+            approximation_union_cardinality as f32,
+            approximation_left_difference as f32,
+            approximation_right_difference as f32,
+            approximation_symmetric_difference as f32,
+            approximation_intersection_cardinality as f32,
+            left_number_of_zeros as f32,
+            right_number_of_zeros as f32,
+        ];
+
+        let weights = [
+            -0.4552027,
+            0.87494165,
+            0.41451707,
+            1.0906912,
+            -0.23572926,
+            -0.13723965,
+            0.08993981,
+            -3.9901836,
+            -1.0626647,
+        ];
+        let bias = 12.55702;
+
+        let adjusted_union = (input
+            .iter()
+            .zip(weights.iter())
+            .map(|(x, w)| x * w)
+            .sum::<f32>()
+            + bias)
+            .max(0.0);
+
+        EstimatedUnionCardinalities::from((
+            approximation_left_cardinality,
+            approximation_right_cardinality,
+            adjusted_union,
+        ))
     }
 
     #[inline(always)]

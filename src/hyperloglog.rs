@@ -1,7 +1,6 @@
 use crate::array_default::{ArrayDefault, ArrayIter};
 use crate::precisions::{Precision, WordType};
 use crate::prelude::HyperLogLogTrait;
-use crate::prelude::*;
 use crate::primitive::Primitive;
 use core::hash::Hash;
 
@@ -56,19 +55,12 @@ pub struct HyperLogLog<PRECISION: Precision + WordType<BITS>, const BITS: usize>
     pub(crate) number_of_zero_registers: PRECISION::NumberOfZeros,
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    From<HyperLogLogWithMulteplicities<PRECISION, BITS>> for HyperLogLog<PRECISION, BITS>
-{
-    fn from(hll: HyperLogLogWithMulteplicities<PRECISION, BITS>) -> Self {
-        Self::from_words(hll.get_words())
-    }
-}
-
 impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Eq for HyperLogLog<PRECISION, BITS> {
     fn assert_receiver_is_total_eq(&self) {
         // This is a no-op because we know that `Self` is `Eq`.
     }
 }
+
 
 /// Implements PartialEq for HyperLogLog.
 ///

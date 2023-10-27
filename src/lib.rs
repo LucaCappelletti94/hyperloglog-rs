@@ -72,7 +72,7 @@
 //! * [Flajolet, Philippe](https://en.wikipedia.org/wiki/Philippe_Flajolet), Éric Fusy, Olivier Gandouet, and Frédéric Meunier. "[Hyperloglog: the analysis of a near-optimal cardinality estimation algorithm.](https://hal.science/file/index/docid/406166/filename/FlFuGaMe07.pdf)" In Proceedings of the 2007 conference on analysis of algorithms, pp. 127-146. 2007.
 #![feature(const_float_bits_conv)]
 #![feature(const_fn_floating_point_arithmetic)]
-// #![cfg_attr(not(feature="std"), no_std)]
+#![cfg_attr(not(feature="std"), no_std)]
 
 mod array_default;
 mod bias;
@@ -92,9 +92,13 @@ pub mod serde;
 pub mod utils;
 mod zeros;
 mod ones;
-mod hyperloglog_multeplicities;
 mod hyperloglog_trait;
+
+#[cfg(feature = "std")]
+mod hyperloglog_multeplicities;
+#[cfg(feature = "std")]
 mod optimizers;
+
 
 pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
 pub use crate::hyperloglog::HyperLogLog;
@@ -106,7 +110,6 @@ pub mod prelude {
     pub use crate::estimated_union_cardinalities::*;
     pub use crate::hyper_spheres_sketch::*;
     pub use crate::hyperloglog::*;
-    pub use crate::hyperloglog_multeplicities::*;
     pub use crate::hyperloglog_trait::*;
     pub use crate::hyperloglog_array::*;
     pub use crate::iter::*;
@@ -114,10 +117,14 @@ pub mod prelude {
     pub use crate::precisions::*;
     pub use crate::precisions::*;
     pub use crate::primitive::*;
-    pub use crate::optimizers::*;
     pub use crate::serde::*;
     pub use crate::utils::*;
     pub use crate::zeros::*;
     pub use crate::ones::*;
     pub use core::ops::{BitOr, BitOrAssign};
+
+    #[cfg(feature = "std")]
+    pub use crate::hyperloglog_multeplicities::*;
+    #[cfg(feature = "std")]
+    pub use crate::optimizers::*;
 }

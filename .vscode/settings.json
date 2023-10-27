@@ -3,6 +3,7 @@
         "./experiments/Cargo.toml",
         "./experiments/Cargo.toml",
         "./experiments/Cargo.toml",
-        "./experiments/Cargo.toml"
+        "./experiments/Cargo.toml",
+        "./experiments/cardinality_model/Cargo.toml"
     ]
 }

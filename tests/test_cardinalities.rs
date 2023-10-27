@@ -45,14 +45,16 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     let hll_cardinality = hll.estimate_cardinality();
 
     let mle_cardinality = hll2.estimate_cardinality_mle();
+    let nn_cardinality = hll.second_order_cardinality_adjustment();
 
     let line = format!(
-        "{}\t{}\t{}\t{}\t{}\n",
+        "{}\t{}\t{}\t{}\t{}\t{}\n",
         PRECISION::EXPONENT,
         BITS,
         exact_cardinality,
         hll_cardinality,
         mle_cardinality,
+        nn_cardinality
         //set_str,
     );
 
@@ -67,11 +69,11 @@ fn write_line_set<
     exact_cardinality: usize,
     file: &mut File,
 ) {
-    write_line::<PRECISION, 1>(vector, set_str, exact_cardinality, file).unwrap();
-    write_line::<PRECISION, 2>(vector, set_str, exact_cardinality, file).unwrap();
-    write_line::<PRECISION, 3>(vector, set_str, exact_cardinality, file).unwrap();
-    write_line::<PRECISION, 4>(vector, set_str, exact_cardinality, file).unwrap();
-    write_line::<PRECISION, 5>(vector, set_str, exact_cardinality, file).unwrap();
+    // write_line::<PRECISION, 1>(vector, set_str, exact_cardinality, file).unwrap();
+    // write_line::<PRECISION, 2>(vector, set_str, exact_cardinality, file).unwrap();
+    // write_line::<PRECISION, 3>(vector, set_str, exact_cardinality, file).unwrap();
+    // write_line::<PRECISION, 4>(vector, set_str, exact_cardinality, file).unwrap();
+    // write_line::<PRECISION, 5>(vector, set_str, exact_cardinality, file).unwrap();
     write_line::<PRECISION, 6>(vector, set_str, exact_cardinality, file).unwrap();
 }
 
@@ -81,27 +83,27 @@ fn write_line_set_for_hasher(
     exact_cardinality: usize,
     file: &mut File,
 ) {
-    write_line_set::<Precision4>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision5>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision6>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision7>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision4>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision5>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision6>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision7>(vector, set_str, exact_cardinality, file);
     write_line_set::<Precision8>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision9>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision10>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision11>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision12>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision13>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision14>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision15>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision16>(vector, set_str, exact_cardinality, file);
-    write_line_set::<Precision17>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision9>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision10>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision11>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision12>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision13>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision14>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision15>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision16>(vector, set_str, exact_cardinality, file);
+    // write_line_set::<Precision17>(vector, set_str, exact_cardinality, file);
     // write_line_set::<Precision18>(vector, set_str, exact_cardinality, file);
 }
 
-// #[test]
+#[test]
 fn test_cardinality_perfs() {
     let mut file = File::create("cardinality_benchmark.tsv").unwrap();
-    file.write_all(b"precision\tbits\texact\thll\tmle\n")
+    file.write_all(b"precision\tbits\texact\thll\tmle\tnn\n")
         .unwrap();
 
     // since both the precision and the number of bits are compile time constants, we can

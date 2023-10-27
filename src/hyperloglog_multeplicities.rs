@@ -33,6 +33,14 @@ pub struct HyperLogLogWithMulteplicities<PRECISION: Precision + WordType<BITS>, 
 }
 
 impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
+    From<HyperLogLogWithMulteplicities<PRECISION, BITS>> for HyperLogLog<PRECISION, BITS>
+{
+    fn from(hll: HyperLogLogWithMulteplicities<PRECISION, BITS>) -> Self {
+        Self::from_words(hll.get_words())
+    }
+}
+
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
     HyperLogLogWithMulteplicities<PRECISION, BITS>
 {
     #[inline(always)]

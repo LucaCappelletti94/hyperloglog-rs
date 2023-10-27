@@ -6,115 +6,74 @@ use hyperloglog_rs::prelude::*;
 use indicatif::ParallelProgressIterator;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
+use rand::prelude::*;
 use rayon::prelude::*;
 use serde_json;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use rand::prelude::*;
 use vec_rand::{random_f32, splitmix64, xorshift};
 
 #[derive(Default, Debug, Clone, Copy)]
 struct Sample {
-    union_cardinality: usize,
-    approximation_left_cardinality: usize,
-    approximation_right_cardinality: usize,
-    approximation_union_cardinality: usize,
-    approximation_left_difference: usize,
-    approximation_right_difference: usize,
-    approximation_symmetric_difference: usize,
-    approximation_intersection_cardinality: usize,
-    left_number_of_zeros: usize,
-    right_number_of_zeros: usize,
+    cardinality: usize,
+    approximation: f32,
+    number_of_zeros: usize,
+    number_of_zeros_rate: f32,
 }
 
 impl Sample {
-    fn from_vecs<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
-        left: &[u32],
-        right: &[u32],
-    ) -> Self {
-        let hll1: HyperLogLog<PRECISION, BITS> = left.iter().collect();
-        let hll2: HyperLogLog<PRECISION, BITS> = right.iter().collect();
-        let set1: HashSet<u32> = left.iter().copied().collect();
-        let set2: HashSet<u32> = right.iter().copied().collect();
-        let euc: EstimatedUnionCardinalities<f32> = hll1.estimate_union_and_sets_cardinality(&hll2);
+    fn from_vec<PRECISION: Precision + WordType<BITS>, const BITS: usize>(values: &[u32]) -> Self {
+        let hll: HyperLogLog<PRECISION, BITS> = values.iter().collect();
+        let set: HashSet<u32> = values.iter().copied().collect();
 
         Sample {
-            // left_cardinality: set1.len(),
-            // right_cardinality: set2.len(),
-            union_cardinality: set1.union(&set2).count(),
-            approximation_left_cardinality: euc.get_left_cardinality().round() as usize,
-            approximation_right_cardinality: euc.get_right_cardinality().round() as usize,
-            approximation_union_cardinality: euc.get_union_cardinality().round() as usize,
-            approximation_intersection_cardinality: euc.get_intersection_cardinality().round()
-                as usize,
-            approximation_left_difference: euc.get_left_cardinality().round() as usize,
-            approximation_right_difference: euc.get_right_cardinality().round() as usize,
-            approximation_symmetric_difference: euc.get_symmetric_difference_cardinality().round()
-                as usize,
-            left_number_of_zeros: hll1.get_number_of_zero_registers(),
-            right_number_of_zeros: hll2.get_number_of_zero_registers(),
+            cardinality: set.len(),
+            approximation: hll.estimate_cardinality(),
+            number_of_zeros: hll.get_number_of_zero_registers(),
+            number_of_zeros_rate: hll.get_number_of_zero_registers() as f32
+                / PRECISION::NUMBER_OF_REGISTERS as f32,
         }
     }
 
-    fn as_array(&self) -> [f32; 9] {
+    fn as_array(&self) -> [f32; 3] {
         [
-            self.approximation_left_cardinality as f32,
-            self.approximation_right_cardinality as f32,
-            self.approximation_union_cardinality as f32,
-            self.approximation_left_difference as f32,
-            self.approximation_right_difference as f32,
-            self.approximation_symmetric_difference as f32,
-            self.approximation_intersection_cardinality as f32,
-            self.left_number_of_zeros as f32,
-            self.right_number_of_zeros as f32,
+            self.approximation,
+            self.number_of_zeros as f32,
+            self.number_of_zeros_rate,
         ]
     }
 
-    fn feature_names() -> [&'static str; 9] {
-        [
-            "approximation left cardinality",
-            "approximation right cardinality",
-            "approximation union cardinality",
-            "approximation left difference",
-            "approximation right difference",
-            "approximation symmetric difference",
-            "approximation intersection cardinality",
-            "left number of zeros",
-            "right number of zeros",
-        ]
+    fn feature_names() -> [&'static str; 3] {
+        ["approximation", "number_of_zeros", "number_of_zeros_rate"]
     }
 
     fn get_prediction_squared_error(&self, prediction: f32) -> f32 {
-        (self.union_cardinality as f32 - prediction).powi(2)
+        (self.cardinality as f32 - prediction).powi(2)
     }
 
     fn get_prediction_squared_error_derivative(&self, prediction: f32) -> f32 {
-        -2.0 * (self.union_cardinality as f32 - prediction)
+        -2.0 * (self.cardinality as f32 - prediction)
     }
 
     fn get_hyperloglog_squared_error(&self) -> f32 {
-        self.get_prediction_squared_error(self.approximation_union_cardinality as f32)
+        self.get_prediction_squared_error(self.approximation)
     }
 }
 
 fn generate_sample<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     mut random_state: u64,
 ) -> Sample {
-    let first_set_cardinality = xorshift(random_state) % 1_000_000;
     random_state = splitmix64(random_state);
-    let second_set_cardinality = xorshift(random_state) % 1_000_000;
+    let set_cardinality = splitmix64(random_state) % 100_000;
     random_state = splitmix64(random_state);
-    let first_world_size = xorshift(random_state) % 1_000_000;
-    random_state = splitmix64(random_state);
-    let second_world_size = xorshift(random_state) % 1_000_000;
+    let world_size = splitmix64(random_state) % 100_000;
     random_state = splitmix64(random_state);
 
-    let mut vec1: Vec<u32> = Vec::with_capacity(first_set_cardinality as usize);
-    let mut vec2: Vec<u32> = Vec::with_capacity(second_set_cardinality as usize);
+    let mut vec1: Vec<u32> = Vec::with_capacity(set_cardinality as usize);
 
-    for _ in 0..first_set_cardinality {
-        let value = if first_world_size > 0 {
-            xorshift(random_state) % first_world_size
+    for _ in 0..set_cardinality {
+        let value = if world_size > 0 {
+            xorshift(random_state) % world_size
         } else {
             0
         };
@@ -122,22 +81,13 @@ fn generate_sample<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
         random_state = splitmix64(random_state);
     }
 
-    for _ in 0..second_set_cardinality {
-        let value = if second_world_size > 0 {
-            xorshift(random_state) % second_world_size
-        } else {
-            0
-        };
-        vec2.push(value as u32);
-        random_state = splitmix64(random_state);
-    }
-
-    Sample::from_vecs::<PRECISION, BITS>(vec1.as_slice(), vec2.as_slice())
+    Sample::from_vec::<PRECISION, BITS>(vec1.as_slice())
 }
 
 struct EpochHistory {
     total_model_squared_error: f32,
     number_of_samples: usize,
+    better_count: usize,
     total_hyperloglog_squared_error: f32,
 }
 
@@ -146,6 +96,7 @@ impl Default for EpochHistory {
         Self {
             total_model_squared_error: 0.0,
             number_of_samples: 0,
+            better_count: 0,
             total_hyperloglog_squared_error: 0.0,
         }
     }
@@ -159,6 +110,7 @@ impl Add<Self> for EpochHistory {
             total_model_squared_error: self.total_model_squared_error
                 + other.total_model_squared_error,
             number_of_samples: self.number_of_samples + other.number_of_samples,
+            better_count: self.better_count + other.better_count,
             total_hyperloglog_squared_error: self.total_hyperloglog_squared_error
                 + other.total_hyperloglog_squared_error,
         }
@@ -172,6 +124,7 @@ impl EpochHistory {
         Self {
             total_model_squared_error: model_squared_error,
             number_of_samples: 1,
+            better_count: (model_squared_error < hyperloglog_squared_error) as usize,
             total_hyperloglog_squared_error: hyperloglog_squared_error,
         }
     }
@@ -191,16 +144,21 @@ impl EpochHistory {
         self.total_model_squared_error / self.total_hyperloglog_squared_error
     }
 
+    fn get_better_rate(&self) -> f32 {
+        self.better_count as f32 / self.number_of_samples as f32
+    }
+
     fn get_csv_header() -> &'static str {
-        "mse\tmse_hll\trate"
+        "mse\tmse_hll\trate\tbetter_rate"
     }
 
     fn to_csv_line(&self) -> String {
         format!(
-            "{}\t{}\t{}",
+            "{}\t{}\t{}\t{}",
             self.get_mean_squared_error(),
             self.get_hyperloglog_mean_squared_error(),
-            self.get_error_rate()
+            self.get_error_rate(),
+            self.get_better_rate()
         )
     }
 }
@@ -242,21 +200,34 @@ impl<const N: usize> Dense<N> {
     }
 }
 
-impl Dense<9> {
-    fn predict(&self, sample: &Sample) -> ([f32; 9], f32) {
-        let sample_values: [f32; 9] = sample.as_array();
-        let prediction = sample_values
+impl Dense<3> {
+    fn predict(&self, sample: &Sample) -> ([f32; 3], f32) {
+        let sample_values: [f32; 3] = sample.as_array();
+        let prediction = (sample_values
             .iter()
             .zip(self.weights.iter())
             .map(|(sample, weight)| sample * weight)
             .sum::<f32>()
-            + self.bias;
+            + self.bias)
+            .max(0.0);
         (sample_values, prediction)
+    }
+
+    fn evaluate(&self, samples: &[Sample]) -> EpochHistory {
+        samples
+            .par_iter()
+            .map(|sample| {
+                let (input, prediction) = self.predict(sample);
+                let squared_error = sample.get_prediction_squared_error(prediction);
+                let hyperloglog_squared_error = sample.get_hyperloglog_squared_error();
+                EpochHistory::new(squared_error, hyperloglog_squared_error)
+            })
+            .reduce(|| EpochHistory::default(), |a, b| a + b)
     }
 
     fn train_single_epoch(&mut self, samples: &[Sample]) -> EpochHistory {
         let (mut total_weights_gradient, mut total_bias_gradient, history): (
-            [f32; 9],
+            [f32; 3],
             f32,
             EpochHistory,
         ) = samples
@@ -276,14 +247,14 @@ impl Dense<9> {
                 )
             })
             .reduce(
-                || ([0.0; 9], 0.0, EpochHistory::default()),
+                || ([0.0; 3], 0.0, EpochHistory::default()),
                 |(mut total_weights_gradient, total_bias_gradient, history): (
-                    [f32; 9],
+                    [f32; 3],
                     f32,
                     EpochHistory,
                 ),
                  (partial_weights_gradient, partial_bias_gradient, partial_history): (
-                    [f32; 9],
+                    [f32; 3],
                     f32,
                     EpochHistory,
                 )| {
@@ -366,14 +337,31 @@ impl Dense<9> {
             .map(|_| {
                 random_state = splitmix64(random_state);
 
-                let mut samples = vec![Sample::default(); number_of_samples];
+                let mut train_samples = vec![Sample::default(); number_of_samples];
+                let mut test_samples = vec![Sample::default(); number_of_samples];
 
                 // We create a loading bar for the sample generation
                 let samples_progress_bar =
                     multi_progress_bar.add(ProgressBar::new(number_of_samples as u64));
                 samples_progress_bar.set_style(style.clone());
 
-                samples
+                train_samples
+                    .par_iter_mut()
+                    .enumerate()
+                    .progress_with(samples_progress_bar)
+                    .for_each(|(i, sample)| {
+                        *sample = generate_sample::<PRECISION, BITS>(splitmix64(
+                            random_state.wrapping_mul(i as u64 + 1),
+                        ));
+                    });
+
+                // We create a loading bar for the sample generation
+                let samples_progress_bar =
+                    multi_progress_bar.add(ProgressBar::new(number_of_samples as u64));
+                samples_progress_bar.set_style(style.clone());
+                random_state = splitmix64(random_state);
+
+                test_samples
                     .par_iter_mut()
                     .enumerate()
                     .progress_with(samples_progress_bar)
@@ -392,16 +380,18 @@ impl Dense<9> {
                 batches_progress_bar.set_style(style.clone());
 
                 (0..repetitions_per_batch).for_each(|_| {
-                    epoch_history = self.train_single_epoch(&samples);
+                    epoch_history = self.train_single_epoch(&train_samples);
                     batches_progress_bar.set_message(epoch_history.to_csv_line());
                     batches_progress_bar.inc(1);
 
                     // We shuffle the samples
-                    samples.shuffle(&mut thread_rng());
+                    train_samples.shuffle(&mut thread_rng());
                 });
 
+                let evaluate_history = self.evaluate(&test_samples);
+
                 // We update the progress bar with the latest epoch history metadata.
-                epochs_progress_bar.set_message(epoch_history.to_csv_line());
+                epochs_progress_bar.set_message(evaluate_history.to_csv_line());
 
                 // We increment the progress bar.
                 epochs_progress_bar.inc(1);
@@ -411,14 +401,14 @@ impl Dense<9> {
                 let weights_and_bias = self.get_weights_and_bias_as_json();
                 std::fs::write(weights_path, weights_and_bias).unwrap();
 
-                epoch_history
+                evaluate_history
             })
             .collect();
         multi_progress_bar.clear().unwrap();
         histories
     }
 
-    fn get_weights(&self) -> &[f32; 9] {
+    fn get_weights(&self) -> &[f32; 3] {
         &self.weights
     }
 
@@ -432,12 +422,12 @@ impl Dense<9> {
 }
 
 fn main() {
-    let number_of_epochs = 100;
-    let number_of_samples = 1_000;
+    let number_of_epochs = 10;
+    let number_of_samples = 50_000;
     let repetitions_per_batch = 10_000;
-    let random_state = 64376587;
+    let random_state = splitmix64(64376723754376523);
 
-    let mut model = Dense::<9>::random(random_state);
+    let mut model = Dense::<3>::random(random_state);
     // let mut model = Dense::<6>::known_local_minima();
     model.train::<Precision8, 6>(
         number_of_epochs,
