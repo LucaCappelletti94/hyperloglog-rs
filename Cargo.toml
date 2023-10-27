@@ -1,6 +1,6 @@
 [package]
 name = "hyperloglog-rs"
-version = "0.1.41"
+version = "0.1.42"
 edition = "2021"
 authors = ["Luca Cappelletti <cappelletti.luca94@gmail.com>"]
 description = "A Rust implementation of HyperLogLog trying to be parsimonious with memory."
@@ -20,7 +20,6 @@ categories = [
 [dependencies]
 siphasher = "0.3"
 highway = "1.1.0"
-fasthash = "0.4.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
