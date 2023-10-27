@@ -45,16 +45,14 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     let hll_cardinality = hll.estimate_cardinality();
 
     let mle_cardinality = hll2.estimate_cardinality_mle();
-    let nn_cardinality = hll.second_order_cardinality_adjustment();
 
     let line = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\n",
+        "{}\t{}\t{}\t{}\t{}\n",
         PRECISION::EXPONENT,
         BITS,
         exact_cardinality,
         hll_cardinality,
         mle_cardinality,
-        nn_cardinality
         //set_str,
     );
 
@@ -103,7 +101,7 @@ fn write_line_set_for_hasher(
 #[test]
 fn test_cardinality_perfs() {
     let mut file = File::create("cardinality_benchmark.tsv").unwrap();
-    file.write_all(b"precision\tbits\texact\thll\tmle\tnn\n")
+    file.write_all(b"precision\tbits\texact\thll\tmle\n")
         .unwrap();
 
     // since both the precision and the number of bits are compile time constants, we can

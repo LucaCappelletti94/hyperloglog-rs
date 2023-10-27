@@ -54,7 +54,7 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     let hll2: HyperLogLog<PRECISION, BITS> = vec2.iter().collect();
 
     let approximation: EstimatedUnionCardinalities<f32> = hll1.estimate_union_and_sets_cardinality(&hll2);
-    let nn_approximation: EstimatedUnionCardinalities<f32> = hll1.second_order_union_adjustment(&hll2);
+    // let nn_approximation: EstimatedUnionCardinalities<f32> = hll1.second_order_union_adjustment(&hll2);
 
     let line = format!(
         "{}\t{}\t{}\t{}\t{}\n",
@@ -62,7 +62,8 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
         BITS,
         exact_union,
         approximation.get_union_cardinality(),
-        nn_approximation.get_union_cardinality(),
+        ""
+        // nn_approximation.get_union_cardinality(),
     );
 
     writer.write_all(line.as_bytes())
@@ -110,7 +111,7 @@ fn write_line_set_for_hasher(
     // write_line_set::<Precision17>(&vec1, &vec2, left_cardinality, right_cardinality, exact_union, writer);
 }
 
-#[test]
+// #[test]
 fn test_union_cardinality_perfs() {
 
     let number_of_tests = 100_000;

@@ -6,30 +6,26 @@ use std::collections::HashSet;
 
 use core::hash::Hash;
 
-impl<I> SetLike<I> for HashSet<I>
+impl<I> SetLike<usize> for HashSet<I>
 where
     I: Hash + Eq + Clone,
 {
     fn get_estimated_union_cardinality(
         &self,
-        self_cardinality: I,
+        self_cardinality: usize,
         other: &Self,
-        other_cardinality: I,
-    ) -> EstimatedUnionCardinalities<I> {
-        let intersection_cardinality = self.intersection(other).count();
+        other_cardinality: usize,
+    ) -> EstimatedUnionCardinalities<usize> {
         let union_cardinality = self.union(other).count();
-        let left_difference_cardinality = self.difference(other).count();
-        let right_difference_cardinality = other.difference(self).count();
 
-        EstimatedUnionCardinalities {
-            intersection_cardinality,
+        EstimatedUnionCardinalities::from((
+            self_cardinality,
+            other_cardinality,
             union_cardinality,
-            left_difference_cardinality,
-            right_difference_cardinality,
-        }
+        ))
     }
 
-    fn get_cardinality(&self) -> I {
+    fn get_cardinality(&self) -> usize {
         self.len()
     }
 }

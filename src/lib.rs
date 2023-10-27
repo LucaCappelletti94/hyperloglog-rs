@@ -98,6 +98,8 @@ mod hyperloglog_trait;
 mod hyperloglog_multeplicities;
 #[cfg(feature = "std")]
 mod optimizers;
+#[cfg(feature = "std")]
+mod exact_hyper_spheres_sketch;
 
 
 pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
