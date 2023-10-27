@@ -1,7 +1,6 @@
 use crate::array_default::{ArrayDefault, ArrayIter};
 use crate::precisions::{Precision, WordType};
 use crate::prelude::HyperLogLogTrait;
-use crate::prelude::*;
 use crate::primitive::Primitive;
 use core::hash::Hash;
 
@@ -56,19 +55,12 @@ pub struct HyperLogLog<PRECISION: Precision + WordType<BITS>, const BITS: usize>
     pub(crate) number_of_zero_registers: PRECISION::NumberOfZeros,
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    From<HyperLogLogWithMulteplicities<PRECISION, BITS>> for HyperLogLog<PRECISION, BITS>
-{
-    fn from(hll: HyperLogLogWithMulteplicities<PRECISION, BITS>) -> Self {
-        Self::from_words(hll.get_words())
-    }
-}
-
 impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Eq for HyperLogLog<PRECISION, BITS> {
     fn assert_receiver_is_total_eq(&self) {
         // This is a no-op because we know that `Self` is `Eq`.
     }
 }
+
 
 /// Implements PartialEq for HyperLogLog.
 ///
@@ -229,7 +221,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
     ///
     /// ```rust
     /// use hyperloglog_rs::prelude::*;
-    ///
+    ///                                                                                                                                                                                                                                                                    
     /// let words = [0_u32; 4];
     /// let hll = HyperLogLog::<Precision4, 6>::from_words(&words);
     /// assert_eq!(hll.len(), 16);
@@ -323,11 +315,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
         // the number of zeros we obtain afterwards is never higher
         // than the maximal value that may be represented in a register
         // with BITS bits.
-        if BITS < 6 {
-            hash |= 1 << (64 - ((1 << BITS) - 1));
+        hash |= if BITS < 6 {
+            1 << (64 - ((1 << BITS) - 1))
         } else {
-            hash |= 1 << (PRECISION::EXPONENT - 1);
-        }
+            1 << (PRECISION::EXPONENT - 1)
+        };
 
         // Count leading zeros.
         let number_of_zeros: u32 = 1 + hash.leading_zeros();

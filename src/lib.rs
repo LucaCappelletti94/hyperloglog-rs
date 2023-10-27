@@ -92,8 +92,13 @@ pub mod serde;
 pub mod utils;
 mod zeros;
 mod ones;
-mod hyperloglog_multeplicities;
 mod hyperloglog_trait;
+
+#[cfg(feature = "std")]
+mod hyperloglog_multeplicities;
+#[cfg(feature = "std")]
+mod optimizers;
+
 
 pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
 pub use crate::hyperloglog::HyperLogLog;
@@ -105,7 +110,6 @@ pub mod prelude {
     pub use crate::estimated_union_cardinalities::*;
     pub use crate::hyper_spheres_sketch::*;
     pub use crate::hyperloglog::*;
-    pub use crate::hyperloglog_multeplicities::*;
     pub use crate::hyperloglog_trait::*;
     pub use crate::hyperloglog_array::*;
     pub use crate::iter::*;
@@ -118,4 +122,9 @@ pub mod prelude {
     pub use crate::zeros::*;
     pub use crate::ones::*;
     pub use core::ops::{BitOr, BitOrAssign};
+
+    #[cfg(feature = "std")]
+    pub use crate::hyperloglog_multeplicities::*;
+    #[cfg(feature = "std")]
+    pub use crate::optimizers::*;
 }

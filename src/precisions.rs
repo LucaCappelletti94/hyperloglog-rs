@@ -43,7 +43,7 @@ pub trait WordType<const BITS: usize>: Precision {
     /// value that can appear in a register. The value at index i is the number of registers
     /// that have a value equal to i, meaning the largest value that any register can have
     /// is the number of registers, i.e. 2^EXPONENT. This is the m parameter in the HyperLogLog.
-    /// The lenth of the multiplicities array varies depending on the exponent and the number of bits,
+    /// The lenth of the multeplicities array varies depending on the exponent and the number of bits,
     /// as the length of the array is equal to the maximal value that can be stored in a register.
     /// The value being stored in the register is the number of leading zeros in the hash of the
     /// value that is being inserted.
@@ -64,7 +64,7 @@ pub trait WordType<const BITS: usize>: Precision {
     /// When the precision is 6, the length of the array is 60.
     /// The decrease in length continues linearly until the maximal precision for which we
     /// have experimental parameters, which is 18, where the length of the array is 48.
-    type RegisterMultiplicities: Index<usize, Output = Self::NumberOfZeros>
+    type Registermulteplicities: Index<usize, Output = Self::NumberOfZeros>
         + IndexMut<usize, Output = Self::NumberOfZeros>
         + Copy
         + Debug
@@ -101,10 +101,10 @@ pub trait Precision: Default + Copy + Eq + Serialize + Debug + Send + Sync {
     /// The maximal number that can be represented with the selected NumberOfZeros.
     const MAXIMAL: usize;
     /// Type for small corrections:
-    type SmallCorrrections: Index<usize, Output = f32> + Copy;
+    type SmallCorrections: Index<usize, Output = f32> + Copy;
     type Registers: Index<usize, Output = u32> + Copy + ArrayDefault<u32> + ArrayIter<u32>;
     /// The precomputed small corrections used in the HyperLogLog algorithm for better performance.
-    const SMALL_CORRECTIONS: Self::SmallCorrrections;
+    const SMALL_CORRECTIONS: Self::SmallCorrections;
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -114,40 +114,40 @@ impl Precision for Precision4 {
     type NumberOfZeros = u8;
     const EXPONENT: usize = 4;
     const MAXIMAL: usize = u8::MAX as usize;
-    type SmallCorrrections = [f32; 16];
+    type SmallCorrections = [f32; 16];
     type Registers = [u32; 16];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 
 impl WordType<1> for Precision4 {
     type Words = [u32; 1];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision4 {
     type Words = [u32; 1];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision4 {
     type Words = [u32; 2];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision4 {
     type Words = [u32; 2];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision4 {
     type Words = [u32; 3];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision4 {
     type Words = [u32; 4];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 62];
+    type Registermulteplicities = [Self::NumberOfZeros; 62];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -157,40 +157,40 @@ impl Precision for Precision5 {
     type NumberOfZeros = u8;
     const EXPONENT: usize = 5;
     const MAXIMAL: usize = u8::MAX as usize;
-    type SmallCorrrections = [f32; 32];
+    type SmallCorrections = [f32; 32];
     type Registers = [u32; 32];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 
 impl WordType<1> for Precision5 {
     type Words = [u32; 1];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision5 {
     type Words = [u32; 2];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision5 {
     type Words = [u32; 4];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision5 {
     type Words = [u32; 4];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision5 {
     type Words = [u32; 6];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision5 {
     type Words = [u32; 7];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 61];
+    type Registermulteplicities = [Self::NumberOfZeros; 61];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -200,40 +200,40 @@ impl Precision for Precision6 {
     type NumberOfZeros = u8;
     const EXPONENT: usize = 6;
     const MAXIMAL: usize = u8::MAX as usize;
-    type SmallCorrrections = [f32; 64];
+    type SmallCorrections = [f32; 64];
     type Registers = [u32; 64];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 
 impl WordType<1> for Precision6 {
     type Words = [u32; 2];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision6 {
     type Words = [u32; 4];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision6 {
     type Words = [u32; 7];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision6 {
     type Words = [u32; 8];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision6 {
     type Words = [u32; 11];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision6 {
     type Words = [u32; 13];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 60];
+    type Registermulteplicities = [Self::NumberOfZeros; 60];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -243,40 +243,40 @@ impl Precision for Precision7 {
     type NumberOfZeros = u8;
     const EXPONENT: usize = 7;
     const MAXIMAL: usize = u8::MAX as usize;
-    type SmallCorrrections = [f32; 128];
+    type SmallCorrections = [f32; 128];
     type Registers = [u32; 128];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 
 impl WordType<1> for Precision7 {
     type Words = [u32; 4];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision7 {
     type Words = [u32; 8];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision7 {
     type Words = [u32; 13];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision7 {
     type Words = [u32; 16];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision7 {
     type Words = [u32; 22];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision7 {
     type Words = [u32; 26];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 59];
+    type Registermulteplicities = [Self::NumberOfZeros; 59];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -286,39 +286,39 @@ impl Precision for Precision8 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 8;
     const MAXIMAL: usize = u16::MAX as usize;
-    type SmallCorrrections = [f32; 256];
+    type SmallCorrections = [f32; 256];
     type Registers = [u32; 256];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision8 {
     type Words = [u32; 8];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision8 {
     type Words = [u32; 16];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision8 {
     type Words = [u32; 26];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision8 {
     type Words = [u32; 32];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision8 {
     type Words = [u32; 43];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision8 {
     type Words = [u32; 52];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 58];
+    type Registermulteplicities = [Self::NumberOfZeros; 58];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -328,39 +328,39 @@ impl Precision for Precision9 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 9;
     const MAXIMAL: usize = 65536;
-    type SmallCorrrections = [f32; 512];
+    type SmallCorrections = [f32; 512];
     type Registers = [u32; 512];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision9 {
     type Words = [u32; 16];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision9 {
     type Words = [u32; 32];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision9 {
     type Words = [u32; 52];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision9 {
     type Words = [u32; 64];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision9 {
     type Words = [u32; 86];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision9 {
     type Words = [u32; 103];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 57];
+    type Registermulteplicities = [Self::NumberOfZeros; 57];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -370,39 +370,39 @@ impl Precision for Precision10 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 10;
     const MAXIMAL: usize = u16::MAX as usize;
-    type SmallCorrrections = [f32; 1024];
+    type SmallCorrections = [f32; 1024];
     type Registers = [u32; 1024];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision10 {
     type Words = [u32; 32];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision10 {
     type Words = [u32; 64];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision10 {
     type Words = [u32; 103];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision10 {
     type Words = [u32; 128];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision10 {
     type Words = [u32; 171];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision10 {
     type Words = [u32; 205];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 56];
+    type Registermulteplicities = [Self::NumberOfZeros; 56];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -412,39 +412,39 @@ impl Precision for Precision11 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 11;
     const MAXIMAL: usize = u16::MAX as usize;
-    type SmallCorrrections = [f32; 2048];
+    type SmallCorrections = [f32; 2048];
     type Registers = [u32; 2048];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision11 {
     type Words = [u32; 64];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision11 {
     type Words = [u32; 128];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision11 {
     type Words = [u32; 205];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision11 {
     type Words = [u32; 256];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision11 {
     type Words = [u32; 342];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision11 {
     type Words = [u32; 410];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 55];
+    type Registermulteplicities = [Self::NumberOfZeros; 55];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -454,39 +454,39 @@ impl Precision for Precision12 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 12;
     const MAXIMAL: usize = u16::MAX as usize;
-    type SmallCorrrections = [f32; 4096];
+    type SmallCorrections = [f32; 4096];
     type Registers = [u32; 4096];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision12 {
     type Words = [u32; 128];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision12 {
     type Words = [u32; 256];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision12 {
     type Words = [u32; 410];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision12 {
     type Words = [u32; 512];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision12 {
     type Words = [u32; 683];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision12 {
     type Words = [u32; 820];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 54];
+    type Registermulteplicities = [Self::NumberOfZeros; 54];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -496,39 +496,39 @@ impl Precision for Precision13 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 13;
     const MAXIMAL: usize = u16::MAX as usize;
-    type SmallCorrrections = [f32; 8192];
+    type SmallCorrections = [f32; 8192];
     type Registers = [u32; 8192];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision13 {
     type Words = [u32; 256];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision13 {
     type Words = [u32; 512];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision13 {
     type Words = [u32; 820];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision13 {
     type Words = [u32; 1024];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision13 {
     type Words = [u32; 1366];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision13 {
     type Words = [u32; 1639];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 53];
+    type Registermulteplicities = [Self::NumberOfZeros; 53];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -538,39 +538,39 @@ impl Precision for Precision14 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 14;
     const MAXIMAL: usize = u16::MAX as usize;
-    type SmallCorrrections = [f32; 16384];
+    type SmallCorrections = [f32; 16384];
     type Registers = [u32; 16384];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision14 {
     type Words = [u32; 512];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision14 {
     type Words = [u32; 1024];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision14 {
     type Words = [u32; 1639];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision14 {
     type Words = [u32; 2048];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision14 {
     type Words = [u32; 2731];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision14 {
     type Words = [u32; 3277];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 52];
+    type Registermulteplicities = [Self::NumberOfZeros; 52];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -580,39 +580,39 @@ impl Precision for Precision15 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 15;
     const MAXIMAL: usize = u16::MAX as usize;
-    type SmallCorrrections = [f32; 32768];
+    type SmallCorrections = [f32; 32768];
     type Registers = [u32; 32768];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision15 {
     type Words = [u32; 1024];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision15 {
     type Words = [u32; 2048];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision15 {
     type Words = [u32; 3277];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision15 {
     type Words = [u32; 4096];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision15 {
     type Words = [u32; 5462];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision15 {
     type Words = [u32; 6554];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 51];
+    type Registermulteplicities = [Self::NumberOfZeros; 51];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -624,39 +624,39 @@ impl Precision for Precision16 {
     type NumberOfZeros = u32;
     const EXPONENT: usize = 16;
     const MAXIMAL: usize = u32::MAX as usize;
-    type SmallCorrrections = [f32; 65536];
+    type SmallCorrections = [f32; 65536];
     type Registers = [u32; 65536];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision16 {
     type Words = [u32; 2048];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision16 {
     type Words = [u32; 4096];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision16 {
     type Words = [u32; 6554];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision16 {
     type Words = [u32; 8192];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision16 {
     type Words = [u32; 10923];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision16 {
     type Words = [u32; 13108];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 50];
+    type Registermulteplicities = [Self::NumberOfZeros; 50];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -666,39 +666,39 @@ impl Precision for Precision17 {
     type NumberOfZeros = u32;
     const EXPONENT: usize = 17;
     const MAXIMAL: usize = u32::MAX as usize;
-    type SmallCorrrections = [f32; 131072];
+    type SmallCorrections = [f32; 131072];
     type Registers = [u32; 131072];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision17 {
     type Words = [u32; 4096];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision17 {
     type Words = [u32; 8192];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision17 {
     type Words = [u32; 13108];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision17 {
     type Words = [u32; 16384];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision17 {
     type Words = [u32; 21846];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision17 {
     type Words = [u32; 26215];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 49];
+    type Registermulteplicities = [Self::NumberOfZeros; 49];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -708,37 +708,37 @@ impl Precision for Precision18 {
     type NumberOfZeros = u32;
     const EXPONENT: usize = 18;
     const MAXIMAL: usize = u32::MAX as usize;
-    type SmallCorrrections = [f32; 262144];
+    type SmallCorrections = [f32; 262144];
     type Registers = [u32; 262144];
-    const SMALL_CORRECTIONS: Self::SmallCorrrections =
+    const SMALL_CORRECTIONS: Self::SmallCorrections =
         precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
 }
 impl WordType<1> for Precision18 {
     type Words = [u32; 8192];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type Registermulteplicities = [Self::NumberOfZeros; 2];
 }
 
 impl WordType<2> for Precision18 {
     type Words = [u32; 16384];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type Registermulteplicities = [Self::NumberOfZeros; 4];
 }
 
 impl WordType<3> for Precision18 {
     type Words = [u32; 26215];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type Registermulteplicities = [Self::NumberOfZeros; 8];
 }
 
 impl WordType<4> for Precision18 {
     type Words = [u32; 32768];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type Registermulteplicities = [Self::NumberOfZeros; 16];
 }
 
 impl WordType<5> for Precision18 {
     type Words = [u32; 43691];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type Registermulteplicities = [Self::NumberOfZeros; 32];
 }
 
 impl WordType<6> for Precision18 {
     type Words = [u32; 52429];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 48];
+    type Registermulteplicities = [Self::NumberOfZeros; 48];
 }

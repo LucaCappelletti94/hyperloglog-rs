@@ -16,3 +16,4 @@ Cargo.lock
 *.bkp
 *.tsv
 *.tsv.zip
+.DS_Store
