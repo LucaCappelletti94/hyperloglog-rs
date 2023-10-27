@@ -367,9 +367,9 @@ impl<
             "in the HyperLogLogArray."
         ));
         let mut array = [HyperLogLog::new(); N];
-        for (i, item) in items.into_iter().enumerate() {
-            for item in item.into_iter() {
-                array[i].insert(&item);
+        for (i, item) in items.iter().enumerate() {
+            for item in item.iter() {
+                array[i].insert(item);
             }
         }
         Self { counters: array }
