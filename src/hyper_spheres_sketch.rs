@@ -33,11 +33,8 @@ pub trait SetLike<I> {
     fn get_cardinality(&self) -> I;
 }
 
-impl<
-        F: Primitive<f32>,
-        PRECISION: Precision + WordType<BITS>,
-        const BITS: usize,
-    > SetLike<F> for HyperLogLog<PRECISION, BITS>
+impl<F: Primitive<f32>, PRECISION: Precision + WordType<BITS>, const BITS: usize> SetLike<F>
+    for HyperLogLog<PRECISION, BITS>
 {
     fn get_estimated_union_cardinality(
         &self,
@@ -173,11 +170,13 @@ pub trait HyperSpheresSketch: Sized {
                 // last time we write this will necessarily be with the last
                 // and largest left set.
                 let this_difference = euc.get_right_difference_cardinality();
-                right_difference_cardinality_vector[j] = this_difference - last_right_difference;
+                right_difference_cardinality_vector[j] =
+                    (this_difference - last_right_difference).get_max(I::default());
                 last_right_difference = this_difference;
             }
             let this_difference = euc.get_left_difference_cardinality();
-            left_difference_cardinality_vector[i] = this_difference - last_left_difference;
+            left_difference_cardinality_vector[i] =
+                (this_difference - last_left_difference).get_max(I::default());
             last_left_difference = this_difference;
         }
 

@@ -124,8 +124,7 @@ fn get_random_hyper_spheres_hll<const N: usize>(
     random_state: u64,
 ) -> HyperLogLogArray<Precision8, 6, N> {
     let hyperspheres = get_random_hyper_spheres(random_state, N);
-    let mut hyperspheres_hll: HyperLogLogArray<Precision8, 6, N> =
-        HyperLogLogArray::new();
+    let mut hyperspheres_hll: HyperLogLogArray<Precision8, 6, N> = HyperLogLogArray::new();
     for (i, hyper_sphere) in hyperspheres.iter().enumerate() {
         for element in hyper_sphere {
             hyperspheres_hll[i].insert(element)
@@ -136,7 +135,7 @@ fn get_random_hyper_spheres_hll<const N: usize>(
 
 #[test]
 fn test_hyper_spheres_sketch() {
-    let number_of_tests = 1_00;
+    let number_of_tests = 1_000;
 
     // We run multiple MSE to have an estimate of how much the
     // HyperLogLog approximation is off when compared to the
@@ -147,7 +146,7 @@ fn test_hyper_spheres_sketch() {
 
     // We iterate over the number of tests.
     for current_test in (0..number_of_tests).progress() {
-        let random_state = current_test as u64 + 173845_u64;
+        let random_state = (current_test as u64 + 173845_u64).wrapping_mul(456789);
         let left_sets = get_random_hyper_spheres_sets::<5>(random_state);
         let right_sets = get_random_hyper_spheres_sets::<5>(random_state * 2);
         let left_hll = get_random_hyper_spheres_hll::<5>(random_state);
@@ -220,6 +219,37 @@ fn test_hyper_spheres_sketch() {
 
         let (overlap_hll, left_diff_hll, right_diff_hll) =
             left_hll.overlap_and_differences_cardinality_matrices::<f32>(&right_hll);
+
+        // We check that none of the values is less than zero, i.e. no
+        // negative cardinalities have somehow been computed.
+        for i in 0..5 {
+            for j in 0..5 {
+                assert!(
+                    overlap_hll[i][j] >= 0.0,
+                    concat!(
+                        "We expect the overlap cardinality matrix to have ",
+                        "non-negative values but we got {:?} instead."
+                    ),
+                    overlap_hll
+                );
+            }
+            assert!(
+                left_diff_hll[i] >= 0.0,
+                concat!(
+                    "We expect the left difference cardinality vector to ",
+                    "have non-negative values but we got {:?} instead."
+                ),
+                left_diff_hll
+            );
+            assert!(
+                right_diff_hll[i] >= 0.0,
+                concat!(
+                    "We expect the right difference cardinality vector to ",
+                    "have non-negative values but we got {:?} instead."
+                ),
+                right_diff_hll
+            );
+        }
 
         let mut overlap_squared_error = 0.0_f32;
         let mut left_diff_squared_error = 0.0_f32;

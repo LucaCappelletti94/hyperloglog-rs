@@ -393,19 +393,24 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
             .into_iter_elements()
             .zip(other.get_registers().into_iter_elements())
             .for_each(|(left_register, right_register)| {
-                if left_register < right_register {
-                    left_multeplicities_smaller[left_register as usize] +=
-                        PRECISION::NumberOfZeros::ONE;
-                    right_multeplicities_larger[right_register as usize] +=
-                        PRECISION::NumberOfZeros::ONE;
-                } else if left_register > right_register {
-                    left_multeplicities_larger[left_register as usize] +=
-                        PRECISION::NumberOfZeros::ONE;
-                    right_multeplicities_smaller[right_register as usize] +=
-                        PRECISION::NumberOfZeros::ONE;
-                } else {
-                    // If left register is equal to right register
-                    joint_multeplicities[left_register as usize] += PRECISION::NumberOfZeros::ONE;
+                match left_register.cmp(&right_register) {
+                    std::cmp::Ordering::Less => {
+                        left_multeplicities_smaller[left_register as usize] +=
+                            PRECISION::NumberOfZeros::ONE;
+                        right_multeplicities_larger[right_register as usize] +=
+                            PRECISION::NumberOfZeros::ONE;
+                    }
+                    std::cmp::Ordering::Greater => {
+                        left_multeplicities_larger[left_register as usize] +=
+                            PRECISION::NumberOfZeros::ONE;
+                        right_multeplicities_smaller[right_register as usize] +=
+                            PRECISION::NumberOfZeros::ONE;
+                    }
+                    std::cmp::Ordering::Equal => {
+                        // If left register is equal to right register
+                        joint_multeplicities[left_register as usize] +=
+                            PRECISION::NumberOfZeros::ONE;
+                    }
                 }
             });
 
