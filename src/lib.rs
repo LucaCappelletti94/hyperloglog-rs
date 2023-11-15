@@ -107,8 +107,6 @@ pub use crate::hyperloglog::HyperLogLog;
 
 pub mod prelude {
     pub use crate::array_default::*;
-    pub use crate::bitor::*;
-    pub use crate::bitand::*;
     pub use crate::estimated_union_cardinalities::*;
     pub use crate::hyper_spheres_sketch::*;
     pub use crate::hyperloglog::*;
@@ -116,7 +114,6 @@ pub mod prelude {
     pub use crate::hyperloglog_array::*;
     pub use crate::iter::*;
     pub use crate::max_min::*;
-    pub use crate::precisions::*;
     pub use crate::precisions::*;
     pub use crate::primitive::*;
     pub use crate::serde::*;
