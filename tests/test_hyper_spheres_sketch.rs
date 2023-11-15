@@ -331,6 +331,12 @@ fn test_hyper_spheres(
     let (overlap_sets, left_diff_sets, right_diff_sets) =
         HashSetWrapper::overlap_and_differences_cardinality_matrices(&left_sets, &right_sets);
 
+    let (second_overlap_sets, left_shell, right_shell) =
+        HashSetWrapper::overlap_matrix_and_outer_difference_shells_cardinality(
+            &left_sets,
+            &right_sets,
+        );
+
     assert_eq!(
         overlap_sets, expected_overlap_sets,
         concat!(
@@ -339,6 +345,15 @@ fn test_hyper_spheres(
         ),
         expected_overlap_sets, overlap_sets
     );
+    assert_eq!(
+        second_overlap_sets, expected_overlap_sets,
+        concat!(
+            "We expect the overlap cardinality matrix to be {:?} ",
+            "but we got {:?} instead."
+        ),
+        expected_overlap_sets, second_overlap_sets
+    );
+        
     assert_eq!(
         left_diff_sets, expected_left_diff_sets,
         concat!(
@@ -349,6 +364,15 @@ fn test_hyper_spheres(
         expected_left_diff_sets, expected_right_diff_sets, left_diff_sets, right_diff_sets
     );
     assert_eq!(
+        left_shell, expected_left_diff_sets[2],
+        concat!(
+            "We expect the left difference cardinality vector to be ",
+            "{:?} and the right difference cardinality vector to be ",
+            "{:?} but we got {:?} and {:?} as shells respectively."
+        ),
+        expected_left_diff_sets, expected_right_diff_sets, left_shell, right_shell
+    );
+    assert_eq!(
         right_diff_sets, expected_right_diff_sets,
         concat!(
             "We expect the left difference cardinality vector to be ",
@@ -356,6 +380,15 @@ fn test_hyper_spheres(
             "{:?} but we got {:?} and {:?} respectively."
         ),
         expected_left_diff_sets, expected_right_diff_sets, left_diff_sets, right_diff_sets
+    );
+    assert_eq!(
+        right_shell, expected_right_diff_sets[2],
+        concat!(
+            "We expect the left difference cardinality vector to be ",
+            "{:?} and the right difference cardinality vector to be ",
+            "{:?} but we got {:?} and {:?} as shells respectively."
+        ),
+        expected_left_diff_sets, expected_right_diff_sets, left_shell, right_shell
     );
 }
 

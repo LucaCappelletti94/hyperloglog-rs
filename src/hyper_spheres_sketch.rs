@@ -186,6 +186,111 @@ pub trait HyperSpheresSketch: Sized {
             right_difference_cardinality_vector,
         )
     }
+
+    /// Returns the overlap cardinality matrices and outer difference shells cardinality of two lists of sets.
+    ///
+    /// # Arguments
+    /// * `left` - The first list of sets.
+    /// * `right` - The second list of sets.
+    ///
+    /// # Returns
+    /// * `overlap_cardinality_matrix` - Matrix of estimated overlapping cardinalities between the elements of the left and right arrays.
+    /// * `left_difference_cardinality_vector` - Vector of estimated difference cardinalities between the elements of the left array and the last element of the right array.
+    /// * `right_difference_cardinality_vector` - Vector of estimated difference cardinalities between the elements of the right array and the last element of the left array.
+    ///
+    /// # Implementative details
+    /// We expect the elements of the left and right arrays to be increasingly contained in the next one.
+    ///
+    /// # Examples
+    /// In the following illustration, we show that for two vectors left and right of three elements,
+    /// we expect to compute the exclusively overlap matrix $A_{ij}$ and the exclusively differences vectors $B_i$.    
+    ///
+    /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/triple_overlap.png?raw=true)
+    ///
+    /// Very similarly, for the case of vectors of two elements:
+    ///
+    /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/tuple_overlap.png?raw=true)
+    ///
+    fn overlap_matrix_and_outer_difference_shells_cardinality<
+        I: Copy
+            + Default
+            + Primitive<f32>
+            + core::ops::Add<Output = I>
+            + core::ops::Sub<Output = I>
+            + core::ops::Div<Output = I>
+            + core::ops::Mul<Output = I>
+            + Sum
+            + Send
+            + Sync
+            + AddAssign
+            + SubAssign
+            + MulAssign
+            + DivAssign
+            + MaxMin,
+        const L: usize,
+        const R: usize,
+    >(
+        left: &[Self; L],
+        right: &[Self; R],
+    ) -> ([[I; R]; L], I, I)
+    where
+        Self: SetLike<I>,
+    {
+        // Initialize overlap and differences cardinality matrices/vectors.
+        let mut last_row = [I::default(); R];
+        let mut differential_overlap_cardinality_matrix = [[I::default(); R]; L];
+        let mut left_difference_outer_shell = I::default();
+        let mut right_difference_outer_shell = I::default();
+        let mut right_cardinalities = [I::default(); R];
+
+        right.iter().zip(right_cardinalities.iter_mut()).for_each(
+            |(right_hll, right_cardinality)| {
+                *right_cardinality = right_hll.get_cardinality();
+            },
+        );
+
+        let mut euc: EstimatedUnionCardinalities<I> = EstimatedUnionCardinalities::default();
+        let mut last_left_difference: I = I::default();
+
+        // Populate the overlap cardinality matrix.
+        for (i, left_hll) in left.iter().enumerate() {
+            let mut last_right_difference: I = I::default();
+            let left_cardinality = left_hll.get_cardinality();
+            let mut comulative_row = I::default();
+            for (j, (right_hll, right_cardinality)) in
+                right.iter().zip(right_cardinalities).enumerate()
+            {
+                euc = left_hll.get_estimated_union_cardinality(
+                    left_cardinality,
+                    right_hll,
+                    right_cardinality,
+                );
+                let delta = last_row[j] + comulative_row;
+                differential_overlap_cardinality_matrix[i][j] =
+                    (euc.get_intersection_cardinality() - delta).get_max(I::default());
+                last_row[j] = euc.get_intersection_cardinality().get_max(delta);
+                comulative_row += differential_overlap_cardinality_matrix[i][j];
+
+                // We always set the value of the right difference so that the
+                // last time we write this will necessarily be with the last
+                // and largest left set.
+                let this_difference = euc.get_right_difference_cardinality();
+                right_difference_outer_shell =
+                    (this_difference - last_right_difference).get_max(I::default());
+                last_right_difference = this_difference;
+            }
+            let this_difference = euc.get_left_difference_cardinality();
+            left_difference_outer_shell =
+                (this_difference - last_left_difference).get_max(I::default());
+            last_left_difference = this_difference;
+        }
+
+        (
+            differential_overlap_cardinality_matrix,
+            left_difference_outer_shell,
+            right_difference_outer_shell,
+        )
+    }
 }
 
 impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperSpheresSketch

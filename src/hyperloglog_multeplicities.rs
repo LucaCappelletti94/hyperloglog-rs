@@ -94,25 +94,23 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
         let mut raw_estimate = 0.0;
 
         for k in (smallest_register_value..=largest_register_value).rev() {
-            raw_estimate = 0.5 * raw_estimate + multeplicities[k];
+            raw_estimate = 0.5 * raw_estimate + multeplicities[k].convert() as f32;
         }
 
         let two_to_minus_smallest_register: i32 = (127 - smallest_register_value as i32) << 23;
         raw_estimate *= f32::from_le_bytes(two_to_minus_smallest_register.to_le_bytes());
 
-        let c = multeplicities.last().unwrap()
-            + multeplicities[largest_register_value];
+        let c: f32 = (*multeplicities.last().unwrap() + multeplicities[largest_register_value]).convert() as f32;
 
-        let mut g_prev = 0.0;
-        let a = raw_estimate + multeplicities[0];
+        let mut g_prev: f32 = 0.0;
+        let a = raw_estimate + multeplicities[0].convert() as f32;
 
         let two_to_minus_q: i32 = (127 - q as i32) << 23;
         let b = raw_estimate
-            + multeplicities.last().unwrap()
-                * f32::from_le_bytes(two_to_minus_q.to_le_bytes());
+            + multeplicities.last().unwrap().convert() as f32 * f32::from_le_bytes(two_to_minus_q.to_le_bytes());
 
-        let number_of_non_zero_registers =
-            (PRECISION::NUMBER_OF_REGISTERS as f32) - (multeplicities[0]);
+        let number_of_non_zero_registers: f32 =
+            (PRECISION::NUMBER_OF_REGISTERS - multeplicities[0].convert()) as f32;
 
         let mut x = if b <= 1.5 * a {
             number_of_non_zero_registers / (0.5 * b + a)
@@ -149,14 +147,14 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
                 x_first *= 2.0;
             }
 
-            let mut g = c * taylor_series_approximation;
+            let mut g: f32 = c * taylor_series_approximation;
 
             for k in (smallest_register_value..=largest_register_value.saturating_sub(1)).rev() {
                 let taylor_series_approximation_prime = 1.0 - taylor_series_approximation;
                 taylor_series_approximation = (x_first
                     + taylor_series_approximation * taylor_series_approximation_prime)
                     / (x_first + taylor_series_approximation_prime);
-                g += multeplicities[k] * taylor_series_approximation;
+                g += multeplicities[k].convert() as f32 * taylor_series_approximation;
                 x_first *= 2.0;
             }
 
@@ -196,7 +194,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
 
         for (current_register, multeplicity) in multeplicities.iter_elements().enumerate() {
             let two_to_minus_register: i32 = (127 - current_register as i32) << 23;
-            raw_estimate += (multeplicity)
+            raw_estimate += multeplicity.convert() as f32
                 * f32::from_le_bytes(two_to_minus_register.to_le_bytes());
         }
 
@@ -423,8 +421,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
         // let left_cardinality = self.estimate_cardinality_mle::<ERROR>() as f32;
         // let right_cardinality = other.estimate_cardinality_mle::<ERROR>() as f32;
 
-        let left_cardinality = self.estimate_cardinality() as f32;
-        let right_cardinality = other.estimate_cardinality() as f32;
+        let left_cardinality = self.estimate_cardinality();
+        let right_cardinality = other.estimate_cardinality();
 
         // If the sum of the number of registers equal to zero, i.e.
         // the first value in the multeplicities vectors, is equal
@@ -459,7 +457,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
         // let union_cardinality =
         //     Self::estimate_cardinality_from_multeplicities(&multeplicities) as f32;
         let union_cardinality =
-            Self::estimate_cardinality_from_multeplicities_mle::<ERROR>(&multeplicities) as f32;
+            Self::estimate_cardinality_from_multeplicities_mle::<ERROR>(&multeplicities);
 
         let symmetrical_difference = left_cardinality + right_cardinality - union_cardinality;
         let left_difference = union_cardinality - right_cardinality;
@@ -507,30 +505,30 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
          -> f32 {
             (1..=q)
                 .map(|k| {
-                    (smaller[k])
+                    smaller[k].convert() as f32
                         * (y(phi_joint, k) * x(first_phi, k) * y(first_phi, k))
                         / (z(phi_joint, k) + y(phi_joint, k) * z(first_phi, k))
-                        + (joint_multeplicities[k])
+                        + joint_multeplicities[k].convert() as f32
                             * (y(phi_joint, k)
                                 * x(first_phi, k)
                                 * y(first_phi, k)
                                 * z(second_phi, k))
                             / (z(phi_joint, k)
                                 + y(phi_joint, k) * z(first_phi, k) * z(second_phi, k))
-                        + (larger[k]) * x(first_phi, k) * y(first_phi, k)
+                        + larger[k].convert() as f32 * x(first_phi, k) * y(first_phi, k)
                             / z(first_phi, k)
                 })
                 .sum::<f32>()
                 - (0..=q)
                     .map(|k| {
-                        (smaller[k] + joint_multeplicities[k] + larger[k])
+                        (smaller[k] + joint_multeplicities[k] + larger[k]).convert() as f32
                             * x(first_phi, k)
                     })
                     .sum::<f32>()
-                + (joint_multeplicities[q_plus_one])
+                + joint_multeplicities[q_plus_one].convert() as f32
                     * (y(phi_joint, q) * x(first_phi, q) * y(first_phi, q) * z(second_phi, q))
                     / (z(phi_joint, q) + y(phi_joint, q) * z(first_phi, q) * z(second_phi, q))
-                + (larger[q_plus_one]) * (x(first_phi, q) * y(first_phi, q))
+                + larger[q_plus_one].convert() as f32 * (x(first_phi, q) * y(first_phi, q))
                     / z(first_phi, q)
         };
 
@@ -564,15 +562,15 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
             let joint_phi_gradient: f32 = {
                 (1..=q)
                     .map(|k| {
-                        (left_multeplicities_smaller[k])
+                        left_multeplicities_smaller[k].convert() as f32
                             * (x(phis[2], k) * y(phis[2], k) * y(phis[0], k))
                             / (z(phis[2], k) + y(phis[2], k) * z(phis[0], k))
-                            + (joint_multeplicities[k])
+                            + joint_multeplicities[k].convert() as f32
                                 * (y(phis[2], k)
                                     * x(phis[2], k)
                                     * (y(phis[0], k) + z(phis[0], k) * y(phis[1], k)))
                                 / (z(phis[2], k) + y(phis[2], k) * z(phis[0], k) * z(phis[1], k))
-                            + (right_multeplicities_smaller[k])
+                            + right_multeplicities_smaller[k].convert() as f32
                                 * (x(phis[2], k) * y(phis[2], k) * y(phis[1], k)
                                     / (z(phis[2], k) + y(phis[2], k) * z(phis[1], k)))
                     })
@@ -582,11 +580,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
                             (left_multeplicities_smaller[k]
                                 + joint_multeplicities[k]
                                 + right_multeplicities_smaller[k])
-                                
+                                .convert() as f32
                                 * x(phis[2], k)
                         })
                         .sum::<f32>()
-                    + (joint_multeplicities[q_plus_one])
+                    + joint_multeplicities[q_plus_one].convert() as f32
                         * (x(phis[2], q)
                             * y(phis[2], q)
                             * (y(phis[0], q) + z(phis[0], q) * y(phis[1], q)))
@@ -612,7 +610,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
 
             // We update the phis.
             phis.iter_mut()
-                .zip(gradients.into_iter())
+                .zip(gradients.iter())
                 .for_each(|(phi, gradient)| {
                     *phi += gradient;
                 });

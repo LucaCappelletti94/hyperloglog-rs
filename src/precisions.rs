@@ -87,6 +87,7 @@ pub trait Precision: Default + Copy + Eq + Serialize + Debug + Send + Sync {
         + PartialEq
         + Primitive<usize>
         + Send
+        + Copy
         + Sync
         + Zero
         + One
