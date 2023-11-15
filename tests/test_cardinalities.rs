@@ -44,7 +44,7 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
 
     let hll_cardinality = hll.estimate_cardinality();
 
-    let mle_cardinality = hll2.estimate_cardinality_mle();
+    let mle_cardinality = hll2.estimate_cardinality_mle::<3>();
 
     let line = format!(
         "{}\t{}\t{}\t{}\t{}\n",
