@@ -542,7 +542,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
         let mut patience = 0;
         let mut optimizer: Adam<3> = Adam::default();
 
-        loop {
+        for _ in 0..100_000 {
             let left_phi_gradient: f32 = hlls_gradient(
                 phis[2],
                 phis[0],

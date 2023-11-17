@@ -13,11 +13,11 @@
 /// - `set1`: The first set, with values separated by commas
 /// - `set2`: The second set, with values separated by commas
 ///
-use rayon::prelude::*;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
-use indicatif::ParallelProgressIterator;
+// use indicatif::ParallelProgressIterator;
+use indicatif::ProgressIterator;
 
 use hyperloglog_rs::prelude::*;
 
@@ -66,45 +66,54 @@ fn intersection_with_mle<
 >(
     set1: &Vec<u64>,
     set2: &Vec<u64>,
-) -> f32 {
+) -> (f32, f32) {
+    let start = std::time::Instant::now();
     let hll1: HyperLogLog<PRECISION, BITS> = set1.iter().collect();
     let hll2: HyperLogLog<PRECISION, BITS> = set2.iter().collect();
     let hll_multi1: HyperLogLogWithMulteplicities<PRECISION, BITS> = hll1.into();
     let hll_multi2: HyperLogLogWithMulteplicities<PRECISION, BITS> = hll2.into();
 
-    hll_multi1
+    let estimate = hll_multi1
         .joint_cardinality_estimation::<ERROR>(&hll_multi2)
-        .get_intersection_cardinality() as f32
+        .get_intersection_cardinality() as f32;
+
+    (estimate, start.elapsed().as_secs_f32())
 }
 
 fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     set1: &Vec<u64>,
     set2: &Vec<u64>,
-    set1_str: &str,
-    set2_str: &str,
     exact_intersection: usize,
     file: &mut File,
 ) -> std::io::Result<()> {
+    let old_hll_start = std::time::Instant::now();
     let old_hll = old_intersection_hll::<PRECISION, BITS>(&set1, &set2);
+    let old_hll_time = old_hll_start.elapsed().as_secs_f32();
+    let intersection_hll_start = std::time::Instant::now();
     let intersection_hll = intersection_with_set_estimation::<PRECISION, BITS>(&set1, &set2);
-    let intersection_mle_2 = intersection_with_mle::<PRECISION, 2, BITS>(&set1, &set2);
-    let intersection_mle_3 = intersection_with_mle::<PRECISION, 3, BITS>(&set1, &set2);
-    let intersection_mle_4 = intersection_with_mle::<PRECISION, 4, BITS>(&set1, &set2);
-    let intersection_mle_5 = intersection_with_mle::<PRECISION, 5, BITS>(&set1, &set2);
-    let intersection_mle_6 = intersection_with_mle::<PRECISION, 6, BITS>(&set1, &set2);
+    let intersection_hll_time = intersection_hll_start.elapsed().as_secs_f32();
+    let (mle_1, time_1) = intersection_with_mle::<PRECISION, 1, BITS>(&set1, &set2);
+    let (mle_2, time_2) = intersection_with_mle::<PRECISION, 2, BITS>(&set1, &set2);
+    let (mle_3, time_3) = intersection_with_mle::<PRECISION, 3, BITS>(&set1, &set2);
+    let (mle_4, time_4) = intersection_with_mle::<PRECISION, 4, BITS>(&set1, &set2);
 
     let line = format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
         PRECISION::EXPONENT,
         BITS,
         exact_intersection,
         old_hll,
         intersection_hll,
-        intersection_mle_2,
-        intersection_mle_3,
-        intersection_mle_4,
-        intersection_mle_5,
-        intersection_mle_6,
+        mle_1,
+        mle_2,
+        mle_3,
+        mle_4,
+        old_hll_time,
+        intersection_hll_time,
+        time_1,
+        time_2,
+        time_3,
+        time_4,
     );
 
     file.write_all(line.as_bytes())
@@ -115,50 +124,45 @@ fn write_line_set<
 >(
     set1: &Vec<u64>,
     set2: &Vec<u64>,
-    set1_str: &str,
-    set2_str: &str,
     exact_intersection: usize,
     file: &mut File,
 ) {
-    // write_line::<PRECISION, 1>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file)
+    // write_line::<PRECISION, 1>(&set1, &set2, exact_intersection, file)
     //     .unwrap();
-    write_line::<PRECISION, 2>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file)
+    // write_line::<PRECISION, 2>(&set1, &set2, exact_intersection, file)
+    //     .unwrap();
+    // write_line::<PRECISION, 3>(&set1, &set2, exact_intersection, file)
+    //     .unwrap();
+    write_line::<PRECISION, 4>(&set1, &set2, exact_intersection, file)
         .unwrap();
-    write_line::<PRECISION, 3>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file)
+    write_line::<PRECISION, 5>(&set1, &set2, exact_intersection, file)
         .unwrap();
-    write_line::<PRECISION, 4>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file)
-        .unwrap();
-    write_line::<PRECISION, 5>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file)
-        .unwrap();
-    write_line::<PRECISION, 6>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file)
+    write_line::<PRECISION, 6>(&set1, &set2, exact_intersection, file)
         .unwrap();
 }
 
 fn write_line_set_for_hasher(
     set1: &Vec<u64>,
     set2: &Vec<u64>,
-    set1_str: &str,
-    set2_str: &str,
     exact_intersection: usize,
     file: &mut File,
 ) {
-    write_line_set::<Precision4>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
-    write_line_set::<Precision5>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
-    write_line_set::<Precision6>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
-    write_line_set::<Precision7>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
-    write_line_set::<Precision8>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
-    write_line_set::<Precision9>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
-    write_line_set::<Precision10>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
-    write_line_set::<Precision11>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
-    write_line_set::<Precision12>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
-    write_line_set::<Precision13>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
-    write_line_set::<Precision14>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
-    write_line_set::<Precision15>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
-    write_line_set::<Precision16>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
-    // write_line_set::<Precision17>(&set1, &set2, &set1_str, &set2_str, exact_intersection, file);
+    write_line_set::<Precision4>(&set1, &set2, exact_intersection, file);
+    write_line_set::<Precision5>(&set1, &set2, exact_intersection, file);
+    write_line_set::<Precision6>(&set1, &set2, exact_intersection, file);
+    write_line_set::<Precision7>(&set1, &set2, exact_intersection, file);
+    write_line_set::<Precision8>(&set1, &set2, exact_intersection, file);
+    write_line_set::<Precision9>(&set1, &set2, exact_intersection, file);
+    write_line_set::<Precision10>(&set1, &set2, exact_intersection, file);
+    write_line_set::<Precision11>(&set1, &set2, exact_intersection, file);
+    write_line_set::<Precision12>(&set1, &set2, exact_intersection, file);
+    write_line_set::<Precision13>(&set1, &set2, exact_intersection, file);
+    write_line_set::<Precision14>(&set1, &set2, exact_intersection, file);
+    write_line_set::<Precision15>(&set1, &set2, exact_intersection, file);
+    write_line_set::<Precision16>(&set1, &set2, exact_intersection, file);
 }
 
-//#[test]
+#[test]
 fn test_intersection_cardinality_perfs() {
     // since both the precision and the number of bits are compile time constants, we can
     // not iterate over the precision and bits, but we need to manually change them, making
@@ -170,13 +174,13 @@ fn test_intersection_cardinality_perfs() {
     // For each precision and number of bits, we generate 1000 random sets and write them to the file.
     // We also write the exact intersection similarity and the estimated intersection similarity using HyperLogLog.
 
-    let number_of_tests = 2_000;
+    let number_of_tests = 10_000;
     let loading_bar = indicatif::ProgressBar::new(number_of_tests);
 
     // We create the intersection_tests directory if it does not exist.
     std::fs::create_dir_all("intersection_tests").unwrap();
 
-    (0..number_of_tests).into_par_iter().progress_with(loading_bar).for_each(|i| {
+    (0..number_of_tests).progress_with(loading_bar).for_each(|i| {
         let path = format!("intersection_tests/intersection_cardinality_benchmark_{}.tsv", i);
 
         // If the file already exists we skip it.
@@ -185,7 +189,7 @@ fn test_intersection_cardinality_perfs() {
         }
 
         let mut file = File::create(path).unwrap();
-        file.write_all(b"precision\tbits\texact\tunion_exclusion\tintersection_set\tintersection_mle_2\tintersection_mle_3\tintersection_mle_4\tintersection_mle_5\tintersection_mle_6\n")
+        file.write_all(b"precision\tbits\texact\tinclusion_exclusion\thll_min\tmle_1\tmle_2\tmle_3\tmle_4\ttime_inclusion_exclusion\ttime_hll_min\ttime_mle_1\ttime_mle_2\ttime_mle_3\ttime_mle_4\n")
             .unwrap();    
 
         let seed = (i + 1).wrapping_mul(234567898765) as u64;
@@ -207,40 +211,22 @@ fn test_intersection_cardinality_perfs() {
 
         for _ in 0..first_set_cardinality {
             let value = xorshift(rng) % first_world_size;
-            set1.insert(value);
-            vec1.push(value);
+            if set1.insert(value) {
+                vec1.push(value);
+            }
             rng = splitmix64(rng);
         }
 
         for _ in 0..second_set_cardinality {
             let value = xorshift(rng) % second_world_size;
-            set2.insert(value);
-            vec2.push(value);
+            if set2.insert(value) {
+                vec2.push(value);
+            }
             rng = splitmix64(rng);
         }
 
         let exact = intersection(&set1, &set2);
 
-        let set1_str = set1
-            .iter()
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join(",");
-        let set2_str = set2
-            .iter()
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join(",");
-
-        write_line_set_for_hasher(&vec1, &vec2, &set1_str, &set2_str, exact, &mut file);
-        // write_line_set_for_hasher::<SipHasher24>(
-        //     &set1, &set2, &set1_str, &set2_str, exact, &mut file,
-        // );
-        // write_line_set_for_hasher::<MetroHasher>(
-        //     &set1, &set2, &set1_str, &set2_str, exact, &mut file,
-        // );
-        // write_line_set_for_hasher::<HighwayHasher>(
-        //     &set1, &set2, &set1_str, &set2_str, exact, &mut file,
-        // );
+        write_line_set_for_hasher(&vec1, &vec2, exact, &mut file);
     });
 }
