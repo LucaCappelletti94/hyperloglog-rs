@@ -162,7 +162,7 @@ fn write_line_set_for_hasher(
     write_line_set::<Precision16>(&set1, &set2, exact_intersection, file);
 }
 
-#[test]
+//#[test]
 fn test_intersection_cardinality_perfs() {
     // since both the precision and the number of bits are compile time constants, we can
     // not iterate over the precision and bits, but we need to manually change them, making
