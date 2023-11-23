@@ -395,10 +395,10 @@ where
     ///
     /// ```
     ///
-    fn joint_cardinality_estimation<const ERROR: i32>(
+    fn joint_cardinality_estimation<F: Default + Primitive<f32> + MaxMin, const ERROR: i32>(
         &self,
         other: &Self,
-    ) -> EstimatedUnionCardinalities<f32> {
+    ) -> EstimatedUnionCardinalities<F> {
         let mut left_multiplicities_larger = PRECISION::RegisterMultiplicities::default_array();
         let mut left_multiplicities_smaller = PRECISION::RegisterMultiplicities::default_array();
         let mut right_multiplicities_larger = PRECISION::RegisterMultiplicities::default_array();
@@ -497,16 +497,16 @@ where
             + right_difference_number_of_zeros;
         if number_of_zeros == PRECISION::NUMBER_OF_REGISTERS {
             return EstimatedUnionCardinalities::from((
-                left_cardinality_estimate,
-                right_cardinality_estimate,
-                0.0,
+                F::reverse(left_cardinality_estimate),
+                F::reverse(right_cardinality_estimate),
+                F::reverse(0.0_f32),
             ));
         }
 
-        let intersection =
+        let intersection: f32 =
             left_cardinality_estimate + right_cardinality_estimate - union_cardinality_estimate;
-        let left_difference = union_cardinality_estimate - right_cardinality_estimate;
-        let right_difference = union_cardinality_estimate - left_cardinality_estimate;
+        let left_difference: f32 = union_cardinality_estimate - right_cardinality_estimate;
+        let right_difference: f32 = union_cardinality_estimate - left_cardinality_estimate;
 
         let relative_error_limit =
             10.0_f32.powi(-ERROR) / (PRECISION::NUMBER_OF_REGISTERS as f32).sqrt();
@@ -538,8 +538,7 @@ where
         ];
         let mut gradients: [f32; 3] = [0.0, 0.0, 0.0];
 
-        let mut optimizer: Adam<3> = Adam::default();
-        // let optimizer: SGD<3> = SGD::from_learning_rate_factor(1.0 / q_plus_one as f32);
+        let mut optimizer: Adam<f32, 3> = Adam::default();
 
         let float_left_multiplicities_smaller: PRECISION::FloatMultiplicities =
             left_multiplicities_smaller.convert_array();
@@ -668,9 +667,9 @@ where
         let intersection = phis[2].exp();
 
         EstimatedUnionCardinalities::from((
-            left_difference + intersection,
-            right_difference + intersection,
-            left_difference + right_difference + intersection,
+            F::reverse((left_difference + intersection) as f32),
+            F::reverse((right_difference + intersection) as f32),
+            F::reverse((left_difference + right_difference + intersection) as f32),
         ))
     }
 }
@@ -703,13 +702,7 @@ impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
         &self,
         other: &Self,
     ) -> EstimatedUnionCardinalities<F> {
-        let euc: EstimatedUnionCardinalities<f32> =
-            self.joint_cardinality_estimation::<ERROR>(other);
-        EstimatedUnionCardinalities::from((
-            F::reverse(euc.get_left_cardinality()),
-            F::reverse(euc.get_right_cardinality()),
-            F::reverse(euc.get_union_cardinality()),
-        ))
+        self.joint_cardinality_estimation::<F, ERROR>(other)
     }
 }
 
@@ -735,13 +728,7 @@ impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
         &self,
         other: &Self,
     ) -> EstimatedUnionCardinalities<F> {
-        let euc: EstimatedUnionCardinalities<f32> =
-            self.joint_cardinality_estimation::<ERROR>(other);
-        EstimatedUnionCardinalities::from((
-            F::reverse(euc.get_left_cardinality()),
-            F::reverse(euc.get_right_cardinality()),
-            F::reverse(euc.get_union_cardinality()),
-        ))
+        self.joint_cardinality_estimation::<F, ERROR>(other)
     }
 }
 
@@ -773,7 +760,11 @@ impl<
     }
 }
 
-impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    HyperSpheresSketch<f32> for MLE<ERROR, HyperLogLog<PRECISION, BITS>>
+impl<
+        F: Primitive<f32>,
+        const ERROR: i32,
+        PRECISION: Precision + WordType<BITS>,
+        const BITS: usize,
+    > HyperSpheresSketch<F> for MLE<ERROR, HyperLogLog<PRECISION, BITS>>
 {
 }
