@@ -667,9 +667,9 @@ where
         let intersection = phis[2].exp();
 
         EstimatedUnionCardinalities::from((
-            F::reverse((left_difference + intersection) as f32),
-            F::reverse((right_difference + intersection) as f32),
-            F::reverse((left_difference + right_difference + intersection) as f32),
+            F::reverse(left_difference + intersection),
+            F::reverse(right_difference + intersection),
+            F::reverse(left_difference + right_difference + intersection),
         ))
     }
 }
