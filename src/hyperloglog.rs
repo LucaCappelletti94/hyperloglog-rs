@@ -33,7 +33,7 @@ use core::hash::Hash;
 /// ```
 /// use hyperloglog_rs::prelude::*;
 ///
-/// let mut hll = HyperLogLog::<Precision12, 6>::new();
+/// let mut hll = HyperLogLog::<Precision12, 6>::default();
 /// hll.insert(&"apple");
 /// hll.insert(&"banana");
 /// hll.insert(&"cherry");
@@ -55,97 +55,7 @@ pub struct HyperLogLog<PRECISION: Precision + WordType<BITS>, const BITS: usize>
     pub(crate) number_of_zero_registers: PRECISION::NumberOfZeros,
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Eq for HyperLogLog<PRECISION, BITS> {
-    fn assert_receiver_is_total_eq(&self) {
-        // This is a no-op because we know that `Self` is `Eq`.
-    }
-}
-
-
-/// Implements PartialEq for HyperLogLog.
-///
-/// # Implementative details
-/// Two HyperLogLog counters are considered equal if they have the same words.
-///
-/// # Examples
-///
-/// ```
-/// # use hyperloglog_rs::prelude::*;
-///
-/// let mut hll1 = HyperLogLog::<Precision14, 5>::new();
-/// hll1.insert(&2);
-///
-/// let mut hll2 = HyperLogLog::<Precision14, 5>::new();
-/// hll2.insert(&2);
-/// hll2.insert(&3);
-///
-/// assert_ne!(hll1, hll2);
-///
-/// hll1 |= hll2;
-///
-/// assert_eq!(hll1, hll2);
-/// ```
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> PartialEq
-    for HyperLogLog<PRECISION, BITS>
-{
-    /// Returns whether the two HyperLogLog counters are equal.
-    fn eq(&self, other: &Self) -> bool {
-        self.words == other.words
-    }
-}
-
-/// Implements the Default trait for HyperLogLog.
-///
-/// HyperLogLog is a probabilistic cardinality estimator that uses a fixed
-/// amount of memory to estimate the number of distinct elements in a set.
-///
-/// # Examples
-///
-/// ```rust
-/// # use hyperloglog_rs::prelude::*;
-///
-/// let hll: HyperLogLog<Precision10, 6> = Default::default();
-/// assert_eq!(hll.len(), 1024);
-/// ```
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Default
-    for HyperLogLog<PRECISION, BITS>
-{
-    /// Returns a new HyperLogLog instance with default configuration settings.
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T>
-    for HyperLogLog<PRECISION, BITS>
-{
-    /// Create a new HyperLogLog counter from a value.
-    ///
-    /// This method creates a new empty HyperLogLog counter and inserts the hash
-    /// of the given value into it. The value can be any type that implements
-    /// the `Hash` trait.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use hyperloglog_rs::prelude::*;
-    ///
-    /// let hll = HyperLogLog::<Precision14, 5>::from("test");
-    ///
-    /// assert!(hll.estimate_cardinality() >=  1.0_f32);
-    /// assert!(!hll.is_empty());
-    /// assert!(hll.may_contain(&"test"));
-    /// ```
-    fn from(value: T) -> Self {
-        let mut hll = Self::new();
-        hll.insert(value);
-        hll
-    }
-}
-
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<PRECISION, BITS>
-    for HyperLogLog<PRECISION, BITS>
-{
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS> {
     /// Create a new HyperLogLog counter.
     fn new() -> Self {
         Self {
@@ -153,6 +63,44 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
             number_of_zero_registers: PRECISION::NumberOfZeros::reverse(
                 PRECISION::NUMBER_OF_REGISTERS,
             ),
+        }
+    }
+
+    /// Create a new HyperLogLog counter from an array of words.
+    ///
+    /// # Arguments
+    /// * `words` - An array of u64 words to use for the HyperLogLog counter.
+    ///
+    /// # Returns
+    /// A new HyperLogLog counter initialized with the given words.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use hyperloglog_rs::prelude::*;
+    ///                                                                                                                                                                                                                                                                    
+    /// let words = [0_u32; 4];
+    /// let hll = HyperLogLog::<Precision4, 6>::from_words(&words);
+    /// assert_eq!(hll.len(), 16);
+    /// ```
+    pub fn from_words(words: &PRECISION::Words) -> Self {
+        let number_of_zero_registers =
+            PRECISION::NumberOfZeros::reverse(words.iter_elements().fold(
+                0,
+                |number_of_zero_registers, word| {
+                    (0..Self::NUMBER_OF_REGISTERS_IN_WORD).fold(
+                        number_of_zero_registers,
+                        |number_of_zero_registers, i| {
+                            let register = (word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
+                            number_of_zero_registers + (register == 0) as usize
+                        },
+                    )
+                },
+            )) - PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
+
+        Self {
+            words: *words,
+            number_of_zero_registers,
         }
     }
 
@@ -175,7 +123,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
     /// let hll = HyperLogLog::<Precision4, 6>::from_registers(&registers);
     /// assert_eq!(hll.len(), 1 << 4);
     /// ```
-    fn from_registers(registers: &[u32]) -> Self {
+    pub fn from_registers(registers: &[u32]) -> Self {
         debug_assert!(
             registers.len() == PRECISION::NUMBER_OF_REGISTERS,
             "We expect {} registers, but got {}",
@@ -209,76 +157,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
         }
     }
 
-    /// Create a new HyperLogLog counter from an array of words.
-    ///
-    /// # Arguments
-    /// * `words` - An array of u64 words to use for the HyperLogLog counter.
-    ///
-    /// # Returns
-    /// A new HyperLogLog counter initialized with the given words.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use hyperloglog_rs::prelude::*;
-    ///                                                                                                                                                                                                                                                                    
-    /// let words = [0_u32; 4];
-    /// let hll = HyperLogLog::<Precision4, 6>::from_words(&words);
-    /// assert_eq!(hll.len(), 16);
-    /// ```
-    fn from_words(words: &PRECISION::Words) -> Self {
-        let number_of_zero_registers =
-            PRECISION::NumberOfZeros::reverse(words.iter_elements().fold(
-                0,
-                |number_of_zero_registers, word| {
-                    (0..Self::NUMBER_OF_REGISTERS_IN_WORD).fold(
-                        number_of_zero_registers,
-                        |number_of_zero_registers, i| {
-                            let register = (word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
-                            number_of_zero_registers + (register == 0) as usize
-                        },
-                    )
-                },
-            )) - PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
-
-        Self {
-            words: *words,
-            number_of_zero_registers,
-        }
-    }
-
-    #[inline(always)]
-    /// Returns the number of registers with zero values. This value is used for computing a small
-    /// correction when estimating the cardinality of a small set.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use hyperloglog_rs::prelude::*;
-    ///
-    /// // Create a new HyperLogLog counter with precision 14 and 5 bits per register.
-    /// let mut hll = HyperLogLog::<Precision14, 5>::new();
-    ///
-    /// // Add some elements to the counter.
-    /// hll.insert(&1);
-    /// hll.insert(&2);
-    /// hll.insert(&3);
-    ///
-    /// // Get the number of zero registers.
-    /// let number_of_zero_registers = hll.get_number_of_zero_registers();
-    ///
-    /// assert_eq!(number_of_zero_registers, 16381);
-    /// ```
-    fn get_number_of_zero_registers(&self) -> usize {
-        self.number_of_zero_registers.convert()
-    }
-
-    #[inline(always)]
-    /// Returns the array of words of the HyperLogLog counter.
-    fn get_words(&self) -> &PRECISION::Words {
-        &self.words
-    }
-
     #[inline(always)]
     /// Adds an element to the HyperLogLog counter.
     ///
@@ -290,7 +168,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
     /// ```
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll = HyperLogLog::<Precision10, 6>::new();
+    /// let mut hll = HyperLogLog::<Precision10, 6>::default();
     ///
     /// hll.insert("Hello");
     /// hll.insert("World");
@@ -308,7 +186,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
     /// # Errors
     ///
     /// This function does not return any errors.
-    fn insert<T: Hash>(&mut self, rhs: T) {
+    pub fn insert<T: Hash>(&mut self, rhs: T) {
         let (mut hash, index) = self.get_hash_and_index::<T>(&rhs);
 
         // We need to add ones to the hash to make sure that the
@@ -382,6 +260,130 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
                 self.words[word_position] & Self::PADDING_BITS_MASK
             );
         }
+    }
+}
+
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Eq for HyperLogLog<PRECISION, BITS> {
+    fn assert_receiver_is_total_eq(&self) {
+        // This is a no-op because we know that `Self` is `Eq`.
+    }
+}
+
+
+/// Implements PartialEq for HyperLogLog.
+///
+/// # Implementative details
+/// Two HyperLogLog counters are considered equal if they have the same words.
+///
+/// # Examples
+///
+/// ```
+/// # use hyperloglog_rs::prelude::*;
+///
+/// let mut hll1 = HyperLogLog::<Precision14, 5>::default();
+/// hll1.insert(&2);
+///
+/// let mut hll2 = HyperLogLog::<Precision14, 5>::default();
+/// hll2.insert(&2);
+/// hll2.insert(&3);
+///
+/// assert_ne!(hll1, hll2);
+///
+/// hll1 |= hll2;
+///
+/// assert_eq!(hll1, hll2);
+/// ```
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> PartialEq
+    for HyperLogLog<PRECISION, BITS>
+{
+    /// Returns whether the two HyperLogLog counters are equal.
+    fn eq(&self, other: &Self) -> bool {
+        self.words == other.words
+    }
+}
+
+/// Implements the Default trait for HyperLogLog.
+///
+/// HyperLogLog is a probabilistic cardinality estimator that uses a fixed
+/// amount of memory to estimate the number of distinct elements in a set.
+///
+/// # Examples
+///
+/// ```rust
+/// # use hyperloglog_rs::prelude::*;
+///
+/// let hll: HyperLogLog<Precision10, 6> = Default::default();
+/// assert_eq!(hll.len(), 1024);
+/// ```
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Default
+    for HyperLogLog<PRECISION, BITS>
+{
+    /// Returns a new HyperLogLog instance with default configuration settings.
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T>
+    for HyperLogLog<PRECISION, BITS>
+{
+    /// Create a new HyperLogLog counter from a value.
+    ///
+    /// This method creates a new empty HyperLogLog counter and inserts the hash
+    /// of the given value into it. The value can be any type that implements
+    /// the `Hash` trait.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use hyperloglog_rs::prelude::*;
+    ///
+    /// let hll = HyperLogLog::<Precision14, 5>::from("test");
+    ///
+    /// assert!(hll.estimate_cardinality() >=  1.0_f32);
+    /// assert!(!hll.is_empty());
+    /// assert!(hll.may_contain(&"test"));
+    /// ```
+    fn from(value: T) -> Self {
+        let mut hll = Self::new();
+        hll.insert(value);
+        hll
+    }
+}
+
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<PRECISION, BITS>
+    for HyperLogLog<PRECISION, BITS>
+{
+    #[inline(always)]
+    /// Returns the number of registers with zero values. This value is used for computing a small
+    /// correction when estimating the cardinality of a small set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use hyperloglog_rs::prelude::*;
+    ///
+    /// // Create a new HyperLogLog counter with precision 14 and 5 bits per register.
+    /// let mut hll = HyperLogLog::<Precision14, 5>::default();
+    ///
+    /// // Add some elements to the counter.
+    /// hll.insert(&1);
+    /// hll.insert(&2);
+    /// hll.insert(&3);
+    ///
+    /// // Get the number of zero registers.
+    /// let number_of_zero_registers = hll.get_number_of_zero_registers();
+    ///
+    /// assert_eq!(number_of_zero_registers, 16381);
+    /// ```
+    fn get_number_of_zero_registers(&self) -> usize {
+        self.number_of_zero_registers.convert()
+    }
+
+    #[inline(always)]
+    /// Returns the array of words of the HyperLogLog counter.
+    fn get_words(&self) -> &PRECISION::Words {
+        &self.words
     }
 }
 

@@ -25,7 +25,7 @@ const BITS: usize = 5;
 
 fuzz_target!(|data: FuzzCase| {
     let mut idx: u32 = 0;
-    let mut left: HyperLogLog<Precision8, BITS> = HyperLogLog::new();
+    let mut left: HyperLogLog<Precision8, BITS> = HyperLogLog::default();
     let mut right: HyperLogLog<Precision8, BITS> = HyperLogLog::default();
     for command in data.commands {
         match command {
@@ -128,7 +128,7 @@ fuzz_target!(|data: FuzzCase| {
                 idx = 0;
             }
             RandomCommand::Reset => {
-                left = HyperLogLog::new();
+                left = HyperLogLog::default();
                 right = HyperLogLog::default();
             }
             RandomCommand::FromRegisters => {

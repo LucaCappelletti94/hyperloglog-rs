@@ -40,11 +40,12 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     file: &mut File,
 ) -> std::io::Result<()> {
     let hll: HyperLogLog<PRECISION, BITS> = vector.iter().collect();
-    let hll2: HyperLogLogWithMulteplicities<PRECISION, BITS> = hll.clone().into();
+    let hll2: HyperLogLogWithMultiplicities<PRECISION, BITS> = hll.clone().into();
 
     let hll_cardinality = hll.estimate_cardinality();
 
-    let mle_cardinality = hll2.estimate_cardinality_mle::<3>();
+    let mle_hll: &MLE<3, HyperLogLog<PRECISION, BITS>> = hll.as_ref();
+    let mle_cardinality = mle_hll.estimate_cardinality();
 
     let line = format!(
         "{}\t{}\t{}\t{}\t{}\n",
@@ -98,7 +99,7 @@ fn write_line_set_for_hasher(
     // write_line_set::<Precision18>(vector, set_str, exact_cardinality, file);
 }
 
-#[test]
+// #[test]
 fn test_cardinality_perfs() {
     let mut file = File::create("cardinality_benchmark.tsv").unwrap();
     file.write_all(b"precision\tbits\texact\thll\tmle\n")

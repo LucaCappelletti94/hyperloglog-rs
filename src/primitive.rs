@@ -9,12 +9,14 @@ use core::{
 };
 
 use crate::max_min::MaxMin;
+use crate::ones::One;
 
 pub trait Primitive<U>:
     Sized
     + Copy
     + Send
     + Sync
+    + One
     + Sum
     + Default
     + Sub<Self, Output = Self>
@@ -389,6 +391,18 @@ impl Primitive<usize> for u128 {
     #[inline(always)]
     fn reverse(other: usize) -> Self {
         other as u128
+    }
+}
+
+impl Primitive<usize> for usize {
+    #[inline(always)]
+    fn convert(self) -> usize {
+        self
+    }
+
+    #[inline(always)]
+    fn reverse(other: usize) -> Self {
+        other
     }
 }
 

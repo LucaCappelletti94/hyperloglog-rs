@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     array_default::ArrayDefault,
     array_default::ArrayIterArgmin,
+    array_default::PrimitiveArray,
     array_default::{ArrayIter, ArrayIterArgmax},
     prelude::{precompute_linear_counting, One},
     primitive::Primitive,
@@ -39,11 +40,11 @@ pub trait WordType<const BITS: usize>: Precision {
         + PartialEq
         + ArrayIter<u32>
         + ArrayDefault<u32>; // = [u32; ceil(PRECISION::NUMBER_OF_REGISTERS, 32 / BITS)]
-    /// The register multeplicities is an array with the length of the largest possible
+    /// The register multiplicities is an array with the length of the largest possible
     /// value that can appear in a register. The value at index i is the number of registers
     /// that have a value equal to i, meaning the largest value that any register can have
     /// is the number of registers, i.e. 2^EXPONENT. This is the m parameter in the HyperLogLog.
-    /// The lenth of the multeplicities array varies depending on the exponent and the number of bits,
+    /// The lenth of the multiplicities array varies depending on the exponent and the number of bits,
     /// as the length of the array is equal to the maximal value that can be stored in a register.
     /// The value being stored in the register is the number of leading zeros in the hash of the
     /// value that is being inserted.
@@ -64,7 +65,7 @@ pub trait WordType<const BITS: usize>: Precision {
     /// When the precision is 6, the length of the array is 60.
     /// The decrease in length continues linearly until the maximal precision for which we
     /// have experimental parameters, which is 18, where the length of the array is 48.
-    type Registermulteplicities: Index<usize, Output = Self::NumberOfZeros>
+    type RegisterMultiplicities: Index<usize, Output = Self::NumberOfZeros>
         + IndexMut<usize, Output = Self::NumberOfZeros>
         + Copy
         + Debug
@@ -72,7 +73,10 @@ pub trait WordType<const BITS: usize>: Precision {
         + ArrayIterArgmin<Self::NumberOfZeros>
         + ArrayIterArgmax<Self::NumberOfZeros>
         + ArrayDefault<Self::NumberOfZeros>
+        + PrimitiveArray<f32, Array=Self::FloatMultiplicities>
         + ArrayIter<Self::NumberOfZeros>;
+
+    type FloatMultiplicities: Index<usize, Output = f32>;
 }
 
 pub trait Precision: Default + Copy + Eq + Serialize + Debug + Send + Sync {
@@ -86,6 +90,7 @@ pub trait Precision: Default + Copy + Eq + Serialize + Debug + Send + Sync {
         + Eq
         + PartialEq
         + Primitive<usize>
+        + Primitive<f32>
         + Send
         + Copy
         + Sync
@@ -123,32 +128,38 @@ impl Precision for Precision4 {
 
 impl WordType<1> for Precision4 {
     type Words = [u32; 1];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision4 {
     type Words = [u32; 1];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision4 {
     type Words = [u32; 2];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision4 {
     type Words = [u32; 2];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision4 {
     type Words = [u32; 3];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision4 {
     type Words = [u32; 4];
-    type Registermulteplicities = [Self::NumberOfZeros; 62];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 62];
+    type FloatMultiplicities = [f32; 62];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -166,32 +177,38 @@ impl Precision for Precision5 {
 
 impl WordType<1> for Precision5 {
     type Words = [u32; 1];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision5 {
     type Words = [u32; 2];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision5 {
     type Words = [u32; 4];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision5 {
     type Words = [u32; 4];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision5 {
     type Words = [u32; 6];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision5 {
     type Words = [u32; 7];
-    type Registermulteplicities = [Self::NumberOfZeros; 61];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 61];
+    type FloatMultiplicities = [f32; 61];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -209,32 +226,38 @@ impl Precision for Precision6 {
 
 impl WordType<1> for Precision6 {
     type Words = [u32; 2];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision6 {
     type Words = [u32; 4];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision6 {
     type Words = [u32; 7];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision6 {
     type Words = [u32; 8];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision6 {
     type Words = [u32; 11];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision6 {
     type Words = [u32; 13];
-    type Registermulteplicities = [Self::NumberOfZeros; 60];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 60];
+    type FloatMultiplicities = [f32; 60];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -252,32 +275,38 @@ impl Precision for Precision7 {
 
 impl WordType<1> for Precision7 {
     type Words = [u32; 4];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision7 {
     type Words = [u32; 8];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision7 {
     type Words = [u32; 13];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision7 {
     type Words = [u32; 16];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision7 {
     type Words = [u32; 22];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision7 {
     type Words = [u32; 26];
-    type Registermulteplicities = [Self::NumberOfZeros; 59];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 59];
+    type FloatMultiplicities = [f32; 59];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -294,32 +323,38 @@ impl Precision for Precision8 {
 }
 impl WordType<1> for Precision8 {
     type Words = [u32; 8];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision8 {
     type Words = [u32; 16];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision8 {
     type Words = [u32; 26];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision8 {
     type Words = [u32; 32];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision8 {
     type Words = [u32; 43];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision8 {
     type Words = [u32; 52];
-    type Registermulteplicities = [Self::NumberOfZeros; 58];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 58];
+    type FloatMultiplicities = [f32; 58];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -336,32 +371,38 @@ impl Precision for Precision9 {
 }
 impl WordType<1> for Precision9 {
     type Words = [u32; 16];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision9 {
     type Words = [u32; 32];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision9 {
     type Words = [u32; 52];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision9 {
     type Words = [u32; 64];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision9 {
     type Words = [u32; 86];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision9 {
     type Words = [u32; 103];
-    type Registermulteplicities = [Self::NumberOfZeros; 57];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 57];
+    type FloatMultiplicities = [f32; 57];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -378,32 +419,38 @@ impl Precision for Precision10 {
 }
 impl WordType<1> for Precision10 {
     type Words = [u32; 32];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision10 {
     type Words = [u32; 64];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision10 {
     type Words = [u32; 103];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision10 {
     type Words = [u32; 128];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision10 {
     type Words = [u32; 171];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision10 {
     type Words = [u32; 205];
-    type Registermulteplicities = [Self::NumberOfZeros; 56];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 56];
+    type FloatMultiplicities = [f32; 56];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -420,32 +467,38 @@ impl Precision for Precision11 {
 }
 impl WordType<1> for Precision11 {
     type Words = [u32; 64];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision11 {
     type Words = [u32; 128];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision11 {
     type Words = [u32; 205];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision11 {
     type Words = [u32; 256];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision11 {
     type Words = [u32; 342];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision11 {
     type Words = [u32; 410];
-    type Registermulteplicities = [Self::NumberOfZeros; 55];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 55];
+    type FloatMultiplicities = [f32; 55];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -462,32 +515,38 @@ impl Precision for Precision12 {
 }
 impl WordType<1> for Precision12 {
     type Words = [u32; 128];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision12 {
     type Words = [u32; 256];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision12 {
     type Words = [u32; 410];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision12 {
     type Words = [u32; 512];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision12 {
     type Words = [u32; 683];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision12 {
     type Words = [u32; 820];
-    type Registermulteplicities = [Self::NumberOfZeros; 54];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 54];
+    type FloatMultiplicities = [f32; 54];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -504,32 +563,38 @@ impl Precision for Precision13 {
 }
 impl WordType<1> for Precision13 {
     type Words = [u32; 256];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision13 {
     type Words = [u32; 512];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision13 {
     type Words = [u32; 820];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision13 {
     type Words = [u32; 1024];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision13 {
     type Words = [u32; 1366];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision13 {
     type Words = [u32; 1639];
-    type Registermulteplicities = [Self::NumberOfZeros; 53];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 53];
+    type FloatMultiplicities = [f32; 53];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -546,32 +611,38 @@ impl Precision for Precision14 {
 }
 impl WordType<1> for Precision14 {
     type Words = [u32; 512];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision14 {
     type Words = [u32; 1024];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision14 {
     type Words = [u32; 1639];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision14 {
     type Words = [u32; 2048];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision14 {
     type Words = [u32; 2731];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision14 {
     type Words = [u32; 3277];
-    type Registermulteplicities = [Self::NumberOfZeros; 52];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 52];
+    type FloatMultiplicities = [f32; 52];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -588,32 +659,38 @@ impl Precision for Precision15 {
 }
 impl WordType<1> for Precision15 {
     type Words = [u32; 1024];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision15 {
     type Words = [u32; 2048];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision15 {
     type Words = [u32; 3277];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision15 {
     type Words = [u32; 4096];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision15 {
     type Words = [u32; 5462];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision15 {
     type Words = [u32; 6554];
-    type Registermulteplicities = [Self::NumberOfZeros; 51];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 51];
+    type FloatMultiplicities = [f32; 51];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -632,32 +709,38 @@ impl Precision for Precision16 {
 }
 impl WordType<1> for Precision16 {
     type Words = [u32; 2048];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision16 {
     type Words = [u32; 4096];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision16 {
     type Words = [u32; 6554];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision16 {
     type Words = [u32; 8192];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision16 {
     type Words = [u32; 10923];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision16 {
     type Words = [u32; 13108];
-    type Registermulteplicities = [Self::NumberOfZeros; 50];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 50];
+    type FloatMultiplicities = [f32; 50];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -674,32 +757,38 @@ impl Precision for Precision17 {
 }
 impl WordType<1> for Precision17 {
     type Words = [u32; 4096];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision17 {
     type Words = [u32; 8192];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision17 {
     type Words = [u32; 13108];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision17 {
     type Words = [u32; 16384];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision17 {
     type Words = [u32; 21846];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision17 {
     type Words = [u32; 26215];
-    type Registermulteplicities = [Self::NumberOfZeros; 49];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 49];
+    type FloatMultiplicities = [f32; 49];
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -716,30 +805,36 @@ impl Precision for Precision18 {
 }
 impl WordType<1> for Precision18 {
     type Words = [u32; 8192];
-    type Registermulteplicities = [Self::NumberOfZeros; 2];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
+    type FloatMultiplicities = [f32; 2];
 }
 
 impl WordType<2> for Precision18 {
     type Words = [u32; 16384];
-    type Registermulteplicities = [Self::NumberOfZeros; 4];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
+    type FloatMultiplicities = [f32; 4];
 }
 
 impl WordType<3> for Precision18 {
     type Words = [u32; 26215];
-    type Registermulteplicities = [Self::NumberOfZeros; 8];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
+    type FloatMultiplicities = [f32; 8];
 }
 
 impl WordType<4> for Precision18 {
     type Words = [u32; 32768];
-    type Registermulteplicities = [Self::NumberOfZeros; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
+    type FloatMultiplicities = [f32; 16];
 }
 
 impl WordType<5> for Precision18 {
     type Words = [u32; 43691];
-    type Registermulteplicities = [Self::NumberOfZeros; 32];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
+    type FloatMultiplicities = [f32; 32];
 }
 
 impl WordType<6> for Precision18 {
     type Words = [u32; 52429];
-    type Registermulteplicities = [Self::NumberOfZeros; 48];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 48];
+    type FloatMultiplicities = [f32; 48];
 }

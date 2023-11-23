@@ -40,8 +40,8 @@ fn intersection(set1: &HashSet<u64>, set2: &HashSet<u64>) -> usize {
 }
 
 fn old_intersection_hll<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
-    set1: &Vec<u64>,
-    set2: &Vec<u64>,
+    set1: &HashSet<u64>,
+    set2: &HashSet<u64>,
 ) -> f32 {
     let hll1: HyperLogLog<PRECISION, BITS> = set1.iter().collect();
     let hll2: HyperLogLog<PRECISION, BITS> = set2.iter().collect();
@@ -50,8 +50,8 @@ fn old_intersection_hll<PRECISION: Precision + WordType<BITS>, const BITS: usize
 }
 
 fn intersection_with_set_estimation<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
-    set1: &Vec<u64>,
-    set2: &Vec<u64>,
+    set1: &HashSet<u64>,
+    set2: &HashSet<u64>,
 ) -> f32 {
     let hll1: HyperLogLog<PRECISION, BITS> = set1.iter().collect();
     let hll2: HyperLogLog<PRECISION, BITS> = set2.iter().collect();
@@ -64,25 +64,24 @@ fn intersection_with_mle<
     const ERROR: i32,
     const BITS: usize,
 >(
-    set1: &Vec<u64>,
-    set2: &Vec<u64>,
+    set1: &HashSet<u64>,
+    set2: &HashSet<u64>,
 ) -> (f32, f32) {
     let start = std::time::Instant::now();
     let hll1: HyperLogLog<PRECISION, BITS> = set1.iter().collect();
     let hll2: HyperLogLog<PRECISION, BITS> = set2.iter().collect();
-    let hll_multi1: HyperLogLogWithMulteplicities<PRECISION, BITS> = hll1.into();
-    let hll_multi2: HyperLogLogWithMulteplicities<PRECISION, BITS> = hll2.into();
+    let hll1_mle: MLE<ERROR, HyperLogLog<PRECISION, BITS>> = hll1.into();
+    let hll2_mle: MLE<ERROR, HyperLogLog<PRECISION, BITS>> = hll2.into();
 
-    let estimate = hll_multi1
-        .joint_cardinality_estimation::<ERROR>(&hll_multi2)
-        .get_intersection_cardinality() as f32;
+    let estimate = hll1_mle
+        .estimate_intersection_cardinality(&hll2_mle);
 
     (estimate, start.elapsed().as_secs_f32())
 }
 
 fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
-    set1: &Vec<u64>,
-    set2: &Vec<u64>,
+    set1: &HashSet<u64>,
+    set2: &HashSet<u64>,
     exact_intersection: usize,
     file: &mut File,
 ) -> std::io::Result<()> {
@@ -122,8 +121,8 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
 fn write_line_set<
     PRECISION: Precision + WordType<1> + WordType<2> + WordType<3> + WordType<4> + WordType<5> + WordType<6>,
 >(
-    set1: &Vec<u64>,
-    set2: &Vec<u64>,
+    set1: &HashSet<u64>,
+    set2: &HashSet<u64>,
     exact_intersection: usize,
     file: &mut File,
 ) {
@@ -142,8 +141,8 @@ fn write_line_set<
 }
 
 fn write_line_set_for_hasher(
-    set1: &Vec<u64>,
-    set2: &Vec<u64>,
+    set1: &HashSet<u64>,
+    set2: &HashSet<u64>,
     exact_intersection: usize,
     file: &mut File,
 ) {
@@ -181,7 +180,7 @@ fn test_intersection_cardinality_perfs() {
     std::fs::create_dir_all("intersection_tests").unwrap();
 
     (0..number_of_tests).progress_with(loading_bar).for_each(|i| {
-        let path = format!("intersection_tests/intersection_cardinality_benchmark_{}.tsv", i);
+        let path = format!("intersection_tests/intersection_cardinality_benchmark_kernel_fused3_{}.tsv", i);
 
         // If the file already exists we skip it.
         if std::path::Path::new(&path).exists() {
@@ -190,15 +189,13 @@ fn test_intersection_cardinality_perfs() {
 
         let mut file = File::create(path).unwrap();
         file.write_all(b"precision\tbits\texact\tinclusion_exclusion\thll_min\tmle_1\tmle_2\tmle_3\tmle_4\ttime_inclusion_exclusion\ttime_hll_min\ttime_mle_1\ttime_mle_2\ttime_mle_3\ttime_mle_4\n")
-            .unwrap();    
+            .unwrap();
 
         let seed = (i + 1).wrapping_mul(234567898765) as u64;
         let mut rng = splitmix64(seed);
 
         let mut set1 = HashSet::new();
         let mut set2 = HashSet::new();
-        let mut vec1 = Vec::new();
-        let mut vec2 = Vec::new();
 
         let first_set_cardinality = xorshift(rng) % 100_000;
         rng = splitmix64(rng);
@@ -211,22 +208,18 @@ fn test_intersection_cardinality_perfs() {
 
         for _ in 0..first_set_cardinality {
             let value = xorshift(rng) % first_world_size;
-            if set1.insert(value) {
-                vec1.push(value);
-            }
+            set1.insert(value);
             rng = splitmix64(rng);
         }
 
         for _ in 0..second_set_cardinality {
             let value = xorshift(rng) % second_world_size;
-            if set2.insert(value) {
-                vec2.push(value);
-            }
+            set2.insert(value);
             rng = splitmix64(rng);
         }
 
         let exact = intersection(&set1, &set2);
 
-        write_line_set_for_hasher(&vec1, &vec2, exact, &mut file);
+        write_line_set_for_hasher(&set1, &set2, exact, &mut file);
     });
 }

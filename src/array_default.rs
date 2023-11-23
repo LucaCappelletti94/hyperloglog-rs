@@ -1,6 +1,7 @@
 //! This module contains the `ArrayDefault` trait, which is used to set the default value of an array.
 //! This trait is necessary as the standard library only provides a `Default` implementation for arrays
 //! of limited length, while we need this for objects of several differenty lengths.
+use crate::prelude::Primitive;
 
 pub trait ArrayDefault<T> {
     fn default_array() -> Self;
@@ -88,6 +89,25 @@ impl<T: Default + Copy, const N: usize> ArrayDefault<T> for [T; N] {
     #[inline(always)]
     fn default_array() -> Self {
         [T::default(); N]
+    }
+}
+
+pub trait PrimitiveArray<T> {
+    type Array;
+
+    fn convert_array(&self) -> Self::Array;
+}
+
+impl<F: Copy + Primitive<T>, T: Default + Copy, const N: usize> PrimitiveArray<T> for [F; N] {
+    type Array = [T; N];
+
+    #[inline(always)]
+    fn convert_array(&self) -> Self::Array {
+        let mut array = [T::default(); N];
+        for (src, dst) in self.iter().zip(array.iter_mut()) {
+            *dst = src.convert();
+        }
+        array
     }
 }
 

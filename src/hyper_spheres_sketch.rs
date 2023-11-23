@@ -81,7 +81,25 @@ impl<F: Primitive<f32>, PRECISION: Precision + WordType<BITS>, const BITS: usize
     }
 }
 
-pub trait HyperSpheresSketch: Sized {
+
+pub trait HyperSpheresSketch<I>: Sized + SetLike<I>
+where
+    I: Copy
+        + Default
+        + core::ops::Add<Output = I>
+        + core::ops::Sub<Output = I>
+        + core::ops::Div<Output = I>
+        + core::ops::Mul<Output = I>
+        + Sum
+        + Send
+        + Sync
+        + AddAssign
+        + SubAssign
+        + MulAssign
+        + DivAssign
+        + One
+        + MaxMin,
+{
     /// Returns the overlap and differences cardinality matrices of two lists of sets.
     ///
     /// # Arguments
@@ -106,31 +124,10 @@ pub trait HyperSpheresSketch: Sized {
     ///
     /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/tuple_overlap.png?raw=true)
     ///
-    fn overlap_and_differences_cardinality_matrices<
-        I: Copy
-            + Default
-            + Primitive<f32>
-            + core::ops::Add<Output = I>
-            + core::ops::Sub<Output = I>
-            + core::ops::Div<Output = I>
-            + core::ops::Mul<Output = I>
-            + Sum
-            + Send
-            + Sync
-            + AddAssign
-            + SubAssign
-            + MulAssign
-            + DivAssign
-            + MaxMin,
-        const L: usize,
-        const R: usize,
-    >(
+    fn overlap_and_differences_cardinality_matrices<const L: usize, const R: usize>(
         left: &[Self; L],
         right: &[Self; R],
-    ) -> ([[I; R]; L], [I; L], [I; R])
-    where
-        Self: SetLike<I>,
-    {
+    ) -> ([[I; R]; L], [I; L], [I; R]) {
         // Initialize overlap and differences cardinality matrices/vectors.
         let mut last_row = [I::default(); R];
         let mut differential_overlap_cardinality_matrix = [[I::default(); R]; L];
@@ -211,31 +208,10 @@ pub trait HyperSpheresSketch: Sized {
     ///
     /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/tuple_overlap.png?raw=true)
     ///
-    fn overlap_matrix_and_outer_difference_shells_cardinality<
-        I: Copy
-            + Default
-            + Primitive<f32>
-            + core::ops::Add<Output = I>
-            + core::ops::Sub<Output = I>
-            + core::ops::Div<Output = I>
-            + core::ops::Mul<Output = I>
-            + Sum
-            + Send
-            + Sync
-            + AddAssign
-            + SubAssign
-            + MulAssign
-            + DivAssign
-            + MaxMin,
-        const L: usize,
-        const R: usize,
-    >(
+    fn overlap_matrix_and_outer_difference_shells_cardinality<const L: usize, const R: usize>(
         left: &[Self; L],
         right: &[Self; R],
-    ) -> ([[I; R]; L], I, I)
-    where
-        Self: SetLike<I>,
-    {
+    ) -> ([[I; R]; L], I, I) {
         // Initialize overlap and differences cardinality matrices/vectors.
         let mut last_row = [I::default(); R];
         let mut differential_overlap_cardinality_matrix = [[I::default(); R]; L];
@@ -293,7 +269,8 @@ pub trait HyperSpheresSketch: Sized {
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperSpheresSketch
-    for HyperLogLog<PRECISION, BITS>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, I: Primitive<f32>>
+    HyperSpheresSketch<I> for HyperLogLog<PRECISION, BITS>
 {
 }
+

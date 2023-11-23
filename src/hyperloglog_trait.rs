@@ -40,49 +40,6 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// The number of registers that can fit in a single 32-bit word in the HyperLogLog algorithm.
     const NUMBER_OF_REGISTERS_IN_WORD: usize = 32 / BITS;
 
-    /// Create a new HyperLogLog counter.
-    fn new() -> Self;
-
-    /// Create a new HyperLogLog counter from an array of registers.
-    ///
-    /// # Arguments
-    ///
-    /// * `registers` - An array of u32 registers to use for the HyperLogLog counter.
-    ///
-    /// # Returns
-    ///
-    /// A new HyperLogLog counter initialized with the given registers.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use hyperloglog_rs::prelude::*;
-    ///
-    /// let registers = [0_u32; 1 << 4];
-    /// let hll = HyperLogLog::<Precision4, 6>::from_registers(&registers);
-    /// assert_eq!(hll.len(), 1 << 4);
-    /// ```
-    fn from_registers(registers: &[u32]) -> Self;
-
-    /// Create a new HyperLogLog counter from an array of words.
-    ///
-    /// # Arguments
-    /// * `words` - An array of u64 words to use for the HyperLogLog counter.
-    ///
-    /// # Returns
-    /// A new HyperLogLog counter initialized with the given words.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use hyperloglog_rs::prelude::*;
-    ///
-    /// let words = [0_u32; 4];
-    /// let hll = HyperLogLog::<Precision4, 6>::from_words(&words);
-    /// assert_eq!(hll.len(), 16);
-    /// ```
-    fn from_words(words: &PRECISION::Words) -> Self;
-
     fn adjust_estimate(mut raw_estimate: f32) -> f32 {
         // Apply the final scaling factor to obtain the estimate of the cardinality
         raw_estimate = get_alpha(PRECISION::NUMBER_OF_REGISTERS)
@@ -154,7 +111,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     ///
     /// ```
     /// # use hyperloglog_rs::prelude::*;
-    /// let mut hll = HyperLogLog::<Precision9, 5>::new();
+    /// let mut hll = HyperLogLog::<Precision9, 5>::default();
     /// let elements = vec![1, 2, 3, 4, 5];
     /// for element in &elements {
     ///     hll.insert(element);
@@ -210,11 +167,11 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// ```
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll1 = HyperLogLog::<Precision12, 6>::new();
+    /// let mut hll1 = HyperLogLog::<Precision12, 6>::default();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
     ///
-    /// let mut hll2 = HyperLogLog::<Precision12, 6>::new();
+    /// let mut hll2 = HyperLogLog::<Precision12, 6>::default();
     /// hll2.insert(&2);
     /// hll2.insert(&3);
     ///
@@ -307,11 +264,11 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// ```
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll1 = HyperLogLog::<Precision12, 6>::new();
+    /// let mut hll1 = HyperLogLog::<Precision12, 6>::default();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
     ///
-    /// let mut hll2 = HyperLogLog::<Precision12, 6>::new();
+    /// let mut hll2 = HyperLogLog::<Precision12, 6>::default();
     /// hll2.insert(&2);
     /// hll2.insert(&3);
     ///
@@ -344,13 +301,13 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// ```
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll1 = HyperLogLog::<Precision12, 6>::new();
+    /// let mut hll1 = HyperLogLog::<Precision12, 6>::default();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
     /// hll1.insert(&3);
     /// hll1.insert(&4);
     ///
-    /// let mut hll2 = HyperLogLog::<Precision12, 6>::new();
+    /// let mut hll2 = HyperLogLog::<Precision12, 6>::default();
     /// hll2.insert(&2);
     /// hll2.insert(&3);
     /// hll2.insert(&5);
@@ -379,13 +336,13 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// ```
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll1 = HyperLogLog::<Precision12, 6>::new();
+    /// let mut hll1 = HyperLogLog::<Precision12, 6>::default();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
     /// hll1.insert(&3);
     /// hll1.insert(&4);
     ///     
-    /// let mut hll2 = HyperLogLog::<Precision12, 6>::new();
+    /// let mut hll2 = HyperLogLog::<Precision12, 6>::default();
     /// hll2.insert(&2);
     /// hll2.insert(&3);
     /// hll2.insert(&5);
@@ -396,7 +353,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// assert!(difference_cardinality >= 2.0 * 0.9 &&
     ///        difference_cardinality <= 2.0 * 1.1);
     /// ```
-    fn estimate_difference_cardinality<F: Primitive<f32>>(&self, other: &Self) -> F {
+    fn estimate_difference_cardinality<F: Primitive<f32> + One>(&self, other: &Self) -> F {
         self.estimate_union_and_sets_cardinality(other)
             .get_left_difference_cardinality()
     }
@@ -411,7 +368,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// # use hyperloglog_rs::prelude::*;
     ///
     /// // Create a new HLL counter with 128 registers
-    /// let mut hll = HyperLogLog::<Precision12, 4>::new();
+    /// let mut hll = HyperLogLog::<Precision12, 4>::default();
     /// assert_eq!(hll.len(), 4096);
     ///
     /// // Insert some elements into the HLL counter
@@ -421,7 +378,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// assert_eq!(hll.len(), 1 << 12);
     ///
     /// // Merge another HLL counter with 128 registers
-    /// let mut hll2 = HyperLogLog::<Precision12, 4>::new();
+    /// let mut hll2 = HyperLogLog::<Precision12, 4>::default();
     /// hll2.insert(&4);
     /// hll2.insert(&5);
     /// hll |= hll2;
@@ -440,7 +397,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// ```
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll: HyperLogLog<Precision8, 4> = HyperLogLog::new();
+    /// let mut hll: HyperLogLog<Precision8, 4> = HyperLogLog::default();
     ///
     /// assert!(hll.is_empty());
     ///
@@ -490,7 +447,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// # use hyperloglog_rs::prelude::*;
     ///
     /// // Create a new HyperLogLog counter with precision 14 and 5 bits per register.
-    /// let mut hll = HyperLogLog::<Precision14, 5>::new();
+    /// let mut hll = HyperLogLog::<Precision14, 5>::default();
     ///
     /// // Add some elements to the counter.
     /// hll.insert(&1);
@@ -518,7 +475,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll = HyperLogLog::<Precision10, 6>::new();
+    /// let mut hll = HyperLogLog::<Precision10, 6>::default();
     /// hll.insert(&4);
     /// hll.insert(&5);
     /// hll.insert(&6);
@@ -567,7 +524,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll: HyperLogLog<Precision8, 6> = HyperLogLog::new();
+    /// let mut hll: HyperLogLog<Precision8, 6> = HyperLogLog::default();
     /// assert_eq!(hll.may_contain(&42), false);
     ///
     /// hll.insert(&42);
@@ -605,8 +562,8 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll1: HyperLogLog<Precision8, 6> = HyperLogLog::new();
-    /// let mut hll2: HyperLogLog<Precision8, 6> = HyperLogLog::new();
+    /// let mut hll1: HyperLogLog<Precision8, 6> = HyperLogLog::default();
+    /// let mut hll2: HyperLogLog<Precision8, 6> = HyperLogLog::default();
     ///
     /// hll1.insert(&42);
     /// hll1.insert(&43);
@@ -652,7 +609,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// ```
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll: HyperLogLog<Precision8, 6> = HyperLogLog::new();
+    /// let mut hll: HyperLogLog<Precision8, 6> = HyperLogLog::default();
     /// let value = 42;
     /// let (hash, index) = hll.get_hash_and_index(&value);
     ///
@@ -678,33 +635,32 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
         (hash, index)
     }
 
-    /// Adds an element to the HyperLogLog counter.
+    /// Returns the number of registers in the counter.
     ///
-    /// # Arguments
-    /// * `rhs` - The element to add.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use hyperloglog_rs::prelude::*;
-    ///
-    /// let mut hll = HyperLogLog::<Precision10, 6>::new();
-    ///
-    /// hll.insert("Hello");
-    /// hll.insert("World");
-    ///
-    /// assert!(hll.estimate_cardinality() >= 2.0);
-    /// ```
-    ///
-    /// # Performance
-    ///
-    /// The performance of this function depends on the size of the HyperLogLog counter (`N`), the number
-    /// of distinct elements in the input, and the hash function used to hash elements. For a given value of `N`,
-    /// the function has an average time complexity of O(1) and a worst-case time complexity of O(log N).
-    /// However, the actual time complexity may vary depending on the distribution of the hashed elements.
-    ///
-    /// # Errors
-    ///
-    /// This function does not return any errors.
-    fn insert<T: Hash>(&mut self, rhs: T);
+    /// # Implementation details
+    /// This function is overriding the estimate_cardinality function of the HyperLogLogTrait trait
+    /// as we can compute the cardinality of the counter using the multiplicities instead of the
+    /// registers. This is much faster as we do not need to compute the harmonic mean of the registers.
+    fn estimate_cardinality_from_multiplicities(
+        multiplicities: &PRECISION::RegisterMultiplicities,
+    ) -> f32 {
+        if multiplicities[0] > PRECISION::NumberOfZeros::ZERO {
+            let number_of_zeros: usize = multiplicities[0].convert();
+            let low_range_correction = PRECISION::SMALL_CORRECTIONS[number_of_zeros - 1_usize];
+            if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
+                return low_range_correction;
+            }
+        }
+
+        let mut raw_estimate: f32 = 0.0;
+
+        for (current_register, multeplicity) in multiplicities.iter_elements().enumerate() {
+            let two_to_minus_register: i32 = (127 - current_register as i32) << 23;
+            let register_count: f32 = multeplicity.convert();
+            raw_estimate +=
+                register_count * f32::from_le_bytes(two_to_minus_register.to_le_bytes());
+        }
+
+        Self::adjust_estimate(raw_estimate)
+    }
 }

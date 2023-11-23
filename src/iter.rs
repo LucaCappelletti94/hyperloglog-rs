@@ -62,15 +62,15 @@ pub trait HyperLogLogIterator<PRECISION: Precision + WordType<BITS>, const BITS:
     /// ```rust
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll1 = HyperLogLog::<Precision12, 6>::new();
+    /// let mut hll1 = HyperLogLog::<Precision12, 6>::default();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
     ///
-    /// let mut hll2 = HyperLogLog::<Precision12, 6>::new();
+    /// let mut hll2 = HyperLogLog::<Precision12, 6>::default();
     /// hll2.insert(&3);
     /// hll2.insert(&4);
     ///
-    /// let mut hll3 = HyperLogLog::<Precision12, 6>::new();
+    /// let mut hll3 = HyperLogLog::<Precision12, 6>::default();
     /// hll3.insert(&5);
     /// hll3.insert(&6);
     ///

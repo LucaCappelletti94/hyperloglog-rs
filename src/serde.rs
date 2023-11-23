@@ -5,11 +5,8 @@ use serde::ser::SerializeSeq;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-impl<
-        PRECISION: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > Serialize for HyperLogLogArray<PRECISION, BITS, N>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Serialize
+    for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Serializes the HyperLogLog counter using the given serializer.
@@ -50,20 +47,17 @@ impl<
     /// ```
     ///
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut seq = serializer.serialize_seq(Some(self.as_ref().len()))?;
-        for counter in self.as_ref() {
+        let mut seq = serializer.serialize_seq(Some(N))?;
+        let counters: &[HyperLogLog<PRECISION, BITS>; N] = self.as_ref();
+        for counter in counters {
             seq.serialize_element(&counter)?;
         }
         seq.end()
     }
 }
 
-impl<
-        'de,
-        PRECISION: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > Deserialize<'de> for HyperLogLogArray<PRECISION, BITS, N>
+impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Deserialize<'de>
+    for HyperLogLogArray<PRECISION, BITS, N>
 {
     #[inline(always)]
     /// Deserializes the HyperLogLog counter using the given deserializer.
@@ -85,11 +79,8 @@ impl<
 }
 
 /// Struct to deserialize a vector of u32
-pub struct HLLArrayVisitor<
-    PRECISION: Precision + WordType<BITS>,
-    const BITS: usize,
-    const N: usize,
-> {
+pub struct HLLArrayVisitor<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize>
+{
     _precision: core::marker::PhantomData<PRECISION>,
 }
 
@@ -104,8 +95,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize>
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize>
-    Default for HLLArrayVisitor<PRECISION, BITS, N>
+impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Default
+    for HLLArrayVisitor<PRECISION, BITS, N>
 {
     fn default() -> Self {
         Self::new()
@@ -149,12 +140,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize>
 ///
 /// ### Returns
 /// The resulting fixed-size array of u32 values, or an error if the deserialization failed.
-impl<
-        'de,
-        PRECISION: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > Visitor<'de> for HLLArrayVisitor<PRECISION, BITS, N>
+impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Visitor<'de>
+    for HLLArrayVisitor<PRECISION, BITS, N>
 {
     type Value = [HyperLogLog<PRECISION, BITS>; N];
 
@@ -163,7 +150,7 @@ impl<
     }
 
     fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let mut hll_array = [HyperLogLog::new(); N];
+        let mut hll_array = [HyperLogLog::default(); N];
         let mut hll_array_iter = hll_array.iter_mut();
         while let Some(value) = seq.next_element()? {
             if let Some(target) = hll_array_iter.next() {
@@ -198,7 +185,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Serialize
     /// use serde_json::Serializer;
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let hll = HyperLogLog::<Precision12, 6>::new();
+    /// let hll = HyperLogLog::<Precision12, 6>::default();
     /// let mut serializer = Serializer::new(Vec::new());
     /// let result = hll.serialize(&mut serializer);
     /// assert!(result.is_ok(), "Serialization failed, error: {:?}", result.err());
@@ -212,8 +199,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Serialize
     }
 }
 
-impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    Deserialize<'de> for HyperLogLog<PRECISION, BITS>
+impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize> Deserialize<'de>
+    for HyperLogLog<PRECISION, BITS>
 {
     #[inline(always)]
     /// Deserializes the HyperLogLog counter using the given deserializer.

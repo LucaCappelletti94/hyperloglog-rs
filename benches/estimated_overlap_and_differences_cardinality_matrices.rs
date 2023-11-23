@@ -17,8 +17,8 @@ fn populate_vectors<const N: usize>() -> (
     // estimated overlap cardinality matrices:
 
     // Create the counters
-    let mut left: [HyperLogLog<Precision4, 4>; N] = [HyperLogLog::new(); N];
-    let mut right: [HyperLogLog<Precision4, 4>; N] = [HyperLogLog::new(); N];
+    let mut left: [HyperLogLog<Precision4, 4>; N] = [HyperLogLog::default(); N];
+    let mut right: [HyperLogLog<Precision4, 4>; N] = [HyperLogLog::default(); N];
 
     left[0].insert(&56);
     right[0].insert(&32);
@@ -48,7 +48,8 @@ fn bench_overlap_and_differences_cardinality_matrices_2(b: &mut Bencher) {
     b.iter(|| {
         // Inner closure, the actual test
         black_box(for _ in 0..10_000 {
-            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 2, 2>(&left, &right);
+            let _: ([[f32; 2]; 2], [f32; 2], [f32; 2]) =
+                HyperLogLog::overlap_and_differences_cardinality_matrices::<2, 2>(&left, &right);
         });
     });
 }
@@ -60,7 +61,8 @@ fn bench_overlap_and_differences_cardinality_matrices_3(b: &mut Bencher) {
     b.iter(|| {
         // Inner closure, the actual test
         black_box(for _ in 0..10_000 {
-            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 3, 3>(&left, &right);
+            let _: ([[f32; 3]; 3], [f32; 3], [f32; 3]) =
+                HyperLogLog::overlap_and_differences_cardinality_matrices::<3, 3>(&left, &right);
         });
     });
 }
@@ -72,7 +74,8 @@ fn bench_overlap_and_differences_cardinality_matrices_4(b: &mut Bencher) {
     b.iter(|| {
         // Inner closure, the actual test
         black_box(for _ in 0..10_000 {
-            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 4, 4>(&left, &right);
+            let _: ([[f32; 4]; 4], [f32; 4], [f32; 4]) =
+                HyperLogLog::overlap_and_differences_cardinality_matrices::<4, 4>(&left, &right);
         });
     });
 }
@@ -84,7 +87,8 @@ fn bench_overlap_and_differences_cardinality_matrices_5(b: &mut Bencher) {
     b.iter(|| {
         // Inner closure, the actual test
         black_box(for _ in 0..10_000 {
-            HyperLogLog::overlap_and_differences_cardinality_matrices::<f32, 5, 5>(&left, &right);
+            let _: ([[f32; 5]; 5], [f32; 5], [f32; 5]) =
+                HyperLogLog::overlap_and_differences_cardinality_matrices::<5, 5>(&left, &right);
         });
     });
 }

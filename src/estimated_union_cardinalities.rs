@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::prelude::Primitive;
+use crate::ones::One;
+use crate::prelude::MaxMin;
+use core::ops::{Add, Div, Sub};
 
 #[derive(Clone, Copy, Debug, PartialEq, Default, Deserialize, Serialize)]
 /// A struct for more readable code.
@@ -23,7 +25,9 @@ impl<F> From<(F, F, F)> for EstimatedUnionCardinalities<F> {
     }
 }
 
-impl<F: Primitive<f32>> EstimatedUnionCardinalities<F> {
+impl<F: MaxMin + One + Add<F, Output = F> + Sub<F, Output = F> + Div<F, Output = F> + Copy>
+    EstimatedUnionCardinalities<F>
+{
     #[inline(always)]
     /// Returns the estimated cardinality of the left set.
     ///
@@ -176,6 +180,6 @@ impl<F: Primitive<f32>> EstimatedUnionCardinalities<F> {
     /// ```
     ///
     pub fn get_jaccard_index(&self) -> F {
-        (self.get_intersection_cardinality() / self.union_cardinality).get_min(F::reverse(1.0))
+        (self.get_intersection_cardinality() / self.union_cardinality).get_min(F::ONE)
     }
 }

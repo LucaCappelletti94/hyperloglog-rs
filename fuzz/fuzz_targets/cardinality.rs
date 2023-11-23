@@ -17,7 +17,7 @@ fuzz_target!(|data: FuzzCase| {
     unique.sort_unstable();
     unique.dedup();
 
-    let mut hll: HyperLogLog<Precision10, BITS> = HyperLogLog::new();
+    let mut hll: HyperLogLog<Precision10, BITS> = HyperLogLog::default();
 
     for item in data.value.iter() {
         // If the item is causing a collision, we stop the test early

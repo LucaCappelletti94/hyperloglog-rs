@@ -28,4 +28,4 @@ jobs:
       - name: Run tests
         run: cargo test --release --features=std
       - name: Run clippy
-        run: cargo clippy -- -Dclippy::all -Dclippy::cargo
+        run: cargo clippy --features=std -- -Dclippy::all -Dclippy::cargo

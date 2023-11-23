@@ -13,10 +13,10 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self>
     /// # use hyperloglog_rs::prelude::*;
     /// # use core::ops::BitOrAssign;
     ///
-    /// let mut hll = HyperLogLog::<Precision8, 6>::new();
+    /// let mut hll = HyperLogLog::<Precision8, 6>::default();
     /// hll.insert(1u8);
     ///
-    /// let mut hll2 = HyperLogLog::<Precision8, 6>::new();
+    /// let mut hll2 = HyperLogLog::<Precision8, 6>::default();
     /// hll2.insert(2u8);
     ///
     /// hll.bitor_assign(hll2);
@@ -24,10 +24,10 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self>
     /// assert!(hll.estimate_cardinality() > 2.0 - 0.1, "The cardinality is {}, we were expecting 2.", hll.estimate_cardinality());
     /// assert!(hll.estimate_cardinality() < 2.0 + 0.1, "The cardinality is {}, we were expecting 2.", hll.estimate_cardinality());
     ///
-    /// let mut hll = HyperLogLog::<Precision8, 6>::new();
+    /// let mut hll = HyperLogLog::<Precision8, 6>::default();
     /// hll.insert(1u8);
     ///
-    /// let mut hll2 = HyperLogLog::<Precision8, 6>::new();
+    /// let mut hll2 = HyperLogLog::<Precision8, 6>::default();
     /// hll2.insert(1u8);
     ///
     /// hll.bitor_assign(hll2);
@@ -35,11 +35,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self>
     /// assert!(hll.estimate_cardinality() > 1.0 - 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
     /// assert!(hll.estimate_cardinality() < 1.0 + 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
     ///
-    /// let mut hll3 = HyperLogLog::<Precision16, 6>::new();
+    /// let mut hll3 = HyperLogLog::<Precision16, 6>::default();
     /// hll3.insert(3u8);
     /// hll3.insert(4u8);
     ///
-    /// let mut hll4 = HyperLogLog::<Precision16, 6>::new();
+    /// let mut hll4 = HyperLogLog::<Precision16, 6>::default();
     /// hll4.insert(5u8);
     /// hll4.insert(6u8);
     ///
@@ -64,10 +64,10 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self
     /// # use hyperloglog_rs::prelude::*;
     /// # use core::ops::BitOrAssign;
     ///
-    /// let mut hll = HyperLogLog::<Precision8, 6>::new();
+    /// let mut hll = HyperLogLog::<Precision8, 6>::default();
     /// hll.insert(1u8);
     ///
-    /// let mut hll2 = HyperLogLog::<Precision8, 6>::new();
+    /// let mut hll2 = HyperLogLog::<Precision8, 6>::default();
     /// hll2.insert(2u8);
     ///
     /// hll.bitor_assign(&hll2);
@@ -75,10 +75,10 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self
     /// assert!(hll.estimate_cardinality() > 2.0 - 0.1, "The cardinality is {}, we were expecting 2.", hll.estimate_cardinality());
     /// assert!(hll.estimate_cardinality() < 2.0 + 0.1, "The cardinality is {}, we were expecting 2.", hll.estimate_cardinality());
     ///
-    /// let mut hll = HyperLogLog::<Precision8, 6>::new();
+    /// let mut hll = HyperLogLog::<Precision8, 6>::default();
     /// hll.insert(1u8);
     ///
-    /// let mut hll2 = HyperLogLog::<Precision8, 6>::new();
+    /// let mut hll2 = HyperLogLog::<Precision8, 6>::default();
     /// hll2.insert(1u8);
     ///
     /// hll.bitor_assign(&hll2);
@@ -86,11 +86,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self
     /// assert!(hll.estimate_cardinality() > 1.0 - 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
     /// assert!(hll.estimate_cardinality() < 1.0 + 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
     ///
-    /// let mut hll3 = HyperLogLog::<Precision16, 6>::new();
+    /// let mut hll3 = HyperLogLog::<Precision16, 6>::default();
     /// hll3.insert(3u8);
     /// hll3.insert(4u8);
     ///
-    /// let mut hll4 = HyperLogLog::<Precision16, 6>::new();
+    /// let mut hll4 = HyperLogLog::<Precision16, 6>::default();
     /// hll4.insert(5u8);
     /// hll4.insert(6u8);
     ///
@@ -136,11 +136,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOr<Self>
     ///
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
-    /// let mut hll1 = HyperLogLog::<Precision14, 5>::new();
+    /// let mut hll1 = HyperLogLog::<Precision14, 5>::default();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
     ///
-    /// let mut hll2 = HyperLogLog::<Precision14, 5>::new();
+    /// let mut hll2 = HyperLogLog::<Precision14, 5>::default();
     /// hll2.insert(&2);
     /// hll2.insert(&3);
     ///
@@ -154,11 +154,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOr<Self>
     ///
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
-    /// let mut hll1 = HyperLogLog::<Precision14, 5>::new();
+    /// let mut hll1 = HyperLogLog::<Precision14, 5>::default();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
     ///
-    /// let hll_union = hll1.clone() | HyperLogLog::<Precision14, 5>::new();
+    /// let hll_union = hll1.clone() | HyperLogLog::<Precision14, 5>::default();
     /// assert_eq!(
     ///     hll_union,
     ///     hll1,
@@ -204,11 +204,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self>
     ///
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
-    /// let mut hll1 = HyperLogLog::<Precision14, 5>::new();
+    /// let mut hll1 = HyperLogLog::<Precision14, 5>::default();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
     ///
-    /// let mut hll2 = HyperLogLog::<Precision14, 5>::new();
+    /// let mut hll2 = HyperLogLog::<Precision14, 5>::default();
     /// hll2.insert(&2);
     /// hll2.insert(&3);
     ///
@@ -222,11 +222,11 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self>
     ///
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
-    /// let mut hll1 = HyperLogLog::<Precision14, 5>::new();
+    /// let mut hll1 = HyperLogLog::<Precision14, 5>::default();
     /// hll1.insert(&1);
     /// hll1.insert(&2);
     ///
-    /// let hll_union = hll1.clone() | HyperLogLog::<Precision14, 5>::new();
+    /// let hll_union = hll1.clone() | HyperLogLog::<Precision14, 5>::default();
     /// assert_eq!(
     ///     hll_union,
     ///     hll1,

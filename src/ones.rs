@@ -22,3 +22,15 @@ macro_rules! impl_one {
 }
 
 impl_one! { u8 u16 u32 u64 u128 usize }
+
+macro_rules! impl_one_float {
+    ($($t:ty)*) => ($(
+        impl One for $t {
+            const ONE: Self = 1.0;
+            #[inline(always)]
+            fn is_one(&self) -> bool { *self == 1.0 }
+        }
+    )*)
+}
+
+impl_one_float! { f32 f64 }

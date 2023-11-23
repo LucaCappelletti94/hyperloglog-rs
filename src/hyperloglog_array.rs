@@ -55,7 +55,7 @@ impl<
     /// ```
     fn default() -> Self {
         Self {
-            counters: [HyperLogLog::new(); N],
+            counters: [HyperLogLog::default(); N],
         }
     }
 }
@@ -78,7 +78,7 @@ impl<
     /// ```
     pub fn new() -> Self {
         Self {
-            counters: [HyperLogLog::new(); N],
+            counters: [HyperLogLog::default(); N],
         }
     }
 
@@ -247,9 +247,9 @@ impl<
     /// use hyperloglog_rs::prelude::*;
     ///
     /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::from([
-    ///     HyperLogLog::new(),
-    ///     HyperLogLog::new(),
-    ///     HyperLogLog::new(),
+    ///     HyperLogLog::default(),
+    ///     HyperLogLog::default(),
+    ///     HyperLogLog::default(),
     /// ]);
     /// ```
     fn from(counters: [HyperLogLog<PRECISION, BITS>; N]) -> Self {
@@ -286,7 +286,7 @@ impl<
     /// ]);
     /// ```
     fn from(items: &[&[H]; N]) -> Self {
-        let mut array = [HyperLogLog::new(); N];
+        let mut array = [HyperLogLog::default(); N];
         for (i, item) in items.iter().enumerate() {
             for item in item.iter() {
                 array[i].insert(item);
@@ -317,9 +317,9 @@ impl<
     /// use hyperloglog_rs::prelude::*;
     ///
     /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::from(vec![
-    ///     HyperLogLog::new(),
-    ///     HyperLogLog::new(),
-    ///     HyperLogLog::new(),
+    ///     HyperLogLog::default(),
+    ///     HyperLogLog::default(),
+    ///     HyperLogLog::default(),
     /// ].as_slice());
     /// ```
     fn from(counters: &[HyperLogLog<PRECISION, BITS>]) -> Self {
@@ -327,7 +327,7 @@ impl<
             "The length of the vector of HyperLogLog counters must be equal to the number of counters ",
             "in the HyperLogLogArray."
         ));
-        let mut array = [HyperLogLog::new(); N];
+        let mut array = [HyperLogLog::default(); N];
         array.copy_from_slice(&counters[..N]);
         Self { counters: array }
     }
@@ -366,7 +366,7 @@ impl<
             "The length of the vector of vectors of hashable items must be equal to the number of counters ",
             "in the HyperLogLogArray."
         ));
-        let mut array = [HyperLogLog::new(); N];
+        let mut array = [HyperLogLog::default(); N];
         for (i, item) in items.iter().enumerate() {
             for item in item.iter() {
                 array[i].insert(item);
@@ -405,7 +405,7 @@ impl<
     /// ]);
     /// ```
     fn from(items: [&[H]; N]) -> Self {
-        let mut array = [HyperLogLog::new(); N];
+        let mut array = [HyperLogLog::default(); N];
         for (i, item) in items.iter().enumerate() {
             for item in item.iter() {
                 array[i].insert(item);
