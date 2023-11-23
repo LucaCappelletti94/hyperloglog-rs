@@ -251,7 +251,7 @@ where
     ///     hll2.insert(elem);
     /// }
     ///
-    /// let euc = hll1.joint_cardinality_estimation::<4>(&hll2);
+    /// let euc = hll1.joint_cardinality_estimation::<f32, 4>(&hll2);
     ///
     /// let left_difference = euc.get_left_difference_cardinality();
     /// let right_difference = euc.get_right_difference_cardinality();
@@ -333,7 +333,7 @@ where
     ///    hll2.insert(elem);
     /// }
     ///
-    /// let euc = hll1.joint_cardinality_estimation::<4>(&hll2);
+    /// let euc = hll1.joint_cardinality_estimation::<f32, 4>(&hll2);
     ///
     /// let left_difference = euc.get_left_difference_cardinality();
     /// let right_difference = euc.get_right_difference_cardinality();
