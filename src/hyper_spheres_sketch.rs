@@ -100,6 +100,7 @@ where
         + One
         + MaxMin,
 {
+    #[inline(always)]
     /// Returns the overlap and differences cardinality matrices of two lists of sets.
     ///
     /// # Arguments
