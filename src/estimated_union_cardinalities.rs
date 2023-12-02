@@ -120,7 +120,7 @@ impl<F: MaxMin + One + Add<F, Output = F> + Sub<F, Output = F> + Div<F, Output =
     ///
     /// ```
     pub fn get_left_difference_cardinality(&self) -> F {
-        self.left_cardinality - self.get_intersection_cardinality()
+        self.union_cardinality - self.right_cardinality
     }
 
     #[inline(always)]
@@ -139,7 +139,7 @@ impl<F: MaxMin + One + Add<F, Output = F> + Sub<F, Output = F> + Div<F, Output =
     ///
     /// ```
     pub fn get_right_difference_cardinality(&self) -> F {
-        self.right_cardinality - self.get_intersection_cardinality()
+        self.union_cardinality - self.left_cardinality
     }
 
     #[inline(always)]
@@ -158,9 +158,9 @@ impl<F: MaxMin + One + Add<F, Output = F> + Sub<F, Output = F> + Div<F, Output =
     ///
     /// ```
     pub fn get_symmetric_difference_cardinality(&self) -> F {
-        self.left_cardinality + self.right_cardinality
-            - self.get_intersection_cardinality()
-            - self.get_intersection_cardinality()
+        self.union_cardinality + self.union_cardinality
+            - self.left_cardinality
+            - self.right_cardinality
     }
 
     #[inline(always)]

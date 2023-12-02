@@ -217,6 +217,7 @@ where
         PRECISION::NUMBER_OF_REGISTERS as f32 * x
     }
 
+    #[inline]
     /// Returns estimated intersection cardinality object based on MLE joint cardinality estimation.
     ///
     /// # References
