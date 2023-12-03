@@ -28,6 +28,20 @@ pub trait MaxMin: PartialOrd {
     ///
     /// ```
     fn get_min(self, other: Self) -> Self;
+
+    /// Returns the non-zero positive minimum value that can be represented by this type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hyperloglog_rs::prelude::*;
+    ///
+    /// let min = f32::non_zero_positive_min_value();
+    ///
+    /// assert_eq!(min, f32::EPSILON);
+    ///
+    /// ```
+    fn non_zero_positive_min_value() -> Self;
 }
 
 impl MaxMin for f32 {
@@ -39,6 +53,11 @@ impl MaxMin for f32 {
     #[inline(always)]
     fn get_min(self, other: Self) -> Self {
         self.min(other)
+    }
+
+    #[inline(always)]
+    fn non_zero_positive_min_value() -> Self {
+        Self::EPSILON
     }
 }
 
@@ -52,6 +71,11 @@ impl MaxMin for f64 {
     fn get_min(self, other: Self) -> Self {
         self.min(other)
     }
+
+    #[inline(always)]
+    fn non_zero_positive_min_value() -> Self {
+        Self::EPSILON
+    }
 }
 
 impl MaxMin for u8 {
@@ -63,6 +87,11 @@ impl MaxMin for u8 {
     #[inline(always)]
     fn get_min(self, other: Self) -> Self {
         self.min(other)
+    }
+
+    #[inline(always)]
+    fn non_zero_positive_min_value() -> Self {
+        1
     }
 }
 
@@ -76,6 +105,11 @@ impl MaxMin for u16 {
     fn get_min(self, other: Self) -> Self {
         self.min(other)
     }
+
+    #[inline(always)]
+    fn non_zero_positive_min_value() -> Self {
+        1
+    }
 }
 
 impl MaxMin for u32 {
@@ -87,6 +121,11 @@ impl MaxMin for u32 {
     #[inline(always)]
     fn get_min(self, other: Self) -> Self {
         self.min(other)
+    }
+
+    #[inline(always)]
+    fn non_zero_positive_min_value() -> Self {
+        1
     }
 }
 
@@ -100,6 +139,11 @@ impl MaxMin for u64 {
     fn get_min(self, other: Self) -> Self {
         self.min(other)
     }
+
+    #[inline(always)]
+    fn non_zero_positive_min_value() -> Self {
+        1
+    }
 }
 
 impl MaxMin for u128 {
@@ -111,6 +155,11 @@ impl MaxMin for u128 {
     #[inline(always)]
     fn get_min(self, other: Self) -> Self {
         self.min(other)
+    }
+
+    #[inline(always)]
+    fn non_zero_positive_min_value() -> Self {
+        1
     }
 }
 
@@ -124,6 +173,11 @@ impl MaxMin for usize {
     fn get_min(self, other: Self) -> Self {
         self.min(other)
     }
+
+    #[inline(always)]
+    fn non_zero_positive_min_value() -> Self {
+        1
+    }
 }
 
 impl MaxMin for i8 {
@@ -135,6 +189,11 @@ impl MaxMin for i8 {
     #[inline(always)]
     fn get_min(self, other: Self) -> Self {
         self.min(other)
+    }
+
+    #[inline(always)]
+    fn non_zero_positive_min_value() -> Self {
+        1
     }
 }
 
@@ -148,6 +207,11 @@ impl MaxMin for i16 {
     fn get_min(self, other: Self) -> Self {
         self.min(other)
     }
+
+    #[inline(always)]
+    fn non_zero_positive_min_value() -> Self {
+        1
+    }
 }
 
 impl MaxMin for i32 {
@@ -159,6 +223,11 @@ impl MaxMin for i32 {
     #[inline(always)]
     fn get_min(self, other: Self) -> Self {
         self.min(other)
+    }
+
+    #[inline(always)]
+    fn non_zero_positive_min_value() -> Self {
+        1
     }
 }
 
@@ -172,6 +241,11 @@ impl MaxMin for i64 {
     fn get_min(self, other: Self) -> Self {
         self.min(other)
     }
+
+    #[inline(always)]
+    fn non_zero_positive_min_value() -> Self {
+        1
+    }
 }
 
 impl MaxMin for i128 {
@@ -183,5 +257,10 @@ impl MaxMin for i128 {
     #[inline(always)]
     fn get_min(self, other: Self) -> Self {
         self.min(other)
+    }
+
+    #[inline(always)]
+    fn non_zero_positive_min_value() -> Self {
+        1
     }
 }

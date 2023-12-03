@@ -96,6 +96,21 @@ impl<
     ) -> ([[F; N]; N], [F; N], [F; N]) {
         HyperLogLog::overlap_and_differences_cardinality_matrices(self.as_ref(), other.as_ref())
     }
+
+    #[inline(always)]
+    /// Returns the estimated normalized overlap and difference cardinality matrices and vectors with the provided HyperLogLogArray.
+    /// 
+    /// # Arguments
+    /// * `other`: The HyperLogLogArray to estimate the normalized overlap and difference cardinality matrices and vectors with.
+    /// 
+    /// # Returns
+    /// The estimated normalized overlap and difference cardinality matrices and vectors with the provided HyperLogLogArray.
+    pub fn normalized_overlap_and_differences_cardinality_matrices<F: Primitive<f32>>(
+        &self,
+        other: &Self,
+    ) -> ([[F; N]; N], [F; N], [F; N]) {
+        HyperLogLog::normalized_overlap_and_differences_cardinality_matrices(self.as_ref(), other.as_ref())
+    }
 }
 
 impl<
