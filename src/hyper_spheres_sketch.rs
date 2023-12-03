@@ -16,6 +16,7 @@
 //! [HyperLogLog.estimated_overlap_and_differences_cardinality_matrices] method.
 //!
 use crate::prelude::*;
+use core::fmt::Debug;
 use core::iter::Sum;
 use core::ops::AddAssign;
 use core::ops::{DivAssign, MulAssign, SubAssign};
@@ -96,6 +97,7 @@ where
         + SubAssign
         + MulAssign
         + DivAssign
+        + Debug
         + One
         + MaxMin,
 {
@@ -166,15 +168,15 @@ where
                 // We always set the value of the right difference so that the
                 // last time we write this will necessarily be with the last
                 // and largest left set.
-                let this_difference = euc.get_right_difference_cardinality();
-                right_difference_cardinality_vector[j] =
-                    (this_difference - last_right_difference).get_max(I::default());
-                last_right_difference = this_difference;
+                right_difference_cardinality_vector[j] = (euc.get_right_difference_cardinality()
+                    - last_right_difference)
+                    .get_max(I::default());
+                last_right_difference = euc.get_right_difference_cardinality();
             }
-            let this_difference = euc.get_left_difference_cardinality();
-            left_difference_cardinality_vector[i] =
-                (this_difference - last_left_difference).get_max(I::default());
-            last_left_difference = this_difference;
+            left_difference_cardinality_vector[i] = (euc.get_left_difference_cardinality()
+                - last_left_difference)
+                .get_max(I::default());
+            last_left_difference = euc.get_left_difference_cardinality();
         }
 
         (
@@ -212,6 +214,13 @@ where
             },
         );
 
+        // We run a debug assert where we check that each right cardinality is
+        // larger than the previous one.
+        debug_assert!(right_cardinalities
+            .iter()
+            .zip(right_cardinalities.iter().skip(1))
+            .all(|(left, right)| left <= right));
+
         let mut right_difference_cardinality_vector = [I::default(); R];
         let mut euc: EstimatedUnionCardinalities<I> = EstimatedUnionCardinalities::default();
         let mut last_left_difference: I = I::default();
@@ -222,7 +231,6 @@ where
             let mut last_right_difference: I = I::default();
             let left_cardinality = left_hll.get_cardinality();
             let mut comulative_row = I::default();
-            let mut last_union_cardinality = I::default();
             let mut last_right_cardinality = I::default();
             for (j, (right_hll, right_cardinality)) in
                 right.iter().zip(right_cardinalities).enumerate()
@@ -233,32 +241,58 @@ where
                     right_cardinality,
                 );
                 let delta = last_row[j] + comulative_row;
-                differential_overlap_cardinality_matrix[i][j] =
-                    (euc.get_intersection_cardinality() - delta).get_max(I::default())
-                        / (euc.get_union_cardinality() - last_union_cardinality)
-                            .get_max(I::non_zero_positive_min_value());
-                last_union_cardinality = euc.get_union_cardinality();
+                let differential_intersection =
+                    (euc.get_intersection_cardinality() - delta).get_max(I::default());
+
+                debug_assert!(
+                    differential_intersection >= I::default(),
+                    concat!(
+                        "Expected differential_intersection to be larger than zero, but it is not. ",
+                        "Got: differential_intersection: {:?}, delta: {:?}",
+                    ),
+                    differential_intersection,
+                    delta,
+                );
+
+                let maximal_differential_intersection_cardinality =
+                    (euc.get_left_difference_cardinality() - last_left_difference)
+                        .get_max(I::default())
+                        + (right_cardinality - last_right_cardinality).get_max(I::default());
+
+                debug_assert!(
+                    maximal_differential_intersection_cardinality >= differential_intersection,
+                    concat!(
+                        "Expected maximal_differential_intersection_cardinality to be larger than differential_intersection, but it is not. ",
+                        "Got: maximal_differential_intersection_cardinality: {:?}, differential_intersection: {:?}",
+                    ),
+                    maximal_differential_intersection_cardinality,
+                    differential_intersection,
+                );
+
+                differential_overlap_cardinality_matrix[i][j] = differential_intersection
+                    / maximal_differential_intersection_cardinality
+                        .get_max(I::non_zero_positive_min_value());
                 last_row[j] = euc.get_intersection_cardinality().get_max(delta);
-                comulative_row += differential_overlap_cardinality_matrix[i][j];
+                comulative_row += differential_intersection;
 
                 // We always set the value of the right difference so that the
                 // last time we write this will necessarily be with the last
                 // and largest left set.
-                let this_difference = euc.get_right_difference_cardinality();
-                right_difference_cardinality_vector[j] = (this_difference - last_right_difference)
+                right_difference_cardinality_vector[j] = (euc.get_right_difference_cardinality()
+                    - last_right_difference)
                     .get_max(I::default())
                     / (right_cardinality - last_right_cardinality)
                         .get_max(I::non_zero_positive_min_value());
-                last_right_difference = this_difference;
+                last_right_difference = euc.get_right_difference_cardinality();
                 last_right_cardinality = right_cardinality;
             }
-            let this_difference = euc.get_left_difference_cardinality();
-            left_difference_cardinality_vector[i] = (this_difference - last_left_difference)
+            left_difference_cardinality_vector[i] = (euc.get_left_difference_cardinality()
+                - last_left_difference)
                 .get_max(I::default())
                 / (left_cardinality - last_left_cardinality)
                     .get_max(I::non_zero_positive_min_value());
-            last_left_difference = this_difference;
             last_left_cardinality = left_cardinality;
+            last_left_difference = euc.get_left_difference_cardinality();
         }
 
         (

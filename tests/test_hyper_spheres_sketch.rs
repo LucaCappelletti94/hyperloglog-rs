@@ -183,6 +183,17 @@ fn test_hyper_spheres_sketch() {
                     overlap_normalized_hll
                 );
                 assert!(
+                    overlap_normalized_hll[i][j] <= 1.0,
+                    concat!(
+                        "We expect the overlap cardinality matrix to have ",
+                        "values less than or equal to 1.0 but we got {:?} instead ",
+                        "in position ({:?}, {:?})."
+                    ),
+                    overlap_normalized_hll[i][j],
+                    i,
+                    j
+                );
+                assert!(
                     overlap_hll[i][j] >= 0.0,
                     concat!(
                         "We expect the overlap cardinality matrix to have ",
@@ -208,6 +219,15 @@ fn test_hyper_spheres_sketch() {
                 left_diff_normalized_hll
             );
             assert!(
+                left_diff_normalized_hll[i] <= 1.0,
+                concat!(
+                    "We expect the left difference cardinality vector to ",
+                    "have values less than or equal to 1.0 but we got {:?} instead."
+                ),
+                left_diff_normalized_hll[i]
+            );
+
+            assert!(
                 left_diff_hll[i] >= 0.0,
                 concat!(
                     "We expect the left difference cardinality vector to ",
@@ -231,6 +251,15 @@ fn test_hyper_spheres_sketch() {
                 ),
                 right_diff_normalized_hll
             );
+            assert!(
+                right_diff_normalized_hll[i] <= 1.0,
+                concat!(
+                    "We expect the right difference cardinality vector to ",
+                    "have values less than or equal to 1.0 but we got {:?} instead."
+                ),
+                right_diff_normalized_hll[i]
+            );
+
             assert!(
                 right_diff_hll[i] >= 0.0,
                 concat!(

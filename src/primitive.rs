@@ -8,6 +8,7 @@ use core::{
     ops::{Add, AddAssign, Div, Mul, Sub, MulAssign, SubAssign, DivAssign},
 };
 
+use core::fmt::Debug;
 use crate::max_min::MaxMin;
 use crate::ones::One;
 
@@ -17,6 +18,7 @@ pub trait Primitive<U>:
     + Send
     + Sync
     + One
+    + Debug
     + Sum
     + Default
     + Sub<Self, Output = Self>
