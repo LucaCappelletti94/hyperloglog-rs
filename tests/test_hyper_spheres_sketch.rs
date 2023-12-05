@@ -68,7 +68,7 @@ fn get_random_hyper_spheres_hll<const N: usize>(
 
 #[test]
 fn test_hyper_spheres_sketch() {
-    let number_of_tests = 1_00;
+    let number_of_tests = 100;
 
     // We run multiple MSE to have an estimate of how much the
     // HyperLogLog approximation is off when compared to the
@@ -222,9 +222,11 @@ fn test_hyper_spheres_sketch() {
                 left_diff_normalized_hll[i] <= 1.0,
                 concat!(
                     "We expect the left difference cardinality vector to ",
-                    "have values less than or equal to 1.0 but we got {:?} instead."
+                    "have values less than or equal to 1.0 but we got {:?} instead. ",
+                    "This happened in position {:?}."
                 ),
-                left_diff_normalized_hll[i]
+                left_diff_normalized_hll[i],
+                i
             );
 
             assert!(
@@ -255,9 +257,11 @@ fn test_hyper_spheres_sketch() {
                 right_diff_normalized_hll[i] <= 1.0,
                 concat!(
                     "We expect the right difference cardinality vector to ",
-                    "have values less than or equal to 1.0 but we got {:?} instead."
+                    "have values less than or equal to 1.0 but we got {:?} instead. ",
+                    "This happened in position {:?}."
                 ),
-                right_diff_normalized_hll[i]
+                right_diff_normalized_hll[i],
+                i
             );
 
             assert!(
