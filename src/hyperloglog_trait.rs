@@ -11,12 +11,9 @@ use crate::utils::{ceil, get_alpha};
 use core::hash::Hash;
 use core::hash::Hasher;
 
-pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>:
-    Sized
-{
+pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Sized {
     /// The threshold value used in the small range correction of the HyperLogLog algorithm.
-    const INTERMEDIATE_RANGE_CORRECTION_THRESHOLD: f32 =
-        5.0_f32 * (P::NUMBER_OF_REGISTERS as f32);
+    const INTERMEDIATE_RANGE_CORRECTION_THRESHOLD: f32 = 5.0_f32 * (P::NUMBER_OF_REGISTERS as f32);
 
     const LINEAR_COUNT_THRESHOLD: f32 = linear_counting_threshold(P::EXPONENT);
 
@@ -674,9 +671,7 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>:
     /// This function is overriding the estimate_cardinality function of the HyperLogLogTrait trait
     /// as we can compute the cardinality of the counter using the multiplicities instead of the
     /// registers. This is much faster as we do not need to compute the harmonic mean of the registers.
-    fn estimate_cardinality_from_multiplicities(
-        multiplicities: &P::RegisterMultiplicities,
-    ) -> f32 {
+    fn estimate_cardinality_from_multiplicities(multiplicities: &P::RegisterMultiplicities) -> f32 {
         if multiplicities[0] > P::NumberOfZeros::ZERO {
             let number_of_zeros: usize = multiplicities[0].convert();
             let low_range_correction = P::SMALL_CORRECTIONS[number_of_zeros - 1_usize];

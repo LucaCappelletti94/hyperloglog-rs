@@ -9,66 +9,56 @@ pub struct MLE<const ERROR: i32, H> {
     inner: H,
 }
 
-impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
-    AsRef<MLE<ERROR, Self>> for HyperLogLog<P, BITS>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize> AsRef<MLE<ERROR, Self>>
+    for HyperLogLog<P, BITS>
 {
     fn as_ref(&self) -> &MLE<ERROR, Self> {
         unsafe { core::mem::transmute(self) }
     }
 }
 
-impl<
-        const ERROR: i32,
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > AsRef<[MLE<ERROR, HyperLogLog<P, BITS>>; N]>
-    for HyperLogLogArray<P, BITS, N>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize, const N: usize>
+    AsRef<[MLE<ERROR, HyperLogLog<P, BITS>>; N]> for HyperLogLogArray<P, BITS, N>
 {
     fn as_ref(&self) -> &[MLE<ERROR, HyperLogLog<P, BITS>>; N] {
         unsafe { core::mem::transmute(self) }
     }
 }
 
-impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
-    AsRef<HyperLogLog<P, BITS>> for MLE<ERROR, HyperLogLog<P, BITS>>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize> AsRef<HyperLogLog<P, BITS>>
+    for MLE<ERROR, HyperLogLog<P, BITS>>
 {
     fn as_ref(&self) -> &HyperLogLog<P, BITS> {
         &self.inner
     }
 }
 
-impl<
-        const ERROR: i32,
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > AsRef<[HyperLogLog<P, BITS>; N]>
-    for MLE<ERROR, HyperLogLogArray<P, BITS, N>>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize, const N: usize>
+    AsRef<[HyperLogLog<P, BITS>; N]> for MLE<ERROR, HyperLogLogArray<P, BITS, N>>
 {
     fn as_ref(&self) -> &[HyperLogLog<P, BITS>; N] {
         unsafe { core::mem::transmute(self) }
     }
 }
 
-impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
-    From<MLE<ERROR, Self>> for HyperLogLog<P, BITS>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize> From<MLE<ERROR, Self>>
+    for HyperLogLog<P, BITS>
 {
     fn from(mle: MLE<ERROR, Self>) -> Self {
         mle.inner
     }
 }
 
-impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
-    From<HyperLogLog<P, BITS>> for MLE<ERROR, HyperLogLog<P, BITS>>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize> From<HyperLogLog<P, BITS>>
+    for MLE<ERROR, HyperLogLog<P, BITS>>
 {
     fn from(hll: HyperLogLog<P, BITS>) -> Self {
         Self { inner: hll }
     }
 }
 
-impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
-    AsRef<MLE<ERROR, Self>> for HyperLogLogWithMultiplicities<P, BITS>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize> AsRef<MLE<ERROR, Self>>
+    for HyperLogLogWithMultiplicities<P, BITS>
 {
     fn as_ref(&self) -> &MLE<ERROR, Self> {
         unsafe { core::mem::transmute(self) }
@@ -84,8 +74,8 @@ impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
     }
 }
 
-impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
-    From<MLE<ERROR, Self>> for HyperLogLogWithMultiplicities<P, BITS>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize> From<MLE<ERROR, Self>>
+    for HyperLogLogWithMultiplicities<P, BITS>
 {
     fn from(mle: MLE<ERROR, Self>) -> Self {
         mle.inner
@@ -163,8 +153,7 @@ where
 
         // We begin the secant method iterations.
         let mut delta_x = x;
-        let relative_error_limit =
-            10.0_f32.powi(-ERROR) / (P::NUMBER_OF_REGISTERS as f32).sqrt();
+        let relative_error_limit = 10.0_f32.powi(-ERROR) / (P::NUMBER_OF_REGISTERS as f32).sqrt();
 
         while delta_x > x * relative_error_limit {
             // In the C++ implementation they call frexp.
@@ -440,15 +429,13 @@ where
                             P::NumberOfZeros::ONE;
                     }
                     core::cmp::Ordering::Greater => {
-                        left_multiplicities_larger[left_register as usize] +=
-                            P::NumberOfZeros::ONE;
+                        left_multiplicities_larger[left_register as usize] += P::NumberOfZeros::ONE;
                         right_multiplicities_smaller[right_register as usize] +=
                             P::NumberOfZeros::ONE;
                     }
                     core::cmp::Ordering::Equal => {
                         // If left register is equal to right register
-                        joint_multiplicities[left_register as usize] +=
-                            P::NumberOfZeros::ONE;
+                        joint_multiplicities[left_register as usize] += P::NumberOfZeros::ONE;
                     }
                 }
             }
@@ -509,8 +496,7 @@ where
         let left_difference: f32 = union_cardinality_estimate - right_cardinality_estimate;
         let right_difference: f32 = union_cardinality_estimate - left_cardinality_estimate;
 
-        let relative_error_limit =
-            10.0_f32.powi(-ERROR) / (P::NUMBER_OF_REGISTERS as f32).sqrt();
+        let relative_error_limit = 10.0_f32.powi(-ERROR) / (P::NUMBER_OF_REGISTERS as f32).sqrt();
 
         // let reciprocal_registers = 1.0 / P::NUMBER_OF_REGISTERS as f32;
 
@@ -675,8 +661,8 @@ where
     }
 }
 
-impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
-    HyperLogLogTrait<P, BITS> for MLE<ERROR, HyperLogLog<P, BITS>>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<P, BITS>
+    for MLE<ERROR, HyperLogLog<P, BITS>>
 {
     fn get_number_of_zero_registers(&self) -> usize {
         self.inner.get_number_of_zero_registers()
@@ -707,8 +693,7 @@ impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
     }
 }
 
-impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
-    HyperLogLogTrait<P, BITS>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<P, BITS>
     for MLE<ERROR, HyperLogLogWithMultiplicities<P, BITS>>
 {
     fn get_number_of_zero_registers(&self) -> usize {
@@ -733,19 +718,13 @@ impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
     }
 }
 
-impl<T, P: Precision + WordType<BITS>, const BITS: usize> JointEstimation<P, BITS>
-    for T
-where
-    T: HyperLogLogTrait<P, BITS>,
+impl<T, P: Precision + WordType<BITS>, const BITS: usize> JointEstimation<P, BITS> for T where
+    T: HyperLogLogTrait<P, BITS>
 {
 }
 
-impl<
-        const ERROR: i32,
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        F: Primitive<f32>,
-    > SetLike<F> for MLE<ERROR, HyperLogLog<P, BITS>>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize, F: Primitive<f32>>
+    SetLike<F> for MLE<ERROR, HyperLogLog<P, BITS>>
 {
     fn get_estimated_union_cardinality(
         &self,
@@ -761,11 +740,7 @@ impl<
     }
 }
 
-impl<
-        F: Primitive<f32>,
-        const ERROR: i32,
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-    > HyperSpheresSketch<F> for MLE<ERROR, HyperLogLog<P, BITS>>
+impl<F: Primitive<f32>, const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
+    HyperSpheresSketch<F> for MLE<ERROR, HyperLogLog<P, BITS>>
 {
 }

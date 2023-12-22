@@ -188,7 +188,7 @@ where
             right_difference_cardinality_vector,
         )
     }
-    
+
     #[cfg(feature = "std")]
     #[inline(always)]
     /// Returns the overlap and differences cardinality matrices of two lists of sets.
@@ -221,7 +221,8 @@ where
     ) -> (Vec<Vec<I>>, Vec<I>, Vec<I>) {
         // Initialize overlap and differences cardinality matrices/vectors.
         let mut last_row = vec![I::default(); right.len()];
-        let mut differential_overlap_cardinality_matrix = vec![vec![I::default(); right.len()]; left.len()];
+        let mut differential_overlap_cardinality_matrix =
+            vec![vec![I::default(); right.len()]; left.len()];
         let mut left_difference_cardinality_vector = vec![I::default(); left.len()];
         let mut right_cardinalities = vec![I::default(); right.len()];
 
@@ -240,8 +241,10 @@ where
             let mut last_right_difference: I = I::default();
             let left_cardinality = left_hll.get_cardinality();
             let mut comulative_row = I::default();
-            for (j, (right_hll, right_cardinality)) in
-                right.iter().zip(right_cardinalities.iter().copied()).enumerate()
+            for (j, (right_hll, right_cardinality)) in right
+                .iter()
+                .zip(right_cardinalities.iter().copied())
+                .enumerate()
             {
                 euc = left_hll.get_estimated_union_cardinality(
                     left_cardinality,
@@ -409,7 +412,8 @@ where
     ) -> (Vec<Vec<I>>, Vec<I>, Vec<I>) {
         // Initialize overlap and differences cardinality matrices/vectors.
         let mut last_row = vec![I::default(); right.len()];
-        let mut differential_overlap_cardinality_matrix = vec![vec![I::default(); right.len()]; left.len()];
+        let mut differential_overlap_cardinality_matrix =
+            vec![vec![I::default(); right.len()]; left.len()];
         let mut left_difference_cardinality_vector = vec![I::default(); left.len()];
         let mut right_cardinalities = vec![I::default(); right.len()];
 
@@ -437,8 +441,10 @@ where
             let left_cardinality = left_hll.get_cardinality();
             let mut comulative_row = I::default();
             let mut last_right_cardinality = I::default();
-            for (j, (right_hll, right_cardinality)) in
-                right.iter().zip(right_cardinalities.iter().copied()).enumerate()
+            for (j, (right_hll, right_cardinality)) in right
+                .iter()
+                .zip(right_cardinalities.iter().copied())
+                .enumerate()
             {
                 euc = left_hll.get_estimated_union_cardinality(
                     left_cardinality,
@@ -506,7 +512,7 @@ where
     }
 }
 
-impl<P: Precision + WordType<BITS>, const BITS: usize, I: Primitive<f32>>
-    HyperSpheresSketch<I> for HyperLogLog<P, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize, I: Primitive<f32>> HyperSpheresSketch<I>
+    for HyperLogLog<P, BITS>
 {
 }

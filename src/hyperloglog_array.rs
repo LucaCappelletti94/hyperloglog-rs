@@ -7,19 +7,12 @@ use crate::prelude::*;
 
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, Eq)]
-pub struct HyperLogLogArray<
-    P: Precision + WordType<BITS>,
-    const BITS: usize,
-    const N: usize,
-> {
+pub struct HyperLogLogArray<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> {
     counters: [HyperLogLog<P, BITS>; N],
 }
 
-impl<
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > PartialEq for HyperLogLogArray<P, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> PartialEq
+    for HyperLogLogArray<P, BITS, N>
 {
     #[inline(always)]
     /// Returns true if the HyperLogLogArray is equal to the other HyperLogLogArray.
@@ -34,11 +27,8 @@ impl<
     }
 }
 
-impl<
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > Default for HyperLogLogArray<P, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> Default
+    for HyperLogLogArray<P, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray with the given precision and number of bits.
@@ -60,11 +50,8 @@ impl<
     }
 }
 
-impl<
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > HyperLogLogArray<P, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize>
+    HyperLogLogArray<P, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray with the given precision and number of bits.
@@ -99,25 +86,25 @@ impl<
 
     #[inline(always)]
     /// Returns the estimated normalized overlap and difference cardinality matrices and vectors with the provided HyperLogLogArray.
-    /// 
+    ///
     /// # Arguments
     /// * `other`: The HyperLogLogArray to estimate the normalized overlap and difference cardinality matrices and vectors with.
-    /// 
+    ///
     /// # Returns
     /// The estimated normalized overlap and difference cardinality matrices and vectors with the provided HyperLogLogArray.
     pub fn normalized_overlap_and_differences_cardinality_matrices<F: Primitive<f32>>(
         &self,
         other: &Self,
     ) -> ([[F; N]; N], [F; N], [F; N]) {
-        HyperLogLog::normalized_overlap_and_differences_cardinality_matrices(self.as_ref(), other.as_ref())
+        HyperLogLog::normalized_overlap_and_differences_cardinality_matrices(
+            self.as_ref(),
+            other.as_ref(),
+        )
     }
 }
 
-impl<
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > AsRef<[HyperLogLog<P, BITS>; N]> for HyperLogLogArray<P, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize>
+    AsRef<[HyperLogLog<P, BITS>; N]> for HyperLogLogArray<P, BITS, N>
 {
     #[inline(always)]
     /// Returns a reference to the underlying array of HyperLogLog counters.
@@ -129,11 +116,8 @@ impl<
     }
 }
 
-impl<
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > AsMut<[HyperLogLog<P, BITS>; N]> for HyperLogLogArray<P, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize>
+    AsMut<[HyperLogLog<P, BITS>; N]> for HyperLogLogArray<P, BITS, N>
 {
     #[inline(always)]
     /// Returns a mutable reference to the underlying array of HyperLogLog counters.
@@ -145,11 +129,8 @@ impl<
     }
 }
 
-impl<
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > Index<usize> for HyperLogLogArray<P, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> Index<usize>
+    for HyperLogLogArray<P, BITS, N>
 {
     type Output = HyperLogLog<P, BITS>;
 
@@ -194,11 +175,8 @@ impl<
     }
 }
 
-impl<
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > IndexMut<usize> for HyperLogLogArray<P, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> IndexMut<usize>
+    for HyperLogLogArray<P, BITS, N>
 {
     #[inline(always)]
     /// Returns a mutable reference to the HyperLogLog counter at the given index.
@@ -241,11 +219,8 @@ impl<
     }
 }
 
-impl<
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > From<[HyperLogLog<P, BITS>; N]> for HyperLogLogArray<P, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize>
+    From<[HyperLogLog<P, BITS>; N]> for HyperLogLogArray<P, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given array of HyperLogLog counters.
@@ -272,12 +247,8 @@ impl<
     }
 }
 
-impl<
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-        H: Hash,
-    > From<&[&[H]; N]> for HyperLogLogArray<P, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize, H: Hash> From<&[&[H]; N]>
+    for HyperLogLogArray<P, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given array of vectors of hashable items.
@@ -311,11 +282,8 @@ impl<
     }
 }
 
-impl<
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-    > From<&[HyperLogLog<P, BITS>]> for HyperLogLogArray<P, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> From<&[HyperLogLog<P, BITS>]>
+    for HyperLogLogArray<P, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given vector of HyperLogLog counters.
@@ -348,12 +316,8 @@ impl<
     }
 }
 
-impl<
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-        H: Hash,
-    > From<&[&[H]]> for HyperLogLogArray<P, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize, H: Hash> From<&[&[H]]>
+    for HyperLogLogArray<P, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given vector of vectors of hashable items.
@@ -391,12 +355,8 @@ impl<
     }
 }
 
-impl<
-        P: Precision + WordType<BITS>,
-        const BITS: usize,
-        const N: usize,
-        H: Hash,
-    > From<[&[H]; N]> for HyperLogLogArray<P, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize, H: Hash> From<[&[H]; N]>
+    for HyperLogLogArray<P, BITS, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given array of vectors of hashable items.

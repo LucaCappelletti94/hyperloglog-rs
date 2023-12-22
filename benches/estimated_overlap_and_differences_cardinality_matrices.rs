@@ -1,10 +1,10 @@
-#![cfg(feature="std")]
+#![cfg(feature = "std")]
 #![feature(test)]
 extern crate test;
 
+use core::mem::MaybeUninit;
 use hyperloglog_rs::prelude::*;
 use std::collections::HashSet;
-use core::mem::MaybeUninit;
 
 use test::{black_box, Bencher};
 
@@ -58,10 +58,7 @@ fn populate_vectors<const N: usize>() -> (
     (left, right)
 }
 
-fn populate_hashsets<const N: usize>() -> (
-    [HashSet<usize>; N],
-    [HashSet<usize>; N],
-) {
+fn populate_hashsets<const N: usize>() -> ([HashSet<usize>; N], [HashSet<usize>; N]) {
     // Optionally include some setup
     const NUMBER_OF_ELEMENTS: usize = 100;
 

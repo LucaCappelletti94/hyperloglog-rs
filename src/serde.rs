@@ -79,14 +79,11 @@ impl<'de, P: Precision + WordType<BITS>, const BITS: usize, const N: usize> Dese
 }
 
 /// Struct to deserialize a vector of u32
-pub struct HLLArrayVisitor<P: Precision + WordType<BITS>, const BITS: usize, const N: usize>
-{
+pub struct HLLArrayVisitor<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> {
     _precision: core::marker::PhantomData<P>,
 }
 
-impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize>
-    HLLArrayVisitor<P, BITS, N>
-{
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> HLLArrayVisitor<P, BITS, N> {
     /// Creates a new HLLArrayVisitor
     pub fn new() -> Self {
         Self {
@@ -163,9 +160,7 @@ impl<'de, P: Precision + WordType<BITS>, const BITS: usize, const N: usize> Visi
     }
 }
 
-impl<P: Precision + WordType<BITS>, const BITS: usize> Serialize
-    for HyperLogLog<P, BITS>
-{
+impl<P: Precision + WordType<BITS>, const BITS: usize> Serialize for HyperLogLog<P, BITS> {
     #[inline(always)]
     /// Serializes the HyperLogLog counter using the given serializer.
     ///
@@ -230,8 +225,7 @@ impl<'de, P: Precision + WordType<BITS>, const BITS: usize> Deserialize<'de>
     /// hll.get_words().iter().zip(words.iter()).for_each(|(a, b)| assert_eq!(a, b, "Deserialized words do not match, expected: {}, actual: {}", b, a));
     /// ```
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let words: P::Words =
-            deserializer.deserialize_seq(WordsVisitor::<P, BITS>::default())?;
+        let words: P::Words = deserializer.deserialize_seq(WordsVisitor::<P, BITS>::default())?;
 
         Ok(Self::from_words(&words))
     }
@@ -279,9 +273,7 @@ pub struct WordsVisitor<P: Precision + WordType<BITS>, const BITS: usize> {
 ///
 /// ### Returns
 /// The resulting fixed-size array of u32 values, or an error if the deserialization failed.
-impl<'de, P: Precision + WordType<BITS>, const BITS: usize> Visitor<'de>
-    for WordsVisitor<P, BITS>
-{
+impl<'de, P: Precision + WordType<BITS>, const BITS: usize> Visitor<'de> for WordsVisitor<P, BITS> {
     type Value = P::Words;
 
     fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {

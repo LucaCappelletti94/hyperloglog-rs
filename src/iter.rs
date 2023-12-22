@@ -80,8 +80,7 @@ pub trait HyperLogLogIterator<P: Precision + WordType<BITS>, const BITS: usize> 
     fn union(self) -> HyperLogLog<P, BITS>;
 }
 
-impl<P: Precision + WordType<BITS>, const BITS: usize, I, C>
-    HyperLogLogIterator<P, BITS> for I
+impl<P: Precision + WordType<BITS>, const BITS: usize, I, C> HyperLogLogIterator<P, BITS> for I
 where
     I: Iterator<Item = C>,
     HyperLogLog<P, BITS>: BitOr<C, Output = HyperLogLog<P, BITS>>,

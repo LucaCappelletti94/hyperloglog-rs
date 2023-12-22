@@ -1,4 +1,4 @@
-#![cfg(feature="std")]
+#![cfg(feature = "std")]
 //! In this test suite, we evaluate the error rate we can obtain with the
 //! MLE approach and how does it compare to the error rate we obtain with
 //! the tradictional HLL approach. We also keep track of the time requirements
@@ -43,10 +43,7 @@ fn get_random_vector(size: usize, random_state: u64) -> HashSet<u64> {
 fn evaluate_mle_cardinality_estimation<P: Precision + WordType<BITS>, const BITS: usize>(
     set: &HashSet<u64>,
 ) -> (f32, f32, f32, f32) {
-    let hll = set
-        .iter()
-        .copied()
-        .collect::<HyperLogLog<P, BITS>>();
+    let hll = set.iter().copied().collect::<HyperLogLog<P, BITS>>();
     let start_time_hll = std::time::Instant::now();
     let hll_cardinality = hll.estimate_cardinality();
     let hll_time = start_time_hll.elapsed().as_secs_f32();
@@ -59,21 +56,12 @@ fn evaluate_mle_cardinality_estimation<P: Precision + WordType<BITS>, const BITS
     (hll_error, mle_error, hll_time, mle_time)
 }
 
-fn evaluate_mle_intersection_estimation<
-    P: Precision + WordType<BITS>,
-    const BITS: usize,
->(
+fn evaluate_mle_intersection_estimation<P: Precision + WordType<BITS>, const BITS: usize>(
     left_set: &HashSet<u64>,
     right_set: &HashSet<u64>,
 ) -> (f32, f32, f32, f32) {
-    let left_hll = left_set
-        .iter()
-        .copied()
-        .collect::<HyperLogLog<P, BITS>>();
-    let right_hll = right_set
-        .iter()
-        .copied()
-        .collect::<HyperLogLog<P, BITS>>();
+    let left_hll = left_set.iter().copied().collect::<HyperLogLog<P, BITS>>();
+    let right_hll = right_set.iter().copied().collect::<HyperLogLog<P, BITS>>();
     let start_time_hll = std::time::Instant::now();
     let hll_cardinality: f32 = left_hll.estimate_intersection_cardinality(&right_hll);
     let hll_time = start_time_hll.elapsed().as_secs_f32();
@@ -232,12 +220,7 @@ fn test_mle_intersection_estimation() {
 
             let (hll_error, mle_error, hll_time, mle_time) =
                 evaluate_mle_intersection_estimation::<Precision12, 6>(&left_set, &right_set);
-            (
-                hll_error,
-                mle_error,
-                hll_time,
-                mle_time
-            )
+            (hll_error, mle_error, hll_time, mle_time)
         })
         .reduce(
             || (0.0, 0.0, 0.0, 0.0),

@@ -3,9 +3,7 @@ use crate::{array_default::ArrayIter, prelude::*};
 use core::ops::{BitOr, BitOrAssign};
 
 #[allow(clippy::suspicious_op_assign_impl)]
-impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self>
-    for HyperLogLog<P, BITS>
-{
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self> for HyperLogLog<P, BITS> {
     #[inline(always)]
     /// Computes union between HLL counters.
     ///
@@ -54,9 +52,7 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self>
 }
 
 #[allow(clippy::suspicious_op_assign_impl)]
-impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self>
-    for HyperLogLog<P, BITS>
-{
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self> for HyperLogLog<P, BITS> {
     #[inline(always)]
     /// Computes union between HLL counters.
     ///
@@ -120,13 +116,12 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self>
                 right_word >>= BITS;
             }
         }
-        self.number_of_zero_registers -= P::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
+        self.number_of_zero_registers -=
+            P::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
     }
 }
 
-impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self>
-    for HyperLogLog<P, BITS>
-{
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for HyperLogLog<P, BITS> {
     type Output = Self;
 
     #[inline(always)]
@@ -192,9 +187,7 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self>
     }
 }
 
-impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self>
-    for HyperLogLog<P, BITS>
-{
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self> for HyperLogLog<P, BITS> {
     type Output = Self;
 
     #[inline(always)]

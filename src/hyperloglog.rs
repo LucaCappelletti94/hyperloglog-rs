@@ -60,9 +60,7 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<P, BITS> {
     fn new() -> Self {
         Self {
             words: P::Words::default_array(),
-            number_of_zero_registers: P::NumberOfZeros::reverse(
-                P::NUMBER_OF_REGISTERS,
-            ),
+            number_of_zero_registers: P::NumberOfZeros::reverse(P::NUMBER_OF_REGISTERS),
         }
     }
 
@@ -244,9 +242,7 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<P, BITS> {
         // be represented in a register with BITS bits.
         debug_assert!(
             number_of_zeros < 1 << BITS,
-            concat!(
-                "The number of zeros {} must be less than or equal to {}. ",
-            ),
+            concat!("The number of zeros {} must be less than or equal to {}. ",),
             number_of_zeros,
             1 << BITS
         );
@@ -364,9 +360,7 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> Eq for HyperLogLog<P, BIT
 ///
 /// assert_eq!(hll1, hll2);
 /// ```
-impl<P: Precision + WordType<BITS>, const BITS: usize> PartialEq
-    for HyperLogLog<P, BITS>
-{
+impl<P: Precision + WordType<BITS>, const BITS: usize> PartialEq for HyperLogLog<P, BITS> {
     /// Returns whether the two HyperLogLog counters are equal.
     fn eq(&self, other: &Self) -> bool {
         self.words == other.words
@@ -386,18 +380,14 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> PartialEq
 /// let hll: HyperLogLog<Precision10, 6> = Default::default();
 /// assert_eq!(hll.len(), 1024);
 /// ```
-impl<P: Precision + WordType<BITS>, const BITS: usize> Default
-    for HyperLogLog<P, BITS>
-{
+impl<P: Precision + WordType<BITS>, const BITS: usize> Default for HyperLogLog<P, BITS> {
     /// Returns a new HyperLogLog instance with default configuration settings.
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<P: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T>
-    for HyperLogLog<P, BITS>
-{
+impl<P: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T> for HyperLogLog<P, BITS> {
     /// Create a new HyperLogLog counter from a value.
     ///
     /// This method creates a new empty HyperLogLog counter and inserts the hash

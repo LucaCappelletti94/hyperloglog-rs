@@ -5,12 +5,12 @@
 
 use core::{
     iter::Sum,
-    ops::{Add, AddAssign, Div, Mul, Sub, MulAssign, SubAssign, DivAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
 };
 
-use core::fmt::Debug;
 use crate::max_min::MaxMin;
 use crate::ones::One;
+use core::fmt::Debug;
 
 pub trait Primitive<U>:
     Sized
@@ -551,7 +551,6 @@ impl Primitive<f64> for f32 {
         other as f32
     }
 }
-
 
 impl Primitive<u8> for f32 {
     #[inline(always)]

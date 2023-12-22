@@ -1,4 +1,4 @@
-#![cfg(feature="std")]
+#![cfg(feature = "std")]
 #![feature(test)]
 
 extern crate test;

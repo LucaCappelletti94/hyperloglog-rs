@@ -412,9 +412,8 @@ impl Dense<9> {
             .enumerate()
             .progress_with(samples_progress_bar)
             .for_each(|(i, sample)| {
-                *sample = generate_sample::<P, BITS>(splitmix64(
-                    random_state.wrapping_mul(i as u64 + 1),
-                ));
+                *sample =
+                    generate_sample::<P, BITS>(splitmix64(random_state.wrapping_mul(i as u64 + 1)));
             });
 
         let histories = (0..number_of_epochs)

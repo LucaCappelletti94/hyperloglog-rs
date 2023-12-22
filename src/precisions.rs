@@ -73,7 +73,7 @@ pub trait WordType<const BITS: usize>: Precision {
         + ArrayIterArgmin<Self::NumberOfZeros>
         + ArrayIterArgmax<Self::NumberOfZeros>
         + ArrayDefault<Self::NumberOfZeros>
-        + PrimitiveArray<f32, Array=Self::FloatMultiplicities>
+        + PrimitiveArray<f32, Array = Self::FloatMultiplicities>
         + ArrayIter<Self::NumberOfZeros>;
 
     type FloatMultiplicities: Index<usize, Output = f32>;

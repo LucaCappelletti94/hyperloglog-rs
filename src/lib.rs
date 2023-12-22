@@ -78,6 +78,7 @@ mod array_default;
 mod bias;
 pub mod bitand;
 pub mod bitor;
+mod bitor_iter;
 pub mod estimated_union_cardinalities;
 pub mod hyper_spheres_sketch;
 pub mod hyperloglog;
@@ -92,10 +93,9 @@ mod precisions;
 mod primitive;
 mod raw_estimate_data;
 pub mod serde;
-pub mod utils;
 mod sip;
+pub mod utils;
 mod zeros;
-mod bitor_iter;
 
 #[cfg(feature = "std")]
 mod exact_hyper_spheres_sketch;

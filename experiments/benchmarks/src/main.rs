@@ -413,9 +413,7 @@ fn write_out_evaluations<S: SetLike<usize>>(
     csv_writer.write_record(&row).unwrap();
 }
 
-fn evaluate_hyperloglog_rs_per_precision<
-    P: Precision + WordType<4> + WordType<5> + WordType<6>,
->(
+fn evaluate_hyperloglog_rs_per_precision<P: Precision + WordType<4> + WordType<5> + WordType<6>>(
     left: &Vec<usize>,
     right: &Vec<usize>,
     exact_cardinalities: &Cardinalities,

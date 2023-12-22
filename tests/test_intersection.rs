@@ -1,4 +1,4 @@
-#![cfg(feature="std")]
+#![cfg(feature = "std")]
 /// Example file which writes a reference TSV with two random sets and their exact intersection similarity,
 /// and the estimated intersection similarity using HyperLogLog. The file can be used to benchmark the
 /// accuracy of the HyperLogLog algorithm against other implementations. Of course, we need to run this
@@ -60,11 +60,7 @@ fn intersection_with_set_estimation<P: Precision + WordType<BITS>, const BITS: u
     (hll1 & hll2).estimate_cardinality()
 }
 
-fn intersection_with_mle<
-    P: Precision + WordType<BITS>,
-    const ERROR: i32,
-    const BITS: usize,
->(
+fn intersection_with_mle<P: Precision + WordType<BITS>, const ERROR: i32, const BITS: usize>(
     set1: &HashSet<u64>,
     set2: &HashSet<u64>,
 ) -> (f32, f32) {
@@ -74,8 +70,7 @@ fn intersection_with_mle<
     let hll1_mle: MLE<ERROR, HyperLogLog<P, BITS>> = hll1.into();
     let hll2_mle: MLE<ERROR, HyperLogLog<P, BITS>> = hll2.into();
 
-    let estimate = hll1_mle
-        .estimate_intersection_cardinality(&hll2_mle);
+    let estimate = hll1_mle.estimate_intersection_cardinality(&hll2_mle);
 
     (estimate, start.elapsed().as_secs_f32())
 }
@@ -133,12 +128,9 @@ fn write_line_set<
     //     .unwrap();
     // write_line::<P, 3>(&set1, &set2, exact_intersection, file)
     //     .unwrap();
-    write_line::<P, 4>(&set1, &set2, exact_intersection, file)
-        .unwrap();
-    write_line::<P, 5>(&set1, &set2, exact_intersection, file)
-        .unwrap();
-    write_line::<P, 6>(&set1, &set2, exact_intersection, file)
-        .unwrap();
+    write_line::<P, 4>(&set1, &set2, exact_intersection, file).unwrap();
+    write_line::<P, 5>(&set1, &set2, exact_intersection, file).unwrap();
+    write_line::<P, 6>(&set1, &set2, exact_intersection, file).unwrap();
 }
 
 fn write_line_set_for_hasher(
