@@ -1,7 +1,7 @@
 workspace = { members = ["experiments/benchmarks", "experiments/cardinality_model", "experiments/union_model"] }
 [package]
 name = "hyperloglog-rs"
-version = "0.1.52"
+version = "0.1.53"
 edition = "2021"
 authors = ["Luca Cappelletti <cappelletti.luca94@gmail.com>"]
 description = "A Rust implementation of HyperLogLog trying to be parsimonious with memory."
