@@ -5,8 +5,8 @@ use serde::ser::SerializeSeq;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Serialize
-    for HyperLogLogArray<PRECISION, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> Serialize
+    for HyperLogLogArray<P, BITS, N>
 {
     #[inline(always)]
     /// Serializes the HyperLogLog counter using the given serializer.
@@ -48,7 +48,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> S
     ///
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut seq = serializer.serialize_seq(Some(N))?;
-        let counters: &[HyperLogLog<PRECISION, BITS>; N] = self.as_ref();
+        let counters: &[HyperLogLog<P, BITS>; N] = self.as_ref();
         for counter in counters {
             seq.serialize_element(&counter)?;
         }
@@ -56,8 +56,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> S
     }
 }
 
-impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Deserialize<'de>
-    for HyperLogLogArray<PRECISION, BITS, N>
+impl<'de, P: Precision + WordType<BITS>, const BITS: usize, const N: usize> Deserialize<'de>
+    for HyperLogLogArray<P, BITS, N>
 {
     #[inline(always)]
     /// Deserializes the HyperLogLog counter using the given deserializer.
@@ -79,13 +79,13 @@ impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usi
 }
 
 /// Struct to deserialize a vector of u32
-pub struct HLLArrayVisitor<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize>
+pub struct HLLArrayVisitor<P: Precision + WordType<BITS>, const BITS: usize, const N: usize>
 {
-    _precision: core::marker::PhantomData<PRECISION>,
+    _precision: core::marker::PhantomData<P>,
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize>
-    HLLArrayVisitor<PRECISION, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize>
+    HLLArrayVisitor<P, BITS, N>
 {
     /// Creates a new HLLArrayVisitor
     pub fn new() -> Self {
@@ -95,8 +95,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize>
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Default
-    for HLLArrayVisitor<PRECISION, BITS, N>
+impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> Default
+    for HLLArrayVisitor<P, BITS, N>
 {
     fn default() -> Self {
         Self::new()
@@ -140,10 +140,10 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> D
 ///
 /// ### Returns
 /// The resulting fixed-size array of u32 values, or an error if the deserialization failed.
-impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usize> Visitor<'de>
-    for HLLArrayVisitor<PRECISION, BITS, N>
+impl<'de, P: Precision + WordType<BITS>, const BITS: usize, const N: usize> Visitor<'de>
+    for HLLArrayVisitor<P, BITS, N>
 {
-    type Value = [HyperLogLog<PRECISION, BITS>; N];
+    type Value = [HyperLogLog<P, BITS>; N];
 
     fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("an array of HLL")
@@ -163,8 +163,8 @@ impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize, const N: usi
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Serialize
-    for HyperLogLog<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize> Serialize
+    for HyperLogLog<P, BITS>
 {
     #[inline(always)]
     /// Serializes the HyperLogLog counter using the given serializer.
@@ -199,8 +199,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Serialize
     }
 }
 
-impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize> Deserialize<'de>
-    for HyperLogLog<PRECISION, BITS>
+impl<'de, P: Precision + WordType<BITS>, const BITS: usize> Deserialize<'de>
+    for HyperLogLog<P, BITS>
 {
     #[inline(always)]
     /// Deserializes the HyperLogLog counter using the given deserializer.
@@ -230,8 +230,8 @@ impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize> Deserialize<
     /// hll.get_words().iter().zip(words.iter()).for_each(|(a, b)| assert_eq!(a, b, "Deserialized words do not match, expected: {}, actual: {}", b, a));
     /// ```
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let words: PRECISION::Words =
-            deserializer.deserialize_seq(WordsVisitor::<PRECISION, BITS>::default())?;
+        let words: P::Words =
+            deserializer.deserialize_seq(WordsVisitor::<P, BITS>::default())?;
 
         Ok(Self::from_words(&words))
     }
@@ -239,8 +239,8 @@ impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize> Deserialize<
 
 #[derive(Default)]
 /// Struct to deserialize a vector of u32
-pub struct WordsVisitor<PRECISION: Precision + WordType<BITS>, const BITS: usize> {
-    _precision: core::marker::PhantomData<PRECISION>,
+pub struct WordsVisitor<P: Precision + WordType<BITS>, const BITS: usize> {
+    _precision: core::marker::PhantomData<P>,
 }
 
 /// A visitor implementation used for deserializing an array of u32 into a fixed-size array.
@@ -279,17 +279,17 @@ pub struct WordsVisitor<PRECISION: Precision + WordType<BITS>, const BITS: usize
 ///
 /// ### Returns
 /// The resulting fixed-size array of u32 values, or an error if the deserialization failed.
-impl<'de, PRECISION: Precision + WordType<BITS>, const BITS: usize> Visitor<'de>
-    for WordsVisitor<PRECISION, BITS>
+impl<'de, P: Precision + WordType<BITS>, const BITS: usize> Visitor<'de>
+    for WordsVisitor<P, BITS>
 {
-    type Value = PRECISION::Words;
+    type Value = P::Words;
 
     fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("a tuple with an array of u32 and a u32 scalar")
     }
 
     fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let mut words_array = PRECISION::Words::default_array();
+        let mut words_array = P::Words::default_array();
         let number_of_elements = words_array.len();
         {
             let mut words_array_iter = words_array.iter_elements_mut();

@@ -25,7 +25,7 @@ pub trait WordType<const BITS: usize>: Precision {
     /// The type of Words is always an array of u32, as this is the smallest
     /// type that can be used to store the number of registers.
     ///
-    /// The length of the array is: ceil(PRECISION::NUMBER_OF_REGISTERS, 32 / BITS)
+    /// The length of the array is: ceil(P::NUMBER_OF_REGISTERS, 32 / BITS)
     ///
     /// We cannot use the above expression directly, as it would force the library
     /// user to propagate some very ugly constraints around.
@@ -39,7 +39,7 @@ pub trait WordType<const BITS: usize>: Precision {
         + Eq
         + PartialEq
         + ArrayIter<u32>
-        + ArrayDefault<u32>; // = [u32; ceil(PRECISION::NUMBER_OF_REGISTERS, 32 / BITS)]
+        + ArrayDefault<u32>; // = [u32; ceil(P::NUMBER_OF_REGISTERS, 32 / BITS)]
     /// The register multiplicities is an array with the length of the largest possible
     /// value that can appear in a register. The value at index i is the number of registers
     /// that have a value equal to i, meaning the largest value that any register can have

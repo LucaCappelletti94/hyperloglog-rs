@@ -81,11 +81,11 @@ impl<I: Hash + Eq + PartialEq + Ord> SetLike<I> for BTreeSet<I> {
     }
 }
 
-impl<I: Hash + Eq + PartialEq, PRECISION: Precision + WordType<BITS>, const BITS: usize> SetLike<I>
-    for HyperLogLog<PRECISION, BITS>
+impl<I: Hash + Eq + PartialEq, P: Precision + WordType<BITS>, const BITS: usize> SetLike<I>
+    for HyperLogLog<P, BITS>
 {
     fn struct_name(&self) -> String {
-        format!("HyperLogLog<{}, {}>", PRECISION::EXPONENT, BITS)
+        format!("HyperLogLog<{}, {}>", P::EXPONENT, BITS)
     }
 
     fn memory_requirements(&self) -> usize {
@@ -414,7 +414,7 @@ fn write_out_evaluations<S: SetLike<usize>>(
 }
 
 fn evaluate_hyperloglog_rs_per_precision<
-    PRECISION: Precision + WordType<4> + WordType<5> + WordType<6>,
+    P: Precision + WordType<4> + WordType<5> + WordType<6>,
 >(
     left: &Vec<usize>,
     right: &Vec<usize>,
@@ -422,24 +422,24 @@ fn evaluate_hyperloglog_rs_per_precision<
     csv_writer: &mut csv::Writer<std::fs::File>,
 ) {
     write_out_evaluations(
-        HyperLogLog::<PRECISION, 4>::default(),
-        HyperLogLog::<PRECISION, 4>::default(),
+        HyperLogLog::<P, 4>::default(),
+        HyperLogLog::<P, 4>::default(),
         left,
         right,
         exact_cardinalities,
         csv_writer,
     );
     write_out_evaluations(
-        HyperLogLog::<PRECISION, 5>::default(),
-        HyperLogLog::<PRECISION, 5>::default(),
+        HyperLogLog::<P, 5>::default(),
+        HyperLogLog::<P, 5>::default(),
         left,
         right,
         exact_cardinalities,
         csv_writer,
     );
     write_out_evaluations(
-        HyperLogLog::<PRECISION, 6>::default(),
-        HyperLogLog::<PRECISION, 6>::default(),
+        HyperLogLog::<P, 6>::default(),
+        HyperLogLog::<P, 6>::default(),
         left,
         right,
         exact_cardinalities,

@@ -13,8 +13,8 @@ pub fn test_hyper_log_log_at_precision_5_and_bits_4() {
             continue;
         }
     
-        let mut hll: HyperLogLog<PRECISION, BITS> = HyperLogLog::default();
-        let hll_default: HyperLogLog<PRECISION, BITS> = HyperLogLog::default();
+        let mut hll: HyperLogLog<P, BITS> = HyperLogLog::default();
+        let hll_default: HyperLogLog<P, BITS> = HyperLogLog::default();
         
         assert_eq!(hll, hll_default);
         
@@ -60,8 +60,8 @@ pub fn test_hyper_log_log_at_precision_5_and_bits_5() {
             continue;
         }
     
-        let mut hll: HyperLogLog<PRECISION, BITS> = HyperLogLog::default();
-        let hll_default: HyperLogLog<PRECISION, BITS> = HyperLogLog::default();
+        let mut hll: HyperLogLog<P, BITS> = HyperLogLog::default();
+        let hll_default: HyperLogLog<P, BITS> = HyperLogLog::default();
         
         assert_eq!(hll, hll_default);
         
@@ -107,8 +107,8 @@ pub fn test_hyper_log_log_at_precision_5_and_bits_6() {
             continue;
         }
     
-        let mut hll: HyperLogLog<PRECISION, BITS> = HyperLogLog::default();
-        let hll_default: HyperLogLog<PRECISION, BITS> = HyperLogLog::default();
+        let mut hll: HyperLogLog<P, BITS> = HyperLogLog::default();
+        let hll_default: HyperLogLog<P, BITS> = HyperLogLog::default();
         
         assert_eq!(hll, hll_default);
         

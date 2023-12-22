@@ -34,8 +34,8 @@ pub trait SetLike<I> {
     fn get_cardinality(&self) -> I;
 }
 
-impl<F: Primitive<f32>, PRECISION: Precision + WordType<BITS>, const BITS: usize> SetLike<F>
-    for HyperLogLog<PRECISION, BITS>
+impl<F: Primitive<f32>, P: Precision + WordType<BITS>, const BITS: usize> SetLike<F>
+    for HyperLogLog<P, BITS>
 {
     fn get_estimated_union_cardinality(
         &self,
@@ -506,7 +506,7 @@ where
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, I: Primitive<f32>>
-    HyperSpheresSketch<I> for HyperLogLog<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize, I: Primitive<f32>>
+    HyperSpheresSketch<I> for HyperLogLog<P, BITS>
 {
 }

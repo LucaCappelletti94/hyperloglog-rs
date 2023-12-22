@@ -40,17 +40,17 @@ fn jaccard(set1: &HashSet<u64>, set2: &HashSet<u64>) -> f32 {
     intersection / union
 }
 
-fn jaccard_hll<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
+fn jaccard_hll<P: Precision + WordType<BITS>, const BITS: usize>(
     set1: &HashSet<u64>,
     set2: &HashSet<u64>,
 ) -> f32 {
-    let hll1: HyperLogLog<PRECISION, BITS> = set1.iter().collect();
-    let hll2: HyperLogLog<PRECISION, BITS> = set2.iter().collect();
+    let hll1: HyperLogLog<P, BITS> = set1.iter().collect();
+    let hll2: HyperLogLog<P, BITS> = set2.iter().collect();
 
     hll1.estimate_jaccard_index(&hll2)
 }
 
-fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
+fn write_line<P: Precision + WordType<BITS>, const BITS: usize>(
     set1: &HashSet<u64>,
     set2: &HashSet<u64>,
     set1_str: &str,
@@ -58,11 +58,11 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     exact_jaccard: f32,
     file: &mut File,
 ) -> std::io::Result<()> {
-    let hll = jaccard_hll::<PRECISION, BITS>(&set1, &set2);
+    let hll = jaccard_hll::<P, BITS>(&set1, &set2);
 
     let line = format!(
         "{}\t{}\t{}\t{}\t{}\t{}\n",
-        PRECISION::EXPONENT,
+        P::EXPONENT,
         BITS,
         exact_jaccard,
         hll,

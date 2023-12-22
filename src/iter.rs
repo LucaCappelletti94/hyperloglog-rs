@@ -40,20 +40,20 @@ pub trait EstimateIterCardinality {
     /// * `PRECISION` - The precision to use for the HyperLogLog counter.
     /// * `BITS` - The number of bits per register in the HyperLogLog counter.
     ///
-    fn estimate_cardinality<PRECISION: Precision + WordType<BITS>, const BITS: usize>(self) -> f32;
+    fn estimate_cardinality<P: Precision + WordType<BITS>, const BITS: usize>(self) -> f32;
 }
 
 impl<I, T: Hash> EstimateIterCardinality for I
 where
     I: Iterator<Item = T>,
 {
-    fn estimate_cardinality<PRECISION: Precision + WordType<BITS>, const BITS: usize>(self) -> f32 {
-        let hll: HyperLogLog<PRECISION, BITS> = self.collect();
+    fn estimate_cardinality<P: Precision + WordType<BITS>, const BITS: usize>(self) -> f32 {
+        let hll: HyperLogLog<P, BITS> = self.collect();
         hll.estimate_cardinality()
     }
 }
 
-pub trait HyperLogLogIterator<PRECISION: Precision + WordType<BITS>, const BITS: usize> {
+pub trait HyperLogLogIterator<P: Precision + WordType<BITS>, const BITS: usize> {
     /// Returns a HyperLogLog that is the union of all HyperLogLogs in the iterator.
     ///
     /// # Example
@@ -77,17 +77,17 @@ pub trait HyperLogLogIterator<PRECISION: Precision + WordType<BITS>, const BITS:
     ///
     /// assert!(hll_union.estimate_cardinality() - 6.0 < 1.0, "Expected 6.0, got {}", hll_union.estimate_cardinality());
     /// ```
-    fn union(self) -> HyperLogLog<PRECISION, BITS>;
+    fn union(self) -> HyperLogLog<P, BITS>;
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, I, C>
-    HyperLogLogIterator<PRECISION, BITS> for I
+impl<P: Precision + WordType<BITS>, const BITS: usize, I, C>
+    HyperLogLogIterator<P, BITS> for I
 where
     I: Iterator<Item = C>,
-    HyperLogLog<PRECISION, BITS>: BitOr<C, Output = HyperLogLog<PRECISION, BITS>>,
+    HyperLogLog<P, BITS>: BitOr<C, Output = HyperLogLog<P, BITS>>,
 {
     #[inline(always)]
-    fn union(self) -> HyperLogLog<PRECISION, BITS> {
+    fn union(self) -> HyperLogLog<P, BITS> {
         self.fold(HyperLogLog::default(), |acc, hll| acc | hll)
     }
 }

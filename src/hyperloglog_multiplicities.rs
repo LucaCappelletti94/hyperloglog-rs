@@ -27,21 +27,19 @@ use core::hash::Hash;
 /// cardinality of the counter. All other operations, such as the union of two counters, are fast as
 /// they are implemented using the traditional HyperLogLog counter.
 ///
-pub struct HyperLogLogWithMultiplicities<PRECISION: Precision + WordType<BITS>, const BITS: usize> {
-    pub(crate) words: PRECISION::Words,
-    pub(crate) multiplicities: PRECISION::RegisterMultiplicities,
+pub struct HyperLogLogWithMultiplicities<P: Precision + WordType<BITS>, const BITS: usize> {
+    pub(crate) words: P::Words,
+    pub(crate) multiplicities: P::RegisterMultiplicities,
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    HyperLogLogWithMultiplicities<PRECISION, BITS>
-{
+impl<P: Precision + WordType<BITS>, const BITS: usize> HyperLogLogWithMultiplicities<P, BITS> {
     fn new() -> Self {
-        let mut multiplicities = PRECISION::RegisterMultiplicities::default_array();
+        let mut multiplicities = P::RegisterMultiplicities::default_array();
 
-        multiplicities[0] = PRECISION::NumberOfZeros::reverse(PRECISION::NUMBER_OF_REGISTERS);
+        multiplicities[0] = P::NumberOfZeros::reverse(P::NUMBER_OF_REGISTERS);
 
         Self {
-            words: PRECISION::Words::default_array(),
+            words: P::Words::default_array(),
             multiplicities,
         }
     }
@@ -63,18 +61,17 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
     /// let hll = HyperLogLogWithMultiplicities::<Precision4, 6>::from_words(&words);
     /// assert_eq!(hll.len(), 16);
     /// ```
-    pub fn from_words(words: &PRECISION::Words) -> Self {
-        let mut multiplicities = PRECISION::RegisterMultiplicities::default_array();
+    pub fn from_words(words: &P::Words) -> Self {
+        let mut multiplicities = P::RegisterMultiplicities::default_array();
 
         words.iter_elements().for_each(|word| {
             (0..Self::NUMBER_OF_REGISTERS_IN_WORD).for_each(|i| {
                 let register = (word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
-                multiplicities[register as usize] += PRECISION::NumberOfZeros::ONE;
+                multiplicities[register as usize] += P::NumberOfZeros::ONE;
             });
         });
 
-        multiplicities[0] -=
-            PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
+        multiplicities[0] -= P::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
 
         Self {
             words: *words,
@@ -103,13 +100,13 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
     /// ```
     pub fn from_registers(registers: &[u32]) -> Self {
         debug_assert!(
-            registers.len() == PRECISION::NUMBER_OF_REGISTERS,
+            registers.len() == P::NUMBER_OF_REGISTERS,
             "We expect {} registers, but got {}",
-            PRECISION::NUMBER_OF_REGISTERS,
+            P::NUMBER_OF_REGISTERS,
             registers.len()
         );
-        let mut words = PRECISION::Words::default_array();
-        let mut multiplicities = PRECISION::RegisterMultiplicities::default_array();
+        let mut words = P::Words::default_array();
+        let mut multiplicities = P::RegisterMultiplicities::default_array();
         words
             .iter_elements_mut()
             .zip(registers.chunks(Self::NUMBER_OF_REGISTERS_IN_WORD))
@@ -121,7 +118,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
                         register,
                         BITS
                     );
-                    multiplicities[register as usize] += PRECISION::NumberOfZeros::ONE;
+                    multiplicities[register as usize] += P::NumberOfZeros::ONE;
                     *word |= register << (i * BITS);
                 }
             });
@@ -171,7 +168,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
         if BITS < 6 {
             hash |= 1 << (64 - ((1 << BITS) - 1));
         } else {
-            hash |= 1 << (PRECISION::EXPONENT - 1);
+            hash |= 1 << (P::EXPONENT - 1);
         }
 
         // Count leading zeros.
@@ -186,7 +183,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
             number_of_zeros,
             1 << BITS,
             hash,
-            PRECISION::EXPONENT
+            P::EXPONENT
         );
 
         // Calculate the position of the register in the internal buffer array.
@@ -204,8 +201,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
             self.words.len(),
             index,
             Self::NUMBER_OF_REGISTERS_IN_WORD,
-            PRECISION::NUMBER_OF_REGISTERS,
-            PRECISION::EXPONENT,
+            P::NUMBER_OF_REGISTERS,
+            P::EXPONENT,
             BITS
         );
 
@@ -215,12 +212,10 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
 
         // Otherwise, update the register using a bit mask.
         if number_of_zeros > register_value {
-            debug_assert!(
-                self.multiplicities[register_value as usize] > PRECISION::NumberOfZeros::ZERO,
-            );
+            debug_assert!(self.multiplicities[register_value as usize] > P::NumberOfZeros::ZERO,);
 
-            self.multiplicities[register_value as usize] -= PRECISION::NumberOfZeros::ONE;
-            self.multiplicities[number_of_zeros as usize] += PRECISION::NumberOfZeros::ONE;
+            self.multiplicities[register_value as usize] -= P::NumberOfZeros::ONE;
+            self.multiplicities[number_of_zeros as usize] += P::NumberOfZeros::ONE;
 
             self.words[word_position] &=
                 !(Self::LOWER_REGISTER_MASK << (register_position_in_u32 * BITS));
@@ -242,7 +237,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
             // We also check that if the word we have edites is the last word, then the padding bits
             // of the word must be all zeros.
             debug_assert!(
-                index != PRECISION::NUMBER_OF_REGISTERS - 1
+                index != P::NUMBER_OF_REGISTERS - 1
                     || self.words[word_position] & Self::LAST_WORD_PADDING_BITS_MASK == 0,
                 concat!(
                     "The padding bits of the last word {} must be all zeros. ",
@@ -256,7 +251,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
                 self.words[word_position] & Self::LAST_WORD_PADDING_BITS_MASK,
                 Self::LAST_WORD_PADDING_BITS_MASK,
                 self.words[word_position],
-                PRECISION::EXPONENT,
+                P::EXPONENT,
                 BITS,
                 Self::get_number_of_padding_registers()
             );
@@ -264,32 +259,32 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Default
-    for HyperLogLogWithMultiplicities<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize> Default
+    for HyperLogLogWithMultiplicities<P, BITS>
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    From<HyperLogLogWithMultiplicities<PRECISION, BITS>> for HyperLogLog<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize> From<HyperLogLogWithMultiplicities<P, BITS>>
+    for HyperLogLog<P, BITS>
 {
-    fn from(hll: HyperLogLogWithMultiplicities<PRECISION, BITS>) -> Self {
+    fn from(hll: HyperLogLogWithMultiplicities<P, BITS>) -> Self {
         Self::from_words(hll.get_words())
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> From<HyperLogLog<PRECISION, BITS>>
-    for HyperLogLogWithMultiplicities<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize> From<HyperLogLog<P, BITS>>
+    for HyperLogLogWithMultiplicities<P, BITS>
 {
-    fn from(hll: HyperLogLog<PRECISION, BITS>) -> Self {
+    fn from(hll: HyperLogLog<P, BITS>) -> Self {
         Self::from_words(hll.get_words())
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<PRECISION, BITS>
-    for HyperLogLogWithMultiplicities<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<P, BITS>
+    for HyperLogLogWithMultiplicities<P, BITS>
 {
     #[inline(always)]
     /// Returns the number of registers in the counter.
@@ -303,7 +298,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
     }
 
     /// Returns a reference to the words vector.
-    fn get_words(&self) -> &PRECISION::Words {
+    fn get_words(&self) -> &P::Words {
         &self.words
     }
 
@@ -334,8 +329,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, A: Hash> core::iter::FromIterator<A>
-    for HyperLogLogWithMultiplicities<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize, A: Hash> core::iter::FromIterator<A>
+    for HyperLogLogWithMultiplicities<P, BITS>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogWithMultiplicities counter and adds all elements from an iterator to it.

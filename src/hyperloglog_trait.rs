@@ -11,20 +11,20 @@ use crate::utils::{ceil, get_alpha};
 use core::hash::Hash;
 use core::hash::Hasher;
 
-pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: usize>:
+pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>:
     Sized
 {
     /// The threshold value used in the small range correction of the HyperLogLog algorithm.
     const INTERMEDIATE_RANGE_CORRECTION_THRESHOLD: f32 =
-        5.0_f32 * (PRECISION::NUMBER_OF_REGISTERS as f32);
+        5.0_f32 * (P::NUMBER_OF_REGISTERS as f32);
 
-    const LINEAR_COUNT_THRESHOLD: f32 = linear_counting_threshold(PRECISION::EXPONENT);
+    const LINEAR_COUNT_THRESHOLD: f32 = linear_counting_threshold(P::EXPONENT);
 
     /// The mask used to obtain the lower register bits in the HyperLogLog algorithm.
     const LOWER_REGISTER_MASK: u32 = (1 << BITS) - 1;
 
     /// The mask used to obtain the lower precision bits in the HyperLogLog algorithm.
-    const LOWER_PRECISION_MASK: usize = PRECISION::NUMBER_OF_REGISTERS - 1;
+    const LOWER_PRECISION_MASK: usize = P::NUMBER_OF_REGISTERS - 1;
     const NOT_LOWER_PRECISION_MASK: u64 = !Self::LOWER_PRECISION_MASK as u64;
 
     const NUMBER_OF_PADDING_BITS: usize = 32 - (32 / BITS) * BITS;
@@ -34,9 +34,9 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// We set the LEADING bits as the padding bits, the unused one, so the leftmost bits.
     const PADDING_BITS_MASK: u32 = !((1_u64 << (32 - Self::NUMBER_OF_PADDING_BITS)) - 1) as u32;
 
-    const NUMBER_OF_PADDING_REGISTERS: usize = ceil(PRECISION::NUMBER_OF_REGISTERS, 32 / BITS)
+    const NUMBER_OF_PADDING_REGISTERS: usize = ceil(P::NUMBER_OF_REGISTERS, 32 / BITS)
         * Self::NUMBER_OF_REGISTERS_IN_WORD
-        - PRECISION::NUMBER_OF_REGISTERS;
+        - P::NUMBER_OF_REGISTERS;
 
     /// The mask representing the bits that are never used in the last u32 word in the cases
     /// where the number of registers is not a multiple of the number of registers in a word.
@@ -45,23 +45,23 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
         - 1_u64) as u32;
 
     /// The mask used to obtain the upper precision bits in the HyperLogLog algorithm.
-    const UPPER_PRECISION_MASK: usize = Self::LOWER_PRECISION_MASK << (64 - PRECISION::EXPONENT);
+    const UPPER_PRECISION_MASK: usize = Self::LOWER_PRECISION_MASK << (64 - P::EXPONENT);
 
     /// The number of registers that can fit in a single 32-bit word in the HyperLogLog algorithm.
     const NUMBER_OF_REGISTERS_IN_WORD: usize = 32 / BITS;
 
     fn adjust_estimate(mut raw_estimate: f32) -> f32 {
         // Apply the final scaling factor to obtain the estimate of the cardinality
-        raw_estimate = get_alpha(PRECISION::NUMBER_OF_REGISTERS)
-            * (PRECISION::NUMBER_OF_REGISTERS * PRECISION::NUMBER_OF_REGISTERS) as f32
+        raw_estimate = get_alpha(P::NUMBER_OF_REGISTERS)
+            * (P::NUMBER_OF_REGISTERS * P::NUMBER_OF_REGISTERS) as f32
             / raw_estimate;
 
         // Apply the small range correction factor if the raw estimate is below the threshold
         // and there are zero registers in the counter.
         if raw_estimate <= Self::INTERMEDIATE_RANGE_CORRECTION_THRESHOLD {
             // Get a reference to raw estimates/biases for precision.
-            let biases = BIAS_DATA[PRECISION::EXPONENT - 4];
-            let estimates = RAW_ESTIMATE_DATA[PRECISION::EXPONENT - 4];
+            let biases = BIAS_DATA[P::EXPONENT - 4];
+            let estimates = RAW_ESTIMATE_DATA[P::EXPONENT - 4];
 
             // Raw estimate is first/last in estimates. Return the first/last bias.
             if raw_estimate <= estimates[0] {
@@ -94,7 +94,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
 
     fn adjust_estimate_with_zeros(raw_estimate: f32, number_of_zeros: usize) -> f32 {
         if number_of_zeros > 0 {
-            let low_range_correction = PRECISION::SMALL_CORRECTIONS[number_of_zeros - 1];
+            let low_range_correction = P::SMALL_CORRECTIONS[number_of_zeros - 1];
             if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
                 return low_range_correction;
             }
@@ -110,7 +110,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// the linear counting algorithm is determined by the number of registers in the HLL counter.
     fn use_small_range_correction(&self) -> bool {
         self.get_number_of_zero_registers() > 0
-            && PRECISION::SMALL_CORRECTIONS[self.get_number_of_zero_registers() - 1]
+            && P::SMALL_CORRECTIONS[self.get_number_of_zero_registers() - 1]
                 <= Self::LINEAR_COUNT_THRESHOLD
     }
 
@@ -136,7 +136,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     fn estimate_cardinality(&self) -> f32 {
         if self.get_number_of_zero_registers() > 0 {
             let low_range_correction =
-                PRECISION::SMALL_CORRECTIONS[self.get_number_of_zero_registers() - 1];
+                P::SMALL_CORRECTIONS[self.get_number_of_zero_registers() - 1];
             if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
                 return low_range_correction;
             }
@@ -395,7 +395,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// assert_eq!(hll.len(), 1 << 12);
     /// ```
     fn len(&self) -> usize {
-        PRECISION::NUMBER_OF_REGISTERS
+        P::NUMBER_OF_REGISTERS
     }
 
     #[inline(always)]
@@ -463,8 +463,8 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// ```
     ///
     fn get_number_of_padding_registers() -> usize {
-        ceil(PRECISION::NUMBER_OF_REGISTERS, 32 / BITS) * Self::NUMBER_OF_REGISTERS_IN_WORD
-            - PRECISION::NUMBER_OF_REGISTERS
+        ceil(P::NUMBER_OF_REGISTERS, 32 / BITS) * Self::NUMBER_OF_REGISTERS_IN_WORD
+            - P::NUMBER_OF_REGISTERS
     }
 
     /// Returns the number of registers with zero values. This value is used for computing a small
@@ -526,8 +526,8 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// ```
     ///
     ///
-    fn get_registers(&self) -> PRECISION::Registers {
-        let mut registers = PRECISION::Registers::default_array();
+    fn get_registers(&self) -> P::Registers {
+        let mut registers = P::Registers::default_array();
         self.get_words()
             .iter_elements()
             .flat_map(|word| {
@@ -542,7 +542,7 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     }
 
     /// Returns the array of words of the HyperLogLog counter.
-    fn get_words(&self) -> &PRECISION::Words;
+    fn get_words(&self) -> &P::Words;
 
     #[inline(always)]
     /// Returns `true` if the HyperLogLog counter may contain the given element.
@@ -654,15 +654,15 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
         // Calculate the register's index using the highest bits of the hash.
         // The index of the register has to vary from 0 to 2^p - 1, where p is the precision,
         // so we use the highest p bits of the hash.
-        let index: usize = hash as usize >> (64 - PRECISION::EXPONENT);
+        let index: usize = hash as usize >> (64 - P::EXPONENT);
 
         // And we delete the used bits from the hash.
-        let hash: u64 = hash << PRECISION::EXPONENT;
+        let hash: u64 = hash << P::EXPONENT;
         debug_assert!(
-            index < PRECISION::NUMBER_OF_REGISTERS,
+            index < P::NUMBER_OF_REGISTERS,
             "The index {} must be less than the number of registers {}.",
             index,
-            PRECISION::NUMBER_OF_REGISTERS
+            P::NUMBER_OF_REGISTERS
         );
 
         (hash, index)
@@ -675,11 +675,11 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// as we can compute the cardinality of the counter using the multiplicities instead of the
     /// registers. This is much faster as we do not need to compute the harmonic mean of the registers.
     fn estimate_cardinality_from_multiplicities(
-        multiplicities: &PRECISION::RegisterMultiplicities,
+        multiplicities: &P::RegisterMultiplicities,
     ) -> f32 {
-        if multiplicities[0] > PRECISION::NumberOfZeros::ZERO {
+        if multiplicities[0] > P::NumberOfZeros::ZERO {
             let number_of_zeros: usize = multiplicities[0].convert();
-            let low_range_correction = PRECISION::SMALL_CORRECTIONS[number_of_zeros - 1_usize];
+            let low_range_correction = P::SMALL_CORRECTIONS[number_of_zeros - 1_usize];
             if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
                 return low_range_correction;
             }

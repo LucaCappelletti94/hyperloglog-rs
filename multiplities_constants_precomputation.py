@@ -7,13 +7,13 @@ the following [New cardinality estimation algorithms for HyperLogLog sketches](h
 Specifically, the two formulas we need to precompute are the following.
 
 For a multiplicity x, that can have value between 0 and the number of registers m,
-which we recall are equal to m=2^PRECISION, we need to compute the following
+which we recall are equal to m=2^P, we need to compute the following
 constant:
 $$\tau(x) = \frac{x}{3} - \frac{m}{3} \sum_{k=1}^{\inf} {\left(1 - {\left(1 - \frac{x}{m}\right)}^{2^{-k}}\right)}^{2} 2^{-k}$$
 
 The second constant we need to compute is sigma, also defined for a multiplicity
 x, that can have value between 0 and the number of registers m, which we recall
-are equal to m=2^PRECISION, is defined as follows:
+are equal to m=2^P, is defined as follows:
 
 $$\sigma(x) = x + m \sum_{k=1}^{\inf} {\frac{x}{m}}^{2^k} 2^{k-1}$$
 

@@ -40,18 +40,18 @@ fn get_random_vector(size: usize, random_state: u64) -> HashSet<u64> {
     set
 }
 
-fn evaluate_mle_cardinality_estimation<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
+fn evaluate_mle_cardinality_estimation<P: Precision + WordType<BITS>, const BITS: usize>(
     set: &HashSet<u64>,
 ) -> (f32, f32, f32, f32) {
     let hll = set
         .iter()
         .copied()
-        .collect::<HyperLogLog<PRECISION, BITS>>();
+        .collect::<HyperLogLog<P, BITS>>();
     let start_time_hll = std::time::Instant::now();
     let hll_cardinality = hll.estimate_cardinality();
     let hll_time = start_time_hll.elapsed().as_secs_f32();
     let start_time_mle = std::time::Instant::now();
-    let mle_hll: &MLE<4, HyperLogLog<PRECISION, BITS>> = hll.as_ref();
+    let mle_hll: &MLE<4, HyperLogLog<P, BITS>> = hll.as_ref();
     let mle_cardinality = mle_hll.estimate_cardinality();
     let mle_time = start_time_mle.elapsed().as_secs_f32();
     let hll_error = (set.len() as f32 - hll_cardinality).powi(2) / set.len() as f32;
@@ -60,7 +60,7 @@ fn evaluate_mle_cardinality_estimation<PRECISION: Precision + WordType<BITS>, co
 }
 
 fn evaluate_mle_intersection_estimation<
-    PRECISION: Precision + WordType<BITS>,
+    P: Precision + WordType<BITS>,
     const BITS: usize,
 >(
     left_set: &HashSet<u64>,
@@ -69,16 +69,16 @@ fn evaluate_mle_intersection_estimation<
     let left_hll = left_set
         .iter()
         .copied()
-        .collect::<HyperLogLog<PRECISION, BITS>>();
+        .collect::<HyperLogLog<P, BITS>>();
     let right_hll = right_set
         .iter()
         .copied()
-        .collect::<HyperLogLog<PRECISION, BITS>>();
+        .collect::<HyperLogLog<P, BITS>>();
     let start_time_hll = std::time::Instant::now();
     let hll_cardinality: f32 = left_hll.estimate_intersection_cardinality(&right_hll);
     let hll_time = start_time_hll.elapsed().as_secs_f32();
-    let left_mle_hll: MLE<4, HyperLogLog<PRECISION, BITS>> = left_hll.into();
-    let right_mle_hll: MLE<4, HyperLogLog<PRECISION, BITS>> = right_hll.into();
+    let left_mle_hll: MLE<4, HyperLogLog<P, BITS>> = left_hll.into();
+    let right_mle_hll: MLE<4, HyperLogLog<P, BITS>> = right_hll.into();
     let start_time_mle = std::time::Instant::now();
     let mle_cardinality: f32 = left_mle_hll.estimate_intersection_cardinality(&right_mle_hll);
     let mle_time = start_time_mle.elapsed().as_secs_f32();

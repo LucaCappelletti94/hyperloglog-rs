@@ -9,8 +9,8 @@ pub struct MLE<const ERROR: i32, H> {
     inner: H,
 }
 
-impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    AsRef<MLE<ERROR, Self>> for HyperLogLog<PRECISION, BITS>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
+    AsRef<MLE<ERROR, Self>> for HyperLogLog<P, BITS>
 {
     fn as_ref(&self) -> &MLE<ERROR, Self> {
         unsafe { core::mem::transmute(self) }
@@ -19,99 +19,99 @@ impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
 
 impl<
         const ERROR: i32,
-        PRECISION: Precision + WordType<BITS>,
+        P: Precision + WordType<BITS>,
         const BITS: usize,
         const N: usize,
-    > AsRef<[MLE<ERROR, HyperLogLog<PRECISION, BITS>>; N]>
-    for HyperLogLogArray<PRECISION, BITS, N>
+    > AsRef<[MLE<ERROR, HyperLogLog<P, BITS>>; N]>
+    for HyperLogLogArray<P, BITS, N>
 {
-    fn as_ref(&self) -> &[MLE<ERROR, HyperLogLog<PRECISION, BITS>>; N] {
+    fn as_ref(&self) -> &[MLE<ERROR, HyperLogLog<P, BITS>>; N] {
         unsafe { core::mem::transmute(self) }
     }
 }
 
-impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    AsRef<HyperLogLog<PRECISION, BITS>> for MLE<ERROR, HyperLogLog<PRECISION, BITS>>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
+    AsRef<HyperLogLog<P, BITS>> for MLE<ERROR, HyperLogLog<P, BITS>>
 {
-    fn as_ref(&self) -> &HyperLogLog<PRECISION, BITS> {
+    fn as_ref(&self) -> &HyperLogLog<P, BITS> {
         &self.inner
     }
 }
 
 impl<
         const ERROR: i32,
-        PRECISION: Precision + WordType<BITS>,
+        P: Precision + WordType<BITS>,
         const BITS: usize,
         const N: usize,
-    > AsRef<[HyperLogLog<PRECISION, BITS>; N]>
-    for MLE<ERROR, HyperLogLogArray<PRECISION, BITS, N>>
+    > AsRef<[HyperLogLog<P, BITS>; N]>
+    for MLE<ERROR, HyperLogLogArray<P, BITS, N>>
 {
-    fn as_ref(&self) -> &[HyperLogLog<PRECISION, BITS>; N] {
+    fn as_ref(&self) -> &[HyperLogLog<P, BITS>; N] {
         unsafe { core::mem::transmute(self) }
     }
 }
 
-impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    From<MLE<ERROR, Self>> for HyperLogLog<PRECISION, BITS>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
+    From<MLE<ERROR, Self>> for HyperLogLog<P, BITS>
 {
     fn from(mle: MLE<ERROR, Self>) -> Self {
         mle.inner
     }
 }
 
-impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    From<HyperLogLog<PRECISION, BITS>> for MLE<ERROR, HyperLogLog<PRECISION, BITS>>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
+    From<HyperLogLog<P, BITS>> for MLE<ERROR, HyperLogLog<P, BITS>>
 {
-    fn from(hll: HyperLogLog<PRECISION, BITS>) -> Self {
+    fn from(hll: HyperLogLog<P, BITS>) -> Self {
         Self { inner: hll }
     }
 }
 
-impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    AsRef<MLE<ERROR, Self>> for HyperLogLogWithMultiplicities<PRECISION, BITS>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
+    AsRef<MLE<ERROR, Self>> for HyperLogLogWithMultiplicities<P, BITS>
 {
     fn as_ref(&self) -> &MLE<ERROR, Self> {
         unsafe { core::mem::transmute(self) }
     }
 }
 
-impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    AsRef<HyperLogLogWithMultiplicities<PRECISION, BITS>>
-    for MLE<ERROR, HyperLogLogWithMultiplicities<PRECISION, BITS>>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
+    AsRef<HyperLogLogWithMultiplicities<P, BITS>>
+    for MLE<ERROR, HyperLogLogWithMultiplicities<P, BITS>>
 {
-    fn as_ref(&self) -> &HyperLogLogWithMultiplicities<PRECISION, BITS> {
+    fn as_ref(&self) -> &HyperLogLogWithMultiplicities<P, BITS> {
         &self.inner
     }
 }
 
-impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    From<MLE<ERROR, Self>> for HyperLogLogWithMultiplicities<PRECISION, BITS>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
+    From<MLE<ERROR, Self>> for HyperLogLogWithMultiplicities<P, BITS>
 {
     fn from(mle: MLE<ERROR, Self>) -> Self {
         mle.inner
     }
 }
 
-impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    From<HyperLogLogWithMultiplicities<PRECISION, BITS>>
-    for MLE<ERROR, HyperLogLogWithMultiplicities<PRECISION, BITS>>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
+    From<HyperLogLogWithMultiplicities<P, BITS>>
+    for MLE<ERROR, HyperLogLogWithMultiplicities<P, BITS>>
 {
-    fn from(hll: HyperLogLogWithMultiplicities<PRECISION, BITS>) -> Self {
+    fn from(hll: HyperLogLogWithMultiplicities<P, BITS>) -> Self {
         Self { inner: hll }
     }
 }
 
-pub trait JointEstimation<PRECISION: Precision + WordType<BITS>, const BITS: usize>
+pub trait JointEstimation<P: Precision + WordType<BITS>, const BITS: usize>
 where
-    Self: HyperLogLogTrait<PRECISION, BITS>,
+    Self: HyperLogLogTrait<P, BITS>,
 {
     fn estimate_cardinality_from_multiplicities_using_mle<const ERROR: i32>(
-        multiplicities: &PRECISION::RegisterMultiplicities,
+        multiplicities: &P::RegisterMultiplicities,
     ) -> f32 {
         // If the multeplicity associated to the last register
         // is equal to the number of registers, we return infinity.
         let number_of_saturated_registers: usize = multiplicities.last().unwrap().convert();
-        if number_of_saturated_registers == PRECISION::NUMBER_OF_REGISTERS {
+        if number_of_saturated_registers == P::NUMBER_OF_REGISTERS {
             return f32::INFINITY;
         }
 
@@ -153,7 +153,7 @@ where
                 * f32::from_le_bytes(two_to_minus_q.to_le_bytes());
 
         let number_of_non_zero_registers: f32 =
-            PRECISION::NUMBER_OF_REGISTERS as f32 - number_of_zero_registers;
+            P::NUMBER_OF_REGISTERS as f32 - number_of_zero_registers;
 
         let mut x = if b <= 1.5 * a {
             number_of_non_zero_registers / (0.5 * b + a)
@@ -164,7 +164,7 @@ where
         // We begin the secant method iterations.
         let mut delta_x = x;
         let relative_error_limit =
-            10.0_f32.powi(-ERROR) / (PRECISION::NUMBER_OF_REGISTERS as f32).sqrt();
+            10.0_f32.powi(-ERROR) / (P::NUMBER_OF_REGISTERS as f32).sqrt();
 
         while delta_x > x * relative_error_limit {
             // In the C++ implementation they call frexp.
@@ -214,7 +214,7 @@ where
             g_prev = g;
         }
 
-        PRECISION::NUMBER_OF_REGISTERS as f32 * x
+        P::NUMBER_OF_REGISTERS as f32 * x
     }
 
     #[inline]
@@ -400,11 +400,11 @@ where
         &self,
         other: &Self,
     ) -> EstimatedUnionCardinalities<F> {
-        let mut left_multiplicities_larger = PRECISION::RegisterMultiplicities::default_array();
-        let mut left_multiplicities_smaller = PRECISION::RegisterMultiplicities::default_array();
-        let mut right_multiplicities_larger = PRECISION::RegisterMultiplicities::default_array();
-        let mut right_multiplicities_smaller = PRECISION::RegisterMultiplicities::default_array();
-        let mut joint_multiplicities = PRECISION::RegisterMultiplicities::default_array();
+        let mut left_multiplicities_larger = P::RegisterMultiplicities::default_array();
+        let mut left_multiplicities_smaller = P::RegisterMultiplicities::default_array();
+        let mut right_multiplicities_larger = P::RegisterMultiplicities::default_array();
+        let mut right_multiplicities_smaller = P::RegisterMultiplicities::default_array();
+        let mut joint_multiplicities = P::RegisterMultiplicities::default_array();
 
         let mut raw_union_estimate = 0.0;
         let mut raw_left_estimate = 0.0;
@@ -435,20 +435,20 @@ where
                 match left_register.cmp(&right_register) {
                     core::cmp::Ordering::Less => {
                         left_multiplicities_smaller[left_register as usize] +=
-                            PRECISION::NumberOfZeros::ONE;
+                            P::NumberOfZeros::ONE;
                         right_multiplicities_larger[right_register as usize] +=
-                            PRECISION::NumberOfZeros::ONE;
+                            P::NumberOfZeros::ONE;
                     }
                     core::cmp::Ordering::Greater => {
                         left_multiplicities_larger[left_register as usize] +=
-                            PRECISION::NumberOfZeros::ONE;
+                            P::NumberOfZeros::ONE;
                         right_multiplicities_smaller[right_register as usize] +=
-                            PRECISION::NumberOfZeros::ONE;
+                            P::NumberOfZeros::ONE;
                     }
                     core::cmp::Ordering::Equal => {
                         // If left register is equal to right register
                         joint_multiplicities[left_register as usize] +=
-                            PRECISION::NumberOfZeros::ONE;
+                            P::NumberOfZeros::ONE;
                     }
                 }
             }
@@ -466,7 +466,7 @@ where
         raw_right_estimate -= Self::get_number_of_padding_registers() as f32;
 
         joint_multiplicities[0] -=
-            PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
+            P::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
 
         // We get the best estimates from HyperLogLog++
         let mut union_cardinality_estimate =
@@ -496,7 +496,7 @@ where
         let number_of_zeros: usize = left_difference_number_of_zeros
             + joint_number_of_zeros
             + right_difference_number_of_zeros;
-        if number_of_zeros == PRECISION::NUMBER_OF_REGISTERS {
+        if number_of_zeros == P::NUMBER_OF_REGISTERS {
             return EstimatedUnionCardinalities::from((
                 F::reverse(left_cardinality_estimate),
                 F::reverse(right_cardinality_estimate),
@@ -510,11 +510,11 @@ where
         let right_difference: f32 = union_cardinality_estimate - left_cardinality_estimate;
 
         let relative_error_limit =
-            10.0_f32.powi(-ERROR) / (PRECISION::NUMBER_OF_REGISTERS as f32).sqrt();
+            10.0_f32.powi(-ERROR) / (P::NUMBER_OF_REGISTERS as f32).sqrt();
 
-        // let reciprocal_registers = 1.0 / PRECISION::NUMBER_OF_REGISTERS as f32;
+        // let reciprocal_registers = 1.0 / P::NUMBER_OF_REGISTERS as f32;
 
-        let exponent: i32 = 127 - PRECISION::EXPONENT as i32;
+        let exponent: i32 = 127 - P::EXPONENT as i32;
 
         // we introdce the following expressions to simplify the computation
         // of the gradient.
@@ -528,7 +528,7 @@ where
         // We precompute q and q+1 for reference.
         let q_plus_one: usize = joint_multiplicities.len() - 1;
         let q: i32 = q_plus_one as i32 - 1;
-        let float_joint_multiplicities: PRECISION::FloatMultiplicities =
+        let float_joint_multiplicities: P::FloatMultiplicities =
             joint_multiplicities.convert_array();
 
         // We initialize the vectors for the Adam optimizer.
@@ -541,14 +541,14 @@ where
 
         let mut optimizer: Adam<f32, 3> = Adam::default();
 
-        let float_left_multiplicities_smaller: PRECISION::FloatMultiplicities =
+        let float_left_multiplicities_smaller: P::FloatMultiplicities =
             left_multiplicities_smaller.convert_array();
-        let float_left_multiplicities_larger: PRECISION::FloatMultiplicities =
+        let float_left_multiplicities_larger: P::FloatMultiplicities =
             left_multiplicities_larger.convert_array();
 
-        let float_right_multiplicities_smaller: PRECISION::FloatMultiplicities =
+        let float_right_multiplicities_smaller: P::FloatMultiplicities =
             right_multiplicities_smaller.convert_array();
-        let float_right_multiplicities_larger: PRECISION::FloatMultiplicities =
+        let float_right_multiplicities_larger: P::FloatMultiplicities =
             right_multiplicities_larger.convert_array();
 
         let left_number_of_zeros = float_left_multiplicities_smaller[0]
@@ -675,25 +675,25 @@ where
     }
 }
 
-impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    HyperLogLogTrait<PRECISION, BITS> for MLE<ERROR, HyperLogLog<PRECISION, BITS>>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
+    HyperLogLogTrait<P, BITS> for MLE<ERROR, HyperLogLog<P, BITS>>
 {
     fn get_number_of_zero_registers(&self) -> usize {
         self.inner.get_number_of_zero_registers()
     }
 
-    fn get_words(&self) -> &PRECISION::Words {
+    fn get_words(&self) -> &P::Words {
         self.inner.get_words()
     }
 
     fn estimate_cardinality(&self) -> f32 {
-        let mut multeplicities = PRECISION::RegisterMultiplicities::default_array();
+        let mut multeplicities = P::RegisterMultiplicities::default_array();
 
         self.inner
             .get_registers()
             .into_iter_elements()
             .for_each(|register| {
-                multeplicities[register as usize] += PRECISION::NumberOfZeros::ONE;
+                multeplicities[register as usize] += P::NumberOfZeros::ONE;
             });
 
         Self::estimate_cardinality_from_multiplicities_using_mle::<ERROR>(&multeplicities)
@@ -707,15 +707,15 @@ impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
     }
 }
 
-impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
-    HyperLogLogTrait<PRECISION, BITS>
-    for MLE<ERROR, HyperLogLogWithMultiplicities<PRECISION, BITS>>
+impl<const ERROR: i32, P: Precision + WordType<BITS>, const BITS: usize>
+    HyperLogLogTrait<P, BITS>
+    for MLE<ERROR, HyperLogLogWithMultiplicities<P, BITS>>
 {
     fn get_number_of_zero_registers(&self) -> usize {
         self.inner.get_number_of_zero_registers()
     }
 
-    fn get_words(&self) -> &PRECISION::Words {
+    fn get_words(&self) -> &P::Words {
         self.inner.get_words()
     }
 
@@ -733,19 +733,19 @@ impl<const ERROR: i32, PRECISION: Precision + WordType<BITS>, const BITS: usize>
     }
 }
 
-impl<T, PRECISION: Precision + WordType<BITS>, const BITS: usize> JointEstimation<PRECISION, BITS>
+impl<T, P: Precision + WordType<BITS>, const BITS: usize> JointEstimation<P, BITS>
     for T
 where
-    T: HyperLogLogTrait<PRECISION, BITS>,
+    T: HyperLogLogTrait<P, BITS>,
 {
 }
 
 impl<
         const ERROR: i32,
-        PRECISION: Precision + WordType<BITS>,
+        P: Precision + WordType<BITS>,
         const BITS: usize,
         F: Primitive<f32>,
-    > SetLike<F> for MLE<ERROR, HyperLogLog<PRECISION, BITS>>
+    > SetLike<F> for MLE<ERROR, HyperLogLog<P, BITS>>
 {
     fn get_estimated_union_cardinality(
         &self,
@@ -764,8 +764,8 @@ impl<
 impl<
         F: Primitive<f32>,
         const ERROR: i32,
-        PRECISION: Precision + WordType<BITS>,
+        P: Precision + WordType<BITS>,
         const BITS: usize,
-    > HyperSpheresSketch<F> for MLE<ERROR, HyperLogLog<PRECISION, BITS>>
+    > HyperSpheresSketch<F> for MLE<ERROR, HyperLogLog<P, BITS>>
 {
 }

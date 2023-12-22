@@ -95,6 +95,7 @@ pub mod serde;
 pub mod utils;
 mod sip;
 mod zeros;
+mod bitor_iter;
 
 #[cfg(feature = "std")]
 mod exact_hyper_spheres_sketch;

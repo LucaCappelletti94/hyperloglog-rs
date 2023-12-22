@@ -22,8 +22,8 @@ struct Sample {
 }
 
 impl Sample {
-    fn from_vec<PRECISION: Precision + WordType<BITS>, const BITS: usize>(values: &[u32]) -> Self {
-        let hll: HyperLogLog<PRECISION, BITS> = values.iter().collect();
+    fn from_vec<P: Precision + WordType<BITS>, const BITS: usize>(values: &[u32]) -> Self {
+        let hll: HyperLogLog<P, BITS> = values.iter().collect();
         let set: HashSet<u32> = values.iter().copied().collect();
 
         Sample {
@@ -31,7 +31,7 @@ impl Sample {
             approximation: hll.estimate_cardinality(),
             number_of_zeros: hll.get_number_of_zero_registers(),
             number_of_zeros_rate: hll.get_number_of_zero_registers() as f32
-                / PRECISION::NUMBER_OF_REGISTERS as f32,
+                / P::NUMBER_OF_REGISTERS as f32,
         }
     }
 
@@ -60,7 +60,7 @@ impl Sample {
     }
 }
 
-fn generate_sample<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
+fn generate_sample<P: Precision + WordType<BITS>, const BITS: usize>(
     mut random_state: u64,
 ) -> Sample {
     random_state = splitmix64(random_state);
@@ -81,7 +81,7 @@ fn generate_sample<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
         random_state = splitmix64(random_state);
     }
 
-    Sample::from_vec::<PRECISION, BITS>(vec1.as_slice())
+    Sample::from_vec::<P, BITS>(vec1.as_slice())
 }
 
 struct EpochHistory {
@@ -309,7 +309,7 @@ impl Dense<3> {
     /// * `weights_path` - The path to the file where the weights will be saved.
     /// * `random_state` - The random state used to generate the samples.
     ///
-    fn train<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
+    fn train<P: Precision + WordType<BITS>, const BITS: usize>(
         &mut self,
         number_of_epochs: usize,
         repetitions_per_batch: usize,
@@ -350,7 +350,7 @@ impl Dense<3> {
                     .enumerate()
                     .progress_with(samples_progress_bar)
                     .for_each(|(i, sample)| {
-                        *sample = generate_sample::<PRECISION, BITS>(splitmix64(
+                        *sample = generate_sample::<P, BITS>(splitmix64(
                             random_state.wrapping_mul(i as u64 + 1),
                         ));
                     });
@@ -366,7 +366,7 @@ impl Dense<3> {
                     .enumerate()
                     .progress_with(samples_progress_bar)
                     .for_each(|(i, sample)| {
-                        *sample = generate_sample::<PRECISION, BITS>(splitmix64(
+                        *sample = generate_sample::<P, BITS>(splitmix64(
                             random_state.wrapping_mul(i as u64 + 1),
                         ));
                     });

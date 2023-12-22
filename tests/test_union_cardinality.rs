@@ -42,7 +42,7 @@ fn union(set1: &HashSet<u32>, set2: &HashSet<u32>) -> usize {
     set1.union(set2).count()
 }
 
-fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
+fn write_line<P: Precision + WordType<BITS>, const BITS: usize>(
     vec1: &Vec<u32>,
     vec2: &Vec<u32>,
     left_cardinality: usize,
@@ -50,15 +50,15 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
     exact_union: usize,
     writer: &mut impl Write,
 ) -> std::io::Result<()> {
-    let hll1: HyperLogLog<PRECISION, BITS> = vec1.iter().collect();
-    let hll2: HyperLogLog<PRECISION, BITS> = vec2.iter().collect();
+    let hll1: HyperLogLog<P, BITS> = vec1.iter().collect();
+    let hll2: HyperLogLog<P, BITS> = vec2.iter().collect();
 
     let approximation: EstimatedUnionCardinalities<f32> = hll1.estimate_union_and_sets_cardinality(&hll2);
     // let nn_approximation: EstimatedUnionCardinalities<f32> = hll1.second_order_union_adjustment(&hll2);
 
     let line = format!(
         "{}\t{}\t{}\t{}\t{}\n",
-        PRECISION::EXPONENT,
+        P::EXPONENT,
         BITS,
         exact_union,
         approximation.get_union_cardinality(),
@@ -70,7 +70,7 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
 }
 
 fn write_line_set<
-    PRECISION: Precision + WordType<1> + WordType<2> + WordType<3> + WordType<4> + WordType<5> + WordType<6>,
+    P: Precision + WordType<1> + WordType<2> + WordType<3> + WordType<4> + WordType<5> + WordType<6>,
 >(
     vec1: &Vec<u32>,
     vec2: &Vec<u32>,
@@ -79,12 +79,12 @@ fn write_line_set<
     exact_union: usize,
     writer: &mut impl Write,
 ) {
-    // write_line::<PRECISION, 1>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
-    // write_line::<PRECISION, 2>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
-    // write_line::<PRECISION, 3>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
-    // write_line::<PRECISION, 4>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
-    // write_line::<PRECISION, 5>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
-    write_line::<PRECISION, 6>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
+    // write_line::<P, 1>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
+    // write_line::<P, 2>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
+    // write_line::<P, 3>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
+    // write_line::<P, 4>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
+    // write_line::<P, 5>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
+    write_line::<P, 6>(&vec1, &vec2,  left_cardinality, right_cardinality, exact_union, writer).unwrap();
 }
 
 fn write_line_set_for_hasher(

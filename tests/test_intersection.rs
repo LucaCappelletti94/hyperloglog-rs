@@ -40,28 +40,28 @@ fn intersection(set1: &HashSet<u64>, set2: &HashSet<u64>) -> usize {
     set1.intersection(set2).count()
 }
 
-fn old_intersection_hll<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
+fn old_intersection_hll<P: Precision + WordType<BITS>, const BITS: usize>(
     set1: &HashSet<u64>,
     set2: &HashSet<u64>,
 ) -> f32 {
-    let hll1: HyperLogLog<PRECISION, BITS> = set1.iter().collect();
-    let hll2: HyperLogLog<PRECISION, BITS> = set2.iter().collect();
+    let hll1: HyperLogLog<P, BITS> = set1.iter().collect();
+    let hll2: HyperLogLog<P, BITS> = set2.iter().collect();
 
     hll1.estimate_intersection_cardinality(&hll2)
 }
 
-fn intersection_with_set_estimation<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
+fn intersection_with_set_estimation<P: Precision + WordType<BITS>, const BITS: usize>(
     set1: &HashSet<u64>,
     set2: &HashSet<u64>,
 ) -> f32 {
-    let hll1: HyperLogLog<PRECISION, BITS> = set1.iter().collect();
-    let hll2: HyperLogLog<PRECISION, BITS> = set2.iter().collect();
+    let hll1: HyperLogLog<P, BITS> = set1.iter().collect();
+    let hll2: HyperLogLog<P, BITS> = set2.iter().collect();
 
     (hll1 & hll2).estimate_cardinality()
 }
 
 fn intersection_with_mle<
-    PRECISION: Precision + WordType<BITS>,
+    P: Precision + WordType<BITS>,
     const ERROR: i32,
     const BITS: usize,
 >(
@@ -69,10 +69,10 @@ fn intersection_with_mle<
     set2: &HashSet<u64>,
 ) -> (f32, f32) {
     let start = std::time::Instant::now();
-    let hll1: HyperLogLog<PRECISION, BITS> = set1.iter().collect();
-    let hll2: HyperLogLog<PRECISION, BITS> = set2.iter().collect();
-    let hll1_mle: MLE<ERROR, HyperLogLog<PRECISION, BITS>> = hll1.into();
-    let hll2_mle: MLE<ERROR, HyperLogLog<PRECISION, BITS>> = hll2.into();
+    let hll1: HyperLogLog<P, BITS> = set1.iter().collect();
+    let hll2: HyperLogLog<P, BITS> = set2.iter().collect();
+    let hll1_mle: MLE<ERROR, HyperLogLog<P, BITS>> = hll1.into();
+    let hll2_mle: MLE<ERROR, HyperLogLog<P, BITS>> = hll2.into();
 
     let estimate = hll1_mle
         .estimate_intersection_cardinality(&hll2_mle);
@@ -80,26 +80,26 @@ fn intersection_with_mle<
     (estimate, start.elapsed().as_secs_f32())
 }
 
-fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
+fn write_line<P: Precision + WordType<BITS>, const BITS: usize>(
     set1: &HashSet<u64>,
     set2: &HashSet<u64>,
     exact_intersection: usize,
     file: &mut File,
 ) -> std::io::Result<()> {
     let old_hll_start = std::time::Instant::now();
-    let old_hll = old_intersection_hll::<PRECISION, BITS>(&set1, &set2);
+    let old_hll = old_intersection_hll::<P, BITS>(&set1, &set2);
     let old_hll_time = old_hll_start.elapsed().as_secs_f32();
     let intersection_hll_start = std::time::Instant::now();
-    let intersection_hll = intersection_with_set_estimation::<PRECISION, BITS>(&set1, &set2);
+    let intersection_hll = intersection_with_set_estimation::<P, BITS>(&set1, &set2);
     let intersection_hll_time = intersection_hll_start.elapsed().as_secs_f32();
-    let (mle_1, time_1) = intersection_with_mle::<PRECISION, 1, BITS>(&set1, &set2);
-    let (mle_2, time_2) = intersection_with_mle::<PRECISION, 2, BITS>(&set1, &set2);
-    let (mle_3, time_3) = intersection_with_mle::<PRECISION, 3, BITS>(&set1, &set2);
-    let (mle_4, time_4) = intersection_with_mle::<PRECISION, 4, BITS>(&set1, &set2);
+    let (mle_1, time_1) = intersection_with_mle::<P, 1, BITS>(&set1, &set2);
+    let (mle_2, time_2) = intersection_with_mle::<P, 2, BITS>(&set1, &set2);
+    let (mle_3, time_3) = intersection_with_mle::<P, 3, BITS>(&set1, &set2);
+    let (mle_4, time_4) = intersection_with_mle::<P, 4, BITS>(&set1, &set2);
 
     let line = format!(
         "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
-        PRECISION::EXPONENT,
+        P::EXPONENT,
         BITS,
         exact_intersection,
         old_hll,
@@ -120,24 +120,24 @@ fn write_line<PRECISION: Precision + WordType<BITS>, const BITS: usize>(
 }
 
 fn write_line_set<
-    PRECISION: Precision + WordType<1> + WordType<2> + WordType<3> + WordType<4> + WordType<5> + WordType<6>,
+    P: Precision + WordType<1> + WordType<2> + WordType<3> + WordType<4> + WordType<5> + WordType<6>,
 >(
     set1: &HashSet<u64>,
     set2: &HashSet<u64>,
     exact_intersection: usize,
     file: &mut File,
 ) {
-    // write_line::<PRECISION, 1>(&set1, &set2, exact_intersection, file)
+    // write_line::<P, 1>(&set1, &set2, exact_intersection, file)
     //     .unwrap();
-    // write_line::<PRECISION, 2>(&set1, &set2, exact_intersection, file)
+    // write_line::<P, 2>(&set1, &set2, exact_intersection, file)
     //     .unwrap();
-    // write_line::<PRECISION, 3>(&set1, &set2, exact_intersection, file)
+    // write_line::<P, 3>(&set1, &set2, exact_intersection, file)
     //     .unwrap();
-    write_line::<PRECISION, 4>(&set1, &set2, exact_intersection, file)
+    write_line::<P, 4>(&set1, &set2, exact_intersection, file)
         .unwrap();
-    write_line::<PRECISION, 5>(&set1, &set2, exact_intersection, file)
+    write_line::<P, 5>(&set1, &set2, exact_intersection, file)
         .unwrap();
-    write_line::<PRECISION, 6>(&set1, &set2, exact_intersection, file)
+    write_line::<P, 6>(&set1, &set2, exact_intersection, file)
         .unwrap();
 }
 

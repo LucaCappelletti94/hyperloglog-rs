@@ -3,8 +3,8 @@ use crate::{array_default::ArrayIter, prelude::*};
 use core::ops::{BitOr, BitOrAssign};
 
 #[allow(clippy::suspicious_op_assign_impl)]
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self>
-    for HyperLogLog<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self>
+    for HyperLogLog<P, BITS>
 {
     #[inline(always)]
     /// Computes union between HLL counters.
@@ -54,8 +54,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self>
 }
 
 #[allow(clippy::suspicious_op_assign_impl)]
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self>
-    for HyperLogLog<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self>
+    for HyperLogLog<P, BITS>
 {
     #[inline(always)]
     /// Computes union between HLL counters.
@@ -100,7 +100,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self
     /// assert!(hll3.estimate_cardinality() < 4.0 + 0.1, "Expected a value equal to around 4, got {}", hll3.estimate_cardinality());
     /// ```
     fn bitor_assign(&mut self, rhs: &Self) {
-        self.number_of_zero_registers = PRECISION::NumberOfZeros::ZERO;
+        self.number_of_zero_registers = P::NumberOfZeros::ZERO;
         for (left_word, mut right_word) in self
             .words
             .iter_elements_mut()
@@ -115,17 +115,17 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self
                 *left_word &= !(Self::LOWER_REGISTER_MASK << (i * BITS));
                 *left_word |= left_register << (i * BITS);
                 self.number_of_zero_registers +=
-                    PRECISION::NumberOfZeros::reverse((left_register == 0) as usize);
+                    P::NumberOfZeros::reverse((left_register == 0) as usize);
                 left_word_copy >>= BITS;
                 right_word >>= BITS;
             }
         }
-        self.number_of_zero_registers -= PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
+        self.number_of_zero_registers -= P::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOr<Self>
-    for HyperLogLog<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self>
+    for HyperLogLog<P, BITS>
 {
     type Output = Self;
 
@@ -192,8 +192,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOr<Self>
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self>
-    for HyperLogLog<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self>
+    for HyperLogLog<P, BITS>
 {
     type Output = Self;
 

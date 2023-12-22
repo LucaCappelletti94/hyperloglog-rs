@@ -50,18 +50,18 @@ use core::hash::Hash;
 /// * Flajolet, Philippe, et al. "HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm." DMTCS Proceedings 1 (2007): 127-146.
 /// * Heule, Stefan, Marc Nunkesser, and Alexander Hall. "HyperLogLog in practice: algorithmic engineering of a state of the art cardinality estimation algorithm." Proceedings of the 16th International Conference on Extending Database Technology. 2013.
 ///
-pub struct HyperLogLog<PRECISION: Precision + WordType<BITS>, const BITS: usize> {
-    pub(crate) words: PRECISION::Words,
-    pub(crate) number_of_zero_registers: PRECISION::NumberOfZeros,
+pub struct HyperLogLog<P: Precision + WordType<BITS>, const BITS: usize> {
+    pub(crate) words: P::Words,
+    pub(crate) number_of_zero_registers: P::NumberOfZeros,
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECISION, BITS> {
+impl<P: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<P, BITS> {
     /// Create a new HyperLogLog counter.
     fn new() -> Self {
         Self {
-            words: PRECISION::Words::default_array(),
-            number_of_zero_registers: PRECISION::NumberOfZeros::reverse(
-                PRECISION::NUMBER_OF_REGISTERS,
+            words: P::Words::default_array(),
+            number_of_zero_registers: P::NumberOfZeros::reverse(
+                P::NUMBER_OF_REGISTERS,
             ),
         }
     }
@@ -83,9 +83,9 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     /// let hll = HyperLogLog::<Precision4, 6>::from_words(&words);
     /// assert_eq!(hll.len(), 16);
     /// ```
-    pub fn from_words(words: &PRECISION::Words) -> Self {
+    pub fn from_words(words: &P::Words) -> Self {
         let number_of_zero_registers =
-            PRECISION::NumberOfZeros::reverse(words.iter_elements().fold(
+            P::NumberOfZeros::reverse(words.iter_elements().fold(
                 0,
                 |number_of_zero_registers, word| {
                     // We check that in all words the PADDING_BITS_MASK
@@ -108,7 +108,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
                         },
                     )
                 },
-            )) - PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
+            )) - P::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
 
         // We check that the values in the last word are masked
         // according to the LAST_WORD_PADDING_BITS_MASK.
@@ -151,13 +151,13 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     /// ```
     pub fn from_registers(registers: &[u32]) -> Self {
         debug_assert!(
-            registers.len() == PRECISION::NUMBER_OF_REGISTERS,
+            registers.len() == P::NUMBER_OF_REGISTERS,
             "We expect {} registers, but got {}",
-            PRECISION::NUMBER_OF_REGISTERS,
+            P::NUMBER_OF_REGISTERS,
             registers.len()
         );
-        let mut words = PRECISION::Words::default_array();
-        let number_of_zero_registers = PRECISION::NumberOfZeros::reverse(
+        let mut words = P::Words::default_array();
+        let number_of_zero_registers = P::NumberOfZeros::reverse(
             words
                 .iter_elements_mut()
                 .zip(registers.chunks(Self::NUMBER_OF_REGISTERS_IN_WORD))
@@ -233,7 +233,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
           //     // represent a value of 64 or larger. Since we are using
           //     // an hash function of 64 bits, the maximal number of
           //     //
-          //     // 1 << (PRECISION::EXPONENT - 1)
+          //     // 1 << (P::EXPONENT - 1)
           // };
 
         // Count leading zeros.
@@ -266,8 +266,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
             self.words.len(),
             index,
             Self::NUMBER_OF_REGISTERS_IN_WORD,
-            PRECISION::NUMBER_OF_REGISTERS,
-            PRECISION::EXPONENT,
+            P::NUMBER_OF_REGISTERS,
+            P::EXPONENT,
             BITS
         );
 
@@ -280,7 +280,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
             self.words[word_position] &= !(Self::LOWER_REGISTER_MASK << (register_position * BITS));
             self.words[word_position] |= number_of_zeros << (register_position * BITS);
             self.number_of_zero_registers -=
-                PRECISION::NumberOfZeros::reverse((register_value == 0) as usize);
+                P::NumberOfZeros::reverse((register_value == 0) as usize);
 
             // We check that the value we have written to the register is correct.
             debug_assert!(
@@ -313,7 +313,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
             // We also check that if the word we have edites is the last word, then the padding bits
             // of the word must be all zeros.
             debug_assert!(
-                index != PRECISION::NUMBER_OF_REGISTERS - 1
+                index != P::NUMBER_OF_REGISTERS - 1
                     || self.words[word_position] & Self::LAST_WORD_PADDING_BITS_MASK == 0,
                 concat!(
                     "The padding bits of the last word {} must be all zeros. ",
@@ -327,7 +327,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
                 self.words[word_position] & Self::LAST_WORD_PADDING_BITS_MASK,
                 Self::LAST_WORD_PADDING_BITS_MASK,
                 self.words[word_position],
-                PRECISION::EXPONENT,
+                P::EXPONENT,
                 BITS,
                 Self::get_number_of_padding_registers()
             );
@@ -335,7 +335,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Eq for HyperLogLog<PRECISION, BITS> {
+impl<P: Precision + WordType<BITS>, const BITS: usize> Eq for HyperLogLog<P, BITS> {
     fn assert_receiver_is_total_eq(&self) {
         // This is a no-op because we know that `Self` is `Eq`.
     }
@@ -364,8 +364,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Eq for HyperLogLo
 ///
 /// assert_eq!(hll1, hll2);
 /// ```
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> PartialEq
-    for HyperLogLog<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize> PartialEq
+    for HyperLogLog<P, BITS>
 {
     /// Returns whether the two HyperLogLog counters are equal.
     fn eq(&self, other: &Self) -> bool {
@@ -386,8 +386,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> PartialEq
 /// let hll: HyperLogLog<Precision10, 6> = Default::default();
 /// assert_eq!(hll.len(), 1024);
 /// ```
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Default
-    for HyperLogLog<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize> Default
+    for HyperLogLog<P, BITS>
 {
     /// Returns a new HyperLogLog instance with default configuration settings.
     fn default() -> Self {
@@ -395,8 +395,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Default
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T>
-    for HyperLogLog<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T>
+    for HyperLogLog<P, BITS>
 {
     /// Create a new HyperLogLog counter from a value.
     ///
@@ -422,8 +422,8 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T>
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<PRECISION, BITS>
-    for HyperLogLog<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<P, BITS>
+    for HyperLogLog<P, BITS>
 {
     #[inline(always)]
     /// Returns the number of registers with zero values. This value is used for computing a small
@@ -453,13 +453,13 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<
 
     #[inline(always)]
     /// Returns the array of words of the HyperLogLog counter.
-    fn get_words(&self) -> &PRECISION::Words {
+    fn get_words(&self) -> &P::Words {
         &self.words
     }
 }
 
-impl<PRECISION: Precision + WordType<BITS>, const BITS: usize, A: Hash> core::iter::FromIterator<A>
-    for HyperLogLog<PRECISION, BITS>
+impl<P: Precision + WordType<BITS>, const BITS: usize, A: Hash> core::iter::FromIterator<A>
+    for HyperLogLog<P, BITS>
 {
     #[inline(always)]
     /// Creates a new HyperLogLog counter and adds all elements from an iterator to it.
