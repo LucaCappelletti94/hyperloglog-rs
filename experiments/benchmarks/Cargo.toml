@@ -5,6 +5,8 @@ edition = "2021"
 description = "Benchmarks for HLL implementations"
 license = "MIT"
 keywords = ["benchmarks", "hyperloglog"]
+repository = "https://github.com/LucaCappelletti94/hyperloglog-rs"
+readme = "README.md"
 categories = [
     "algorithms",
     "science"

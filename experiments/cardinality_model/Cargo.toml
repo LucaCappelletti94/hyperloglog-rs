@@ -5,6 +5,8 @@ edition = "2021"
 description = "Cardinality estimation model"
 license = "MIT"
 keywords = ["cardinality", "estimation", "model"]
+repository = "https://github.com/LucaCappelletti94/hyperloglog-rs"
+readme = "README.md"
 categories = [
     "algorithms",
     "science"
