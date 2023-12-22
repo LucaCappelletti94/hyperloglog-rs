@@ -26,8 +26,8 @@ impl<
     ///
     /// hll |= [2u8, 3u8];
     ///
-    /// assert!(hll3.estimate_cardinality() > 3.0 - 0.1, "Expected a value equal to around 3, got {}", hll.estimate_cardinality());
-    /// assert!(hll3.estimate_cardinality() < 3.0 + 0.1, "Expected a value equal to around 3, got {}", hll.estimate_cardinality());
+    /// assert!(hll.estimate_cardinality() > 3.0 - 0.1, "Expected a value equal to around 3, got {}", hll.estimate_cardinality());
+    /// assert!(hll.estimate_cardinality() < 3.0 + 0.1, "Expected a value equal to around 3, got {}", hll.estimate_cardinality());
     /// ```
     fn bitor_assign(&mut self, rhs: I) {
         rhs.into_iter().for_each(|item| self.insert(item));

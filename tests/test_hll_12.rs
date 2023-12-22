@@ -2,7 +2,7 @@ use hyperloglog_rs::prelude::*;
 
 #[test]
 pub fn test_hyper_log_log_at_precision_12_and_bits_4() {
-    type PRECISION = Precision12;
+    type P = Precision12;
     const BITS: usize = 4;
 
     for number_of_elements in [5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000] {
@@ -42,7 +42,7 @@ pub fn test_hyper_log_log_at_precision_12_and_bits_4() {
 
 #[test]
 pub fn test_hyper_log_log_at_precision_12_and_bits_5() {
-    type PRECISION = Precision12;
+    type P = Precision12;
     const BITS: usize = 5;
 
     for number_of_elements in [5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000] {
@@ -82,7 +82,7 @@ pub fn test_hyper_log_log_at_precision_12_and_bits_5() {
 
 #[test]
 pub fn test_hyper_log_log_at_precision_12_and_bits_6() {
-    type PRECISION = Precision12;
+    type P = Precision12;
     const BITS: usize = 6;
 
     for number_of_elements in [5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000] {
