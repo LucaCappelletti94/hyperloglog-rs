@@ -238,6 +238,28 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize>
                 self.words[word_position],
                 self.words[word_position] & Self::PADDING_BITS_MASK
             );
+
+            // We also check that if the word we have edites is the last word, then the padding bits
+            // of the word must be all zeros.
+            debug_assert!(
+                index != PRECISION::NUMBER_OF_REGISTERS - 1
+                    || self.words[word_position] & Self::LAST_WORD_PADDING_BITS_MASK == 0,
+                concat!(
+                    "The padding bits of the last word {} must be all zeros. ",
+                    "We have obtained {} instead. The last word padding bits mask is, ",
+                    "when represented in binary, {:#034b}.\n ",
+                    "The word in binary is {:#034b}. ",
+                    "The current case is using precision {} and bits {}. As such, ",
+                    "we expect to have {} padding registers in the last word."
+                ),
+                self.words[word_position],
+                self.words[word_position] & Self::LAST_WORD_PADDING_BITS_MASK,
+                Self::LAST_WORD_PADDING_BITS_MASK,
+                self.words[word_position],
+                PRECISION::EXPONENT,
+                BITS,
+                Self::get_number_of_padding_registers()
+            );
         }
     }
 }
@@ -269,8 +291,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> From<HyperLogLog<
 impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLogTrait<PRECISION, BITS>
     for HyperLogLogWithMultiplicities<PRECISION, BITS>
 {
-    
-
     #[inline(always)]
     /// Returns the number of registers in the counter.
     ///

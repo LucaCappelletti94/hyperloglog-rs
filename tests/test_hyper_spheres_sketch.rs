@@ -1,3 +1,4 @@
+#![cfg(feature="std")]
 //! This test is to evaluate whether the current implementation
 //! of the hyper spheres sketch is correct by implementing the
 //! necessary traits on the HashSet type and then comparing the

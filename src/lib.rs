@@ -93,6 +93,7 @@ mod primitive;
 mod raw_estimate_data;
 pub mod serde;
 pub mod utils;
+mod sip;
 mod zeros;
 
 #[cfg(feature = "std")]
@@ -100,6 +101,7 @@ mod exact_hyper_spheres_sketch;
 #[cfg(feature = "std")]
 mod joint_estimation;
 
+#[cfg(feature = "std")]
 mod optimizers;
 
 pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
@@ -119,6 +121,7 @@ pub mod prelude {
     pub use crate::iter::*;
     pub use crate::max_min::*;
     pub use crate::ones::*;
+    #[cfg(feature = "std")]
     pub use crate::optimizers::*;
     pub use crate::precisions::*;
     pub use crate::primitive::*;

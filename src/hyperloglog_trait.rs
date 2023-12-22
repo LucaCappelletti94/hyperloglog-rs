@@ -1,5 +1,3 @@
-use siphasher::sip::SipHasher13;
-
 use crate::array_default::ArrayIter;
 use crate::bias::BIAS_DATA;
 use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
@@ -8,6 +6,7 @@ use crate::prelude::*;
 use crate::prelude::{linear_counting_threshold, MaxMin};
 use crate::primitive::Primitive;
 use crate::raw_estimate_data::RAW_ESTIMATE_DATA;
+use crate::sip::Sip64Scalar;
 use crate::utils::{ceil, get_alpha};
 use core::hash::Hash;
 use core::hash::Hasher;
@@ -28,11 +27,22 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     const LOWER_PRECISION_MASK: usize = PRECISION::NUMBER_OF_REGISTERS - 1;
     const NOT_LOWER_PRECISION_MASK: u64 = !Self::LOWER_PRECISION_MASK as u64;
 
+    const NUMBER_OF_PADDING_BITS: usize = 32 - (32 / BITS) * BITS;
+
     /// The mask representing the bits that are never used in the u32 word in the cases
     /// where the number of bits is not a divisor of 32, such as 5 or 6.
     /// We set the LEADING bits as the padding bits, the unused one, so the leftmost bits.
-    const PADDING_BITS_MASK: u32 =
-        !((1_u64 << (BITS * Self::NUMBER_OF_REGISTERS_IN_WORD)) - 1_u64) as u32;
+    const PADDING_BITS_MASK: u32 = !((1_u64 << (32 - Self::NUMBER_OF_PADDING_BITS)) - 1) as u32;
+
+    const NUMBER_OF_PADDING_REGISTERS: usize = ceil(PRECISION::NUMBER_OF_REGISTERS, 32 / BITS)
+        * Self::NUMBER_OF_REGISTERS_IN_WORD
+        - PRECISION::NUMBER_OF_REGISTERS;
+
+    /// The mask representing the bits that are never used in the last u32 word in the cases
+    /// where the number of registers is not a multiple of the number of registers in a word.
+    const LAST_WORD_PADDING_BITS_MASK: u32 = !((1_u64
+        << (32 - BITS * Self::NUMBER_OF_PADDING_REGISTERS - Self::NUMBER_OF_PADDING_BITS))
+        - 1_u64) as u32;
 
     /// The mask used to obtain the upper precision bits in the HyperLogLog algorithm.
     const UPPER_PRECISION_MASK: usize = Self::LOWER_PRECISION_MASK << (64 - PRECISION::EXPONENT);
@@ -429,7 +439,26 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// ```
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// assert_eq!(HyperLogLog::<Precision4, 4>::get_number_of_padding_registers(), 0);
+    /// assert_eq!(HyperLogLog::<Precision4, 1>::get_number_of_padding_registers(), 16, "Expected 16 padding registers, precision 4, bits 1, got {}.", HyperLogLog::<Precision4, 1>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision4, 2>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 4, bits 2, got {}.", HyperLogLog::<Precision4, 2>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision4, 3>::get_number_of_padding_registers(), 4, "Expected 4 padding registers, precision 4, bits 3, got {}.", HyperLogLog::<Precision4, 3>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision4, 4>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 4, bits 4, got {}.", HyperLogLog::<Precision4, 4>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision4, 5>::get_number_of_padding_registers(), 2, "Expected 2 padding registers, precision 4, bits 5, got {}.", HyperLogLog::<Precision4, 5>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision4, 6>::get_number_of_padding_registers(), 4, "Expected 1 padding registers, precision 4, bits 6, got {}.", HyperLogLog::<Precision4, 6>::get_number_of_padding_registers());
+    ///
+    /// assert_eq!(HyperLogLog::<Precision5, 1>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 5, bits 1, got {}.", HyperLogLog::<Precision5, 1>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision5, 2>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 5, bits 2, got {}.", HyperLogLog::<Precision5, 2>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision5, 3>::get_number_of_padding_registers(), 8, "Expected 30 padding registers, precision 5, bits 3, got {}.", HyperLogLog::<Precision5, 3>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision5, 4>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 5, bits 4, got {}.", HyperLogLog::<Precision5, 4>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision5, 5>::get_number_of_padding_registers(), 4, "Expected 4 padding registers, precision 5, bits 5, got {}.", HyperLogLog::<Precision5, 5>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision5, 6>::get_number_of_padding_registers(), 3, "Expected 3 padding registers, precision 5, bits 6, got {}.", HyperLogLog::<Precision5, 6>::get_number_of_padding_registers());
+    ///
+    /// assert_eq!(HyperLogLog::<Precision6, 1>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 6, bits 1, got {}.", HyperLogLog::<Precision6, 1>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision6, 2>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 6, bits 2, got {}.", HyperLogLog::<Precision6, 2>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision6, 3>::get_number_of_padding_registers(), 6, "Expected 6 padding registers, precision 6, bits 3, got {}.", HyperLogLog::<Precision6, 3>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision6, 4>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 6, bits 4, got {}.", HyperLogLog::<Precision6, 4>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision6, 5>::get_number_of_padding_registers(), 2, "Expected 2 padding registers, precision 6, bits 5, got {}.", HyperLogLog::<Precision6, 5>::get_number_of_padding_registers());
+    /// assert_eq!(HyperLogLog::<Precision6, 6>::get_number_of_padding_registers(), 1, "Expected 1 padding registers, precision 6, bits 6, got {}.", HyperLogLog::<Precision6, 6>::get_number_of_padding_registers());
     ///
     /// ```
     ///
@@ -491,10 +520,12 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// let expected = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11, 11, 0];
+    /// let expected = [3, 2, 1, 1, 7, 15, 39, 63, 28, 23, 0, 0, 11, 11, 11, 0];
     /// let mut hll = HyperLogLog::<Precision4, 6>::from_registers(&expected);
     /// assert_eq!(hll.get_registers(), expected, "Expected {:?}, got {:?}", expected, hll.get_registers());
     /// ```
+    ///
+    ///
     fn get_registers(&self) -> PRECISION::Registers {
         let mut registers = PRECISION::Registers::default_array();
         self.get_words()
@@ -616,13 +647,15 @@ pub trait HyperLogLogTrait<PRECISION: Precision + WordType<BITS>, const BITS: us
     /// //assert_eq!(hash, 10123147082338939904, "Expected hash {}, got {}.", 10123147082338939904, hash);
     /// ```
     fn get_hash_and_index<T: Hash>(&self, value: &T) -> (u64, usize) {
-        let mut hasher = SipHasher13::new();
+        let mut hasher = Sip64Scalar::<1, 3>::new();
         value.hash(&mut hasher);
-        let hash: u64 = hasher.finish();
+        let hash = hasher.finish();
 
         // Calculate the register's index using the highest bits of the hash.
-        let index: usize =
-            (hash as usize & Self::UPPER_PRECISION_MASK) >> (64 - PRECISION::EXPONENT);
+        // The index of the register has to vary from 0 to 2^p - 1, where p is the precision,
+        // so we use the highest p bits of the hash.
+        let index: usize = hash as usize >> (64 - PRECISION::EXPONENT);
+
         // And we delete the used bits from the hash.
         let hash: u64 = hash << PRECISION::EXPONENT;
         debug_assert!(

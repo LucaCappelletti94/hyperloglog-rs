@@ -1,8 +1,4 @@
 //! Optimizers for training neural networks or MLE estimators.
-
-#[cfg(not(feature = "std"))]
-use micromath::F32Ext;
-
 use crate::prelude::Primitive;
 
 pub struct Adam<F, const N: usize> {

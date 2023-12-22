@@ -88,6 +88,18 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
             PRECISION::NumberOfZeros::reverse(words.iter_elements().fold(
                 0,
                 |number_of_zero_registers, word| {
+                    // We check that in all words the PADDING_BITS_MASK
+                    // is all zeros.
+                    debug_assert!(
+                        word & Self::PADDING_BITS_MASK == 0,
+                        concat!(
+                            "The padding bits of the word {} must be all zeros. ",
+                            "We have obtained {} instead."
+                        ),
+                        word,
+                        word & Self::PADDING_BITS_MASK
+                    );
+
                     (0..Self::NUMBER_OF_REGISTERS_IN_WORD).fold(
                         number_of_zero_registers,
                         |number_of_zero_registers, i| {
@@ -97,6 +109,20 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
                     )
                 },
             )) - PRECISION::NumberOfZeros::reverse(Self::get_number_of_padding_registers());
+
+        // We check that the values in the last word are masked
+        // according to the LAST_WORD_PADDING_BITS_MASK.
+        debug_assert!(
+            words.last().unwrap() & Self::LAST_WORD_PADDING_BITS_MASK == 0,
+            concat!(
+                "The padding bits of the last word {} must be all zeros. ",
+                "We have obtained {} instead. The last word padding bits mask is, ",
+                "when represented in binary, {:#034b}."
+            ),
+            words.last().unwrap(),
+            words.last().unwrap() & Self::LAST_WORD_PADDING_BITS_MASK,
+            Self::LAST_WORD_PADDING_BITS_MASK
+        );
 
         Self {
             words: *words,
@@ -151,6 +177,7 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
                     )
                 }),
         );
+
         Self {
             words,
             number_of_zero_registers,
@@ -193,40 +220,50 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
         // the number of zeros we obtain afterwards is never higher
         // than the maximal value that may be represented in a register
         // with BITS bits.
-        hash |= if BITS < 6 {
-            1 << (64 - ((1 << BITS) - 1))
-        } else {
-            1 << (PRECISION::EXPONENT - 1)
-        };
+        if BITS < 6 {
+            // In the case of BITS = 5, we have registers of
+            // 5 bits each. The maximal value that can be represented
+            // in a register is 31. As such, we need to add 1 << (65 - 32)
+            // to the hash. Similarly, in the case of BITS = 4, we have
+            // registers of 4 bits each. The maximal value that can be
+            // represented in a register is 15.
+            hash |= 1 << (65 - (1 << BITS))
+        } // else {
+          //     // Otherwise, with registers from 6 bits upwards we can
+          //     // represent a value of 64 or larger. Since we are using
+          //     // an hash function of 64 bits, the maximal number of
+          //     //
+          //     // 1 << (PRECISION::EXPONENT - 1)
+          // };
 
         // Count leading zeros.
         let number_of_zeros: u32 = 1 + hash.leading_zeros();
 
+        // We add a debug assertion to make sure that the number of zeros
+        // we have obtained is not larger than the maximal value that can
+        // be represented in a register with BITS bits.
         debug_assert!(
-            number_of_zeros < (1 << BITS),
+            number_of_zeros < 1 << BITS,
             concat!(
-                "The number of leading zeros {} must be less than the number of bits {}. ",
-                "You have obtained this values starting from the hash {:064b} and the precision {}."
+                "The number of zeros {} must be less than or equal to {}. ",
             ),
             number_of_zeros,
-            1 << BITS,
-            hash,
-            PRECISION::EXPONENT
+            1 << BITS
         );
 
         // Calculate the position of the register in the internal buffer array.
         let word_position = index / Self::NUMBER_OF_REGISTERS_IN_WORD;
-        let register_position_in_u32 = index - word_position * Self::NUMBER_OF_REGISTERS_IN_WORD;
+        let register_position = index - word_position * Self::NUMBER_OF_REGISTERS_IN_WORD;
 
         debug_assert!(
-            word_position < self.get_words().len(),
+            word_position < self.words.len(),
             concat!(
                 "The word_position {} must be less than the number of words {}. ",
                 "You have obtained this values starting from the index {} and the number of registers in word {}. ",
                 "We currently have {} registers. Currently using precision {} and number of bits {}."
             ),
             word_position,
-            self.get_words().len(),
+            self.words.len(),
             index,
             Self::NUMBER_OF_REGISTERS_IN_WORD,
             PRECISION::NUMBER_OF_REGISTERS,
@@ -235,17 +272,30 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
         );
 
         // Extract the current value of the register at `index`.
-        let register_value: u32 = (self.get_words()[word_position]
-            >> (register_position_in_u32 * BITS))
-            & Self::LOWER_REGISTER_MASK;
+        let register_value: u32 =
+            (self.words[word_position] >> (register_position * BITS)) & Self::LOWER_REGISTER_MASK;
 
         // Otherwise, update the register using a bit mask.
         if number_of_zeros > register_value {
-            self.words[word_position] &=
-                !(Self::LOWER_REGISTER_MASK << (register_position_in_u32 * BITS));
-            self.words[word_position] |= number_of_zeros << (register_position_in_u32 * BITS);
+            self.words[word_position] &= !(Self::LOWER_REGISTER_MASK << (register_position * BITS));
+            self.words[word_position] |= number_of_zeros << (register_position * BITS);
             self.number_of_zero_registers -=
                 PRECISION::NumberOfZeros::reverse((register_value == 0) as usize);
+
+            // We check that the value we have written to the register is correct.
+            debug_assert!(
+                self.words[word_position] >> (register_position * BITS) & Self::LOWER_REGISTER_MASK
+                    == number_of_zeros,
+                concat!(
+                    "The value of the register at position {} must be {}. ",
+                    "We have obtained {} instead. ",
+                    "The current value of the word is {}."
+                ),
+                index,
+                number_of_zeros,
+                self.words[word_position] >> (register_position * BITS) & Self::LOWER_REGISTER_MASK,
+                self.words[word_position]
+            );
 
             // We check that the word we have edited maintains that the padding bits are all zeros
             // and have not been manipulated in any way. If these bits were manipulated, it would mean
@@ -259,6 +309,28 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<PRECI
                 self.words[word_position],
                 self.words[word_position] & Self::PADDING_BITS_MASK
             );
+
+            // We also check that if the word we have edites is the last word, then the padding bits
+            // of the word must be all zeros.
+            debug_assert!(
+                index != PRECISION::NUMBER_OF_REGISTERS - 1
+                    || self.words[word_position] & Self::LAST_WORD_PADDING_BITS_MASK == 0,
+                concat!(
+                    "The padding bits of the last word {} must be all zeros. ",
+                    "We have obtained {} instead. The last word padding bits mask is, ",
+                    "when represented in binary, {:#034b}.\n ",
+                    "The word in binary is {:#034b}. ",
+                    "The current case is using precision {} and bits {}. As such, ",
+                    "we expect to have {} padding registers in the last word."
+                ),
+                self.words[word_position],
+                self.words[word_position] & Self::LAST_WORD_PADDING_BITS_MASK,
+                Self::LAST_WORD_PADDING_BITS_MASK,
+                self.words[word_position],
+                PRECISION::EXPONENT,
+                BITS,
+                Self::get_number_of_padding_registers()
+            );
         }
     }
 }
@@ -268,7 +340,6 @@ impl<PRECISION: Precision + WordType<BITS>, const BITS: usize> Eq for HyperLogLo
         // This is a no-op because we know that `Self` is `Eq`.
     }
 }
-
 
 /// Implements PartialEq for HyperLogLog.
 ///

@@ -1,3 +1,4 @@
+#![cfg(feature="std")]
 //! In this test suite, we evaluate the error rate we can obtain with the
 //! MLE approach and how does it compare to the error rate we obtain with
 //! the tradictional HLL approach. We also keep track of the time requirements

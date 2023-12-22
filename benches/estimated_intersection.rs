@@ -1,4 +1,6 @@
+#![cfg(feature="std")]
 #![feature(test)]
+
 extern crate test;
 
 use hyperloglog_rs::prelude::*;

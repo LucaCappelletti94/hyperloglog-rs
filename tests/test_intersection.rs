@@ -1,3 +1,4 @@
+#![cfg(feature="std")]
 /// Example file which writes a reference TSV with two random sets and their exact intersection similarity,
 /// and the estimated intersection similarity using HyperLogLog. The file can be used to benchmark the
 /// accuracy of the HyperLogLog algorithm against other implementations. Of course, we need to run this

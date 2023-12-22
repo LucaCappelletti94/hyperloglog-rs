@@ -104,8 +104,6 @@ pub trait Precision: Default + Copy + Eq + Serialize + Debug + Send + Sync {
     const EXPONENT: usize;
     /// The number of registers that will be used.
     const NUMBER_OF_REGISTERS: usize = 1 << Self::EXPONENT;
-    /// The maximal number that can be represented with the selected NumberOfZeros.
-    const MAXIMAL: usize;
     /// Type for small corrections:
     type SmallCorrections: Index<usize, Output = f32> + Copy;
     type Registers: Index<usize, Output = u32> + Copy + ArrayDefault<u32> + ArrayIter<u32>;
@@ -119,7 +117,6 @@ pub struct Precision4;
 impl Precision for Precision4 {
     type NumberOfZeros = u8;
     const EXPONENT: usize = 4;
-    const MAXIMAL: usize = u8::MAX as usize;
     type SmallCorrections = [f32; 16];
     type Registers = [u32; 16];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -168,7 +165,6 @@ pub struct Precision5;
 impl Precision for Precision5 {
     type NumberOfZeros = u8;
     const EXPONENT: usize = 5;
-    const MAXIMAL: usize = u8::MAX as usize;
     type SmallCorrections = [f32; 32];
     type Registers = [u32; 32];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -217,7 +213,6 @@ pub struct Precision6;
 impl Precision for Precision6 {
     type NumberOfZeros = u8;
     const EXPONENT: usize = 6;
-    const MAXIMAL: usize = u8::MAX as usize;
     type SmallCorrections = [f32; 64];
     type Registers = [u32; 64];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -260,13 +255,24 @@ impl WordType<6> for Precision6 {
     type FloatMultiplicities = [f32; 60];
 }
 
+impl WordType<7> for Precision6 {
+    type Words = [u32; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 128];
+    type FloatMultiplicities = [f32; 128];
+}
+
+impl WordType<8> for Precision6 {
+    type Words = [u32; 16];
+    type RegisterMultiplicities = [Self::NumberOfZeros; 256];
+    type FloatMultiplicities = [f32; 256];
+}
+
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Precision7;
 
 impl Precision for Precision7 {
     type NumberOfZeros = u8;
     const EXPONENT: usize = 7;
-    const MAXIMAL: usize = u8::MAX as usize;
     type SmallCorrections = [f32; 128];
     type Registers = [u32; 128];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -315,7 +321,6 @@ pub struct Precision8;
 impl Precision for Precision8 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 8;
-    const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrections = [f32; 256];
     type Registers = [u32; 256];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -363,7 +368,6 @@ pub struct Precision9;
 impl Precision for Precision9 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 9;
-    const MAXIMAL: usize = 65536;
     type SmallCorrections = [f32; 512];
     type Registers = [u32; 512];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -411,7 +415,6 @@ pub struct Precision10;
 impl Precision for Precision10 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 10;
-    const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrections = [f32; 1024];
     type Registers = [u32; 1024];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -459,7 +462,6 @@ pub struct Precision11;
 impl Precision for Precision11 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 11;
-    const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrections = [f32; 2048];
     type Registers = [u32; 2048];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -507,7 +509,6 @@ pub struct Precision12;
 impl Precision for Precision12 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 12;
-    const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrections = [f32; 4096];
     type Registers = [u32; 4096];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -555,7 +556,6 @@ pub struct Precision13;
 impl Precision for Precision13 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 13;
-    const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrections = [f32; 8192];
     type Registers = [u32; 8192];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -603,7 +603,6 @@ pub struct Precision14;
 impl Precision for Precision14 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 14;
-    const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrections = [f32; 16384];
     type Registers = [u32; 16384];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -651,7 +650,6 @@ pub struct Precision15;
 impl Precision for Precision15 {
     type NumberOfZeros = u16;
     const EXPONENT: usize = 15;
-    const MAXIMAL: usize = u16::MAX as usize;
     type SmallCorrections = [f32; 32768];
     type Registers = [u32; 32768];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -701,7 +699,6 @@ impl Precision for Precision16 {
     // will loose the ability to count one of the registers.
     type NumberOfZeros = u32;
     const EXPONENT: usize = 16;
-    const MAXIMAL: usize = u32::MAX as usize;
     type SmallCorrections = [f32; 65536];
     type Registers = [u32; 65536];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -749,7 +746,6 @@ pub struct Precision17;
 impl Precision for Precision17 {
     type NumberOfZeros = u32;
     const EXPONENT: usize = 17;
-    const MAXIMAL: usize = u32::MAX as usize;
     type SmallCorrections = [f32; 131072];
     type Registers = [u32; 131072];
     const SMALL_CORRECTIONS: Self::SmallCorrections =
@@ -797,7 +793,6 @@ pub struct Precision18;
 impl Precision for Precision18 {
     type NumberOfZeros = u32;
     const EXPONENT: usize = 18;
-    const MAXIMAL: usize = u32::MAX as usize;
     type SmallCorrections = [f32; 262144];
     type Registers = [u32; 262144];
     const SMALL_CORRECTIONS: Self::SmallCorrections =

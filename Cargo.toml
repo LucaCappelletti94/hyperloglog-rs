@@ -1,3 +1,4 @@
+workspace = { members = ["experiments/benchmarks", "experiments/cardinality_model", "experiments/oddity_six", "experiments/union_model"] }
 [package]
 name = "hyperloglog-rs"
 version = "0.1.51"
@@ -25,9 +26,6 @@ exclude = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-siphasher = "0.3"
-highway = "1.1.0"
-micromath = "2.1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 
 [dev-dependencies]

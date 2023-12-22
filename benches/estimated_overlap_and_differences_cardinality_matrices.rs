@@ -1,3 +1,4 @@
+#![cfg(feature="std")]
 #![feature(test)]
 extern crate test;
 
@@ -141,6 +142,58 @@ fn bench_overlap_and_differences_cardinality_matrices_5(b: &mut Bencher) {
         black_box(for _ in 0..100 {
             let _: ([[f32; 5]; 5], [f32; 5], [f32; 5]) =
                 HyperLogLog::overlap_and_differences_cardinality_matrices::<5, 5>(&left, &right);
+        });
+    });
+}
+
+#[bench]
+fn bench_vec_overlap_and_differences_cardinality_matrices_2(b: &mut Bencher) {
+    let (left, right) = populate_vectors::<2>();
+
+    b.iter(|| {
+        // Inner closure, the actual test
+        black_box(for _ in 0..100 {
+            let _: (Vec<Vec<f32>>, Vec<f32>, Vec<f32>) =
+                HyperLogLog::overlap_and_differences_cardinality_matrices_vec(&left, &right);
+        });
+    });
+}
+
+#[bench]
+fn bench_vec_overlap_and_differences_cardinality_matrices_3(b: &mut Bencher) {
+    let (left, right) = populate_vectors::<3>();
+
+    b.iter(|| {
+        // Inner closure, the actual test
+        black_box(for _ in 0..100 {
+            let _: (Vec<Vec<f32>>, Vec<f32>, Vec<f32>) =
+                HyperLogLog::overlap_and_differences_cardinality_matrices_vec(&left, &right);
+        });
+    });
+}
+
+#[bench]
+fn bench_vec_overlap_and_differences_cardinality_matrices_4(b: &mut Bencher) {
+    let (left, right) = populate_vectors::<4>();
+
+    b.iter(|| {
+        // Inner closure, the actual test
+        black_box(for _ in 0..100 {
+            let _: (Vec<Vec<f32>>, Vec<f32>, Vec<f32>) =
+                HyperLogLog::overlap_and_differences_cardinality_matrices_vec(&left, &right);
+        });
+    });
+}
+
+#[bench]
+fn bench_vec_overlap_and_differences_cardinality_matrices_5(b: &mut Bencher) {
+    let (left, right) = populate_vectors::<5>();
+
+    b.iter(|| {
+        // Inner closure, the actual test
+        black_box(for _ in 0..100 {
+            let _: (Vec<Vec<f32>>, Vec<f32>, Vec<f32>) =
+                HyperLogLog::overlap_and_differences_cardinality_matrices_vec(&left, &right);
         });
     });
 }
