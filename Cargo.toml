@@ -1,4 +1,4 @@
-workspace = { members = ["experiments/benchmarks", "experiments/cardinality_model", "experiments/oddity_six", "experiments/union_model"] }
+workspace = { members = ["experiments/benchmarks", "experiments/cardinality_model", "experiments/union_model"] }
 [package]
 name = "hyperloglog-rs"
 version = "0.1.51"

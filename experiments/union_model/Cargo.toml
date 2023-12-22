@@ -2,6 +2,13 @@
 name = "experiments"
 version = "0.1.0"
 edition = "2021"
+description = "Experiments for the paper"
+license = "MIT"
+keywords = ["model", "union", "hyperloglog"]
+categories = [
+    "algorithms",
+    "science"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

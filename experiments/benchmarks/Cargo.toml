@@ -2,6 +2,13 @@
 name = "benchmarks"
 version = "0.1.0"
 edition = "2021"
+description = "Benchmarks for HLL implementations"
+license = "MIT"
+keywords = ["benchmarks", "hyperloglog"]
+categories = [
+    "algorithms",
+    "science"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
