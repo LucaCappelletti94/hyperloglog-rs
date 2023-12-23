@@ -34,6 +34,19 @@ impl<
     }
 }
 
+impl<
+        Item: Hash,
+        I: IntoIterator<Item = Item>,
+        P: Precision + WordType<BITS>,
+        const BITS: usize,
+    > BitOrAssign<I> for &mut HyperLogLog<P, BITS>
+{
+    #[inline(always)]
+    fn bitor_assign(&mut self, rhs: I) {
+        rhs.into_iter().for_each(|item| self.insert(item));
+    }
+}
+
 impl<Item: Hash, I: Iterator<Item = Item>, P: Precision + WordType<BITS>, const BITS: usize>
     BitOr<I> for HyperLogLog<P, BITS>
 {
