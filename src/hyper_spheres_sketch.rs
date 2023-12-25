@@ -17,9 +17,7 @@
 //!
 use crate::prelude::*;
 use core::fmt::Debug;
-use core::iter::Sum;
 use core::ops::AddAssign;
-use core::ops::{DivAssign, MulAssign, SubAssign};
 
 pub trait SetLike<I> {
     /// Returns the estimated intersection and left and right difference cardinality between two sets.
@@ -92,13 +90,7 @@ where
         + core::ops::Sub<Output = I>
         + core::ops::Div<Output = I>
         + core::ops::Mul<Output = I>
-        + Sum
-        + Send
-        + Sync
         + AddAssign
-        + SubAssign
-        + MulAssign
-        + DivAssign
         + Debug
         + One
         + MaxMin,
