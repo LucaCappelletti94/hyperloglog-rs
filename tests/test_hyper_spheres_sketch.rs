@@ -61,7 +61,7 @@ fn get_random_hyper_spheres_hll<const N: usize>(
     let mut hyperspheres_hll: HyperLogLogArray<Precision12, 6, N> = HyperLogLogArray::new();
     for (i, hyper_sphere) in hyperspheres.iter().enumerate() {
         for element in hyper_sphere {
-            hyperspheres_hll[i].insert(element)
+            hyperspheres_hll[i].insert(element);
         }
     }
     hyperspheres_hll

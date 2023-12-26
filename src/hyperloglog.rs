@@ -183,7 +183,7 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<P, BITS> {
     }
 
     #[inline(always)]
-    /// Adds an element to the HyperLogLog counter.
+    /// Adds an element to the HyperLogLog counter, and returns whether the counter has changed.
     ///
     /// # Arguments
     /// * `rhs` - The element to add.
@@ -211,7 +211,7 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<P, BITS> {
     /// # Errors
     ///
     /// This function does not return any errors.
-    pub fn insert<T: Hash>(&mut self, rhs: T) {
+    pub fn insert<T: Hash>(&mut self, rhs: T) -> bool {
         let (mut hash, index) = self.get_hash_and_index::<T>(&rhs);
 
         // We need to add ones to the hash to make sure that the
@@ -327,6 +327,10 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<P, BITS> {
                 BITS,
                 Self::get_number_of_padding_registers()
             );
+
+            true
+        } else {
+            false
         }
     }
 }
