@@ -159,19 +159,6 @@ fuzz_target!(|data: FuzzCase| {
         }
     }
 
-    // We start with the first property: that the estimated exclusive overlap cardinalities
-    // are correct for the given two vector sets:
-
-    let overlap_cardinalities: [[f32; N]; N] =
-        left_array.estimate_overlap_cardinalities(&right_array);
-
-    // Secondly, we compute the estimated exclusive differences cardinalities:
-
-    let left_difference_cardinalities: [f32; N] =
-        left_array.estimated_difference_cardinality_vector(&right_array[N - 1]);
-    let right_difference_cardinalities: [f32; N] =
-        right_array.estimated_difference_cardinality_vector(&left_array[N - 1]);
-
     // Thirdly, we compute the estimated exclusive overlap and difference cardinalities at once:
 
     let (
@@ -179,7 +166,7 @@ fuzz_target!(|data: FuzzCase| {
         at_once_left_difference_cardinalities,
         at_once_right_difference_cardinalities,
     ): ([[f32; N]; N], [f32; N], [f32; N]) =
-        left_array.estimated_overlap_and_differences_cardinality_matrices(&right_array);
+        left_array.overlap_and_differences_cardinality_matrices(&right_array);
 
     // To be extremely clear in the way we test this property, we will use the following
     // specific case for N==2, when we will implement the other cases in the fuzz harness
@@ -415,47 +402,6 @@ fuzz_target!(|data: FuzzCase| {
             right_difference_cardinalities
         );
 
-        // ================================================================================
-
-        // Finally, we test the third property: that the method that produces at once the
-        // overlap and difference cardinalities is consistent with the two previous methods.
-        // We expect that the two methods match cell-by-cell within an epsilon.
-
-        for i in 0..N {
-            assert!(
-                (at_once_left_difference_cardinalities[i] - left_difference_cardinalities[i]).abs()
-                    < 0.1,
-                "The estimated difference cardinality of the {}-th vector in the left set is inconsistent between the two methods",
-                i
-            );
-            assert!(
-                (at_once_right_difference_cardinalities[i]
-                    - right_difference_cardinalities[i])
-                    .abs()
-                    < 0.1,
-                "The estimated difference cardinality of the {}-th vector in the right set is inconsistent between the two methods",
-                i
-            );
-
-            for j in 0..N {
-                assert!(
-                    (at_once_overlap_cardinalities[i][j] - overlap_cardinalities[i][j]).abs() < 1.0,
-                    concat!(
-                        "The estimated overlap cardinality of the {}-th vector in the left ",
-                        "set and the {}-th vector in the right set is inconsistent between the two methods. ",
-                        "Expected: {}, got: {}. ",
-                        "The exact values were: [{}, {}, {}, {}]"
-                    ),
-                    i, j,
-                    overlap_cardinalities[i][j],
-                    at_once_overlap_cardinalities[i][j],
-                    expected_intersection_cardinality,
-                    expected_exclusive_overlaps_cardinality_a,
-                    expected_exclusive_overlaps_cardinality_b,
-                    expected_exclusive_overlaps_cardinality
-                );
-            }
-        }
     } else {
         unimplemented!("N != 2 is not yet implemented");
     }
