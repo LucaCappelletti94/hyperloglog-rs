@@ -473,7 +473,7 @@ where
                 );
 
                 let maximal_differential_intersection_cardinality =
-                    (euc.get_left_difference_cardinality() - last_inner_left_difference
+                    (euc.get_left_difference_cardinality() - *last_inner_left_difference
                         + right_cardinality
                         - last_right_cardinality)
                         .get_max(I::non_zero_positive_min_value());
