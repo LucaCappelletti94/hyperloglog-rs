@@ -309,6 +309,7 @@ where
         let mut right_difference_cardinality_vector = [I::default(); R];
         let mut euc: EstimatedUnionCardinalities<I> = EstimatedUnionCardinalities::default();
         let mut last_left_difference: I = I::default();
+        let mut last_inner_left_differences = [I::default(); R];
         let mut last_left_cardinality: I = I::default();
 
         // Populate the overlap cardinality matrix.
@@ -317,9 +318,15 @@ where
             let left_cardinality = left_hll.get_cardinality();
             let mut comulative_row = I::default();
             let mut last_right_cardinality = I::default();
-            let mut last_inner_left_difference = I::default();
-            for (j, (right_hll, right_cardinality)) in
-                right.iter().zip(right_cardinalities).enumerate()
+            for (j, (right_hll, (right_cardinality, last_inner_left_difference))) in right
+                .iter()
+                .zip(
+                    right_cardinalities
+                        .iter()
+                        .copied()
+                        .zip(last_inner_left_differences.iter_mut()),
+                )
+                .enumerate()
             {
                 euc = left_hll.get_estimated_union_cardinality(
                     left_cardinality,
@@ -341,10 +348,11 @@ where
                 );
 
                 let maximal_differential_intersection_cardinality =
-                    (euc.get_left_difference_cardinality() - last_inner_left_difference
+                    (euc.get_left_difference_cardinality() - *last_inner_left_difference
                         + right_cardinality
                         - last_right_cardinality)
                         .get_max(I::non_zero_positive_min_value());
+                *last_inner_left_difference = euc.get_left_difference_cardinality();
 
                 differential_overlap_cardinality_matrix[i][j] = (differential_intersection
                     / maximal_differential_intersection_cardinality)
@@ -368,7 +376,6 @@ where
                     .get_min(I::ONE);
                 last_right_difference = euc.get_right_difference_cardinality();
                 last_right_cardinality = right_cardinality;
-                last_inner_left_difference = euc.get_left_difference_cardinality();
             }
             left_difference_cardinality_vector[i] = ((euc.get_left_difference_cardinality()
                 - last_left_difference)
@@ -428,6 +435,7 @@ where
         let mut euc: EstimatedUnionCardinalities<I> = EstimatedUnionCardinalities::default();
         let mut last_left_difference: I = I::default();
         let mut last_left_cardinality: I = I::default();
+        let mut last_inner_left_differences = vec![I::default(); right.len()];
 
         // Populate the overlap cardinality matrix.
         for (i, left_hll) in left.iter().enumerate() {
@@ -435,10 +443,14 @@ where
             let left_cardinality = left_hll.get_cardinality();
             let mut comulative_row = I::default();
             let mut last_right_cardinality = I::default();
-            let mut last_inner_left_difference = I::default();
-            for (j, (right_hll, right_cardinality)) in right
+            for (j, (right_hll, (right_cardinality, last_inner_left_difference))) in right
                 .iter()
-                .zip(right_cardinalities.iter().copied())
+                .zip(
+                    right_cardinalities
+                        .iter()
+                        .copied()
+                        .zip(last_inner_left_differences.iter_mut()),
+                )
                 .enumerate()
             {
                 euc = left_hll.get_estimated_union_cardinality(
@@ -465,6 +477,7 @@ where
                         + right_cardinality
                         - last_right_cardinality)
                         .get_max(I::non_zero_positive_min_value());
+                *last_inner_left_difference = euc.get_left_difference_cardinality();
 
                 differential_overlap_cardinality_matrix[i][j] = (differential_intersection
                     / maximal_differential_intersection_cardinality)
@@ -488,7 +501,6 @@ where
                     .get_min(I::ONE);
                 last_right_difference = euc.get_right_difference_cardinality();
                 last_right_cardinality = right_cardinality;
-                last_inner_left_difference = euc.get_left_difference_cardinality();
             }
             left_difference_cardinality_vector[i] = ((euc.get_left_difference_cardinality()
                 - last_left_difference)
