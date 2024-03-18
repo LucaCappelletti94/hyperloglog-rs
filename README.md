@@ -3,7 +3,7 @@
 [![dependents](https://img.shields.io/librariesio/dependents/cargo/hyperloglog-rs)](https://crates.io/crates/hyperloglog-rs/reverse_dependencies)
 ![GitHub CI](https://github.com/LucaCappelletti94/hyperloglog-rs/actions/workflows/rust.yml/badge.svg)
 ![license](https://img.shields.io/crates/l/hyperloglog-rs)
-[![](https://tokei.rs/b1/github/LucaCappelletti94/hyperloglog-rs)](https://github.com/LucaCappelletti94/hyperloglog-rs).
+[![](https://tokei.rs/b1/github/LucaCappelletti94/hyperloglog-rs)](https://github.com/LucaCappelletti94/hyperloglog-rs)
 [![Latest version](https://img.shields.io/crates/v/hyperloglog-rs.svg)](https://crates.io/crates/hyperloglog-rs)
 [![Documentation](https://docs.rs/hyperloglog-rs/badge.svg)](https://docs.rs/hyperloglog-rs)
 
