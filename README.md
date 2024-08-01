@@ -7,22 +7,9 @@
 [![Documentation](https://docs.rs/hyperloglog-rs/badge.svg)](https://docs.rs/hyperloglog-rs)
 
 This is a Rust library that provides an implementation of the HyperLogLog (HLL) algorithm, trying to be parsimonious with memory.
+It also provides an implementation based on the MLE algorithm, which is a more accurate version of the HyperLogLog algorithm but is slower.
 
-This implementation already provides almost all the benefits available from [HyperLogLog++](https://static.googleusercontent.com/media/research.google.com/it//pubs/archive/40671.pdf). We **do not** intend to integrate the sparse registers feature, as the use cases for this library focus
-of cases where registers need to be a relatively small number and a dense set. Except for that, all other observations provided in the HLL++ paper are already implemented.
-
-## What is HyperLogLog?
-HLL is a probabilistic algorithm that is used for estimating the cardinality of a set with very high accuracy while using a very small amount of memory. The algorithm was invented by Philippe Flajolet and Éric Fusy in 2007, and since then, it has been widely used in many fields, including database systems, search engines, and social networks.
-
-The HLL algorithm is based on the observation that the number of unique elements in a set can be estimated by counting the number of leading zeros in the binary representation of the hash values of the elements in the set. This idea is simple but powerful, and it allows us to estimate the cardinality of a set with very high accuracy (within a few percentage points) using only a small amount of memory (a few kilobytes).
-
-Our Rust implementation of the HLL algorithm is highly efficient, and it provides very accurate estimates of the cardinality of large sets. It is designed to be easy to use and integrate into your existing Rust projects. The crate provides a simple API that allows you to create HLL counters, add elements to them, and estimate their cardinality.
-
-The focus of this particular implementation of the HyperLogLog algorithm is to be as memory efficient as possible. We achieve this by avoiding struct attributes that would store parameters such as the precision or the number of bits, as these would take up unnecessary memory space. Instead, we define these parameters as constants associated to the class, which allows for a more efficient and compact implementation.
-
-However, this approach requires the use of several nightly features of the Rust language, including the const generics feature and the associated type constructors. By using these features, we are able to define the size of the internal data structures used by the algorithm at compile time, based on the precision of the HyperLogLog counter. This results in a more memory-efficient implementation that can be used in a wide range of applications.
-
-We hope that this library will be useful for you in your projects, and we welcome your feedback and contributions. Please feel free to open an issue or submit a pull request if you have any questions or suggestions. Thank you for your interest in our HLL crate, and happy counting!
+You can use it to estimate the cardinality of large sets, and determine also the union and intersection of two sets.
 
 ## Usage
 
@@ -44,19 +31,84 @@ use hyperloglog_rs::prelude::*;
 ```rust
 use hyperloglog_rs::prelude::*;
 
-let mut hll = HyperLogLog::<14, 5>::new();
+let mut hll = HyperLogLog::<Precision14, 5>::default();
 hll.insert(&1);
 hll.insert(&2);
 
-let mut hll2 = HyperLogLog::<14, 5>::new();
+let mut hll2 = HyperLogLog::<Precision14, 5>::default();
 hll2.insert(&2);
 hll2.insert(&3);
 
-let union = hll | hll2;
+let union = &hll | &hll2;
 
 let estimated_cardinality = union.estimate_cardinality();
 assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
         estimated_cardinality <= 3.0_f32 * 1.1);
+
+let intersection_cardinality: f32 = hll.estimate_intersection_cardinality(&hll2);
+
+assert!(intersection_cardinality >= 1.0_f32 * 0.9 &&
+        intersection_cardinality <= 1.0_f32 * 1.1);
+```
+
+### Hyperloglog with Molteplicities
+Within an HyperLogLog counter, it is possible to precompute the number of molteplicities of the values of the registers. This can lead to a significant performance boost for some operations, but increases the memory usage of the counter by the number of possible values that may be stored in a register, as deteremined by the provided bit-size. For instance, register of 4 bits can store 16 different values, one of 5 bits can store 32 different values, and so on.
+
+```rust
+use hyperloglog_rs::prelude::*;
+
+let mut hll = HyperLogLogWithMultiplicities::<Precision14, 5>::default();
+
+hll.insert(&1);
+hll.insert(&1);
+hll.insert(&2);
+
+let mut hll2 = HyperLogLogWithMultiplicities::<Precision14, 5>::default();
+
+hll2.insert(&2);
+hll2.insert(&3);
+
+let union = &hll | &hll2;
+
+let estimated_cardinality = union.estimate_cardinality();
+
+assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
+        estimated_cardinality <= 3.0_f32 * 1.1);
+
+let intersection_cardinality: f32 = hll.estimate_intersection_cardinality(&hll2);
+
+assert!(intersection_cardinality >= 1.0_f32 * 0.9 &&
+        intersection_cardinality <= 1.0_f32 * 1.1);
+```
+
+### Using MLE estimation
+The [MLE estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github.io/hyperloglog-sketch-estimation-paper/paper/paper.pdf) provides a more accurate estimation of the cardinality of a set, but it is slower than the standard HyperLogLog algorithm. Here is an example of how to use it:
+
+```rust
+#[cfg(feature = "std")]
+{
+        use hyperloglog_rs::prelude::*;
+
+        let mut mle1: MLE<2, HyperLogLog<Precision10, 6>> = MLE::default();
+
+        mle1.insert(&1);
+        mle1.insert(&2);
+        mle1.insert(&3);
+
+        let mut mle2: MLE<2, HyperLogLog<Precision10, 6>> = MLE::default();
+        mle2.insert(&2);
+        mle2.insert(&3);
+        mle2.insert(&4);
+
+        let estimated_cardinality: f32 = mle1.estimate_cardinality();
+        assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
+                estimated_cardinality <= 3.0_f32 * 1.1);
+
+        let estimate_intersection_cardinality: f32 = mle1.estimate_intersection_cardinality(&mle2);
+
+        assert!(estimate_intersection_cardinality >= 2.0_f32 * 0.9 &&
+                estimate_intersection_cardinality <= 2.0_f32 * 1.1);
+}
 ```
 
 ## No STD
@@ -64,25 +116,10 @@ This crate is designed to be as lightweight as possible and does not require any
 
 All functionality of this crate can be used without std, and the prelude module provides easy access to all the relevant types and traits. If you encounter any issues using this crate in a no_std environment, please don't hesitate to open an issue or submit a pull request on GitHub.
 
-## Required features
-Note that some of the features used by this crate, such as #![feature(const_float_bits_conv)], require a nightly Rust compiler. If you are using a stable or beta version of Rust, you may need to switch to nightly or disable certain features to use this crate.
-
-The **const_float_bits_conv** feature provides the ability to convert floating-point values to their corresponding bit patterns at compile time, which is useful in computing hash values.
-
-Finally, the **const_fn_floating_point_arithmetic** feature provides the ability to perform floating-point arithmetic in const functions, which is necessary for computing hash values using the f32::to_bits() method.
-
 ## Fuzzing
-Fuzzing is a technique for finding security vulnerabilities and bugs in software by providing random input to the code. It can be an effective way of uncovering issues that might not be discovered through other testing methods. In our library, we take fuzzing seriously, and we use the [cargo fuzz](https://github.com/rust-fuzz/cargo-fuzz) tool to ensure our code is robust and secure. cargo fuzz automates the process of generating and running randomized test inputs, and it can help identify obscure bugs that would be difficult to detect through traditional testing methods. We make sure that our fuzz targets are continuously updated and run against the latest versions of the library to ensure that any vulnerabilities or bugs are quickly identified and addressed.
+Fuzzing is a technique for finding security vulnerabilities and bugs in software by providing random input to the code. We make sure that our fuzz targets are continuously updated and run against the latest versions of the library to ensure that any vulnerabilities or bugs are quickly identified and addressed.
 
 [Learn more about how we fuzz here](https://github.com/LucaCappelletti94/hyperloglog-rs/tree/main/fuzz)
-
-## Contributing to this project
-Contributions from the community are highly appreciated and can help improve this project. If you have any suggestions, feature requests, or bugs to report, [please open an issue on GitHub](https://github.com/LucaCappelletti94/hyperloglog-rs/issues). Additionally, if you want to contribute to the project, [you can open a pull request with your proposed changes](https://github.com/LucaCappelletti94/hyperloglog-rs/pulls). Before making any substantial changes, please discuss them with the project maintainer in the issue tracker or on the [🍇GRAPE🍇 Discord server](https://discord.gg/Nda2cqYvTN).
-
-If you appreciate this project and would like to support its development, you can star the repository on GitHub or [consider making a financial contribution](https://github.com/sponsors/LucaCappelletti94). The project maintainer has set up a GitHub Sponsors page where you can make a recurring financial contribution to support the project's development. Any financial contribution, no matter how small, is greatly appreciated and helps ensure the continued development and maintenance of this project.
-
-## Thanks
-We would like to thank the GitHub user [Tabac](https://github.com/tabac) for their implementation of HyperLogLog, which was very useful for learning and benchmarking this implementation. Their implementation can be found at [here](https://github.com/tabac/hyperloglog.rs).
 
 ## Citations
 Some relevant citations to learn more:

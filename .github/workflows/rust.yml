@@ -42,6 +42,9 @@ jobs:
       - name: Run tests
         run: cargo test --release
 
+      - name: Run tests with no default features
+        run: cargo test --no-default-features --release
+
       - name: Run test with standard library
         run: cargo test --features=std --release
 

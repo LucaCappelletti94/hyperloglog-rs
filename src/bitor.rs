@@ -252,3 +252,66 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self> for HyperLog
         self
     }
 }
+
+
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for &HyperLogLog<P, BITS> {
+    type Output = HyperLogLog<P, BITS>;
+
+    #[inline(always)]
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let mut copy = self.clone();
+        copy.bitor_assign(rhs);
+        copy
+    }
+}
+
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for HyperLogLogWithMultiplicities<P, BITS> {
+    type Output = HyperLogLogWithMultiplicities<P, BITS>;
+
+    #[inline(always)]
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let mut result = self.clone();
+        result.bitor_assign(rhs);
+        result
+    }
+}
+
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self> for HyperLogLogWithMultiplicities<P, BITS> {
+    type Output = HyperLogLogWithMultiplicities<P, BITS>;
+
+    #[inline(always)]
+    fn bitor(self, rhs: &Self) -> Self::Output {
+        let mut result = self.clone();
+        result.bitor_assign(rhs);
+        result
+    }
+}
+
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for &HyperLogLogWithMultiplicities<P, BITS> {
+    type Output = HyperLogLogWithMultiplicities<P, BITS>;
+
+    #[inline(always)]
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let mut result = self.clone();
+        result.bitor_assign(rhs);
+        result
+    }
+}
+
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self> for HyperLogLogWithMultiplicities<P, BITS> {
+    #[inline(always)]
+    /// Computes union between HLL counters.
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.bitor_assign(&rhs)
+    }
+}
+
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self> for HyperLogLogWithMultiplicities<P, BITS> {
+    #[inline(always)]
+    /// Computes union between HLL counters.
+    fn bitor_assign(&mut self, rhs: &Self) {
+        let lhs_hll: HyperLogLog<P, BITS> = self.clone().into();
+        let rhs_hll: HyperLogLog<P, BITS> = rhs.clone().into();
+        *self = (lhs_hll | rhs_hll).into();
+    }
+}

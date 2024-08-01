@@ -75,6 +75,5 @@ test_hyper_log_log_at_precisions!(
     Precision13,
     Precision14,
     Precision15,
-    Precision16,
-    Precision17
+    Precision16
 );

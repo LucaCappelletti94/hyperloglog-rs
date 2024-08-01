@@ -1,10 +1,9 @@
-use serde::{Deserialize, Serialize};
-
 use crate::ones::One;
 use crate::prelude::MaxMin;
 use core::ops::{Add, Div, Sub};
 
-#[derive(Clone, Copy, Debug, PartialEq, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A struct for more readable code.
 pub struct EstimatedUnionCardinalities<F> {
     /// The estimated cardinality of the left set.

@@ -25,7 +25,7 @@ exclude = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 
 [dev-dependencies]
 paste = "1.0.15"
@@ -36,7 +36,7 @@ rand = "0.8"
 flate2 = "1.0.27"
 
 [features]
-default = []
+default = ["serde"]
 std = []
 alloc = []
 

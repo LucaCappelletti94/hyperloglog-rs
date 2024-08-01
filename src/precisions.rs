@@ -5,17 +5,17 @@
 //! using a number of registers equal or inferior to 65536, which would make us waste another byte.
 //!
 
+include!(concat!(env!("OUT_DIR"), "/linear_counting_corrections.rs"));
+
 use core::ops::{Index, IndexMut};
 use core::{fmt::Debug, ops::SubAssign};
-
-use serde::{Deserialize, Serialize};
 
 use crate::{
     array_default::ArrayDefault,
     array_default::ArrayIterArgmin,
     array_default::PrimitiveArray,
     array_default::{ArrayIter, ArrayIterArgmax},
-    prelude::{precompute_linear_counting, One},
+    prelude::One,
     primitive::Primitive,
     zeros::Zero,
 };
@@ -79,7 +79,7 @@ pub trait WordType<const BITS: usize>: Precision {
     type FloatMultiplicities: Index<usize, Output = f32>;
 }
 
-pub trait Precision: Default + Copy + Eq + Serialize + Debug + Send + Sync {
+pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     /// The data type to use for the number of zeros registers counter.
     /// This should be the smallest possinle data type that allows us to count
     /// all the registers without overflowing. We can tollerate a one-off error
@@ -111,7 +111,8 @@ pub trait Precision: Default + Copy + Eq + Serialize + Debug + Send + Sync {
     const SMALL_CORRECTIONS: Self::SmallCorrections;
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Precision4;
 
 impl Precision for Precision4 {
@@ -119,8 +120,7 @@ impl Precision for Precision4 {
     const EXPONENT: usize = 4;
     type SmallCorrections = [f32; 16];
     type Registers = [u32; 16];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
+    const SMALL_CORRECTIONS: Self::SmallCorrections = LINEAR_COUNTING_CORRECTIONS_4;
 }
 
 impl WordType<1> for Precision4 {
@@ -159,7 +159,8 @@ impl WordType<6> for Precision4 {
     type FloatMultiplicities = [f32; 62];
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Precision5;
 
 impl Precision for Precision5 {
@@ -167,8 +168,7 @@ impl Precision for Precision5 {
     const EXPONENT: usize = 5;
     type SmallCorrections = [f32; 32];
     type Registers = [u32; 32];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
+    const SMALL_CORRECTIONS: Self::SmallCorrections = LINEAR_COUNTING_CORRECTIONS_5;
 }
 
 impl WordType<1> for Precision5 {
@@ -207,7 +207,8 @@ impl WordType<6> for Precision5 {
     type FloatMultiplicities = [f32; 61];
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Precision6;
 
 impl Precision for Precision6 {
@@ -215,8 +216,7 @@ impl Precision for Precision6 {
     const EXPONENT: usize = 6;
     type SmallCorrections = [f32; 64];
     type Registers = [u32; 64];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
+    const SMALL_CORRECTIONS: Self::SmallCorrections = LINEAR_COUNTING_CORRECTIONS_6;
 }
 
 impl WordType<1> for Precision6 {
@@ -267,7 +267,8 @@ impl WordType<8> for Precision6 {
     type FloatMultiplicities = [f32; 256];
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Precision7;
 
 impl Precision for Precision7 {
@@ -275,8 +276,7 @@ impl Precision for Precision7 {
     const EXPONENT: usize = 7;
     type SmallCorrections = [f32; 128];
     type Registers = [u32; 128];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
+    const SMALL_CORRECTIONS: Self::SmallCorrections = LINEAR_COUNTING_CORRECTIONS_7;
 }
 
 impl WordType<1> for Precision7 {
@@ -315,7 +315,8 @@ impl WordType<6> for Precision7 {
     type FloatMultiplicities = [f32; 59];
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Precision8;
 
 impl Precision for Precision8 {
@@ -323,8 +324,7 @@ impl Precision for Precision8 {
     const EXPONENT: usize = 8;
     type SmallCorrections = [f32; 256];
     type Registers = [u32; 256];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
+    const SMALL_CORRECTIONS: Self::SmallCorrections = LINEAR_COUNTING_CORRECTIONS_8;
 }
 impl WordType<1> for Precision8 {
     type Words = [u32; 8];
@@ -362,7 +362,8 @@ impl WordType<6> for Precision8 {
     type FloatMultiplicities = [f32; 58];
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Precision9;
 
 impl Precision for Precision9 {
@@ -370,8 +371,7 @@ impl Precision for Precision9 {
     const EXPONENT: usize = 9;
     type SmallCorrections = [f32; 512];
     type Registers = [u32; 512];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
+    const SMALL_CORRECTIONS: Self::SmallCorrections = LINEAR_COUNTING_CORRECTIONS_9;
 }
 impl WordType<1> for Precision9 {
     type Words = [u32; 16];
@@ -409,7 +409,8 @@ impl WordType<6> for Precision9 {
     type FloatMultiplicities = [f32; 57];
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Precision10;
 
 impl Precision for Precision10 {
@@ -417,8 +418,7 @@ impl Precision for Precision10 {
     const EXPONENT: usize = 10;
     type SmallCorrections = [f32; 1024];
     type Registers = [u32; 1024];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
+    const SMALL_CORRECTIONS: Self::SmallCorrections = LINEAR_COUNTING_CORRECTIONS_10;
 }
 impl WordType<1> for Precision10 {
     type Words = [u32; 32];
@@ -456,7 +456,8 @@ impl WordType<6> for Precision10 {
     type FloatMultiplicities = [f32; 56];
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Precision11;
 
 impl Precision for Precision11 {
@@ -464,8 +465,7 @@ impl Precision for Precision11 {
     const EXPONENT: usize = 11;
     type SmallCorrections = [f32; 2048];
     type Registers = [u32; 2048];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
+    const SMALL_CORRECTIONS: Self::SmallCorrections = LINEAR_COUNTING_CORRECTIONS_11;
 }
 impl WordType<1> for Precision11 {
     type Words = [u32; 64];
@@ -503,7 +503,8 @@ impl WordType<6> for Precision11 {
     type FloatMultiplicities = [f32; 55];
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Precision12;
 
 impl Precision for Precision12 {
@@ -511,8 +512,7 @@ impl Precision for Precision12 {
     const EXPONENT: usize = 12;
     type SmallCorrections = [f32; 4096];
     type Registers = [u32; 4096];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
+    const SMALL_CORRECTIONS: Self::SmallCorrections = LINEAR_COUNTING_CORRECTIONS_12;
 }
 impl WordType<1> for Precision12 {
     type Words = [u32; 128];
@@ -550,7 +550,8 @@ impl WordType<6> for Precision12 {
     type FloatMultiplicities = [f32; 54];
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Precision13;
 
 impl Precision for Precision13 {
@@ -558,8 +559,7 @@ impl Precision for Precision13 {
     const EXPONENT: usize = 13;
     type SmallCorrections = [f32; 8192];
     type Registers = [u32; 8192];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
+    const SMALL_CORRECTIONS: Self::SmallCorrections = LINEAR_COUNTING_CORRECTIONS_13;
 }
 impl WordType<1> for Precision13 {
     type Words = [u32; 256];
@@ -597,7 +597,8 @@ impl WordType<6> for Precision13 {
     type FloatMultiplicities = [f32; 53];
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Precision14;
 
 impl Precision for Precision14 {
@@ -605,8 +606,7 @@ impl Precision for Precision14 {
     const EXPONENT: usize = 14;
     type SmallCorrections = [f32; 16384];
     type Registers = [u32; 16384];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
+    const SMALL_CORRECTIONS: Self::SmallCorrections = LINEAR_COUNTING_CORRECTIONS_14;
 }
 impl WordType<1> for Precision14 {
     type Words = [u32; 512];
@@ -644,7 +644,8 @@ impl WordType<6> for Precision14 {
     type FloatMultiplicities = [f32; 52];
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Precision15;
 
 impl Precision for Precision15 {
@@ -652,8 +653,7 @@ impl Precision for Precision15 {
     const EXPONENT: usize = 15;
     type SmallCorrections = [f32; 32768];
     type Registers = [u32; 32768];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
+    const SMALL_CORRECTIONS: Self::SmallCorrections = LINEAR_COUNTING_CORRECTIONS_15;
 }
 impl WordType<1> for Precision15 {
     type Words = [u32; 1024];
@@ -691,7 +691,8 @@ impl WordType<6> for Precision15 {
     type FloatMultiplicities = [f32; 51];
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Precision16;
 
 impl Precision for Precision16 {
@@ -701,8 +702,7 @@ impl Precision for Precision16 {
     const EXPONENT: usize = 16;
     type SmallCorrections = [f32; 65536];
     type Registers = [u32; 65536];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
+    const SMALL_CORRECTIONS: Self::SmallCorrections = LINEAR_COUNTING_CORRECTIONS_16;
 }
 impl WordType<1> for Precision16 {
     type Words = [u32; 2048];
@@ -738,98 +738,4 @@ impl WordType<6> for Precision16 {
     type Words = [u32; 13108];
     type RegisterMultiplicities = [Self::NumberOfZeros; 50];
     type FloatMultiplicities = [f32; 50];
-}
-
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Precision17;
-
-impl Precision for Precision17 {
-    type NumberOfZeros = u32;
-    const EXPONENT: usize = 17;
-    type SmallCorrections = [f32; 131072];
-    type Registers = [u32; 131072];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
-}
-impl WordType<1> for Precision17 {
-    type Words = [u32; 4096];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
-    type FloatMultiplicities = [f32; 2];
-}
-
-impl WordType<2> for Precision17 {
-    type Words = [u32; 8192];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
-    type FloatMultiplicities = [f32; 4];
-}
-
-impl WordType<3> for Precision17 {
-    type Words = [u32; 13108];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
-    type FloatMultiplicities = [f32; 8];
-}
-
-impl WordType<4> for Precision17 {
-    type Words = [u32; 16384];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
-    type FloatMultiplicities = [f32; 16];
-}
-
-impl WordType<5> for Precision17 {
-    type Words = [u32; 21846];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
-    type FloatMultiplicities = [f32; 32];
-}
-
-impl WordType<6> for Precision17 {
-    type Words = [u32; 26215];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 49];
-    type FloatMultiplicities = [f32; 49];
-}
-
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Precision18;
-
-impl Precision for Precision18 {
-    type NumberOfZeros = u32;
-    const EXPONENT: usize = 18;
-    type SmallCorrections = [f32; 262144];
-    type Registers = [u32; 262144];
-    const SMALL_CORRECTIONS: Self::SmallCorrections =
-        precompute_linear_counting::<{ Self::NUMBER_OF_REGISTERS }>();
-}
-impl WordType<1> for Precision18 {
-    type Words = [u32; 8192];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 2];
-    type FloatMultiplicities = [f32; 2];
-}
-
-impl WordType<2> for Precision18 {
-    type Words = [u32; 16384];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 4];
-    type FloatMultiplicities = [f32; 4];
-}
-
-impl WordType<3> for Precision18 {
-    type Words = [u32; 26215];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 8];
-    type FloatMultiplicities = [f32; 8];
-}
-
-impl WordType<4> for Precision18 {
-    type Words = [u32; 32768];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 16];
-    type FloatMultiplicities = [f32; 16];
-}
-
-impl WordType<5> for Precision18 {
-    type Words = [u32; 43691];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 32];
-    type FloatMultiplicities = [f32; 32];
-}
-
-impl WordType<6> for Precision18 {
-    type Words = [u32; 52429];
-    type RegisterMultiplicities = [Self::NumberOfZeros; 48];
-    type FloatMultiplicities = [f32; 48];
 }

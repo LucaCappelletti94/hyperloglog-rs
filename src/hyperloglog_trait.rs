@@ -49,7 +49,7 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
 
     fn adjust_estimate(mut raw_estimate: f32) -> f32 {
         // Apply the final scaling factor to obtain the estimate of the cardinality
-        raw_estimate = get_alpha(P::NUMBER_OF_REGISTERS)
+        raw_estimate = get_alpha(P::EXPONENT)
             * (P::NUMBER_OF_REGISTERS * P::NUMBER_OF_REGISTERS) as f32
             / raw_estimate;
 
