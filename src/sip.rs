@@ -19,7 +19,7 @@
 //! # Reimplementation reasons
 //! - The rust implementation is not const generic and is deprecated and has no simd optimzations
 //! - The [most popular rust library](https://github.com/jedisct1/rust-siphash/tree/master)
-//!  is just a port of rust implementation and has the same problems minus the deprecation
+//!   is just a port of rust implementation and has the same problems minus the deprecation
 
 /// Loads an integer of the desired type from a byte stream, in LE order. Uses
 /// `copy_nonoverlapping` to let the compiler generate the most efficient way

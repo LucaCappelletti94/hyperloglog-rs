@@ -5,10 +5,10 @@
 //! The functions provided are:
 //!
 //! - `ceil(numerator: usize, denominator: usize) -> usize`: Calculates the integer ceil of the division
-//! of `numerator` by `denominator`.
+//!   of `numerator` by `denominator`.
 //!
 //! - `word_from_registers<const NUMBER_OF_BITS_PER_REGISTER: usize>(registers: &[u32]) -> u32`: Converts an array
-//! of HLL registers into a single 32-bit word.
+//!   of HLL registers into a single 32-bit word.
 //!
 //!
 
@@ -27,7 +27,7 @@ pub(crate) const fn ceil(numerator: usize, denominator: usize) -> usize {
 ///
 /// # Arguments
 /// * `NUMBER_OF_REGISTERS`: The number of registers in the HyperLogLog
-/// data structure.
+///   data structure.
 ///
 /// # Returns
 /// The alpha constant for the given number of registers.
