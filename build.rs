@@ -26,6 +26,38 @@ fn precompute_linear_counting(precision: u8) -> Vec<f32> {
     small_corrections
 }
 
+fn format_float_with_underscores(value: f64, precision: usize) -> String {
+    // Format the float with the specified precision
+    let formatted = format!("{:.*}", precision, value);
+
+    // Split into integer and fractional parts
+    let mut parts: Vec<&str> = formatted.split('.').collect();
+    let integer_part = parts.remove(0);
+    let fractional_part = parts.first().unwrap_or(&"");
+
+    // Add underscores to the integer part
+    let integer_with_underscores = integer_part
+        .chars()
+        .rev()
+        .collect::<String>()
+        .chars()
+        .collect::<Vec<_>>()
+        .chunks(3)
+        .map(|chunk| chunk.iter().collect::<String>())
+        .collect::<Vec<String>>()
+        .join("_")
+        .chars()
+        .rev()
+        .collect::<String>();
+
+    // Combine the integer part with underscores and the fractional part
+    if !fractional_part.is_empty() {
+        format!("{}.{fractional_part}", integer_with_underscores)
+    } else {
+        integer_with_underscores
+    }
+}
+
 fn main() {
     let minimum_precision = 4;
     let maximal_precision = 16;
@@ -39,7 +71,7 @@ fn main() {
                 number_of_registers = 1 << x,
                 corrections = precompute_linear_counting(x)
                     .iter()
-                    .map(|x| format!("    {:.2},", x))
+                    .map(|x| format!("    {},",format_float_with_underscores(*x as f64, 1)))
                     .collect::<Vec<String>>()
                     .join("\n")
             )
@@ -63,11 +95,11 @@ fn main() {
     let alpha_values_path = Path::new(&out_dir).join("alpha_values.rs");
 
     // Write the generated code to the file
-    let mut file = File::create(&linear_counting_corrections_path).unwrap();
+    let mut file = File::create(linear_counting_corrections_path).unwrap();
     file.write_all(linear_counting_corrections.as_bytes())
         .unwrap();
 
-    let mut alpha_values_file = File::create(&alpha_values_path).unwrap();
+    let mut alpha_values_file = File::create(alpha_values_path).unwrap();
     alpha_values_file
         .write_all(alpha_values.as_bytes())
         .unwrap();

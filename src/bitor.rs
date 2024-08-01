@@ -258,7 +258,7 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for &HyperLog
 
     #[inline(always)]
     fn bitor(self, rhs: Self) -> Self::Output {
-        let mut copy = self.clone();
+        let mut copy = *self;
         copy.bitor_assign(rhs);
         copy
     }

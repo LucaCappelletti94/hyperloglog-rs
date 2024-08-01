@@ -37,7 +37,9 @@ jobs:
             ${{ runner.os }}-cargo-build-${{ matrix.rust-version }}-
 
       - name: Install dependencies
-        run: cargo fetch
+        run: |
+          cargo fetch
+          rustup component add --toolchain ${{ matrix.rust-version }} rustfmt clippy
 
       - name: Run tests
         run: cargo test --release
