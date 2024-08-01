@@ -1,31 +1,61 @@
-name: Rust
+name: Rust CI
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - master
   pull_request:
-    branches: ["main"]
-
-env:
-  CARGO_TERM_COLOR: always
+    branches:
+      - master
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        rust-version: [1.60.0, 1.61.0, 1.62.0, 1.78.0, 1.80.0, stable, beta, nightly]
+        
     steps:
-      - uses: actions/checkout@v2
-      - name: Install Clippy
-        run:
-          rustup toolchain install nightly --component clippy
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: ${{ matrix.rust-version }}
           override: true
-      - name: Build
-        run: cargo build --verbose
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-${{ matrix.rust-version }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-${{ matrix.rust-version }}-
+
+      - name: Install dependencies
+        run: cargo fetch
+
       - name: Run tests
-        run: cargo test --release --features=std
-      - name: Run clippy
+        run: cargo test --release
+
+      - name: Run test with standard library
+        run: cargo test --features=std --release
+
+      - name: Check code formatting
+        run: rustfmt --check **/*.rs
+
+      - name: Run Clippy
         run: cargo clippy --features=std -- -Dclippy::all -Dclippy::cargo
+
+      - name: Build the crate
+        run: cargo build --release
