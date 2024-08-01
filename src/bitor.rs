@@ -253,7 +253,6 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self> for HyperLog
     }
 }
 
-
 impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for &HyperLogLog<P, BITS> {
     type Output = HyperLogLog<P, BITS>;
 
@@ -265,7 +264,9 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for &HyperLog
     }
 }
 
-impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for HyperLogLogWithMultiplicities<P, BITS> {
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self>
+    for HyperLogLogWithMultiplicities<P, BITS>
+{
     type Output = HyperLogLogWithMultiplicities<P, BITS>;
 
     #[inline(always)]
@@ -276,7 +277,9 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for HyperLogL
     }
 }
 
-impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self> for HyperLogLogWithMultiplicities<P, BITS> {
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self>
+    for HyperLogLogWithMultiplicities<P, BITS>
+{
     type Output = HyperLogLogWithMultiplicities<P, BITS>;
 
     #[inline(always)]
@@ -287,7 +290,9 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self> for HyperLog
     }
 }
 
-impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for &HyperLogLogWithMultiplicities<P, BITS> {
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self>
+    for &HyperLogLogWithMultiplicities<P, BITS>
+{
     type Output = HyperLogLogWithMultiplicities<P, BITS>;
 
     #[inline(always)]
@@ -298,7 +303,9 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for &HyperLog
     }
 }
 
-impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self> for HyperLogLogWithMultiplicities<P, BITS> {
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self>
+    for HyperLogLogWithMultiplicities<P, BITS>
+{
     #[inline(always)]
     /// Computes union between HLL counters.
     fn bitor_assign(&mut self, rhs: Self) {
@@ -306,7 +313,9 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self> for Hyp
     }
 }
 
-impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self> for HyperLogLogWithMultiplicities<P, BITS> {
+impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self>
+    for HyperLogLogWithMultiplicities<P, BITS>
+{
     #[inline(always)]
     /// Computes union between HLL counters.
     fn bitor_assign(&mut self, rhs: &Self) {

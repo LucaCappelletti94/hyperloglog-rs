@@ -743,3 +743,23 @@ impl<F: Primitive<f32>, const ERROR: i32, P: Precision + WordType<BITS>, const B
     HyperSpheresSketch<F> for MLE<ERROR, HyperLogLog<P, BITS>>
 {
 }
+
+impl<const ERROR: i32, H: BitOr<Output = H>> BitOr for MLE<ERROR, H> {
+    type Output = MLE<ERROR, H>;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        MLE {
+            inner: self.inner | rhs.inner,
+        }
+    }
+}
+
+impl<const ERROR: i32, H: BitAnd<Output = H>> BitAnd for MLE<ERROR, H> {
+    type Output = MLE<ERROR, H>;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        MLE {
+            inner: self.inner & rhs.inner,
+        }
+    }
+}

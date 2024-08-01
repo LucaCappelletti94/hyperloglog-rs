@@ -49,7 +49,7 @@ jobs:
         run: cargo test --features=std --release
 
       - name: Check code formatting
-        run: rustfmt --check **/*.rs
+        run: cargo fmt -- --check
 
       - name: Run Clippy
         run: cargo clippy --features=std -- -Dclippy::all -Dclippy::cargo
