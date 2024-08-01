@@ -744,7 +744,7 @@ impl<F: Primitive<f32>, const ERROR: i32, P: Precision + WordType<BITS>, const B
 {
 }
 
-impl<const ERROR: i32, H: BitOr<Output = H>> BitOr for MLE<ERROR, H> {
+impl<const ERROR: i32, H: core::ops::BitOr<Output = H>> core::ops::BitOr for MLE<ERROR, H> {
     type Output = MLE<ERROR, H>;
 
     fn bitor(self, rhs: Self) -> Self::Output {
@@ -754,7 +754,7 @@ impl<const ERROR: i32, H: BitOr<Output = H>> BitOr for MLE<ERROR, H> {
     }
 }
 
-impl<const ERROR: i32, H: BitAnd<Output = H>> BitAnd for MLE<ERROR, H> {
+impl<const ERROR: i32, H: core::ops::BitAnd<Output = H>> core::ops::BitAnd for MLE<ERROR, H> {
     type Output = MLE<ERROR, H>;
 
     fn bitand(self, rhs: Self) -> Self::Output {
