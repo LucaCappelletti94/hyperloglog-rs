@@ -1,10 +1,9 @@
 use crate::optimizers::*;
 use crate::prelude::*;
 
-#[cfg(not(feature = "std"))]
-use micromath::F32Ext;
-
 #[repr(transparent)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MLE<const ERROR: i32, H> {
     inner: H,
 }

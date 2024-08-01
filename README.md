@@ -20,12 +20,6 @@ Add this to your `Cargo.toml`:
 hyperloglog = "0.1"
 ```
 
-and this to your crate root:
-
-```rust
-use hyperloglog_rs::prelude::*;
-```
-
 ## Examples
 
 ```rust
@@ -89,17 +83,22 @@ The [MLE estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github
 {
         use hyperloglog_rs::prelude::*;
 
-        let mut mle1: MLE<2, HyperLogLog<Precision10, 6>> = MLE::default();
+        let mut hll1: HyperLogLog<Precision10, 6> = HyperLogLog::default();
+        
+        hll1.insert(&1);
+        hll1.insert(&2);
+        hll1.insert(&3);
 
-        mle1.insert(&1);
-        mle1.insert(&2);
-        mle1.insert(&3);
+        let mle1: MLE<2, HyperLogLog<Precision10, 6>> = hll1.into();
 
-        let mut mle2: MLE<2, HyperLogLog<Precision10, 6>> = MLE::default();
-        mle2.insert(&2);
-        mle2.insert(&3);
-        mle2.insert(&4);
+        let mut hll2: HyperLogLog<Precision10, 6> = HyperLogLog::default();
 
+        hll2.insert(&2);
+        hll2.insert(&3);
+        hll2.insert(&4);
+
+        let mle2: MLE<2, HyperLogLog<Precision10, 6>> = hll2.into();
+        
         let estimated_cardinality: f32 = mle1.estimate_cardinality();
         assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
                 estimated_cardinality <= 3.0_f32 * 1.1);
