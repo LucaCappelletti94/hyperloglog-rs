@@ -1,5 +1,5 @@
 // bias estimates for the corresponding raw estimate as determined by Google.
-pub const BIAS_DATA: [&[f32]; 15] = [
+pub(crate) const BIAS_DATA: [&[f32]; 15] = [
     // precision 4
     &[
         10., 9.717, 9.207, 8.7896, 8.2882, 7.8204, 7.3772, 6.9342, 6.5202, 6.161, 5.7722, 5.4636,

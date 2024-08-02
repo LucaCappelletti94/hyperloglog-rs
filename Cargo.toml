@@ -26,9 +26,9 @@ exclude = [
 
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+paste = "1.0.15"
 
 [dev-dependencies]
-paste = "1.0.15"
 serde_json = "1.0"
 rand = "0.8"
 

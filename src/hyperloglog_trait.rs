@@ -11,6 +11,10 @@ use crate::utils::{ceil, get_alpha};
 use core::hash::Hash;
 use core::hash::Hasher;
 
+fn small_correction<P: Precision>(number_of_zero_registers: usize) -> f32 {
+    P::SMALL_CORRECTIONS[number_of_zero_registers - 1]
+}
+
 pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Sized {
     /// The threshold value used in the small range correction of the HyperLogLog algorithm.
     const INTERMEDIATE_RANGE_CORRECTION_THRESHOLD: f32 = 5.0_f32 * (P::NUMBER_OF_REGISTERS as f32);
@@ -107,7 +111,7 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
     /// the linear counting algorithm is determined by the number of registers in the HLL counter.
     fn use_small_range_correction(&self) -> bool {
         self.get_number_of_zero_registers() > 0
-            && P::SMALL_CORRECTIONS[self.get_number_of_zero_registers() - 1]
+            && small_correction::<P>(self.get_number_of_zero_registers() - 1)
                 <= Self::LINEAR_COUNT_THRESHOLD
     }
 
@@ -133,7 +137,7 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
     fn estimate_cardinality(&self) -> f32 {
         if self.get_number_of_zero_registers() > 0 {
             let low_range_correction =
-                P::SMALL_CORRECTIONS[self.get_number_of_zero_registers() - 1];
+                small_correction::<P>(self.get_number_of_zero_registers() - 1);
             if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
                 return low_range_correction;
             }

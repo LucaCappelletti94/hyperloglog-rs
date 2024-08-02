@@ -8,7 +8,9 @@ jobs:
 
     strategy:
       matrix:
-        rust-version: [1.78.0, 1.80.0, stable, beta, nightly]
+        rust-version: [
+          1.78.0, 1.80.0, stable, beta, nightly
+        ]
         
     steps:
       - name: Checkout repository
@@ -55,6 +57,3 @@ jobs:
 
       - name: Run Clippy
         run: cargo clippy --features=std -- -Dclippy::all -Dclippy::cargo
-
-      - name: Build the crate
-        run: cargo build --release
