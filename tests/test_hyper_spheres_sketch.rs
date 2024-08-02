@@ -81,7 +81,7 @@ fn test_hyper_spheres_sketch() {
     let mut mle_right_diff_squared_errors = Vec::with_capacity(number_of_tests);
 
     // We iterate over the number of tests.
-    for current_test in (0..number_of_tests) {
+    for current_test in 0..number_of_tests {
         let random_state = (current_test as u64 + 173845_u64).wrapping_mul(456789);
         let left_sets = get_random_hyper_spheres_sets::<5>(random_state);
         let right_sets = get_random_hyper_spheres_sets::<5>(random_state * 2);

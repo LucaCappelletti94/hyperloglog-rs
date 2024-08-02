@@ -1,13 +1,15 @@
 //! This module contains the `ArrayDefault` trait, which is used to set the default value of an array.
 //! This trait is necessary as the standard library only provides a `Default` implementation for arrays
 //! of limited length, while we need this for objects of several differenty lengths.
+use core::ops::Index;
+
 use crate::prelude::Primitive;
 
 pub trait ArrayDefault<T> {
     fn default_array() -> Self;
 }
 
-pub trait ArrayIter<T: Default + PartialEq> {
+pub trait ArrayIter<T: Default + PartialEq>: Index<usize, Output = T> {
     type Iter<'a>: Iterator<Item = &'a T> + DoubleEndedIterator + ExactSizeIterator
     where
         Self: 'a,
@@ -39,6 +41,11 @@ pub trait ArrayIter<T: Default + PartialEq> {
     fn last_non_zero_index(&self) -> Option<usize> {
         self.iter_elements().rposition(|a| *a != T::default())
     }
+
+    /// Returns the partition point of the array.
+    fn partition_point<P>(&self, predicate: P) -> usize
+    where
+        P: FnMut(&T) -> bool;
 }
 
 pub trait ArrayIterArgmin<T>: ArrayIter<T>
@@ -142,5 +149,13 @@ impl<T: Default + PartialEq, const N: usize> ArrayIter<T> for [T; N] {
     #[inline(always)]
     fn last(&self) -> Option<&T> {
         <[T]>::last(self)
+    }
+
+    #[inline(always)]
+    fn partition_point<P>(&self, predicate: P) -> usize
+    where
+        P: FnMut(&T) -> bool,
+    {
+        <[T]>::partition_point(self, predicate)
     }
 }

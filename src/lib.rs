@@ -2,7 +2,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod array_default;
-mod bias;
 pub mod bitand;
 pub mod bitor;
 mod bitor_iter;
@@ -17,9 +16,8 @@ mod max_min;
 mod ones;
 mod precisions;
 mod primitive;
-mod raw_estimate_data;
 mod sip;
-pub mod utils;
+mod utils;
 mod zeros;
 
 #[cfg(feature = "serde")]
@@ -29,9 +27,6 @@ pub mod serde;
 mod exact_hyper_spheres_sketch;
 #[cfg(feature = "std")]
 mod joint_estimation;
-
-#[cfg(feature = "std")]
-mod optimizers;
 
 pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
 pub use crate::hyperloglog::HyperLogLog;
@@ -50,13 +45,10 @@ pub mod prelude {
     pub use crate::iter::*;
     pub use crate::max_min::*;
     pub use crate::ones::*;
-    #[cfg(feature = "std")]
-    pub use crate::optimizers::*;
     pub use crate::precisions::*;
     pub use crate::primitive::*;
     #[cfg(feature = "serde")]
     pub use crate::serde::*;
-    pub use crate::utils::*;
     pub use crate::zeros::*;
     pub use core::ops::{BitOr, BitOrAssign};
 }

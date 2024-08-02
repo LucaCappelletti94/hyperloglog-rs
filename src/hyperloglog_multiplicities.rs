@@ -3,7 +3,7 @@ use crate::precisions::{Precision, WordType};
 use crate::prelude::*;
 use core::hash::Hash;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 /// A HyperLogLog counter with multiplicities.
 ///
 /// # Implementation details

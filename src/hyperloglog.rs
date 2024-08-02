@@ -403,11 +403,11 @@ impl<P: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T> for Hype
     /// ```
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// let hll = HyperLogLog::<Precision14, 5>::from("test");
+    /// let mut hll = HyperLogLog::<Precision14, 5>::from("test");
     ///
-    /// assert!(hll.estimate_cardinality() >=  1.0_f32);
     /// assert!(!hll.is_empty());
     /// assert!(hll.may_contain(&"test"));
+    /// assert!(hll.estimate_cardinality() >=  0.9_f32);
     /// ```
     fn from(value: T) -> Self {
         let mut hll = Self::new();

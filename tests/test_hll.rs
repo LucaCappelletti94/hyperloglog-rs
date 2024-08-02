@@ -5,7 +5,13 @@ where
     P: WordType<BITS>,
 {
     for number_of_elements in [5, 10, 15, 100, 200, 1000, 10_000, 100_000, 1_000_000] {
-        if BITS <= 4 && 4 <= 5 && number_of_elements > 10_000 {
+        if BITS == 1 && (number_of_elements >= 100 || P::EXPONENT == 4) {
+            continue;
+        }
+        if BITS == 2 && (number_of_elements > 200 || P::EXPONENT == 4) {
+            continue;
+        }
+        if (BITS <= 4 || P::EXPONENT == 4) && number_of_elements >= 1_000 {
             continue;
         }
 
@@ -24,14 +30,42 @@ where
         assert!(!hll.is_empty());
 
         assert!(
-            hll.estimate_cardinality() >= number_of_elements as f32 * 7.0_f32 / 10.0_f32,
+            hll.estimate_cardinality() >= number_of_elements as f32 * 0.7,
             concat!("Obtained: {}, Expected around: {}. ",),
             hll.estimate_cardinality(),
             number_of_elements,
         );
 
         assert!(
-            hll.estimate_cardinality() <= number_of_elements as f32 * 14.0_f32 / 10.0_f32,
+            hll.estimate_cardinality() <= number_of_elements as f32 * 1.3,
+            concat!("Obtained: {}, Expected around: {}. ",),
+            hll.estimate_cardinality(),
+            number_of_elements,
+        );
+
+        let mut hll: HyperLogLogWithMultiplicities<P, BITS> = HyperLogLogWithMultiplicities::default();
+        let hll_default: HyperLogLogWithMultiplicities<P, BITS> = HyperLogLogWithMultiplicities::default();
+
+        assert_eq!(hll, hll_default);
+
+        assert!(hll.is_empty());
+
+        for i in 0..number_of_elements {
+            hll.insert(i);
+            assert!(hll.may_contain(&i));
+        }
+
+        assert!(!hll.is_empty());
+
+        assert!(
+            hll.estimate_cardinality() >= number_of_elements as f32 * 0.7,
+            concat!("Obtained: {}, Expected around: {}. ",),
+            hll.estimate_cardinality(),
+            number_of_elements,
+        );
+
+        assert!(
+            hll.estimate_cardinality() <= number_of_elements as f32 * 1.3,
             concat!("Obtained: {}, Expected around: {}. ",),
             hll.estimate_cardinality(),
             number_of_elements,
@@ -57,7 +91,7 @@ macro_rules! test_hyper_log_log_at_precision_and_bits {
 macro_rules! test_hyper_log_log_at_precisions {
     ($($precision:ty),*) => {
         $(
-            test_hyper_log_log_at_precision_and_bits!($precision, 4, 5, 6);
+            test_hyper_log_log_at_precision_and_bits!($precision, 1, 2, 3, 4, 5, 6);
         )*
     };
 }

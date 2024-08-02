@@ -48,7 +48,7 @@ assert!(intersection_cardinality >= 1.0_f32 * 0.9 &&
 ```
 
 ### Hyperloglog with Molteplicities
-Within an HyperLogLog counter, it is possible to precompute the number of molteplicities of the values of the registers. This can lead to a significant performance boost for some operations, but increases the memory usage of the counter by the number of possible values that may be stored in a register, as deteremined by the provided bit-size. For instance, register of 4 bits can store 16 different values, one of 5 bits can store 32 different values, and so on.
+Within an HyperLogLog counter, it is possible to precompute the number of molteplicities of the values of the registers. This can lead to a significant performance boost for estimating the cardinality (no improvements for unions or intersections estimations), but increases the memory usage of the counter by the number of possible values that may be stored in a register, as deteremined by the provided bit-size. For instance, register of 4 bits can store 16 different values, one of 5 bits can store 32 different values, and so on.
 
 ```rust
 use hyperloglog_rs::prelude::*;
@@ -70,11 +70,6 @@ let estimated_cardinality = union.estimate_cardinality();
 
 assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
         estimated_cardinality <= 3.0_f32 * 1.1);
-
-let intersection_cardinality: f32 = hll.estimate_intersection_cardinality(&hll2);
-
-assert!(intersection_cardinality >= 1.0_f32 * 0.9 &&
-        intersection_cardinality <= 1.0_f32 * 1.1);
 ```
 
 ### Using MLE estimation

@@ -1,25 +1,24 @@
 use crate::array_default::ArrayIter;
-use crate::bias::BIAS_DATA;
 use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
 use crate::precisions::{Precision, WordType};
+use crate::prelude::MaxMin;
 use crate::prelude::*;
-use crate::prelude::{linear_counting_threshold, MaxMin};
 use crate::primitive::Primitive;
-use crate::raw_estimate_data::RAW_ESTIMATE_DATA;
 use crate::sip::Sip64Scalar;
 use crate::utils::{ceil, get_alpha};
 use core::hash::Hash;
 use core::hash::Hasher;
 
+include!(concat!(env!("OUT_DIR"), "/log_values.rs"));
+
 fn small_correction<P: Precision>(number_of_zero_registers: usize) -> f32 {
-    P::SMALL_CORRECTIONS[number_of_zero_registers - 1]
+    P::NUMBER_OF_REGISTERS as f32
+        * (LOG_VALUES[P::NUMBER_OF_REGISTERS] - LOG_VALUES[number_of_zero_registers]) as f32
 }
 
 pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Sized {
     /// The threshold value used in the small range correction of the HyperLogLog algorithm.
     const INTERMEDIATE_RANGE_CORRECTION_THRESHOLD: f32 = 5.0_f32 * (P::NUMBER_OF_REGISTERS as f32);
-
-    const LINEAR_COUNT_THRESHOLD: f32 = linear_counting_threshold(P::EXPONENT);
 
     /// The mask used to obtain the lower register bits in the HyperLogLog algorithm.
     const LOWER_REGISTER_MASK: u32 = (1 << BITS) - 1;
@@ -60,17 +59,13 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
         // Apply the small range correction factor if the raw estimate is below the threshold
         // and there are zero registers in the counter.
         if raw_estimate <= Self::INTERMEDIATE_RANGE_CORRECTION_THRESHOLD {
-            // Get a reference to raw estimates/biases for precision.
-            let biases = BIAS_DATA[P::EXPONENT - 4];
-            let estimates = RAW_ESTIMATE_DATA[P::EXPONENT - 4];
-
             // Raw estimate is first/last in estimates. Return the first/last bias.
-            if raw_estimate <= estimates[0] {
-                return raw_estimate - biases[0];
+            if raw_estimate <= P::ESTIMATES[0] {
+                return raw_estimate - P::BIAS[0];
             }
 
-            if estimates[estimates.len() - 1] <= raw_estimate {
-                return raw_estimate - biases[biases.len() - 1];
+            if P::ESTIMATES[P::ESTIMATES.len() - 1] <= raw_estimate {
+                return raw_estimate - P::BIAS[P::BIAS.len() - 1];
             }
 
             // Raw estimate is somewhere in between estimates.
@@ -78,16 +73,16 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
             //
             // Here we unwrap because neither the values in `estimates`
             // nor `raw` are going to be NaN.
-            let partition_index = estimates.partition_point(|est| *est <= raw_estimate);
+            let partition_index = P::ESTIMATES.partition_point(|est| *est <= raw_estimate);
 
             // Return linear interpolation between raw's neighboring points.
-            let ratio = (raw_estimate - estimates[partition_index - 1])
-                / (estimates[partition_index] - estimates[partition_index - 1]);
+            let ratio = (raw_estimate - P::ESTIMATES[partition_index - 1])
+                / (P::ESTIMATES[partition_index] - P::ESTIMATES[partition_index - 1]);
 
             // Calculate bias.
             raw_estimate
-                - (biases[partition_index - 1]
-                    + ratio * (biases[partition_index] - biases[partition_index - 1]))
+                - (P::BIAS[partition_index - 1]
+                    + ratio * (P::BIAS[partition_index] - P::BIAS[partition_index - 1]))
         } else {
             raw_estimate
         }
@@ -95,8 +90,8 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
 
     fn adjust_estimate_with_zeros(raw_estimate: f32, number_of_zeros: usize) -> f32 {
         if number_of_zeros > 0 {
-            let low_range_correction = P::SMALL_CORRECTIONS[number_of_zeros - 1];
-            if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
+            let low_range_correction = small_correction::<P>(number_of_zeros);
+            if low_range_correction <= P::LINEAR_COUNT_THRESHOLD {
                 return low_range_correction;
             }
         }
@@ -111,8 +106,8 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
     /// the linear counting algorithm is determined by the number of registers in the HLL counter.
     fn use_small_range_correction(&self) -> bool {
         self.get_number_of_zero_registers() > 0
-            && small_correction::<P>(self.get_number_of_zero_registers() - 1)
-                <= Self::LINEAR_COUNT_THRESHOLD
+            && small_correction::<P>(self.get_number_of_zero_registers())
+                <= P::LINEAR_COUNT_THRESHOLD
     }
 
     #[inline(always)]
@@ -128,17 +123,18 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
     ///     hll.insert(element);
     /// }
     /// let estimated_cardinality = hll.estimate_cardinality();
-    /// assert!(estimated_cardinality >= elements.len() as f32 * 0.9 &&
-    ///         estimated_cardinality <= elements.len() as f32 * 1.1);
+    /// assert!(
+    ///     estimated_cardinality >= elements.len() as f32 * 0.9
+    ///         && estimated_cardinality <= elements.len() as f32 * 1.1
+    /// );
     /// ```
     ///
     /// # Returns
     /// * `f32` - The estimated cardinality of the set.
     fn estimate_cardinality(&self) -> f32 {
         if self.get_number_of_zero_registers() > 0 {
-            let low_range_correction =
-                small_correction::<P>(self.get_number_of_zero_registers() - 1);
-            if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
+            let low_range_correction = small_correction::<P>(self.get_number_of_zero_registers());
+            if low_range_correction <= P::LINEAR_COUNT_THRESHOLD {
                 return low_range_correction;
             }
         }
@@ -188,8 +184,7 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
     ///
     /// let union_cardinality = hll1.estimate_union_cardinality(&hll2);
     ///
-    /// assert!(union_cardinality >= 3.0 * 0.9 &&
-    ///         union_cardinality <= 3.0 * 1.1);
+    /// assert!(union_cardinality >= 3.0 * 0.9 && union_cardinality <= 3.0 * 1.1);
     /// ```
     fn estimate_union_cardinality(&self, other: &Self) -> f32 {
         self.estimate_union_and_sets_cardinality(other)
@@ -285,8 +280,7 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
     ///
     /// let intersection_cardinality: f32 = hll1.estimate_intersection_cardinality(&hll2);
     ///
-    /// assert!(intersection_cardinality >= 1.0 * 0.9 &&
-    ///         intersection_cardinality <= 1.0 * 1.1);
+    /// assert!(intersection_cardinality >= 1.0 * 0.9 && intersection_cardinality <= 1.0 * 1.1);
     /// ```
     fn estimate_intersection_cardinality<F: Primitive<f32>>(&self, other: &Self) -> F {
         self.estimate_union_and_sets_cardinality(other)
@@ -328,8 +322,7 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
     ///
     /// let expected = 2.0 / 6.0;
     ///
-    /// assert!(jaccard_index >= expected * 0.9 &&
-    ///         jaccard_index <= expected * 1.1);
+    /// assert!(jaccard_index >= expected * 0.9 && jaccard_index <= expected * 1.1);
     /// ```
     fn estimate_jaccard_index(&self, other: &Self) -> f32 {
         self.estimate_union_and_sets_cardinality(other)
@@ -352,7 +345,7 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
     /// hll1.insert(&2);
     /// hll1.insert(&3);
     /// hll1.insert(&4);
-    ///     
+    ///
     /// let mut hll2 = HyperLogLog::<Precision12, 6>::default();
     /// hll2.insert(&2);
     /// hll2.insert(&3);
@@ -361,8 +354,7 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
     ///
     /// let difference_cardinality: f32 = hll1.estimate_difference_cardinality(&hll2);
     ///
-    /// assert!(difference_cardinality >= 2.0 * 0.9 &&
-    ///        difference_cardinality <= 2.0 * 1.1);
+    /// assert!(difference_cardinality >= 2.0 * 0.9 && difference_cardinality <= 2.0 * 1.1);
     /// ```
     fn estimate_difference_cardinality<F: Primitive<f32> + One>(&self, other: &Self) -> F {
         self.estimate_union_and_sets_cardinality(other)
@@ -430,7 +422,10 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
     /// ```
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// assert_eq!(HyperLogLog::<Precision10, 6>::get_number_of_padding_registers(), 1);
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision10, 6>::get_number_of_padding_registers(),
+    ///     1
+    /// );
     /// ```
     ///
     /// For instance, in the case using the bare minimum bits per registers (4)
@@ -440,29 +435,117 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
     /// ```
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// assert_eq!(HyperLogLog::<Precision4, 1>::get_number_of_padding_registers(), 16, "Expected 16 padding registers, precision 4, bits 1, got {}.", HyperLogLog::<Precision4, 1>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision4, 2>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 4, bits 2, got {}.", HyperLogLog::<Precision4, 2>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision4, 3>::get_number_of_padding_registers(), 4, "Expected 4 padding registers, precision 4, bits 3, got {}.", HyperLogLog::<Precision4, 3>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision4, 4>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 4, bits 4, got {}.", HyperLogLog::<Precision4, 4>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision4, 5>::get_number_of_padding_registers(), 2, "Expected 2 padding registers, precision 4, bits 5, got {}.", HyperLogLog::<Precision4, 5>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision4, 6>::get_number_of_padding_registers(), 4, "Expected 1 padding registers, precision 4, bits 6, got {}.", HyperLogLog::<Precision4, 6>::get_number_of_padding_registers());
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision4, 1>::get_number_of_padding_registers(),
+    ///     16,
+    ///     "Expected 16 padding registers, precision 4, bits 1, got {}.",
+    ///     HyperLogLog::<Precision4, 1>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision4, 2>::get_number_of_padding_registers(),
+    ///     0,
+    ///     "Expected 0 padding registers, precision 4, bits 2, got {}.",
+    ///     HyperLogLog::<Precision4, 2>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision4, 3>::get_number_of_padding_registers(),
+    ///     4,
+    ///     "Expected 4 padding registers, precision 4, bits 3, got {}.",
+    ///     HyperLogLog::<Precision4, 3>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision4, 4>::get_number_of_padding_registers(),
+    ///     0,
+    ///     "Expected 0 padding registers, precision 4, bits 4, got {}.",
+    ///     HyperLogLog::<Precision4, 4>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision4, 5>::get_number_of_padding_registers(),
+    ///     2,
+    ///     "Expected 2 padding registers, precision 4, bits 5, got {}.",
+    ///     HyperLogLog::<Precision4, 5>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision4, 6>::get_number_of_padding_registers(),
+    ///     4,
+    ///     "Expected 1 padding registers, precision 4, bits 6, got {}.",
+    ///     HyperLogLog::<Precision4, 6>::get_number_of_padding_registers()
+    /// );
     ///
-    /// assert_eq!(HyperLogLog::<Precision5, 1>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 5, bits 1, got {}.", HyperLogLog::<Precision5, 1>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision5, 2>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 5, bits 2, got {}.", HyperLogLog::<Precision5, 2>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision5, 3>::get_number_of_padding_registers(), 8, "Expected 30 padding registers, precision 5, bits 3, got {}.", HyperLogLog::<Precision5, 3>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision5, 4>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 5, bits 4, got {}.", HyperLogLog::<Precision5, 4>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision5, 5>::get_number_of_padding_registers(), 4, "Expected 4 padding registers, precision 5, bits 5, got {}.", HyperLogLog::<Precision5, 5>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision5, 6>::get_number_of_padding_registers(), 3, "Expected 3 padding registers, precision 5, bits 6, got {}.", HyperLogLog::<Precision5, 6>::get_number_of_padding_registers());
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision5, 1>::get_number_of_padding_registers(),
+    ///     0,
+    ///     "Expected 0 padding registers, precision 5, bits 1, got {}.",
+    ///     HyperLogLog::<Precision5, 1>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision5, 2>::get_number_of_padding_registers(),
+    ///     0,
+    ///     "Expected 0 padding registers, precision 5, bits 2, got {}.",
+    ///     HyperLogLog::<Precision5, 2>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision5, 3>::get_number_of_padding_registers(),
+    ///     8,
+    ///     "Expected 30 padding registers, precision 5, bits 3, got {}.",
+    ///     HyperLogLog::<Precision5, 3>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision5, 4>::get_number_of_padding_registers(),
+    ///     0,
+    ///     "Expected 0 padding registers, precision 5, bits 4, got {}.",
+    ///     HyperLogLog::<Precision5, 4>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision5, 5>::get_number_of_padding_registers(),
+    ///     4,
+    ///     "Expected 4 padding registers, precision 5, bits 5, got {}.",
+    ///     HyperLogLog::<Precision5, 5>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision5, 6>::get_number_of_padding_registers(),
+    ///     3,
+    ///     "Expected 3 padding registers, precision 5, bits 6, got {}.",
+    ///     HyperLogLog::<Precision5, 6>::get_number_of_padding_registers()
+    /// );
     ///
-    /// assert_eq!(HyperLogLog::<Precision6, 1>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 6, bits 1, got {}.", HyperLogLog::<Precision6, 1>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision6, 2>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 6, bits 2, got {}.", HyperLogLog::<Precision6, 2>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision6, 3>::get_number_of_padding_registers(), 6, "Expected 6 padding registers, precision 6, bits 3, got {}.", HyperLogLog::<Precision6, 3>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision6, 4>::get_number_of_padding_registers(), 0, "Expected 0 padding registers, precision 6, bits 4, got {}.", HyperLogLog::<Precision6, 4>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision6, 5>::get_number_of_padding_registers(), 2, "Expected 2 padding registers, precision 6, bits 5, got {}.", HyperLogLog::<Precision6, 5>::get_number_of_padding_registers());
-    /// assert_eq!(HyperLogLog::<Precision6, 6>::get_number_of_padding_registers(), 1, "Expected 1 padding registers, precision 6, bits 6, got {}.", HyperLogLog::<Precision6, 6>::get_number_of_padding_registers());
-    ///
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision6, 1>::get_number_of_padding_registers(),
+    ///     0,
+    ///     "Expected 0 padding registers, precision 6, bits 1, got {}.",
+    ///     HyperLogLog::<Precision6, 1>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision6, 2>::get_number_of_padding_registers(),
+    ///     0,
+    ///     "Expected 0 padding registers, precision 6, bits 2, got {}.",
+    ///     HyperLogLog::<Precision6, 2>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision6, 3>::get_number_of_padding_registers(),
+    ///     6,
+    ///     "Expected 6 padding registers, precision 6, bits 3, got {}.",
+    ///     HyperLogLog::<Precision6, 3>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision6, 4>::get_number_of_padding_registers(),
+    ///     0,
+    ///     "Expected 0 padding registers, precision 6, bits 4, got {}.",
+    ///     HyperLogLog::<Precision6, 4>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision6, 5>::get_number_of_padding_registers(),
+    ///     2,
+    ///     "Expected 2 padding registers, precision 6, bits 5, got {}.",
+    ///     HyperLogLog::<Precision6, 5>::get_number_of_padding_registers()
+    /// );
+    /// assert_eq!(
+    ///     HyperLogLog::<Precision6, 6>::get_number_of_padding_registers(),
+    ///     1,
+    ///     "Expected 1 padding registers, precision 6, bits 6, got {}.",
+    ///     HyperLogLog::<Precision6, 6>::get_number_of_padding_registers()
+    /// );
     /// ```
-    ///
     fn get_number_of_padding_registers() -> usize {
         ceil(P::NUMBER_OF_REGISTERS, 32 / BITS) * Self::NUMBER_OF_REGISTERS_IN_WORD
             - P::NUMBER_OF_REGISTERS
@@ -523,10 +606,14 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
     ///
     /// let expected = [3, 2, 1, 1, 7, 15, 39, 63, 28, 23, 0, 0, 11, 11, 11, 0];
     /// let mut hll = HyperLogLog::<Precision4, 6>::from_registers(&expected);
-    /// assert_eq!(hll.get_registers(), expected, "Expected {:?}, got {:?}", expected, hll.get_registers());
+    /// assert_eq!(
+    ///     hll.get_registers(),
+    ///     expected,
+    ///     "Expected {:?}, got {:?}",
+    ///     expected,
+    ///     hll.get_registers()
+    /// );
     /// ```
-    ///
-    ///
     fn get_registers(&self) -> P::Registers {
         let mut registers = P::Registers::default_array();
         self.get_words()
@@ -678,8 +765,8 @@ pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Si
     fn estimate_cardinality_from_multiplicities(multiplicities: &P::RegisterMultiplicities) -> f32 {
         if multiplicities[0] > P::NumberOfZeros::ZERO {
             let number_of_zeros: usize = multiplicities[0].convert();
-            let low_range_correction = P::SMALL_CORRECTIONS[number_of_zeros - 1_usize];
-            if low_range_correction <= Self::LINEAR_COUNT_THRESHOLD {
+            let low_range_correction = small_correction::<P>(number_of_zeros);
+            if low_range_correction <= P::LINEAR_COUNT_THRESHOLD {
                 return low_range_correction;
             }
         }
