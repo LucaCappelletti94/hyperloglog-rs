@@ -32,7 +32,11 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitAndAssign<Self> for Hy
     ///
     /// hll.bitand_assign(hll2);
     ///
-    /// assert!(hll.estimate_cardinality() < 0.1, "The cardinality is {}, we were expecting 0.", hll.estimate_cardinality());
+    /// assert!(
+    ///     hll.estimate_cardinality() < 0.1,
+    ///     "The cardinality is {}, we were expecting 0.",
+    ///     hll.estimate_cardinality()
+    /// );
     ///
     /// let mut hll = HyperLogLog::<Precision8, 6>::default();
     /// hll.insert(1u8);
@@ -42,8 +46,16 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitAndAssign<Self> for Hy
     ///
     /// hll.bitand_assign(hll2);
     ///
-    /// assert!(hll.estimate_cardinality() > 1.0 - 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
-    /// assert!(hll.estimate_cardinality() < 1.0 + 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
+    /// assert!(
+    ///     hll.estimate_cardinality() > 1.0 - 0.1,
+    ///     "The cardinality is {}, we were expecting 1.",
+    ///     hll.estimate_cardinality()
+    /// );
+    /// assert!(
+    ///     hll.estimate_cardinality() < 1.0 + 0.1,
+    ///     "The cardinality is {}, we were expecting 1.",
+    ///     hll.estimate_cardinality()
+    /// );
     ///
     /// let mut hll3 = HyperLogLog::<Precision16, 6>::default();
     /// hll3.insert(3u8);
@@ -55,8 +67,16 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitAndAssign<Self> for Hy
     ///
     /// hll3.bitand_assign(hll4);
     ///
-    /// assert!(hll3.estimate_cardinality() > 1.0 - 0.1, "Expected a value equal to around 1, got {}", hll3.estimate_cardinality());
-    /// assert!(hll3.estimate_cardinality() < 1.0 + 0.1, "Expected a value equal to around 1, got {}", hll3.estimate_cardinality());
+    /// assert!(
+    ///     hll3.estimate_cardinality() > 1.0 - 0.1,
+    ///     "Expected a value equal to around 1, got {}",
+    ///     hll3.estimate_cardinality()
+    /// );
+    /// assert!(
+    ///     hll3.estimate_cardinality() < 1.0 + 0.1,
+    ///     "Expected a value equal to around 1, got {}",
+    ///     hll3.estimate_cardinality()
+    /// );
     /// ```
     fn bitand_assign(&mut self, rhs: Self) {
         self.bitand_assign(&rhs)
@@ -95,7 +115,11 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitAndAssign<&Self>
     ///
     /// hll.bitand_assign(&hll2);
     ///
-    /// assert!(hll.estimate_cardinality() < 0.1, "The cardinality is {}, we were expecting 0.", hll.estimate_cardinality());
+    /// assert!(
+    ///     hll.estimate_cardinality() < 0.1,
+    ///     "The cardinality is {}, we were expecting 0.",
+    ///     hll.estimate_cardinality()
+    /// );
     ///
     /// let mut hll = HyperLogLog::<Precision8, 6>::default();
     /// hll.insert(1u8);
@@ -105,8 +129,16 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitAndAssign<&Self>
     ///
     /// hll.bitand_assign(&hll2);
     ///
-    /// assert!(hll.estimate_cardinality() > 1.0 - 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
-    /// assert!(hll.estimate_cardinality() < 1.0 + 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
+    /// assert!(
+    ///     hll.estimate_cardinality() > 1.0 - 0.1,
+    ///     "The cardinality is {}, we were expecting 1.",
+    ///     hll.estimate_cardinality()
+    /// );
+    /// assert!(
+    ///     hll.estimate_cardinality() < 1.0 + 0.1,
+    ///     "The cardinality is {}, we were expecting 1.",
+    ///     hll.estimate_cardinality()
+    /// );
     ///
     /// let mut hll3 = HyperLogLog::<Precision16, 6>::default();
     /// hll3.insert(3u8);
@@ -119,8 +151,16 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitAndAssign<&Self>
     ///
     /// hll3.bitand_assign(&hll4);
     ///
-    /// assert!(hll3.estimate_cardinality() > 2.0 - 0.1, "Expected a value equal to around 2, got {}", hll3.estimate_cardinality());
-    /// assert!(hll3.estimate_cardinality() < 2.0 + 0.1, "Expected a value equal to around 2, got {}", hll3.estimate_cardinality());
+    /// assert!(
+    ///     hll3.estimate_cardinality() > 2.0 - 0.1,
+    ///     "Expected a value equal to around 2, got {}",
+    ///     hll3.estimate_cardinality()
+    /// );
+    /// assert!(
+    ///     hll3.estimate_cardinality() < 2.0 + 0.1,
+    ///     "Expected a value equal to around 2, got {}",
+    ///     hll3.estimate_cardinality()
+    /// );
     /// ```
     ///
     /// Another example is that, if we allocate two example vectors which we will
@@ -143,27 +183,29 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitAndAssign<&Self>
     /// let mut hll2 = HyperLogLog::<Precision8, 6>::default();
     ///
     /// for element in first_vec.iter() {
-    ///    hll1.insert(element);
+    ///     hll1.insert(element);
     /// }
     ///
     /// for element in second_vec.iter() {
-    ///   hll2.insert(element);
+    ///     hll2.insert(element);
     /// }
     ///
     /// let mut hll_intersection = hll1.clone();
     /// hll_intersection &= &hll2;
     ///
-    /// let intersection = first_set.intersection(&second_set).collect::<std::collections::HashSet<_>>();
+    /// let intersection = first_set
+    ///     .intersection(&second_set)
+    ///     .collect::<std::collections::HashSet<_>>();
     ///
-    /// assert!(hll_intersection.estimate_cardinality() >= intersection.len() as f32 * 0.9 &&
-    ///        hll_intersection.estimate_cardinality() <= intersection.len() as f32 * 1.1);
+    /// assert!(
+    ///     hll_intersection.estimate_cardinality() >= intersection.len() as f32 * 0.9
+    ///         && hll_intersection.estimate_cardinality() <= intersection.len() as f32 * 1.1
+    /// );
     ///
     /// for element in intersection.iter() {
-    ///    assert!(hll_intersection.may_contain(element));
+    ///     assert!(hll_intersection.may_contain(element));
     /// }
-    ///
     /// ```
-    ///
     fn bitand_assign(&mut self, rhs: &Self) {
         self.number_of_zero_registers = P::NumberOfZeros::ZERO;
         for (left_word, mut right_word) in self
@@ -221,8 +263,10 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitAnd<Self> for HyperLog
     ///
     /// let hll_intersection = hll1 & hll2;
     ///
-    /// assert!(hll_intersection.estimate_cardinality() >= 1.0_f32 * 0.9 &&
-    ///         hll_intersection.estimate_cardinality() <= 1.0_f32 * 1.1);
+    /// assert!(
+    ///     hll_intersection.estimate_cardinality() >= 1.0_f32 * 0.9
+    ///         && hll_intersection.estimate_cardinality() <= 1.0_f32 * 1.1
+    /// );
     /// ```
     ///
     /// Executing the intersection between a set and an empty set
@@ -241,7 +285,7 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitAnd<Self> for HyperLog
     ///     concat!(
     ///         "The cardinality of the intersection should ",
     ///         "be the same as the empty test."
-    ///    )
+    ///     )
     /// );
     /// ```
     ///
@@ -259,9 +303,14 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitAnd<Self> for HyperLog
     /// let mut hll2 = HyperLogLog::<Precision4, 5>::from_registers(&second_registers);
     /// let intersection = hll1 | hll2;
     ///
-    /// assert_eq!(intersection.get_registers(), expected, "The registers are not the expected ones, got {:?} instead of {:?}.", intersection.get_registers(), expected);
+    /// assert_eq!(
+    ///     intersection.get_registers(),
+    ///     expected,
+    ///     "The registers are not the expected ones, got {:?} instead of {:?}.",
+    ///     intersection.get_registers(),
+    ///     expected
+    /// );
     /// ```
-    ///
     fn bitand(mut self, rhs: Self) -> Self {
         self.bitand_assign(rhs);
         self
@@ -299,8 +348,10 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitAnd<&Self> for HyperLo
     ///
     /// let hll_intersection = hll1 | hll2;
     ///
-    /// assert!(hll_intersection.estimate_cardinality() >= 3.0_f32 * 0.9 &&
-    ///         hll_intersection.estimate_cardinality() <= 3.0_f32 * 1.1);
+    /// assert!(
+    ///     hll_intersection.estimate_cardinality() >= 3.0_f32 * 0.9
+    ///         && hll_intersection.estimate_cardinality() <= 3.0_f32 * 1.1
+    /// );
     /// ```
     ///
     /// Merging a set with an empty set should not change the cardinality.
@@ -313,12 +364,11 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitAnd<&Self> for HyperLo
     ///
     /// let hll_intersection = hll1.clone() | HyperLogLog::<Precision14, 5>::default();
     /// assert_eq!(
-    ///     hll_intersection,
-    ///     hll1,
+    ///     hll_intersection, hll1,
     ///     concat!(
     ///         "The cardinality of the intersection should ",
     ///         "be the same as the cardinality of the first set."
-    ///    )
+    ///     )
     /// );
     /// ```
     ///
@@ -336,9 +386,14 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitAnd<&Self> for HyperLo
     /// let mut hll2 = HyperLogLog::<Precision4, 5>::from_registers(&second_registers);
     /// let intersection = hll1 | &hll2;
     ///
-    /// assert_eq!(intersection.get_registers(), expected, "The registers are not the expected ones, got {:?} instead of {:?}.", intersection.get_registers(), expected);
+    /// assert_eq!(
+    ///     intersection.get_registers(),
+    ///     expected,
+    ///     "The registers are not the expected ones, got {:?} instead of {:?}.",
+    ///     intersection.get_registers(),
+    ///     expected
+    /// );
     /// ```
-    ///
     fn bitand(mut self, rhs: &Self) -> Self {
         self.bitand_assign(rhs);
         self

@@ -10,7 +10,6 @@
 //! - `word_from_registers<const NUMBER_OF_BITS_PER_REGISTER: usize>(registers: &[u32]) -> u32`: Converts an array
 //!   of HLL registers into a single 32-bit word.
 //!
-//!
 
 include!(concat!(env!("OUT_DIR"), "/alpha_values.rs"));
 
@@ -18,6 +17,27 @@ include!(concat!(env!("OUT_DIR"), "/alpha_values.rs"));
 /// Calculates the integer ceil of the division of `numerator` by `denominator`.
 pub(crate) const fn ceil(numerator: usize, denominator: usize) -> usize {
     (numerator + denominator - 1) / denominator
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_ceil() {
+        assert_eq!(ceil(5, 2), 3);
+        assert_eq!(ceil(4, 2), 2);
+        assert_eq!(ceil(3, 2), 2);
+        assert_eq!(ceil(2, 2), 1);
+        assert_eq!(ceil(1, 2), 1);
+
+        assert_eq!(ceil(5, 3), 2);
+        assert_eq!(ceil(4, 3), 2);
+        assert_eq!(ceil(3, 3), 1);
+        assert_eq!(ceil(2, 3), 1);
+        assert_eq!(ceil(1, 3), 1);
+        assert_eq!(ceil(0, 3), 0);
+    }
 }
 
 /// Computes the alpha constant for the given number of registers.
@@ -35,7 +55,6 @@ pub(crate) const fn ceil(numerator: usize, denominator: usize) -> usize {
 /// # Examples
 ///
 /// ```
-///
 /// ```
 #[inline(always)]
 pub(crate) fn get_alpha(precision: usize) -> f32 {

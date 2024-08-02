@@ -4,7 +4,6 @@
 //! necessary traits on the HashSet type and then comparing the
 //! results of the hyper spheres sketch of the HyperLogLog with
 //! the results of the hyper spheres sketch of the HashSet.
-//!
 use hyperloglog_rs::prelude::*;
 use rand::rngs::StdRng;
 use rand::Rng;

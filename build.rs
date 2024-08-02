@@ -48,7 +48,6 @@ fn format_float_with_underscores(value: f64, precision: usize) -> String {
         .collect::<Vec<String>>()
         .join("_");
 
-
     // Combine the integer part with underscores and the fractional part
     let result = if !fractional_part.is_empty() {
         format!("{}.{fractional_part}", integer_with_underscores)
@@ -92,14 +91,12 @@ fn main() {
 
     // Define the output path for the generated code
     let out_dir = std::env::var("OUT_DIR").unwrap();
-    let log_values_path =
-        Path::new(&out_dir).join("log_values.rs");
+    let log_values_path = Path::new(&out_dir).join("log_values.rs");
     let alpha_values_path = Path::new(&out_dir).join("alpha_values.rs");
 
     // Write the generated code to the file
     let mut file = File::create(log_values_path).unwrap();
-    file.write_all(log_values.as_bytes())
-        .unwrap();
+    file.write_all(log_values.as_bytes()).unwrap();
 
     let mut alpha_values_file = File::create(alpha_values_path).unwrap();
     alpha_values_file

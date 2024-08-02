@@ -21,13 +21,29 @@ impl<
     ///
     /// hll |= [1u8, 2u8];
     ///
-    /// assert!(hll.estimate_cardinality() > 2.0 - 0.1, "The cardinality is {}, we were expecting 2.", hll.estimate_cardinality());
-    /// assert!(hll.estimate_cardinality() < 2.0 + 0.1, "The cardinality is {}, we were expecting 2.", hll.estimate_cardinality());
+    /// assert!(
+    ///     hll.estimate_cardinality() > 2.0 - 0.1,
+    ///     "The cardinality is {}, we were expecting 2.",
+    ///     hll.estimate_cardinality()
+    /// );
+    /// assert!(
+    ///     hll.estimate_cardinality() < 2.0 + 0.1,
+    ///     "The cardinality is {}, we were expecting 2.",
+    ///     hll.estimate_cardinality()
+    /// );
     ///
     /// hll |= [2u8, 3u8];
     ///
-    /// assert!(hll.estimate_cardinality() > 3.0 - 0.1, "Expected a value equal to around 3, got {}", hll.estimate_cardinality());
-    /// assert!(hll.estimate_cardinality() < 3.0 + 0.1, "Expected a value equal to around 3, got {}", hll.estimate_cardinality());
+    /// assert!(
+    ///     hll.estimate_cardinality() > 3.0 - 0.1,
+    ///     "Expected a value equal to around 3, got {}",
+    ///     hll.estimate_cardinality()
+    /// );
+    /// assert!(
+    ///     hll.estimate_cardinality() < 3.0 + 0.1,
+    ///     "Expected a value equal to around 3, got {}",
+    ///     hll.estimate_cardinality()
+    /// );
     /// ```
     fn bitor_assign(&mut self, rhs: I) {
         rhs.into_iter().for_each(|item| {
@@ -58,7 +74,6 @@ impl<Item: Hash, I: Iterator<Item = Item>, P: Precision + WordType<BITS>, const 
 
     #[inline(always)]
     /// Computes the union between an HLL counter and an iterator.
-    ///
     fn bitor(mut self, rhs: I) -> Self {
         self.bitor_assign(rhs);
         self

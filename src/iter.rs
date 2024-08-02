@@ -17,9 +17,8 @@
 //! use hyperloglog_rs::prelude::*;
 //!
 //! let v = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-//! let hll: HyperLogLog<Precision12, 6> = v.into_iter().map(|index|{
-//!     HyperLogLog::from(index)
-//! }).union();
+//! let hll: HyperLogLog<Precision12, 6> =
+//!     v.into_iter().map(|index| HyperLogLog::from(index)).union();
 //! let cardinality_estimate = hll.estimate_cardinality();
 //! assert!((cardinality_estimate - 10.0).abs() < 1.0);
 //! ```
@@ -39,7 +38,6 @@ pub trait EstimateIterCardinality {
     ///
     /// * `PRECISION` - The precision to use for the HyperLogLog counter.
     /// * `BITS` - The number of bits per register in the HyperLogLog counter.
-    ///
     fn estimate_cardinality<P: Precision + WordType<BITS>, const BITS: usize>(self) -> f32;
 }
 
@@ -75,7 +73,11 @@ pub trait HyperLogLogIterator<P: Precision + WordType<BITS>, const BITS: usize> 
     ///
     /// let hll_union = vec![hll1, hll2, hll3].iter().union();
     ///
-    /// assert!(hll_union.estimate_cardinality() - 6.0 < 1.0, "Expected 6.0, got {}", hll_union.estimate_cardinality());
+    /// assert!(
+    ///     hll_union.estimate_cardinality() - 6.0 < 1.0,
+    ///     "Expected 6.0, got {}",
+    ///     hll_union.estimate_cardinality()
+    /// );
     /// ```
     fn union(self) -> HyperLogLog<P, BITS>;
 }

@@ -27,7 +27,6 @@ use core::hash::Hash;
 /// Note that this struct DOES NOT provide any other faster operation other than the estimation of the
 /// cardinality of the counter. All other operations, such as the union of two counters, are fast as
 /// they are implemented using the traditional HyperLogLog counter.
-///
 pub struct HyperLogLogWithMultiplicities<P: Precision + WordType<BITS>, const BITS: usize> {
     pub(crate) words: P::Words,
     pub(crate) multiplicities: P::RegisterMultiplicities,
@@ -349,19 +348,13 @@ impl<P: Precision + WordType<BITS>, const BITS: usize, A: Hash> core::iter::From
     /// let hll: HyperLogLogWithMultiplicities<Precision12, 5> = data.iter().collect();
     /// assert!(
     ///     hll.estimate_cardinality() > 0.9 * data.len() as f32,
-    ///     concat!(
-    ///         "The estimate is too low, expected ",
-    ///         "at least {}, got {}",
-    ///     ),
+    ///     concat!("The estimate is too low, expected ", "at least {}, got {}",),
     ///     0.9 * data.len() as f32,
     ///     hll.estimate_cardinality()
     /// );
     /// assert!(
     ///     hll.estimate_cardinality() < 1.1 * data.len() as f32,
-    ///     concat!(
-    ///     "The estimate is too high, expected ",
-    ///     "at most {}, got {}",
-    ///    ),
+    ///     concat!("The estimate is too high, expected ", "at most {}, got {}",),
     ///     1.1 * data.len() as f32,
     ///     hll.estimate_cardinality()
     /// );

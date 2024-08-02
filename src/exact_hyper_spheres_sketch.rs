@@ -1,5 +1,4 @@
 //! Submodule providing the implementation of HyperSphere sketches for HashSets.
-//!
 use crate::prelude::*;
 use core::hash::Hash;
 use std::collections::HashSet;

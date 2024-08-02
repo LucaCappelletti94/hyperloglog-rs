@@ -39,8 +39,7 @@ use core::hash::Hash;
 /// hll.insert(&"cherry");
 ///
 /// let estimated_cardinality = hll.estimate_cardinality();
-/// assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
-///         estimated_cardinality <= 3.0_f32 * 1.1);
+/// assert!(estimated_cardinality >= 3.0_f32 * 0.9 && estimated_cardinality <= 3.0_f32 * 1.1);
 /// ```
 ///
 /// # Citations
@@ -49,7 +48,6 @@ use core::hash::Hash;
 ///
 /// * Flajolet, Philippe, et al. "HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm." DMTCS Proceedings 1 (2007): 127-146.
 /// * Heule, Stefan, Marc Nunkesser, and Alexander Hall. "HyperLogLog in practice: algorithmic engineering of a state of the art cardinality estimation algorithm." Proceedings of the 16th International Conference on Extending Database Technology. 2013.
-///
 pub struct HyperLogLog<P: Precision + WordType<BITS>, const BITS: usize> {
     pub(crate) words: P::Words,
     pub(crate) number_of_zero_registers: P::NumberOfZeros,
@@ -76,7 +74,7 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> HyperLogLog<P, BITS> {
     ///
     /// ```rust
     /// use hyperloglog_rs::prelude::*;
-    ///                                                                                                                                                                                                                                                                    
+    ///
     /// let words = [0_u32; 4];
     /// let hll = HyperLogLog::<Precision4, 6>::from_words(&words);
     /// assert_eq!(hll.len(), 16);
@@ -407,7 +405,7 @@ impl<P: Precision + WordType<BITS>, const BITS: usize, T: Hash> From<T> for Hype
     ///
     /// assert!(!hll.is_empty());
     /// assert!(hll.may_contain(&"test"));
-    /// assert!(hll.estimate_cardinality() >=  0.9_f32);
+    /// assert!(hll.estimate_cardinality() >= 0.9_f32);
     /// ```
     fn from(value: T) -> Self {
         let mut hll = Self::new();
@@ -467,19 +465,13 @@ impl<P: Precision + WordType<BITS>, const BITS: usize, A: Hash> core::iter::From
     /// let hll: HyperLogLog<Precision12, 5> = data.iter().collect();
     /// assert!(
     ///     hll.estimate_cardinality() > 0.9 * data.len() as f32,
-    ///     concat!(
-    ///         "The estimate is too low, expected ",
-    ///         "at least {}, got {}",
-    ///     ),
+    ///     concat!("The estimate is too low, expected ", "at least {}, got {}",),
     ///     0.9 * data.len() as f32,
     ///     hll.estimate_cardinality()
     /// );
     /// assert!(
     ///     hll.estimate_cardinality() < 1.1 * data.len() as f32,
-    ///     concat!(
-    ///     "The estimate is too high, expected ",
-    ///     "at most {}, got {}",
-    ///    ),
+    ///     concat!("The estimate is too high, expected ", "at most {}, got {}",),
     ///     1.1 * data.len() as f32,
     ///     hll.estimate_cardinality()
     /// );

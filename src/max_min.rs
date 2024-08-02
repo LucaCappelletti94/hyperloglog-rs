@@ -11,7 +11,6 @@ pub trait MaxMin: PartialOrd {
     /// let max = 2.0_f32.max(3.0_f32);
     ///
     /// assert_eq!(max, 3.0_f32);
-    ///
     /// ```
     fn get_max(self, other: Self) -> Self;
 
@@ -25,7 +24,6 @@ pub trait MaxMin: PartialOrd {
     /// let min = 2.0_f32.min(3.0_f32);
     ///
     /// assert_eq!(min, 2.0_f32);
-    ///
     /// ```
     fn get_min(self, other: Self) -> Self;
 
@@ -39,7 +37,6 @@ pub trait MaxMin: PartialOrd {
     /// let min = f32::non_zero_positive_min_value();
     ///
     /// assert_eq!(min, f32::EPSILON);
-    ///
     /// ```
     fn non_zero_positive_min_value() -> Self;
 }

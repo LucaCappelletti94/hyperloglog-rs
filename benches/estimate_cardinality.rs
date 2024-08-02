@@ -95,5 +95,4 @@ criterion_main!(
     multiplicities_estimation_precision_14,
     multiplicities_estimation_precision_15,
     multiplicities_estimation_precision_16
-
 );

@@ -14,7 +14,6 @@
 //! algorithm. The approximated version is faster and uses less memory, but it is not,
 //! of course, guaranteed to be exact. Learn more about the approximated version in the
 //! [HyperLogLog.estimated_overlap_and_differences_cardinality_matrices] method.
-//!
 use crate::prelude::*;
 use core::fmt::Debug;
 use core::ops::AddAssign;
@@ -119,7 +118,6 @@ where
     /// Very similarly, for the case of vectors of two elements:
     ///
     /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/tuple_overlap.png?raw=true)
-    ///
     fn overlap_and_differences_cardinality_matrices<const L: usize, const R: usize>(
         left: &[Self; L],
         right: &[Self; R],
@@ -206,7 +204,6 @@ where
     /// Very similarly, for the case of vectors of two elements:
     ///
     /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/tuple_overlap.png?raw=true)
-    ///
     fn overlap_and_differences_cardinality_matrices_vec(
         left: &[Self],
         right: &[Self],
@@ -282,7 +279,6 @@ where
     /// * `overlap_cardinality_matrix` - Matrix of normalized estimated overlapping cardinalities between the elements of the left and right arrays.
     /// * `left_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the left array and the last element of the right array.
     /// * `right_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the right array and the last element of the left array.
-    ///
     fn normalized_overlap_and_differences_cardinality_matrices<const L: usize, const R: usize>(
         left: &[Self; L],
         right: &[Self; R],
@@ -406,7 +402,6 @@ where
     /// * `overlap_cardinality_matrix` - Matrix of normalized estimated overlapping cardinalities between the elements of the left and right arrays.
     /// * `left_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the left array and the last element of the right array.
     /// * `right_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the right array and the last element of the left array.
-    ///
     fn normalized_overlap_and_differences_cardinality_matrices_vec(
         left: &[Self],
         right: &[Self],

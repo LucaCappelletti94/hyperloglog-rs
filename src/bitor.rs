@@ -19,8 +19,16 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self> for Hyp
     ///
     /// hll.bitor_assign(hll2);
     ///
-    /// assert!(hll.estimate_cardinality() > 2.0 - 0.1, "The cardinality is {}, we were expecting 2.", hll.estimate_cardinality());
-    /// assert!(hll.estimate_cardinality() < 2.0 + 0.1, "The cardinality is {}, we were expecting 2.", hll.estimate_cardinality());
+    /// assert!(
+    ///     hll.estimate_cardinality() > 2.0 - 0.1,
+    ///     "The cardinality is {}, we were expecting 2.",
+    ///     hll.estimate_cardinality()
+    /// );
+    /// assert!(
+    ///     hll.estimate_cardinality() < 2.0 + 0.1,
+    ///     "The cardinality is {}, we were expecting 2.",
+    ///     hll.estimate_cardinality()
+    /// );
     ///
     /// let mut hll = HyperLogLog::<Precision8, 6>::default();
     /// hll.insert(1u8);
@@ -30,8 +38,16 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self> for Hyp
     ///
     /// hll.bitor_assign(hll2);
     ///
-    /// assert!(hll.estimate_cardinality() > 1.0 - 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
-    /// assert!(hll.estimate_cardinality() < 1.0 + 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
+    /// assert!(
+    ///     hll.estimate_cardinality() > 1.0 - 0.1,
+    ///     "The cardinality is {}, we were expecting 1.",
+    ///     hll.estimate_cardinality()
+    /// );
+    /// assert!(
+    ///     hll.estimate_cardinality() < 1.0 + 0.1,
+    ///     "The cardinality is {}, we were expecting 1.",
+    ///     hll.estimate_cardinality()
+    /// );
     ///
     /// let mut hll3 = HyperLogLog::<Precision16, 6>::default();
     /// hll3.insert(3u8);
@@ -43,8 +59,16 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<Self> for Hyp
     ///
     /// hll3.bitor_assign(hll4);
     ///
-    /// assert!(hll3.estimate_cardinality() > 4.0 - 0.1, "Expected a value equal to around 4, got {}", hll3.estimate_cardinality());
-    /// assert!(hll3.estimate_cardinality() < 4.0 + 0.1, "Expected a value equal to around 4, got {}", hll3.estimate_cardinality());
+    /// assert!(
+    ///     hll3.estimate_cardinality() > 4.0 - 0.1,
+    ///     "Expected a value equal to around 4, got {}",
+    ///     hll3.estimate_cardinality()
+    /// );
+    /// assert!(
+    ///     hll3.estimate_cardinality() < 4.0 + 0.1,
+    ///     "Expected a value equal to around 4, got {}",
+    ///     hll3.estimate_cardinality()
+    /// );
     /// ```
     fn bitor_assign(&mut self, rhs: Self) {
         self.bitor_assign(&rhs)
@@ -68,8 +92,16 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self> for Hy
     ///
     /// hll.bitor_assign(&hll2);
     ///
-    /// assert!(hll.estimate_cardinality() > 2.0 - 0.1, "The cardinality is {}, we were expecting 2.", hll.estimate_cardinality());
-    /// assert!(hll.estimate_cardinality() < 2.0 + 0.1, "The cardinality is {}, we were expecting 2.", hll.estimate_cardinality());
+    /// assert!(
+    ///     hll.estimate_cardinality() > 2.0 - 0.1,
+    ///     "The cardinality is {}, we were expecting 2.",
+    ///     hll.estimate_cardinality()
+    /// );
+    /// assert!(
+    ///     hll.estimate_cardinality() < 2.0 + 0.1,
+    ///     "The cardinality is {}, we were expecting 2.",
+    ///     hll.estimate_cardinality()
+    /// );
     ///
     /// let mut hll = HyperLogLog::<Precision8, 6>::default();
     /// hll.insert(1u8);
@@ -79,8 +111,16 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self> for Hy
     ///
     /// hll.bitor_assign(&hll2);
     ///
-    /// assert!(hll.estimate_cardinality() > 1.0 - 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
-    /// assert!(hll.estimate_cardinality() < 1.0 + 0.1, "The cardinality is {}, we were expecting 1.", hll.estimate_cardinality());
+    /// assert!(
+    ///     hll.estimate_cardinality() > 1.0 - 0.1,
+    ///     "The cardinality is {}, we were expecting 1.",
+    ///     hll.estimate_cardinality()
+    /// );
+    /// assert!(
+    ///     hll.estimate_cardinality() < 1.0 + 0.1,
+    ///     "The cardinality is {}, we were expecting 1.",
+    ///     hll.estimate_cardinality()
+    /// );
     ///
     /// let mut hll3 = HyperLogLog::<Precision16, 6>::default();
     /// hll3.insert(3u8);
@@ -92,8 +132,16 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOrAssign<&Self> for Hy
     ///
     /// hll3.bitor_assign(&hll4);
     ///
-    /// assert!(hll3.estimate_cardinality() > 4.0 - 0.1, "Expected a value equal to around 4, got {}", hll3.estimate_cardinality());
-    /// assert!(hll3.estimate_cardinality() < 4.0 + 0.1, "Expected a value equal to around 4, got {}", hll3.estimate_cardinality());
+    /// assert!(
+    ///     hll3.estimate_cardinality() > 4.0 - 0.1,
+    ///     "Expected a value equal to around 4, got {}",
+    ///     hll3.estimate_cardinality()
+    /// );
+    /// assert!(
+    ///     hll3.estimate_cardinality() < 4.0 + 0.1,
+    ///     "Expected a value equal to around 4, got {}",
+    ///     hll3.estimate_cardinality()
+    /// );
     /// ```
     fn bitor_assign(&mut self, rhs: &Self) {
         self.number_of_zero_registers = P::NumberOfZeros::ZERO;
@@ -141,8 +189,10 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for HyperLogL
     ///
     /// let hll_union = hll1 | hll2;
     ///
-    /// assert!(hll_union.estimate_cardinality() >= 3.0_f32 * 0.9 &&
-    ///         hll_union.estimate_cardinality() <= 3.0_f32 * 1.1);
+    /// assert!(
+    ///     hll_union.estimate_cardinality() >= 3.0_f32 * 0.9
+    ///         && hll_union.estimate_cardinality() <= 3.0_f32 * 1.1
+    /// );
     /// ```
     ///
     /// Merging a set with an empty set should not change the cardinality.
@@ -155,12 +205,11 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for HyperLogL
     ///
     /// let hll_union = hll1.clone() | HyperLogLog::<Precision14, 5>::default();
     /// assert_eq!(
-    ///     hll_union,
-    ///     hll1,
+    ///     hll_union, hll1,
     ///     concat!(
     ///         "The cardinality of the union should ",
     ///         "be the same as the cardinality of the first set."
-    ///    )
+    ///     )
     /// );
     /// ```
     ///
@@ -178,9 +227,14 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<Self> for HyperLogL
     /// let mut hll2 = HyperLogLog::<Precision4, 5>::from_registers(&second_registers);
     /// let union = hll1 | hll2;
     ///
-    /// assert_eq!(union.get_registers(), expected, "The registers are not the expected ones, got {:?} instead of {:?}.", union.get_registers(), expected);
+    /// assert_eq!(
+    ///     union.get_registers(),
+    ///     expected,
+    ///     "The registers are not the expected ones, got {:?} instead of {:?}.",
+    ///     union.get_registers(),
+    ///     expected
+    /// );
     /// ```
-    ///
     fn bitor(mut self, rhs: Self) -> Self {
         self.bitor_assign(rhs);
         self
@@ -207,8 +261,10 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self> for HyperLog
     ///
     /// let hll_union = hll1 | hll2;
     ///
-    /// assert!(hll_union.estimate_cardinality() >= 3.0_f32 * 0.9 &&
-    ///         hll_union.estimate_cardinality() <= 3.0_f32 * 1.1);
+    /// assert!(
+    ///     hll_union.estimate_cardinality() >= 3.0_f32 * 0.9
+    ///         && hll_union.estimate_cardinality() <= 3.0_f32 * 1.1
+    /// );
     /// ```
     ///
     /// Merging a set with an empty set should not change the cardinality.
@@ -221,12 +277,11 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self> for HyperLog
     ///
     /// let hll_union = hll1.clone() | HyperLogLog::<Precision14, 5>::default();
     /// assert_eq!(
-    ///     hll_union,
-    ///     hll1,
+    ///     hll_union, hll1,
     ///     concat!(
     ///         "The cardinality of the union should ",
     ///         "be the same as the cardinality of the first set."
-    ///    )
+    ///     )
     /// );
     /// ```
     ///
@@ -244,9 +299,14 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> BitOr<&Self> for HyperLog
     /// let mut hll2 = HyperLogLog::<Precision4, 5>::from_registers(&second_registers);
     /// let union = hll1 | &hll2;
     ///
-    /// assert_eq!(union.get_registers(), expected, "The registers are not the expected ones, got {:?} instead of {:?}.", union.get_registers(), expected);
+    /// assert_eq!(
+    ///     union.get_registers(),
+    ///     expected,
+    ///     "The registers are not the expected ones, got {:?} instead of {:?}.",
+    ///     union.get_registers(),
+    ///     expected
+    /// );
     /// ```
-    ///
     fn bitor(mut self, rhs: &Self) -> Self {
         self.bitor_assign(rhs);
         self

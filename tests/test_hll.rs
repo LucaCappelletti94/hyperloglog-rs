@@ -43,8 +43,10 @@ where
             number_of_elements,
         );
 
-        let mut hll: HyperLogLogWithMultiplicities<P, BITS> = HyperLogLogWithMultiplicities::default();
-        let hll_default: HyperLogLogWithMultiplicities<P, BITS> = HyperLogLogWithMultiplicities::default();
+        let mut hll: HyperLogLogWithMultiplicities<P, BITS> =
+            HyperLogLogWithMultiplicities::default();
+        let hll_default: HyperLogLogWithMultiplicities<P, BITS> =
+            HyperLogLogWithMultiplicities::default();
 
         assert_eq!(hll, hll_default);
 

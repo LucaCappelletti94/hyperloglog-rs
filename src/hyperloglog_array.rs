@@ -156,19 +156,12 @@ impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> Index<usi
     /// hll_array[1].insert(&2);
     /// hll_array[2].insert(&3);
     ///
-    /// assert!(hll_array[0].estimate_cardinality() > 0.9
-    ///     && hll_array[1].estimate_cardinality() < 1.1
+    /// assert!(hll_array[0].estimate_cardinality() > 0.9 && hll_array[1].estimate_cardinality() < 1.1);
+    /// assert!(hll_array[1].estimate_cardinality() > 0.9 && hll_array[1].estimate_cardinality() < 1.1);
+    /// assert!(hll_array[2].estimate_cardinality() > 0.9 && hll_array[2].estimate_cardinality() < 1.1);
+    /// assert!(
+    ///     hll_array[3].estimate_cardinality() > -0.1 && hll_array[3].estimate_cardinality() < 0.1
     /// );
-    /// assert!(hll_array[1].estimate_cardinality() > 0.9
-    ///    && hll_array[1].estimate_cardinality() < 1.1
-    /// );
-    /// assert!(hll_array[2].estimate_cardinality() > 0.9
-    ///   && hll_array[2].estimate_cardinality() < 1.1
-    /// );
-    /// assert!(hll_array[3].estimate_cardinality() > -0.1
-    ///  && hll_array[3].estimate_cardinality() < 0.1
-    /// );
-    ///
     /// ```
     fn index(&self, index: usize) -> &Self::Output {
         &self.counters[index]
@@ -200,19 +193,12 @@ impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> IndexMut<
     /// hll_array[1].insert(&2);
     /// hll_array[2].insert(&3);
     ///
-    /// assert!(hll_array[0].estimate_cardinality() > 0.9
-    ///    && hll_array[1].estimate_cardinality() < 1.1
+    /// assert!(hll_array[0].estimate_cardinality() > 0.9 && hll_array[1].estimate_cardinality() < 1.1);
+    /// assert!(hll_array[1].estimate_cardinality() > 0.9 && hll_array[1].estimate_cardinality() < 1.1);
+    /// assert!(hll_array[2].estimate_cardinality() > 0.9 && hll_array[2].estimate_cardinality() < 1.1);
+    /// assert!(
+    ///     hll_array[3].estimate_cardinality() > -0.1 && hll_array[3].estimate_cardinality() < 0.1
     /// );
-    /// assert!(hll_array[1].estimate_cardinality() > 0.9
-    ///  && hll_array[1].estimate_cardinality() < 1.1
-    /// );
-    /// assert!(hll_array[2].estimate_cardinality() > 0.9
-    /// && hll_array[2].estimate_cardinality() < 1.1
-    /// );
-    /// assert!(hll_array[3].estimate_cardinality() > -0.1
-    /// && hll_array[3].estimate_cardinality() < 0.1
-    /// );
-    ///
     /// ```
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.counters[index]
@@ -299,11 +285,14 @@ impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> From<&[Hy
     /// ```rust
     /// use hyperloglog_rs::prelude::*;
     ///
-    /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::from(vec![
-    ///     HyperLogLog::default(),
-    ///     HyperLogLog::default(),
-    ///     HyperLogLog::default(),
-    /// ].as_slice());
+    /// let hll_array = HyperLogLogArray::<Precision12, 6, 3>::from(
+    ///     vec![
+    ///         HyperLogLog::default(),
+    ///         HyperLogLog::default(),
+    ///         HyperLogLog::default(),
+    ///     ]
+    ///     .as_slice(),
+    /// );
     /// ```
     fn from(counters: &[HyperLogLog<P, BITS>]) -> Self {
         assert_eq!(counters.len(), N, concat!(

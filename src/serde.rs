@@ -28,9 +28,9 @@ impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> Serialize
     /// which in this case is `HyperLogLogArray`.
     ///
     /// ```rust
+    /// use hyperloglog_rs::prelude::*;
     /// use serde::Serialize;
     /// use serde_json::Serializer;
-    /// use hyperloglog_rs::prelude::*;
     ///
     /// let mut hll_array = HyperLogLogArray::<Precision12, 6, 3>::new();
     /// hll_array[0].insert(&1);
@@ -38,14 +38,24 @@ impl<P: Precision + WordType<BITS>, const BITS: usize, const N: usize> Serialize
     /// hll_array[2].insert(&3);
     /// let mut serializer = Serializer::new(Vec::new());
     /// let result = hll_array.serialize(&mut serializer);
-    /// assert!(result.is_ok(), "Serialization failed, error: {:?}", result.err());
+    /// assert!(
+    ///     result.is_ok(),
+    ///     "Serialization failed, error: {:?}",
+    ///     result.err()
+    /// );
     /// let hll_array_str = String::from_utf8(serializer.into_inner()).unwrap();
     /// let hll_array_deserialized = serde_json::from_str(&hll_array_str);
-    /// assert!(hll_array_deserialized.is_ok(), "Deserialization failed, error: {:?}", hll_array_deserialized.err());
+    /// assert!(
+    ///     hll_array_deserialized.is_ok(),
+    ///     "Deserialization failed, error: {:?}",
+    ///     hll_array_deserialized.err()
+    /// );
     /// let hll_array_deserialized = hll_array_deserialized.unwrap();
-    /// assert_eq!(hll_array, hll_array_deserialized, "Deserialized array does not match original array");
+    /// assert_eq!(
+    ///     hll_array, hll_array_deserialized,
+    ///     "Deserialized array does not match original array"
+    /// );
     /// ```
-    ///
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut seq = serializer.serialize_seq(Some(N))?;
         let counters: &[HyperLogLog<P, BITS>; N] = self.as_ref();
@@ -70,7 +80,6 @@ impl<'de, P: Precision + WordType<BITS>, const BITS: usize, const N: usize> Dese
     ///
     /// # Returns
     /// The deserialization result, indicating success or failure.
-    ///
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         Ok(Self::from(
             deserializer.deserialize_seq(HLLArrayVisitor::default())?,
@@ -176,14 +185,18 @@ impl<P: Precision + WordType<BITS>, const BITS: usize> Serialize for HyperLogLog
     /// # Example
     ///
     /// ```
+    /// use hyperloglog_rs::prelude::*;
     /// use serde::Serialize;
     /// use serde_json::Serializer;
-    /// use hyperloglog_rs::prelude::*;
     ///
     /// let hll = HyperLogLog::<Precision12, 6>::default();
     /// let mut serializer = Serializer::new(Vec::new());
     /// let result = hll.serialize(&mut serializer);
-    /// assert!(result.is_ok(), "Serialization failed, error: {:?}", result.err());
+    /// assert!(
+    ///     result.is_ok(),
+    ///     "Serialization failed, error: {:?}",
+    ///     result.err()
+    /// );
     /// ```
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut seq = serializer.serialize_seq(Some(self.words.len()))?;
@@ -212,17 +225,27 @@ impl<'de, P: Precision + WordType<BITS>, const BITS: usize> Deserialize<'de>
     /// # Example
     ///
     /// ```
+    /// use hyperloglog_rs::prelude::*;
     /// use serde::de::Deserialize;
     /// use serde_json::Deserializer;
-    /// use hyperloglog_rs::prelude::*;
     ///
     /// let words = [0, 0, 0, 0, 5, 0, 4, 0, 0, 3, 0, 0, 0];
     /// let words_str = "[0, 0, 0, 0, 5, 0, 4, 0, 0, 3, 0, 0, 0]";
     /// let mut deserializer = Deserializer::from_str(words_str);
     /// let result = HyperLogLog::<Precision6, 6>::deserialize(&mut deserializer);
-    /// assert!(result.is_ok(), "Deserialization failed, error: {:?}", result.err());
+    /// assert!(
+    ///     result.is_ok(),
+    ///     "Deserialization failed, error: {:?}",
+    ///     result.err()
+    /// );
     /// let hll = result.unwrap();
-    /// hll.get_words().iter().zip(words.iter()).for_each(|(a, b)| assert_eq!(a, b, "Deserialized words do not match, expected: {}, actual: {}", b, a));
+    /// hll.get_words().iter().zip(words.iter()).for_each(|(a, b)| {
+    ///     assert_eq!(
+    ///         a, b,
+    ///         "Deserialized words do not match, expected: {}, actual: {}",
+    ///         b, a
+    ///     )
+    /// });
     /// ```
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let words: P::Words = deserializer.deserialize_seq(WordsVisitor::<P, BITS>::default())?;
