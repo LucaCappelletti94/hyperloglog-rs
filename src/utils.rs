@@ -9,7 +9,6 @@
 //!
 //! - `word_from_registers<const NUMBER_OF_BITS_PER_REGISTER: usize>(registers: &[u32]) -> u32`: Converts an array
 //!   of HLL registers into a single 32-bit word.
-//!
 
 include!(concat!(env!("OUT_DIR"), "/alpha_values.rs"));
 

@@ -1140,7 +1140,7 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     const EXPONENT: usize;
     /// The number of registers that will be used.
     const NUMBER_OF_REGISTERS: usize = 1 << Self::EXPONENT;
-    ///
+    /// The threshold for switching to linear counting.
     const LINEAR_COUNT_THRESHOLD: f32;
     /// Bias vector associated to the precision.
     type BiasType: ArrayIter<f32> + Copy;

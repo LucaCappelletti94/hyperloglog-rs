@@ -13,7 +13,7 @@ include!(concat!(env!("OUT_DIR"), "/log_values.rs"));
 
 fn small_correction<P: Precision>(number_of_zero_registers: usize) -> f32 {
     P::NUMBER_OF_REGISTERS as f32
-        * (LOG_VALUES[P::NUMBER_OF_REGISTERS] - LOG_VALUES[number_of_zero_registers]) as f32
+        * (LOG_VALUES[P::NUMBER_OF_REGISTERS] - LOG_VALUES[number_of_zero_registers])
 }
 
 pub trait HyperLogLogTrait<P: Precision + WordType<BITS>, const BITS: usize>: Sized {
