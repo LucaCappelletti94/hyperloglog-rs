@@ -1,12 +1,13 @@
 //! Submodule providing the implementation of HyperSphere sketches for HashSets.
-use crate::prelude::*;
+use crate::{prelude::*, utils::Number};
 use core::hash::Hash;
 use std::collections::HashSet;
 
 impl<I, C> SetLike<C> for HashSet<I>
 where
-    C: Primitive<f32>,
+    C: Number + TryFrom<usize>,
     I: Eq + Hash,
+    <C as TryFrom<usize>>::Error: core::fmt::Debug,
 {
     fn get_estimated_union_cardinality(
         &self,
@@ -14,14 +15,14 @@ where
         other: &Self,
         other_cardinality: C,
     ) -> EstimatedUnionCardinalities<C> {
-        let union_cardinality = C::reverse(self.union(other).count() as f32);
+        let union_cardinality = self.union(other).count().try_into().unwrap();
 
         EstimatedUnionCardinalities::from((self_cardinality, other_cardinality, union_cardinality))
     }
 
     fn get_cardinality(&self) -> C {
-        C::reverse(self.len() as f32)
+        self.len().try_into().unwrap()
     }
 }
 
-impl<C: Eq + Hash, I: Primitive<f32> + One> HyperSpheresSketch<I> for HashSet<C> {}
+impl<C: Eq + Hash> HyperSpheresSketch for HashSet<C> {}

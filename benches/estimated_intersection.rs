@@ -10,7 +10,10 @@ use test::{black_box, Bencher};
 
 fn populate_vectors(
     random_state: u64,
-) -> (HyperLogLog<Precision10, 6>, HyperLogLog<Precision10, 6>) {
+) -> (
+    HyperLogLog<Precision10, Bits6>,
+    HyperLogLog<Precision10, Bits6>,
+) {
     // Create the counters
     let mut left = HyperLogLog::default();
     let mut right = HyperLogLog::default();
@@ -62,8 +65,8 @@ fn bench_intersection_hll(b: &mut Bencher) {
 #[bench]
 fn bench_intersection_mle_2(b: &mut Bencher) {
     let mut cases: Vec<(
-        MLE<2, HyperLogLog<Precision10, 6>>,
-        MLE<2, HyperLogLog<Precision10, 6>>,
+        MLE<2, HyperLogLog<Precision10, Bits6>>,
+        MLE<2, HyperLogLog<Precision10, Bits6>>,
     )> = Vec::new();
 
     let number_of_cases = 10;
@@ -84,8 +87,8 @@ fn bench_intersection_mle_2(b: &mut Bencher) {
 #[bench]
 fn bench_intersection_mle_3(b: &mut Bencher) {
     let mut cases: Vec<(
-        MLE<3, HyperLogLog<Precision10, 6>>,
-        MLE<3, HyperLogLog<Precision10, 6>>,
+        MLE<3, HyperLogLog<Precision10, Bits6>>,
+        MLE<3, HyperLogLog<Precision10, Bits6>>,
     )> = Vec::new();
 
     let number_of_cases = 10;

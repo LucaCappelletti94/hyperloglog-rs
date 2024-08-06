@@ -15,8 +15,7 @@
 //! of course, guaranteed to be exact. Learn more about the approximated version in the
 //! [HyperLogLog.estimated_overlap_and_differences_cardinality_matrices] method.
 use crate::prelude::*;
-use core::fmt::Debug;
-use core::ops::AddAssign;
+use crate::utils::*;
 
 pub trait SetLike<I> {
     /// Returns the estimated intersection and left and right difference cardinality between two sets.
@@ -31,8 +30,8 @@ pub trait SetLike<I> {
     fn get_cardinality(&self) -> I;
 }
 
-impl<F: Primitive<f32>, P: Precision + WordType<BITS>, const BITS: usize> SetLike<F>
-    for HyperLogLog<P, BITS>
+impl<F: FloatNumber, P: Precision + PrecisionConstants<F>, B: Bits, R: Registers<P, B>> SetLike<F>
+    for HyperLogLog<P, B, R>
 {
     fn get_estimated_union_cardinality(
         &self,
@@ -40,60 +39,38 @@ impl<F: Primitive<f32>, P: Precision + WordType<BITS>, const BITS: usize> SetLik
         other: &Self,
         other_cardinality: F,
     ) -> EstimatedUnionCardinalities<F> {
-        let mut raw_union_estimate = 0.0;
+        let (raw_union_estimate, union_zeros) =
+            self.iter_registers().zip(other.iter_registers()).fold(
+                (F::ZERO, P::NumberOfZeros::ZERO),
+                |(raw_union_estimate, union_zeros), (left, right)| {
+                    let max_register = left.max(right);
+                    (
+                        raw_union_estimate + F::inverse_register(max_register),
+                        union_zeros
+                            + if max_register.is_zero() {
+                                P::NumberOfZeros::ONE
+                            } else {
+                                P::NumberOfZeros::ZERO
+                            },
+                    )
+                },
+            );
 
-        let mut union_zeros = 0;
-        for (left_word, right_word) in self
-            .get_words()
-            .iter_elements()
-            .copied()
-            .zip(other.get_words().iter_elements().copied())
-        {
-            let mut union_partial: f32 = 0.0;
-            for i in 0..Self::NUMBER_OF_REGISTERS_IN_WORD {
-                let left_register = (left_word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
-                let right_register = (right_word >> (i * BITS)) & Self::LOWER_REGISTER_MASK;
-                let maximal_register = (left_register).max(right_register);
-                union_partial += f32::from_le_bytes(((127 - maximal_register) << 23).to_le_bytes());
-                union_zeros += (maximal_register == 0) as usize;
-            }
-            raw_union_estimate += union_partial;
-        }
+        let union_estimate = Self::adjust_estimate_with_zeros(raw_union_estimate, union_zeros);
 
-        union_zeros -= Self::get_number_of_padding_registers();
-
-        // We need to subtract the padding registers from the raw estimates
-        // as for each such register we are adding a one.
-        raw_union_estimate -= Self::get_number_of_padding_registers() as f32;
-
-        let union_estimate = F::reverse(Self::adjust_estimate_with_zeros(
-            raw_union_estimate,
-            union_zeros,
-        ));
-
-        // union_estimate = union_estimate.get_min(self_cardinality + other_cardinality);
-
-        EstimatedUnionCardinalities::from((self_cardinality, other_cardinality, union_estimate))
+        EstimatedUnionCardinalities::with_correction(
+            self_cardinality,
+            other_cardinality,
+            union_estimate,
+        )
     }
 
     fn get_cardinality(&self) -> F {
-        F::reverse(self.estimate_cardinality())
+        self.estimate_cardinality()
     }
 }
 
-pub trait HyperSpheresSketch<I>: Sized + SetLike<I>
-where
-    I: Copy
-        + Default
-        + core::ops::Add<Output = I>
-        + core::ops::Sub<Output = I>
-        + core::ops::Div<Output = I>
-        + core::ops::Mul<Output = I>
-        + AddAssign
-        + Debug
-        + One
-        + MaxMin,
-{
+pub trait HyperSpheresSketch: Sized {
     #[inline(always)]
     /// Returns the overlap and differences cardinality matrices of two lists of sets.
     ///
@@ -118,10 +95,13 @@ where
     /// Very similarly, for the case of vectors of two elements:
     ///
     /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/tuple_overlap.png?raw=true)
-    fn overlap_and_differences_cardinality_matrices<const L: usize, const R: usize>(
+    fn overlap_and_differences_cardinality_matrices<I: Number, const L: usize, const R: usize>(
         left: &[Self; L],
         right: &[Self; R],
-    ) -> ([[I; R]; L], [I; L], [I; R]) {
+    ) -> ([[I; R]; L], [I; L], [I; R])
+    where
+        Self: SetLike<I>,
+    {
         // Initialize overlap and differences cardinality matrices/vectors.
         let mut last_row = [I::default(); R];
         let mut differential_overlap_cardinality_matrix = [[I::default(); R]; L];
@@ -152,23 +132,28 @@ where
                     right_cardinality,
                 );
                 let delta = last_row[j] + comulative_row;
-                differential_overlap_cardinality_matrix[i][j] =
-                    (euc.get_intersection_cardinality() - delta).get_max(I::default());
-                last_row[j] = euc.get_intersection_cardinality().get_max(delta);
+                differential_overlap_cardinality_matrix[i][j] = euc
+                    .get_intersection_cardinality()
+                    .saturating_zero_sub(delta);
+                last_row[j] = if euc.get_intersection_cardinality() > delta {
+                    euc.get_intersection_cardinality()
+                } else {
+                    delta
+                };
                 comulative_row += differential_overlap_cardinality_matrix[i][j];
 
                 // We always set the value of the right difference so that the
                 // last time we write this will necessarily be with the last
                 // and largest left set.
-                right_difference_cardinality_vector[j] = (euc.get_right_difference_cardinality()
-                    - last_right_difference)
-                    .get_max(I::default());
+                right_difference_cardinality_vector[j] = euc
+                    .get_right_difference_cardinality()
+                    .saturating_zero_sub(last_right_difference);
 
                 last_right_difference = euc.get_right_difference_cardinality();
             }
-            left_difference_cardinality_vector[i] = (euc.get_left_difference_cardinality()
-                - last_left_difference)
-                .get_max(I::default());
+            left_difference_cardinality_vector[i] = euc
+                .get_left_difference_cardinality()
+                .saturating_zero_sub(last_left_difference);
             last_left_difference = euc.get_left_difference_cardinality();
         }
 
@@ -204,10 +189,13 @@ where
     /// Very similarly, for the case of vectors of two elements:
     ///
     /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/tuple_overlap.png?raw=true)
-    fn overlap_and_differences_cardinality_matrices_vec(
+    fn overlap_and_differences_cardinality_matrices_vec<I: Number>(
         left: &[Self],
         right: &[Self],
-    ) -> (Vec<Vec<I>>, Vec<I>, Vec<I>) {
+    ) -> (Vec<Vec<I>>, Vec<I>, Vec<I>)
+    where
+        Self: SetLike<I>,
+    {
         // Initialize overlap and differences cardinality matrices/vectors.
         let mut last_row = vec![I::default(); right.len()];
         let mut differential_overlap_cardinality_matrix =
@@ -241,23 +229,28 @@ where
                     right_cardinality,
                 );
                 let delta = last_row[j] + comulative_row;
-                differential_overlap_cardinality_matrix[i][j] =
-                    (euc.get_intersection_cardinality() - delta).get_max(I::default());
-                last_row[j] = euc.get_intersection_cardinality().get_max(delta);
+                differential_overlap_cardinality_matrix[i][j] = euc
+                    .get_intersection_cardinality()
+                    .saturating_zero_sub(delta);
+                last_row[j] = if euc.get_intersection_cardinality() > delta {
+                    euc.get_intersection_cardinality()
+                } else {
+                    delta
+                };
                 comulative_row += differential_overlap_cardinality_matrix[i][j];
 
                 // We always set the value of the right difference so that the
                 // last time we write this will necessarily be with the last
                 // and largest left set.
-                right_difference_cardinality_vector[j] = (euc.get_right_difference_cardinality()
-                    - last_right_difference)
-                    .get_max(I::default());
+                right_difference_cardinality_vector[j] = euc
+                    .get_right_difference_cardinality()
+                    .saturating_zero_sub(last_right_difference);
 
                 last_right_difference = euc.get_right_difference_cardinality();
             }
-            left_difference_cardinality_vector[i] = (euc.get_left_difference_cardinality()
-                - last_left_difference)
-                .get_max(I::default());
+            left_difference_cardinality_vector[i] = euc
+                .get_left_difference_cardinality()
+                .saturating_zero_sub(last_left_difference);
             last_left_difference = euc.get_left_difference_cardinality();
         }
 
@@ -267,7 +260,9 @@ where
             right_difference_cardinality_vector,
         )
     }
+}
 
+pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch {
     #[inline(always)]
     /// Returns the normalized overlap and differences cardinality matrices of two lists of sets.
     ///
@@ -279,15 +274,22 @@ where
     /// * `overlap_cardinality_matrix` - Matrix of normalized estimated overlapping cardinalities between the elements of the left and right arrays.
     /// * `left_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the left array and the last element of the right array.
     /// * `right_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the right array and the last element of the left array.
-    fn normalized_overlap_and_differences_cardinality_matrices<const L: usize, const R: usize>(
+    fn normalized_overlap_and_differences_cardinality_matrices<
+        F: FloatNumber,
+        const L: usize,
+        const R: usize,
+    >(
         left: &[Self; L],
         right: &[Self; R],
-    ) -> ([[I; R]; L], [I; L], [I; R]) {
+    ) -> ([[F; R]; L], [F; L], [F; R])
+    where
+        Self: SetLike<F>,
+    {
         // Initialize overlap and differences cardinality matrices/vectors.
-        let mut last_row = [I::default(); R];
-        let mut differential_overlap_cardinality_matrix = [[I::default(); R]; L];
-        let mut left_difference_cardinality_vector = [I::default(); L];
-        let mut right_cardinalities = [I::default(); R];
+        let mut last_row = [F::default(); R];
+        let mut differential_overlap_cardinality_matrix = [[F::default(); R]; L];
+        let mut left_difference_cardinality_vector = [F::default(); L];
+        let mut right_cardinalities = [F::default(); R];
 
         right.iter().zip(right_cardinalities.iter_mut()).for_each(
             |(right_hll, right_cardinality)| {
@@ -302,18 +304,18 @@ where
             .zip(right_cardinalities.iter().skip(1))
             .all(|(left, right)| left <= right));
 
-        let mut right_difference_cardinality_vector = [I::default(); R];
-        let mut euc: EstimatedUnionCardinalities<I> = EstimatedUnionCardinalities::default();
-        let mut last_left_difference: I = I::default();
-        let mut last_inner_left_differences = [I::default(); R];
-        let mut last_left_cardinality: I = I::default();
+        let mut right_difference_cardinality_vector = [F::default(); R];
+        let mut euc: EstimatedUnionCardinalities<F> = EstimatedUnionCardinalities::default();
+        let mut last_left_difference: F = F::default();
+        let mut last_inner_left_differences = [F::default(); R];
+        let mut last_left_cardinality: F = F::default();
 
         // Populate the overlap cardinality matrix.
         for (i, left_hll) in left.iter().enumerate() {
-            let mut last_right_difference: I = I::default();
+            let mut last_right_difference: F = F::default();
             let left_cardinality = left_hll.get_cardinality();
-            let mut comulative_row = I::default();
-            let mut last_right_cardinality = I::default();
+            let mut comulative_row = F::default();
+            let mut last_right_cardinality = F::default();
             for (j, (right_hll, (right_cardinality, last_inner_left_difference))) in right
                 .iter()
                 .zip(
@@ -330,11 +332,12 @@ where
                     right_cardinality,
                 );
                 let delta = last_row[j] + comulative_row;
-                let differential_intersection =
-                    (euc.get_intersection_cardinality() - delta).get_max(I::default());
+                let differential_intersection = euc
+                    .get_intersection_cardinality()
+                    .saturating_zero_sub(delta);
 
                 debug_assert!(
-                    differential_intersection >= I::default(),
+                    differential_intersection >= F::default(),
                     concat!(
                         "Expected differential_intersection to be larger than zero, but it is not. ",
                         "Got: differential_intersection: {:?}, delta: {:?}",
@@ -344,41 +347,38 @@ where
                 );
 
                 let maximal_differential_intersection_cardinality =
-                    (euc.get_left_difference_cardinality() - *last_inner_left_difference
-                        + right_cardinality
-                        - last_right_cardinality)
-                        .get_max(I::non_zero_positive_min_value());
+                    (euc.get_left_difference_cardinality() + right_cardinality)
+                        .saturating_zero_sub(*last_inner_left_difference + last_right_cardinality);
                 *last_inner_left_difference = euc.get_left_difference_cardinality();
 
-                differential_overlap_cardinality_matrix[i][j] = (differential_intersection
-                    / maximal_differential_intersection_cardinality)
-                    .get_min(I::ONE);
-                last_row[j] = euc.get_intersection_cardinality().get_max(delta);
+                differential_overlap_cardinality_matrix[i][j] = differential_intersection
+                    .saturating_one_div(maximal_differential_intersection_cardinality);
+                last_row[j] = if euc.get_intersection_cardinality() > delta {
+                    euc.get_intersection_cardinality()
+                } else {
+                    delta
+                };
                 comulative_row += differential_intersection;
 
                 // We always set the value of the right difference so that the
                 // last time we write this will necessarily be with the last
                 // and largest left set.
 
-                let differential_right_difference = (euc.get_right_difference_cardinality()
-                    - last_right_difference)
-                    .get_max(I::default());
-                let maximal_differential_right_difference = (right_cardinality
-                    - last_right_cardinality)
-                    .get_max(I::non_zero_positive_min_value());
+                let differential_right_difference = euc
+                    .get_right_difference_cardinality()
+                    .saturating_zero_sub(last_right_difference);
 
-                right_difference_cardinality_vector[j] = (differential_right_difference
-                    / maximal_differential_right_difference)
-                    .get_min(I::ONE);
+                right_difference_cardinality_vector[j] = differential_right_difference
+                    .saturating_one_div(
+                        right_cardinality.saturating_zero_sub(last_right_cardinality),
+                    );
                 last_right_difference = euc.get_right_difference_cardinality();
                 last_right_cardinality = right_cardinality;
             }
-            left_difference_cardinality_vector[i] = ((euc.get_left_difference_cardinality()
-                - last_left_difference)
-                .get_max(I::default())
-                / (left_cardinality - last_left_cardinality)
-                    .get_max(I::non_zero_positive_min_value()))
-            .get_min(I::ONE);
+            left_difference_cardinality_vector[i] = euc
+                .get_left_difference_cardinality()
+                .saturating_zero_sub(last_left_difference)
+                .saturating_one_div(left_cardinality.saturating_zero_sub(last_left_cardinality));
             last_left_cardinality = left_cardinality;
             last_left_difference = euc.get_left_difference_cardinality();
         }
@@ -402,16 +402,19 @@ where
     /// * `overlap_cardinality_matrix` - Matrix of normalized estimated overlapping cardinalities between the elements of the left and right arrays.
     /// * `left_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the left array and the last element of the right array.
     /// * `right_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the right array and the last element of the left array.
-    fn normalized_overlap_and_differences_cardinality_matrices_vec(
+    fn normalized_overlap_and_differences_cardinality_matrices_vec<F: FloatNumber>(
         left: &[Self],
         right: &[Self],
-    ) -> (Vec<Vec<I>>, Vec<I>, Vec<I>) {
+    ) -> (Vec<Vec<F>>, Vec<F>, Vec<F>)
+    where
+        Self: SetLike<F>,
+    {
         // Initialize overlap and differences cardinality matrices/vectors.
-        let mut last_row = vec![I::default(); right.len()];
+        let mut last_row = vec![F::default(); right.len()];
         let mut differential_overlap_cardinality_matrix =
-            vec![vec![I::default(); right.len()]; left.len()];
-        let mut left_difference_cardinality_vector = vec![I::default(); left.len()];
-        let mut right_cardinalities = vec![I::default(); right.len()];
+            vec![vec![F::default(); right.len()]; left.len()];
+        let mut left_difference_cardinality_vector = vec![F::default(); left.len()];
+        let mut right_cardinalities = vec![F::default(); right.len()];
 
         right.iter().zip(right_cardinalities.iter_mut()).for_each(
             |(right_hll, right_cardinality)| {
@@ -426,18 +429,18 @@ where
             .zip(right_cardinalities.iter().skip(1))
             .all(|(left, right)| left <= right));
 
-        let mut right_difference_cardinality_vector = vec![I::default(); right.len()];
-        let mut euc: EstimatedUnionCardinalities<I> = EstimatedUnionCardinalities::default();
-        let mut last_left_difference: I = I::default();
-        let mut last_left_cardinality: I = I::default();
-        let mut last_inner_left_differences = vec![I::default(); right.len()];
+        let mut right_difference_cardinality_vector = vec![F::default(); right.len()];
+        let mut euc: EstimatedUnionCardinalities<F> = EstimatedUnionCardinalities::default();
+        let mut last_left_difference: F = F::default();
+        let mut last_left_cardinality: F = F::default();
+        let mut last_inner_left_differences = vec![F::default(); right.len()];
 
         // Populate the overlap cardinality matrix.
         for (i, left_hll) in left.iter().enumerate() {
-            let mut last_right_difference: I = I::default();
+            let mut last_right_difference: F = F::default();
             let left_cardinality = left_hll.get_cardinality();
-            let mut comulative_row = I::default();
-            let mut last_right_cardinality = I::default();
+            let mut comulative_row = F::default();
+            let mut last_right_cardinality = F::default();
             for (j, (right_hll, (right_cardinality, last_inner_left_difference))) in right
                 .iter()
                 .zip(
@@ -454,11 +457,12 @@ where
                     right_cardinality,
                 );
                 let delta = last_row[j] + comulative_row;
-                let differential_intersection =
-                    (euc.get_intersection_cardinality() - delta).get_max(I::default());
+                let differential_intersection = euc
+                    .get_intersection_cardinality()
+                    .saturating_zero_sub(delta);
 
                 debug_assert!(
-                    differential_intersection >= I::default(),
+                    differential_intersection >= F::default(),
                     concat!(
                         "Expected differential_intersection to be larger than zero, but it is not. ",
                         "Got: differential_intersection: {:?}, delta: {:?}",
@@ -467,42 +471,38 @@ where
                     delta,
                 );
 
-                let maximal_differential_intersection_cardinality =
-                    (euc.get_left_difference_cardinality() - *last_inner_left_difference
-                        + right_cardinality
-                        - last_right_cardinality)
-                        .get_max(I::non_zero_positive_min_value());
-                *last_inner_left_difference = euc.get_left_difference_cardinality();
-
-                differential_overlap_cardinality_matrix[i][j] = (differential_intersection
-                    / maximal_differential_intersection_cardinality)
-                    .get_min(I::ONE);
-                last_row[j] = euc.get_intersection_cardinality().get_max(delta);
+                differential_overlap_cardinality_matrix[i][j] = differential_intersection
+                    .saturating_one_div(
+                        (euc.get_left_difference_cardinality() + right_cardinality)
+                            .saturating_zero_sub(
+                                *last_inner_left_difference + last_right_cardinality,
+                            ),
+                    );
+                last_row[j] = if euc.get_intersection_cardinality() > delta {
+                    euc.get_intersection_cardinality()
+                } else {
+                    delta
+                };
                 comulative_row += differential_intersection;
+                *last_inner_left_difference = euc.get_left_difference_cardinality();
 
                 // We always set the value of the right difference so that the
                 // last time we write this will necessarily be with the last
                 // and largest left set.
 
-                let differential_right_difference = (euc.get_right_difference_cardinality()
-                    - last_right_difference)
-                    .get_max(I::default());
-                let maximal_differential_right_difference = (right_cardinality
-                    - last_right_cardinality)
-                    .get_max(I::non_zero_positive_min_value());
-
-                right_difference_cardinality_vector[j] = (differential_right_difference
-                    / maximal_differential_right_difference)
-                    .get_min(I::ONE);
+                right_difference_cardinality_vector[j] = euc
+                    .get_right_difference_cardinality()
+                    .saturating_zero_sub(last_right_difference)
+                    .saturating_one_div(
+                        right_cardinality.saturating_zero_sub(last_right_cardinality),
+                    );
                 last_right_difference = euc.get_right_difference_cardinality();
                 last_right_cardinality = right_cardinality;
             }
-            left_difference_cardinality_vector[i] = ((euc.get_left_difference_cardinality()
-                - last_left_difference)
-                .get_max(I::default())
-                / (left_cardinality - last_left_cardinality)
-                    .get_max(I::non_zero_positive_min_value()))
-            .get_min(I::ONE);
+            left_difference_cardinality_vector[i] = euc
+                .get_left_difference_cardinality()
+                .saturating_zero_sub(last_left_difference)
+                .saturating_one_div(left_cardinality.saturating_zero_sub(last_left_cardinality));
             last_left_cardinality = left_cardinality;
             last_left_difference = euc.get_left_difference_cardinality();
         }
@@ -515,7 +515,29 @@ where
     }
 }
 
-impl<P: Precision + WordType<BITS>, const BITS: usize, I: Primitive<f32>> HyperSpheresSketch<I>
-    for HyperLogLog<P, BITS>
+impl<P: Precision, B: Bits, R: Registers<P, B>> HyperSpheresSketch for HyperLogLog<P, B, R> {}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>> HyperSpheresSketch
+    for HLLMultiplicities<P, B, R, M>
+{
+}
+
+impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>>
+    HyperSpheresSketch for MLE<ERROR, HLLMultiplicities<P, B, R, M>>
+{
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>> NormalizedHyperSpheresSketch
+    for HyperLogLog<P, B, R>
+{
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>>
+    NormalizedHyperSpheresSketch for HLLMultiplicities<P, B, R, M>
+{
+}
+
+impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>>
+    NormalizedHyperSpheresSketch for MLE<ERROR, HLLMultiplicities<P, B, R, M>>
 {
 }

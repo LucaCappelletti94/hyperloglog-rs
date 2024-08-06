@@ -27,14 +27,20 @@ exclude = [
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 paste = "1.0.15"
+twox-hash = "1.6.3"
 
 [dev-dependencies]
 serde_json = "1.0"
 rand = "0.8"
 criterion = { version = "0.5", features = ["html_reports"] }
+hyperloglogplus = "0.4.1"
+rayon = "1.10.0"
+indicatif = {version="0.17.8", features= ["rayon"]}
+streaming_algorithms = "0.3.0"
+stattest = {git = "https://github.com/LucaCappelletti94/stattest"}
 
 [features]
-default = ["serde"]
+default = ["serde", "std"]
 std = []
 alloc = []
 

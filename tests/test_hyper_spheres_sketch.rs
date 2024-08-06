@@ -52,40 +52,42 @@ where
     hyperspheres_sets_array
 }
 
-fn get_random_hyper_spheres_hll<const N: usize>(
+fn get_random_hyper_spheres_hll<
+    HA: HyperLogLogArrayTrait<P, B, H, N>,
+    P: Precision,
+    B: Bits,
+    H: Copy + HyperLogLogTrait<P, B>,
+    const N: usize,
+>(
     random_state: u64,
-) -> HyperLogLogArray<Precision12, 6, N> {
+) -> HA {
     let hyperspheres = get_random_hyper_spheres(random_state, N);
-    let mut hyperspheres_hll: HyperLogLogArray<Precision12, 6, N> = HyperLogLogArray::new();
+    let mut hyperspheres_hll: HA = HA::default();
     for (i, hyper_sphere) in hyperspheres.iter().enumerate() {
         for element in hyper_sphere {
-            hyperspheres_hll[i].insert(element);
+            hyperspheres_hll.insert(i, element);
         }
     }
     hyperspheres_hll
 }
 
-#[test]
-fn test_hyper_spheres_sketch() {
+fn test_hyper_spheres_sketch<HA, P, B, H, const N: usize>()
+where
+    HA: HyperLogLogArrayTrait<P, B, H, N>,
+    P: Precision + PrecisionConstants<f64>,
+    B: Bits,
+    H: Copy + HyperLogLogTrait<P, B> + SetLike<f64>,
+    [HashSet<usize>; N]: Default,
+{
     let number_of_tests = 100;
-
-    // We run multiple MSE to have an estimate of how much the
-    // HyperLogLog approximation is off when compared to the
-    // exact one based on HashSets.
-    let mut overlaps_squared_errors = Vec::with_capacity(number_of_tests);
-    let mut mle_overlaps_squared_errors = Vec::with_capacity(number_of_tests);
-    let mut left_diff_squared_errors = Vec::with_capacity(number_of_tests);
-    let mut mle_left_diff_squared_errors = Vec::with_capacity(number_of_tests);
-    let mut right_diff_squared_errors = Vec::with_capacity(number_of_tests);
-    let mut mle_right_diff_squared_errors = Vec::with_capacity(number_of_tests);
 
     // We iterate over the number of tests.
     for current_test in 0..number_of_tests {
         let random_state = (current_test as u64 + 173845_u64).wrapping_mul(456789);
-        let left_sets = get_random_hyper_spheres_sets::<5>(random_state);
-        let right_sets = get_random_hyper_spheres_sets::<5>(random_state * 2);
-        let left_hll = get_random_hyper_spheres_hll::<5>(random_state);
-        let right_hll = get_random_hyper_spheres_hll::<5>(random_state * 2);
+        let left_sets = get_random_hyper_spheres_sets::<N>(random_state);
+        let right_sets = get_random_hyper_spheres_sets::<N>(random_state * 2);
+        let left_hll = get_random_hyper_spheres_hll::<HA, P, B, H, N>(random_state);
+        let right_hll = get_random_hyper_spheres_hll::<HA, P, B, H, N>(random_state * 2);
 
         let (overlap_sets, left_diff_sets, right_diff_sets) =
             HashSet::overlap_and_differences_cardinality_matrices(&left_sets, &right_sets);
@@ -156,23 +158,15 @@ fn test_hyper_spheres_sketch() {
         );
 
         let (overlap_hll, left_diff_hll, right_diff_hll) =
-            left_hll.overlap_and_differences_cardinality_matrices::<f32>(&right_hll);
+            left_hll.overlap_and_differences_cardinality_matrices::<f64>(&right_hll);
 
         let (overlap_normalized_hll, left_diff_normalized_hll, right_diff_normalized_hll) =
-            left_hll.normalized_overlap_and_differences_cardinality_matrices::<f32>(&right_hll);
-
-        let mle_left: &[MLE<3, _>; 5] = left_hll.as_ref();
-        let mle_right: &[MLE<3, _>; 5] = right_hll.as_ref();
-
-        let (overlap_mle, left_diff_mle, right_diff_mle): ([[f32; 5]; 5], [f32; 5], [f32; 5]) =
-            <MLE<3, _>>::overlap_and_differences_cardinality_matrices::<5, 5>(
-                &mle_left, &mle_right,
-            );
+            left_hll.normalized_overlap_and_differences_cardinality_matrices::<f64>(&right_hll);
 
         // We check that none of the values is less than zero, i.e. no
         // negative cardinalities have somehow been computed.
-        for i in 0..5 {
-            for j in 0..5 {
+        for i in 0..N {
+            for j in 0..N {
                 assert!(
                     overlap_normalized_hll[i][j] >= 0.0,
                     concat!(
@@ -199,14 +193,6 @@ fn test_hyper_spheres_sketch() {
                         "non-negative values but we got {:?} instead."
                     ),
                     overlap_hll
-                );
-                assert!(
-                    overlap_mle[i][j] >= 0.0,
-                    concat!(
-                        "We expect the overlap cardinality matrix to have ",
-                        "non-negative values but we got {:?} instead."
-                    ),
-                    overlap_mle
                 );
             }
             assert!(
@@ -237,14 +223,6 @@ fn test_hyper_spheres_sketch() {
                 left_diff_hll
             );
             assert!(
-                left_diff_mle[i] >= 0.0,
-                concat!(
-                    "We expect the left difference cardinality vector to ",
-                    "have non-negative values but we got {:?} instead."
-                ),
-                left_diff_mle
-            );
-            assert!(
                 right_diff_normalized_hll[i] >= 0.0,
                 concat!(
                     "We expect the right difference cardinality vector to ",
@@ -271,122 +249,64 @@ fn test_hyper_spheres_sketch() {
                 ),
                 right_diff_hll
             );
-            assert!(
-                right_diff_mle[i] >= 0.0,
-                concat!(
-                    "We expect the right difference cardinality vector to ",
-                    "have non-negative values but we got {:?} instead."
-                ),
-                right_diff_mle
-            );
         }
-
-        let mut overlap_squared_error = 0.0_f32;
-        let mut mle_overlap_squared_error = 0.0_f32;
-        let mut left_diff_squared_error = 0.0_f32;
-        let mut mle_left_diff_squared_error = 0.0_f32;
-        let mut right_diff_squared_error = 0.0_f32;
-        let mut mle_right_diff_squared_error = 0.0_f32;
-        for i in 0..5 {
-            for j in 0..5 {
-                overlap_squared_error += (overlap_sets[i][j] as f32 - overlap_hll[i][j]).powi(2);
-                mle_overlap_squared_error +=
-                    (overlap_sets[i][j] as f32 - overlap_mle[i][j]).powi(2);
-            }
-            left_diff_squared_error += (left_diff_sets[i] as f32 - left_diff_hll[i]).powi(2);
-            mle_left_diff_squared_error += (left_diff_sets[i] as f32 - left_diff_mle[i]).powi(2);
-            right_diff_squared_error += (right_diff_sets[i] as f32 - right_diff_hll[i]).powi(2);
-            mle_right_diff_squared_error += (right_diff_sets[i] as f32 - right_diff_mle[i]).powi(2);
-        }
-
-        overlaps_squared_errors.push(overlap_squared_error / 25.0_f32);
-        mle_overlaps_squared_errors.push(mle_overlap_squared_error / 25.0_f32);
-        left_diff_squared_errors.push(left_diff_squared_error / 5.0_f32);
-        mle_left_diff_squared_errors.push(mle_left_diff_squared_error / 5.0_f32);
-        right_diff_squared_errors.push(right_diff_squared_error / 5.0_f32);
-        mle_right_diff_squared_errors.push(mle_right_diff_squared_error / 5.0_f32);
     }
-
-    let mean_overlaps_squared_error =
-        overlaps_squared_errors.iter().sum::<f32>() / overlaps_squared_errors.len() as f32;
-    let mean_mle_overlaps_squared_error =
-        mle_overlaps_squared_errors.iter().sum::<f32>() / mle_overlaps_squared_errors.len() as f32;
-    let mean_left_diff_squared_error =
-        left_diff_squared_errors.iter().sum::<f32>() / left_diff_squared_errors.len() as f32;
-    let mean_mle_left_diff_squared_error = mle_left_diff_squared_errors.iter().sum::<f32>()
-        / mle_left_diff_squared_errors.len() as f32;
-    let mean_right_diff_squared_error =
-        right_diff_squared_errors.iter().sum::<f32>() / right_diff_squared_errors.len() as f32;
-    let mean_mle_right_diff_squared_error = mle_right_diff_squared_errors.iter().sum::<f32>()
-        / mle_right_diff_squared_errors.len() as f32;
-
-    let std_overlaps_squared_error = (overlaps_squared_errors
-        .iter()
-        .map(|x| (x - mean_overlaps_squared_error).powi(2))
-        .sum::<f32>()
-        / overlaps_squared_errors.len() as f32)
-        .sqrt();
-
-    let std_mle_overlaps_squared_error = (mle_overlaps_squared_errors
-        .iter()
-        .map(|x| (x - mean_mle_overlaps_squared_error).powi(2))
-        .sum::<f32>()
-        / mle_overlaps_squared_errors.len() as f32)
-        .sqrt();
-
-    let std_left_diff_squared_error = (left_diff_squared_errors
-        .iter()
-        .map(|x| (x - mean_left_diff_squared_error).powi(2))
-        .sum::<f32>()
-        / left_diff_squared_errors.len() as f32)
-        .sqrt();
-
-    let std_mle_left_diff_squared_error = (mle_left_diff_squared_errors
-        .iter()
-        .map(|x| (x - mean_mle_left_diff_squared_error).powi(2))
-        .sum::<f32>()
-        / mle_left_diff_squared_errors.len() as f32)
-        .sqrt();
-
-    let std_right_diff_squared_error = (right_diff_squared_errors
-        .iter()
-        .map(|x| (x - mean_right_diff_squared_error).powi(2))
-        .sum::<f32>()
-        / right_diff_squared_errors.len() as f32)
-        .sqrt();
-
-    let std_mle_right_diff_squared_error = (mle_right_diff_squared_errors
-        .iter()
-        .map(|x| (x - mean_mle_right_diff_squared_error).powi(2))
-        .sum::<f32>()
-        / mle_right_diff_squared_errors.len() as f32)
-        .sqrt();
-
-    println!(
-        concat!(
-            "The mean squared error of the overlap cardinality matrix is {:?} with a standard deviation of {:?}. ",
-            "The mean squared error of the overlap cardinality matrix computed with the MLE is {:?} with a standard deviation of {:?}.",
-        ),
-        mean_overlaps_squared_error, std_overlaps_squared_error,
-        mean_mle_overlaps_squared_error, std_mle_overlaps_squared_error
-    );
-    println!(
-        concat!(
-            "The mean squared error of the left difference cardinality vector is {:?} with a standard deviation of {:?}. ",
-            "The mean squared error of the left difference cardinality vector computed with the MLE is {:?} with a standard deviation of {:?}.",
-        ),
-        mean_left_diff_squared_error, std_left_diff_squared_error,
-        mean_mle_left_diff_squared_error, std_mle_left_diff_squared_error
-    );
-    println!(
-        concat!(
-            "The mean squared error of the right difference cardinality vector is {:?} with a standard deviation of {:?}. ",
-            "The mean squared error of the right difference cardinality vector computed with the MLE is {:?} with a standard deviation of {:?}.",
-        ),
-        mean_right_diff_squared_error, std_right_diff_squared_error,
-        mean_mle_right_diff_squared_error, std_mle_right_diff_squared_error
-    );
 }
+
+macro_rules! test_hyper_spheres_by_precision_and_size {
+    ($precision:ty, $bits:ty, $($size:expr),+) => {
+        $(
+            paste::paste! {
+                #[test]
+                fn [<test_hll_hyper_spheres_sketch_ $precision:lower _ $bits:lower _size_ $size>]() {
+                    test_hyper_spheres_sketch::<HyperLogLogArray<$precision, $bits, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>, $size>, $precision, $bits, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>, $size>();
+                }
+
+                #[test]
+                fn [<test_hll_multi_hyper_spheres_sketch_ $precision:lower _ $bits:lower _size_ $size>]() {
+                    test_hyper_spheres_sketch::<HyperLogLogArray<$precision, $bits, HLLMultiplicities<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, <$precision as ArrayMultiplicities<$bits>>::ArrayMultiplicities>, $size>, $precision, $bits, HLLMultiplicities<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, <$precision as ArrayMultiplicities<$bits>>::ArrayMultiplicities>, $size>();
+                }
+
+                #[test]
+                fn [<test_mle_hll_multi_hyper_spheres_sketch_ $precision:lower _ $bits:lower _size_ $size>]() {
+                    test_hyper_spheres_sketch::<HyperLogLogArray<$precision, $bits, MLE<3, HLLMultiplicities<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, <$precision as ArrayMultiplicities<$bits>>::ArrayMultiplicities>>, $size>, $precision, $bits, MLE<3, HLLMultiplicities<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, <$precision as ArrayMultiplicities<$bits>>::ArrayMultiplicities>>, $size>();
+                }
+            }
+        )+
+    };
+}
+
+macro_rules! test_hyper_spheres_by_precision_and_bits {
+    ($precision:ty, ($($bits:ty),+)) => {
+        $(
+            test_hyper_spheres_by_precision_and_size!($precision, $bits, 2, 3, 4, 5, 6);
+        )+
+    };
+}
+
+macro_rules! test_hyper_spheres_by_precisions {
+    ($($precision:ty),*) => {
+        $(
+            test_hyper_spheres_by_precision_and_bits!($precision, (Bits4, Bits5, Bits6));
+        )*
+    };
+}
+
+test_hyper_spheres_by_precisions!(
+    Precision4,
+    Precision5,
+    Precision6,
+    Precision7,
+    Precision8,
+    Precision9,
+    Precision10,
+    Precision11,
+    Precision12,
+    Precision13,
+    Precision14,
+    Precision15,
+    Precision16
+);
 
 fn test_hyper_spheres(
     left: &[Vec<usize>; 3],

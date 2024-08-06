@@ -1,6 +1,4 @@
-use crate::ones::One;
-use crate::prelude::MaxMin;
-use core::ops::{Add, Div, Sub};
+use crate::utils::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -14,8 +12,44 @@ pub struct EstimatedUnionCardinalities<F> {
     union_cardinality: F,
 }
 
-impl<F> From<(F, F, F)> for EstimatedUnionCardinalities<F> {
+impl<F: Number> From<(F, F, F)> for EstimatedUnionCardinalities<F> {
     fn from(value: (F, F, F)) -> Self {
+        debug_assert!(value.0 >= F::ZERO);
+        debug_assert!(value.1 >= F::ZERO);
+        debug_assert!(value.2 >= F::ZERO);
+        debug_assert!(
+            value.0 <= value.2,
+            concat!(
+                "The estimated cardinality of the left set should be less than ",
+                "or equal to the estimated cardinality of the union of the two sets. ",
+                "Received left: {}, right: {}, union: {}."
+            ),
+            value.0,
+            value.1,
+            value.2
+        );
+        debug_assert!(
+            value.1 <= value.2,
+            concat!(
+                "The estimated cardinality of the right set should be less than ",
+                "or equal to the estimated cardinality of the union of the two sets. ",
+                "Received left: {}, right: {}, union: {}."
+            ),
+            value.0,
+            value.1,
+            value.2
+        );
+        debug_assert!(
+            value.0 + value.1 >= value.2,
+            concat!(
+                "The sum of the estimated cardinalities of the two sets ",
+                "should be greater than or equal to the estimated cardinality ",
+                "of the union of the two sets. Received left: {}, right: {}, union: {}."
+            ),
+            value.0,
+            value.1,
+            value.2
+        );
         Self {
             left_cardinality: value.0,
             right_cardinality: value.1,
@@ -24,9 +58,30 @@ impl<F> From<(F, F, F)> for EstimatedUnionCardinalities<F> {
     }
 }
 
-impl<F: MaxMin + One + Add<F, Output = F> + Sub<F, Output = F> + Div<F, Output = F> + Copy>
-    EstimatedUnionCardinalities<F>
-{
+impl<F: Number> EstimatedUnionCardinalities<F> {
+    #[inline(always)]
+    /// Returns a new instance of `EstimatedUnionCardinalities` with applied corrections.
+    pub(crate) fn with_correction(
+        left_cardinality: F,
+        right_cardinality: F,
+        mut union_cardinality: F,
+    ) -> Self {
+        if union_cardinality > left_cardinality + right_cardinality {
+            union_cardinality = left_cardinality + right_cardinality;
+        }
+
+        // The following can happen when the HLL registers start to be saturated.
+        if union_cardinality < left_cardinality || union_cardinality < right_cardinality {
+            union_cardinality = if left_cardinality < right_cardinality {
+                right_cardinality
+            } else {
+                left_cardinality
+            };
+        }
+
+        Self::from((left_cardinality, right_cardinality, union_cardinality))
+    }
+
     #[inline(always)]
     /// Returns the estimated cardinality of the left set.
     ///
@@ -178,6 +233,12 @@ impl<F: MaxMin + One + Add<F, Output = F> + Sub<F, Output = F> + Div<F, Output =
     /// );
     /// ```
     pub fn get_jaccard_index(&self) -> F {
-        (self.get_intersection_cardinality() / self.union_cardinality).get_min(F::ONE)
+        let jaccard_index = self.get_intersection_cardinality() / self.union_cardinality;
+        // Numerical (in)stability correction.
+        if jaccard_index > F::ONE {
+            F::ONE
+        } else {
+            jaccard_index
+        }
     }
 }

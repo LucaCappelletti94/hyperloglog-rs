@@ -25,17 +25,17 @@ hyperloglog = "0.1"
 ```rust
 use hyperloglog_rs::prelude::*;
 
-let mut hll = HyperLogLog::<Precision14, 5>::default();
+let mut hll = HyperLogLog::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister>::default();
 hll.insert(&1);
 hll.insert(&2);
 
-let mut hll2 = HyperLogLog::<Precision14, 5>::default();
+let mut hll2 = HyperLogLog::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister>::default();
 hll2.insert(&2);
 hll2.insert(&3);
 
-let union = &hll | &hll2;
+let union = hll | hll2;
 
-let estimated_cardinality = union.estimate_cardinality();
+let estimated_cardinality: f32 = union.estimate_cardinality();
 assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
         estimated_cardinality <= 3.0_f32 * 1.1);
 
@@ -51,20 +51,20 @@ Within an HyperLogLog counter, it is possible to precompute the number of moltep
 ```rust
 use hyperloglog_rs::prelude::*;
 
-let mut hll = HyperLogLogWithMultiplicities::<Precision14, 5>::default();
+let mut hll = HLLMultiplicities::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister, <Precision14 as ArrayMultiplicities<Bits5>>::ArrayMultiplicities>::default();
 
 hll.insert(&1);
 hll.insert(&1);
 hll.insert(&2);
 
-let mut hll2 = HyperLogLogWithMultiplicities::<Precision14, 5>::default();
+let mut hll2 = HLLMultiplicities::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister, <Precision14 as ArrayMultiplicities<Bits5>>::ArrayMultiplicities>::default();
 
 hll2.insert(&2);
 hll2.insert(&3);
 
-let union = &hll | &hll2;
+let union = hll | hll2;
 
-let estimated_cardinality = union.estimate_cardinality();
+let estimated_cardinality: f32 = union.estimate_cardinality();
 
 assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
         estimated_cardinality <= 3.0_f32 * 1.1);
@@ -78,27 +78,23 @@ The [MLE estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github
 {
         use hyperloglog_rs::prelude::*;
 
-        let mut hll1: HyperLogLog<Precision10, 6> = HyperLogLog::default();
+        let mut hll1: MLE<2, HLLMultiplicities::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister, <Precision14 as ArrayMultiplicities<Bits5>>::ArrayMultiplicities>> = MLE::default();
         
         hll1.insert(&1);
         hll1.insert(&2);
         hll1.insert(&3);
 
-        let mle1: MLE<2, HyperLogLog<Precision10, 6>> = hll1.into();
-
-        let mut hll2: HyperLogLog<Precision10, 6> = HyperLogLog::default();
+        let mut hll2: MLE<2, HLLMultiplicities::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister, <Precision14 as ArrayMultiplicities<Bits5>>::ArrayMultiplicities>> = MLE::default();
 
         hll2.insert(&2);
         hll2.insert(&3);
         hll2.insert(&4);
 
-        let mle2: MLE<2, HyperLogLog<Precision10, 6>> = hll2.into();
-        
-        let estimated_cardinality: f32 = mle1.estimate_cardinality();
+        let estimated_cardinality: f32 = hll1.estimate_cardinality();
         assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
                 estimated_cardinality <= 3.0_f32 * 1.1);
 
-        let estimate_intersection_cardinality: f32 = mle1.estimate_intersection_cardinality(&mle2);
+        let estimate_intersection_cardinality: f32 = hll1.estimate_intersection_cardinality(&hll2);
 
         assert!(estimate_intersection_cardinality >= 2.0_f32 * 0.9 &&
                 estimate_intersection_cardinality <= 2.0_f32 * 1.1);

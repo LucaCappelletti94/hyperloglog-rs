@@ -101,8 +101,8 @@ fuzz_target!(|data: FuzzCase| {
     // may be already contained in the counter. If so, we stop the test early
     // as it is a known limitation of the data structure and it is to be expected.
 
-    let mut left_array: HyperLogLogArray<Precision4, BITS, N> = HyperLogLogArray::new();
-    let mut right_array: HyperLogLogArray<Precision4, BITS, N> = HyperLogLogArray::new();
+    let mut left_array: HyperLogLogArray<Precision4, BITS, N> = HyperLogLogArray::default();
+    let mut right_array: HyperLogLogArray<Precision4, BITS, N> = HyperLogLogArray::default();
 
     for (i, set) in left_sets.iter().enumerate() {
         for item in set.iter() {

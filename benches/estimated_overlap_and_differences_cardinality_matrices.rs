@@ -23,8 +23,8 @@ fn allocate_array_of_hashsets<const N: usize, T>() -> [HashSet<T>; N] {
 }
 
 fn populate_vectors<const N: usize>() -> (
-    [HyperLogLog<Precision12, 6>; N],
-    [HyperLogLog<Precision12, 6>; N],
+    [HyperLogLog<Precision12, Bits6>; N],
+    [HyperLogLog<Precision12, Bits6>; N],
 ) {
     // Optionally include some setup
     const NUMBER_OF_ELEMENTS: usize = 100;
@@ -34,8 +34,8 @@ fn populate_vectors<const N: usize>() -> (
     // estimated overlap cardinality matrices:
 
     // Create the counters
-    let mut left: [HyperLogLog<Precision12, 6>; N] = [HyperLogLog::default(); N];
-    let mut right: [HyperLogLog<Precision12, 6>; N] = [HyperLogLog::default(); N];
+    let mut left: [HyperLogLog<Precision12, Bits6>; N] = [HyperLogLog::default(); N];
+    let mut right: [HyperLogLog<Precision12, Bits6>; N] = [HyperLogLog::default(); N];
 
     left[0].insert(&56);
     right[0].insert(&32);
@@ -138,7 +138,9 @@ fn bench_overlap_and_differences_cardinality_matrices_5(b: &mut Bencher) {
         // Inner closure, the actual test
         black_box(for _ in 0..100 {
             let _: ([[f32; 5]; 5], [f32; 5], [f32; 5]) =
-                HyperLogLog::overlap_and_differences_cardinality_matrices::<5, 5>(&left, &right);
+                HyperLogLog::overlap_and_differences_cardinality_matrices::<5, Bits5>(
+                    &left, &right,
+                );
         });
     });
 }
@@ -242,7 +244,7 @@ fn bench_overlap_and_differences_cardinality_matrices_5_exact(b: &mut Bencher) {
         // Inner closure, the actual test
         black_box(for _ in 0..100 {
             let _: ([[f32; 5]; 5], [f32; 5], [f32; 5]) =
-                HashSet::overlap_and_differences_cardinality_matrices::<5, 5>(&left, &right);
+                HashSet::overlap_and_differences_cardinality_matrices::<5, Bits5>(&left, &right);
         });
     });
 }
