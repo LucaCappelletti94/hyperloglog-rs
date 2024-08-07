@@ -70,46 +70,12 @@ mod test_comparison {
     }
 
     impl<
-            I: Hash,
-            P: Precision + PrecisionConstants<f64>,
-            M: Multiplicities<P, B>,
-            B: Bits,
-            R: Registers<P, B>,
-        > SetLike<I> for HLLMultiplicities<P, B, R, M>
-    where
-        Self: HyperLogLogTrait<P, B>,
-    {
-        fn insert(&mut self, x: I) {
-            <Self as HyperLogLogTrait<P, B>>::insert(self, x);
-        }
-
-        fn cardinalities(&self, other: &Self) -> EstimatedUnionCardinalities<usize> {
-            let euc = self.estimate_union_and_sets_cardinality(other);
-            let left_cardinality = euc.get_left_cardinality() as usize;
-            let right_cardinality = euc.get_right_cardinality() as usize;
-            let mut union_cardinality = euc.get_union_cardinality() as usize;
-
-            // We need to correct the union for rounding errors.
-            if left_cardinality + right_cardinality < union_cardinality {
-                union_cardinality = left_cardinality + right_cardinality;
-            }
-
-            EstimatedUnionCardinalities::from((
-                left_cardinality,
-                right_cardinality,
-                union_cardinality,
-            ))
-        }
-    }
-
-    impl<
             const ERROR: i32,
             I: Hash,
             P: Precision + PrecisionConstants<f64>,
             B: Bits,
             R: Registers<P, B>,
-            M: Multiplicities<P, B>,
-        > SetLike<I> for MLE<ERROR, HLLMultiplicities<P, B, R, M>>
+        > SetLike<I> for MLE<ERROR, HyperLogLog<P, B, R>>
     where
         Self: HyperLogLogTrait<P, B>,
     {
@@ -119,8 +85,10 @@ mod test_comparison {
 
         fn cardinalities(&self, other: &Self) -> EstimatedUnionCardinalities<usize> {
             let euc = self.estimate_union_and_sets_cardinality(other);
-            let left_cardinality = self.estimate_cardinality() as usize;
-            let right_cardinality = other.estimate_cardinality() as usize;
+            // let left_cardinality = self.estimate_cardinality() as usize;
+            // let right_cardinality = other.estimate_cardinality() as usize;
+            let left_cardinality = euc.get_left_cardinality() as usize;
+            let right_cardinality = euc.get_right_cardinality() as usize;
             let mut union_cardinality = euc.get_union_cardinality() as usize;
 
             // We need to correct the union for rounding errors.
@@ -327,49 +295,54 @@ mod test_comparison {
             .collect()
     }
 
+    /// Struct for a line of the CSV document.
+    struct CSVLine {
+        library: String,
+        approach: String,
+        feature: String,
+        p_value: f64,
+        our_mean: f64,
+        their_mean: f64,
+        precision: usize,
+        theoretical_error: f64,
+    }
+
+    impl IntoIterator for CSVLine {
+        type Item = String;
+        type IntoIter = std::vec::IntoIter<Self::Item>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            vec![
+                self.library,
+                self.approach,
+                self.feature,
+                format!("{:.10}", self.p_value),
+                format!("{:.10}", self.our_mean),
+                format!("{:.10}", self.their_mean),
+                format!("{}", self.precision),
+                format!("{:.10}", self.theoretical_error),
+            ]
+            .into_iter()
+        }
+    }
+
     pub(super) fn test_quality_comparatively<
         P: Precision
             + ArrayRegister<Bits6>
-            + ArrayMultiplicities<Bits6>
             + PrecisionConstants<f64>
             + ArrayRegister<Bits5>
-            + ArrayMultiplicities<Bits5>,
     >() {
-        let number_of_vectors = 100;
+        let number_of_vectors = 200;
         let maximal_size = 1_000_000;
         let mut random_state = 6516781878233_u64;
 
-        let hll5 = HyperLogLog::<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister>::default();
-        let hll_multi5 = HLLMultiplicities::<
-            P,
-            Bits5,
-            <P as ArrayRegister<Bits5>>::ArrayRegister,
-            <P as ArrayMultiplicities<Bits5>>::ArrayMultiplicities,
-        >::default();
-        let mle5 = MLE::<
-            3,
-            HLLMultiplicities<
-                P,
-                Bits5,
-                <P as ArrayRegister<Bits5>>::ArrayRegister,
-                <P as ArrayMultiplicities<Bits5>>::ArrayMultiplicities,
-            >,
-        >::default();
-
         let hll6 = HyperLogLog::<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister>::default();
-        let hll_multi6 = HLLMultiplicities::<
-            P,
-            Bits6,
-            <P as ArrayRegister<Bits6>>::ArrayRegister,
-            <P as ArrayMultiplicities<Bits6>>::ArrayMultiplicities,
-        >::default();
         let mle6 = MLE::<
             3,
-            HLLMultiplicities<
+            HyperLogLog<
                 P,
                 Bits6,
                 <P as ArrayRegister<Bits6>>::ArrayRegister,
-                <P as ArrayMultiplicities<Bits6>>::ArrayMultiplicities,
             >,
         >::default();
 
@@ -401,28 +374,26 @@ mod test_comparison {
                     &right,
                 );
 
-                let ours_hll5 = evaluate(hll5.clone(), hll5.clone(), &left, &right);
-                let ours_hll_multi5 =
-                    evaluate(hll_multi5.clone(), hll_multi5.clone(), &left, &right);
-                let ours_mle5 = evaluate(mle5.clone(), mle5.clone(), &left, &right);
                 let ours_hll6 = evaluate(hll6.clone(), hll6.clone(), &left, &right);
-                let ours_hll_multi6 =
-                    evaluate(hll_multi6.clone(), hll_multi6.clone(), &left, &right);
                 let ours_mle6 = evaluate(mle6.clone(), mle6.clone(), &left, &right);
 
                 vec![
                     AbsoluteError::from_cardinalities(&exact, &tabac_pf),
                     AbsoluteError::from_cardinalities(&exact, &tabac_plus),
                     AbsoluteError::from_cardinalities(&exact, &sa),
-                    AbsoluteError::from_cardinalities(&exact, &ours_hll5),
-                    AbsoluteError::from_cardinalities(&exact, &ours_hll_multi5),
-                    AbsoluteError::from_cardinalities(&exact, &ours_mle5),
                     AbsoluteError::from_cardinalities(&exact, &ours_hll6),
-                    AbsoluteError::from_cardinalities(&exact, &ours_hll_multi6),
                     AbsoluteError::from_cardinalities(&exact, &ours_mle6),
                 ]
             })
             .collect::<Vec<_>>();
+
+        // We open a CSV document where to store the results of the test.
+        let mut writer = csv::Writer::from_path(&format!("tests/statistical_tests_reports/quality_{}.csv", P::EXPONENT)).unwrap();
+
+        // We write the header of the CSV document.
+        writer
+            .write_record(&["library", "approach", "feature", "p-value", "our_mean", "their_mean", "precision", "theoretical_error"])
+            .unwrap();
 
         for (library_name, index) in [("TabacPF", 0), ("TabacPlus", 1), ("StreamingAlgorithms", 2)]
         {
@@ -442,12 +413,8 @@ mod test_comparison {
                 .map(|mae| mae.intersection_cardinality)
                 .collect::<Vec<_>>();
             for (approach_name, inner_index) in [
-                ("HLL5", 3),
-                ("HLLMulti5", 4),
-                ("MLE5", 5),
-                ("HLL6", 6),
-                ("HLLMulti6", 7),
-                ("MLE6", 8),
+                ("HLL6", 3),
+                ("MLE6", 4),
             ] {
                 let our_cardinalities = errors
                     .iter()
@@ -471,13 +438,27 @@ mod test_comparison {
                     ("intersections", our_intersections, &their_intersections),
                 ] {
                     let w_test = WilcoxonWTest::paired(&ours, &theirs).unwrap();
+                    let our_mean = ours.iter().sum::<f64>() / ours.len() as f64;
+                    let their_mean = theirs.iter().sum::<f64>() / theirs.len() as f64;
+
+                    let csv_line = CSVLine {
+                        library: library_name.to_string(),
+                        approach: approach_name.to_string(),
+                        feature: feature_name.to_string(),
+                        p_value: w_test.p_value(),
+                        our_mean,
+                        their_mean,
+                        precision: P::EXPONENT,
+                        theoretical_error: P::error_rate(),
+                    };
+
+                    writer.write_record(csv_line).unwrap();
+
                     // We check with a Wilcoxon signed-rank test if the difference between the
                     // two approaches is significant. If it is, we compare the mean absolute error
                     // of the two approaches. If the mean absolute error of the competitor library
                     // is lower, we fail the test.
                     if w_test.p_value() < 0.05 {
-                        let our_mean = ours.iter().sum::<f64>() / ours.len() as f64;
-                        let their_mean = theirs.iter().sum::<f64>() / theirs.len() as f64;
                         assert!(
                             our_mean <= their_mean,
                             "The MAE ({}) of the {} approach > than MAE ({}) of the {} approach for the '{}' feature (p-value {}).",
@@ -492,6 +473,10 @@ mod test_comparison {
                 }
             }
         }
+
+        // We close the CSV document.
+        writer.flush().unwrap();
+
     }
 }
 

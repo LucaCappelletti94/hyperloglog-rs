@@ -39,29 +39,10 @@ impl<F: FloatNumber, P: Precision + PrecisionConstants<F>, B: Bits, R: Registers
         other: &Self,
         other_cardinality: F,
     ) -> EstimatedUnionCardinalities<F> {
-        let (raw_union_estimate, union_zeros) =
-            self.iter_registers().zip(other.iter_registers()).fold(
-                (F::ZERO, P::NumberOfZeros::ZERO),
-                |(raw_union_estimate, union_zeros), (left, right)| {
-                    let max_register = left.max(right);
-                    (
-                        raw_union_estimate + F::inverse_register(max_register),
-                        union_zeros
-                            + if max_register.is_zero() {
-                                P::NumberOfZeros::ONE
-                            } else {
-                                P::NumberOfZeros::ZERO
-                            },
-                    )
-                },
-            );
-
-        let union_estimate = Self::adjust_estimate_with_zeros(raw_union_estimate, union_zeros);
-
         EstimatedUnionCardinalities::with_correction(
             self_cardinality,
             other_cardinality,
-            union_estimate,
+            self.estimate_union_cardinality(other),
         )
     }
 
@@ -517,27 +498,11 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch {
 
 impl<P: Precision, B: Bits, R: Registers<P, B>> HyperSpheresSketch for HyperLogLog<P, B, R> {}
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>> HyperSpheresSketch
-    for HLLMultiplicities<P, B, R, M>
-{
-}
-
-impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>>
-    HyperSpheresSketch for MLE<ERROR, HLLMultiplicities<P, B, R, M>>
-{
-}
+impl<const ERROR: i32, H> HyperSpheresSketch for MLE<ERROR, H> {}
 
 impl<P: Precision, B: Bits, R: Registers<P, B>> NormalizedHyperSpheresSketch
     for HyperLogLog<P, B, R>
 {
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>>
-    NormalizedHyperSpheresSketch for HLLMultiplicities<P, B, R, M>
-{
-}
-
-impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>>
-    NormalizedHyperSpheresSketch for MLE<ERROR, HLLMultiplicities<P, B, R, M>>
-{
-}
+impl<const ERROR: i32, H> NormalizedHyperSpheresSketch for MLE<ERROR, H> {}

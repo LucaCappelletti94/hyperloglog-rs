@@ -8,13 +8,11 @@ pub mod hyper_spheres_sketch;
 pub mod hyperloglog;
 mod hyperloglog_array;
 pub mod hyperloglog_array_trait;
-mod hyperloglog_multiplicities;
 mod hyperloglog_trait;
 pub mod iter;
-mod multiplicities;
 mod precisions;
 mod registers;
-mod sip;
+pub mod sip;
 mod utils;
 
 #[cfg(feature = "serde")]
@@ -39,10 +37,8 @@ pub mod prelude {
     pub use crate::hyperloglog::*;
     pub use crate::hyperloglog_array::*;
     pub use crate::hyperloglog_array_trait::*;
-    pub use crate::hyperloglog_multiplicities::*;
     pub use crate::hyperloglog_trait::*;
     pub use crate::iter::*;
-    pub use crate::multiplicities::*;
     pub use crate::precisions::*;
     pub use crate::registers::*;
     #[cfg(feature = "serde")]

@@ -22,6 +22,8 @@ pub(crate) use register_word::RegisterWord;
 pub(crate) use word_like::WordLike;
 pub(crate) use words::Words;
 
+use crate::{bits::Bits, prelude::Precision};
+
 #[inline]
 /// Calculates the integer ceil of the division of `numerator` by `denominator`.
 pub(crate) const fn ceil(numerator: usize, denominator: usize) -> usize {
@@ -46,11 +48,60 @@ pub(crate) const fn maximal_multeplicity(precision: usize, bits: usize) -> usize
     }
 }
 
+#[inline]
+pub(crate) fn miminal_harmonic_sum<P: Precision, B: Bits>() -> f64 {
+    f64::inverse_register(
+        maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS) as i32
+            - P::EXPONENT as i32
+            - 1,
+    )
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::prelude::*;
     use crate::sip::hash_and_index;
+
+    #[test]
+    fn test_miminal_harmonic_sum() {
+        
+        assert_eq!(miminal_harmonic_sum::<Precision4, Bits1>(), 8.0);
+        assert_eq!(miminal_harmonic_sum::<Precision10, Bits4>(), 0.03125);
+    }
+
+    macro_rules! test_minimal_harmonic_sum_by_precision_and_bits {
+        ($precision: expr, $($bits: expr),*) => {
+            $(
+                paste::item! {
+                    #[test]
+                    fn [<test_miminal_harmonic_sum_ $precision _ $bits _against_baseline>]() {
+                        let maximal_register_value = maximal_multeplicity([<Precision $precision>]::EXPONENT, [<Bits $bits>]::NUMBER_OF_BITS) - 1;
+                        let expected = [<Precision $precision>]::NUMBER_OF_REGISTERS as f64 * (-(maximal_register_value as f64)).exp2();
+                        let actual = miminal_harmonic_sum::<[<Precision $precision>], [<Bits $bits>]>();
+                        assert!(
+                            (expected - actual).abs() < f64::EPSILON,
+                            "The minimal harmonic sum ({}) is different from the expected value ({}) for precision {} and bits {}.",
+                            actual,
+                            expected,
+                            [<Precision $precision>]::EXPONENT,
+                            [<Bits $bits>]::NUMBER_OF_BITS,
+                        );
+                    }
+                }
+            )*
+        };
+    }
+
+    macro_rules! test_minimal_harmonic_sum_by_precisions {
+        ($($precision: expr),*) => {
+            $(
+                test_minimal_harmonic_sum_by_precision_and_bits!($precision, 1, 2, 3, 4);
+            )*
+        };
+    }
+
+    test_minimal_harmonic_sum_by_precisions!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
 
     #[test]
     fn test_ceil() {

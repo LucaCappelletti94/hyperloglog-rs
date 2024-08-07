@@ -29,11 +29,11 @@ pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug {
     /// * `value` - The value to be set in the register.
     ///
     /// # Returns
-    /// The previous value of the register, if the new value is greater than the current value.
+    /// The previous value of the register, and the larger of the two values.
     ///
     /// # Safety
     /// The caller must ensure that the index is within the bounds of the data structure.
-    unsafe fn set_greater(&mut self, index: usize, value: u32) -> Option<u32>;
+    unsafe fn set_greater(&mut self, index: usize, value: u32) -> (u32, u32);
 
     /// Returns the value of the register at the given index.
     fn get_register(&self, index: usize) -> u32;

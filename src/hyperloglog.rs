@@ -3,7 +3,7 @@ use crate::utils::*;
 use crate::{prelude::HyperLogLogTrait, sip::hash_and_index};
 use core::hash::Hash;
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq)]
+#[derive(Clone, Debug, Copy)]
 /// A probabilistic algorithm for estimating the number of distinct elements in a set.
 ///
 /// HyperLogLog is a probabilistic algorithm designed to estimate the number
@@ -54,9 +54,22 @@ use core::hash::Hash;
 pub struct HyperLogLog<P: Precision, B: Bits, R: Registers<P, B>> {
     registers: R,
     number_of_zero_registers: P::NumberOfZeros,
+    harmonic_sum: f64,
     _precision: core::marker::PhantomData<P>,
     _bits: core::marker::PhantomData<B>,
 }
+
+/// Implementation of partial equality for HyperLogLog so as to compare two HyperLogLog instances
+/// ignoring the harmonic sum.
+impl<P: Precision, B: Bits, R: Registers<P, B>> PartialEq for HyperLogLog<P, B, R> {
+    fn eq(&self, other: &Self) -> bool {
+        self.registers == other.registers
+    }
+}
+
+/// Implementation of equality for HyperLogLog so as to compare two HyperLogLog instances
+/// ignoring the harmonic sum.
+impl<P: Precision, B: Bits, R: Registers<P, B>> Eq for HyperLogLog<P, B, R> {}
 
 impl<P: Precision, B: Bits, R: Registers<P, B>> HyperLogLog<P, B, R> {
     /// Create a new HyperLogLog counter.
@@ -66,6 +79,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>> HyperLogLog<P, B, R> {
             number_of_zero_registers: unsafe {
                 P::NumberOfZeros::try_from(P::NUMBER_OF_REGISTERS).unwrap_unchecked()
             },
+            harmonic_sum: P::NUMBER_OF_REGISTERS as f64,
             _precision: core::marker::PhantomData,
             _bits: core::marker::PhantomData,
         }
@@ -92,20 +106,23 @@ impl<P: Precision, B: Bits, R: Registers<P, B>> HyperLogLog<P, B, R> {
     /// assert_eq!(collected_registers, vec![0_u32; 1 << 4]);
     /// ```
     pub fn from_registers(registers: R) -> Self {
-        let number_of_zero_registers = registers
+        let (number_of_zero_registers, harmonic_sum) = registers
             .iter_registers()
             .map(|register| {
-                if register.is_zero() {
-                    P::NumberOfZeros::ONE
-                } else {
-                    P::NumberOfZeros::ZERO
-                }
+                (
+                    P::NumberOfZeros::from_bool(register.is_zero()),
+                    f64::inverse_register(register as i32),
+                )
             })
-            .sum();
+            .fold(
+                (P::NumberOfZeros::ZERO, 0.0),
+                |(acc_zeros, acc_sum), (zeros, sum)| (acc_zeros + zeros, acc_sum + sum),
+            );
 
         Self {
             registers,
             number_of_zero_registers,
+            harmonic_sum: harmonic_sum,
             _precision: core::marker::PhantomData,
             _bits: core::marker::PhantomData,
         }
@@ -174,6 +191,22 @@ impl<P: Precision, B: Bits, R: Registers<P, B>> HyperLogLogTrait<P, B> for Hyper
     }
 
     #[inline(always)]
+    /// Returns the harmonic sum of the registers.
+    fn harmonic_sum<F: FloatNumber>(&self) -> F {
+        F::from_f64(self.harmonic_sum)
+    }
+
+    #[inline(always)]
+    fn is_full(&self) -> bool {
+        // The harmonic sum is defined as Sum(2^(-register_value)) for all registers.
+        // When all registers are maximally filled, i.e. equal to the maximal multiplicity value,
+        // the harmonic sum is equal to (2^(-max_multiplicity)) * number_of_registers.
+        // Since number_of_registers is a power of 2, specifically 2^exponent, the harmonic sum
+        // is equal to 2^(exponent - max_multiplicity).
+        self.harmonic_sum <= miminal_harmonic_sum::<P, B>()
+    }
+
+    #[inline(always)]
     /// Adds an element to the HyperLogLog counter, and returns whether the counter has changed.
     ///
     /// # Arguments
@@ -210,19 +243,18 @@ impl<P: Precision, B: Bits, R: Registers<P, B>> HyperLogLogTrait<P, B> for Hyper
         let (hash, index) = hash_and_index::<T, P, B>(&rhs);
 
         // Count leading zeros.
-        let number_of_zeros: u32 = 1 + hash.leading_zeros();
-        debug_assert!(number_of_zeros < 1 << B::NUMBER_OF_BITS);
+        let new_register_value: u32 = 1 + hash.leading_zeros();
+        debug_assert!(new_register_value < 1 << B::NUMBER_OF_BITS);
 
-        unsafe {
-            if let Some(old_register) = self.registers.set_greater(index, number_of_zeros) {
-                if old_register == 0 {
-                    self.number_of_zero_registers -= P::NumberOfZeros::ONE;
-                }
-                true
-            } else {
-                false
-            }
-        }
+        let (old_register_value, larger_register_value) =
+            unsafe { self.registers.set_greater(index, new_register_value) };
+
+        self.number_of_zero_registers -= P::NumberOfZeros::from_bool(old_register_value == 0);
+
+        self.harmonic_sum += f64::inverse_register(larger_register_value as i32)
+            - f64::inverse_register(old_register_value as i32);
+
+        old_register_value != new_register_value
     }
 
     fn get_register(&self, index: usize) -> u32 {
@@ -247,20 +279,21 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Rhs: HyperLogLogTrait<P, B>>
     #[inline(always)]
     fn bitor_assign(&mut self, rhs: Rhs) {
         let mut rhs_registers = rhs.iter_registers();
-        let mut number_of_zeros = P::NumberOfZeros::ZERO;
 
-        self.registers.apply(|register| {
+        self.registers.apply(|old_register| {
             let rhs_register: u32 = rhs_registers.next().unwrap();
-            let new_register: u32 = register.max(rhs_register);
 
-            if new_register == 0 {
-                number_of_zeros += P::NumberOfZeros::ONE;
+            if rhs_register > old_register {
+                self.harmonic_sum += f64::inverse_register(rhs_register as i32)
+                    - f64::inverse_register(old_register as i32);
+                if old_register == 0 {
+                    self.number_of_zero_registers -= P::NumberOfZeros::ONE;
+                }
+                rhs_register
+            } else {
+                old_register
             }
-
-            new_register
         });
-
-        self.number_of_zero_registers = number_of_zeros;
     }
 }
 
@@ -273,13 +306,5 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Rhs: HyperLogLogTrait<P, B>> cor
     fn bitor(mut self, rhs: Rhs) -> Self {
         self.bitor_assign(rhs);
         self
-    }
-}
-
-impl<P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>> From<HyperLogLog<P, B, R>>
-    for HLLMultiplicities<P, B, R, M>
-{
-    fn from(hll: HyperLogLog<P, B, R>) -> Self {
-        Self::from_registers(hll.registers)
     }
 }

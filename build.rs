@@ -12,6 +12,25 @@ fn get_alpha(number_of_registers: usize) -> f64 {
     }
 }
 
+fn get_linear_count(number_of_registers: usize, threshold: usize) -> usize {
+    (number_of_registers as f64 * f64::exp(-(threshold as f64 / number_of_registers as f64)))
+        .round() as usize
+}
+
+fn get_linear_count_zeros() -> [usize; 15] {
+    let linear_count_threshold: [usize; 15] = [
+        10, 20, 40, 80, 220, 400, 900, 1_800, 3_100, 6_500, 11_500, 20_000, 50_000, 120_000,
+        350_000,
+    ];
+    let mut linear_count_zeros = [0; 15];
+    for i in 0..15 {
+        let exponent = i + 4;
+        let number_of_registers = 1 << exponent;
+        linear_count_zeros[i] = get_linear_count(number_of_registers, linear_count_threshold[i]);
+    }
+    linear_count_zeros
+}
+
 fn format_float_with_underscores(value: f64, precision: usize) -> String {
     // Format the float with the specified precision
     let formatted = format!("{:.*}", precision, value);
@@ -64,7 +83,7 @@ fn format_float_with_underscores(value: f64, precision: usize) -> String {
 
 fn main() {
     let minimum_precision = 4;
-    let maximal_precision = 16;
+    let maximal_precision = 18;
     let maximal_number_of_registers = (1 << maximal_precision) + 1;
 
     // For each precision, we generate the linear counting corrections
@@ -89,17 +108,32 @@ fn main() {
             .join("\n"),
     );
 
+    let linear_count_zeros = format!(
+        "const LINEAR_COUNT_ZEROS: [usize; {number_of_precisions}] = [\n{}\n];",
+        get_linear_count_zeros()
+            .iter()
+            .map(|x| format!("    {},", x))
+            .collect::<Vec<String>>()
+            .join("\n"),
+    );
+
     // Define the output path for the generated code
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let log_values_path = Path::new(&out_dir).join("log_values.rs");
     let alpha_values_path = Path::new(&out_dir).join("alpha_values.rs");
+    let linear_count_zeros_path = Path::new(&out_dir).join("linear_count_zeros.rs");
 
     // Write the generated code to the file
-    let mut file = File::create(log_values_path).unwrap();
-    file.write_all(log_values.as_bytes()).unwrap();
+    let mut log_values_file = File::create(log_values_path).unwrap();
+    log_values_file.write_all(log_values.as_bytes()).unwrap();
 
     let mut alpha_values_file = File::create(alpha_values_path).unwrap();
     alpha_values_file
         .write_all(alpha_values.as_bytes())
+        .unwrap();
+
+    let mut linear_count_zeros_file = File::create(linear_count_zeros_path).unwrap();
+    linear_count_zeros_file
+        .write_all(linear_count_zeros.as_bytes())
         .unwrap();
 }

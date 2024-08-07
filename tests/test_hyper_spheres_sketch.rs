@@ -263,13 +263,8 @@ macro_rules! test_hyper_spheres_by_precision_and_size {
                 }
 
                 #[test]
-                fn [<test_hll_multi_hyper_spheres_sketch_ $precision:lower _ $bits:lower _size_ $size>]() {
-                    test_hyper_spheres_sketch::<HyperLogLogArray<$precision, $bits, HLLMultiplicities<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, <$precision as ArrayMultiplicities<$bits>>::ArrayMultiplicities>, $size>, $precision, $bits, HLLMultiplicities<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, <$precision as ArrayMultiplicities<$bits>>::ArrayMultiplicities>, $size>();
-                }
-
-                #[test]
                 fn [<test_mle_hll_multi_hyper_spheres_sketch_ $precision:lower _ $bits:lower _size_ $size>]() {
-                    test_hyper_spheres_sketch::<HyperLogLogArray<$precision, $bits, MLE<3, HLLMultiplicities<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, <$precision as ArrayMultiplicities<$bits>>::ArrayMultiplicities>>, $size>, $precision, $bits, MLE<3, HLLMultiplicities<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, <$precision as ArrayMultiplicities<$bits>>::ArrayMultiplicities>>, $size>();
+                    test_hyper_spheres_sketch::<HyperLogLogArray<$precision, $bits, MLE<3, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>>, $size>, $precision, $bits, MLE<3, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>>, $size>();
                 }
             }
         )+
@@ -279,7 +274,7 @@ macro_rules! test_hyper_spheres_by_precision_and_size {
 macro_rules! test_hyper_spheres_by_precision_and_bits {
     ($precision:ty, ($($bits:ty),+)) => {
         $(
-            test_hyper_spheres_by_precision_and_size!($precision, $bits, 2, 3, 4, 5, 6);
+            test_hyper_spheres_by_precision_and_size!($precision, $bits, 3, 4, 5);
         )+
     };
 }

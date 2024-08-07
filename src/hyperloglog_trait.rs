@@ -13,23 +13,25 @@ pub trait HyperLogLogTrait<P: Precision, B: Bits>:
         Self: 'a;
 
     fn adjust_estimate_with_zeros<F: FloatNumber>(
-        raw_estimate: F,
+        harmonic_sum: F,
         number_of_zeros: P::NumberOfZeros,
     ) -> F
     where
         P: PrecisionConstants<F>,
     {
-        if !number_of_zeros.is_zero() {
-            let low_range_correction = P::small_correction(number_of_zeros);
-            if low_range_correction <= P::LINEAR_COUNT_THRESHOLD {
-                return low_range_correction;
-            }
+        if number_of_zeros >= P::LINEAR_COUNT_ZEROS {
+            return P::small_correction(number_of_zeros);
         }
-        P::adjust_estimate(raw_estimate)
+        P::adjust_estimate(harmonic_sum)
     }
 
     /// Returns an iterator over the registers of the HyperLogLog counter.
     fn iter_registers(&self) -> Self::IterRegisters<'_>;
+
+    /// Returns the harmonic sum of the registers.
+    fn harmonic_sum<F: FloatNumber>(&self) -> F
+    where
+        P: PrecisionConstants<F>;
 
     #[inline(always)]
     /// Estimates the cardinality of the set based on the HLL counter data.
@@ -60,14 +62,7 @@ pub trait HyperLogLogTrait<P: Precision, B: Bits>:
     where
         P: PrecisionConstants<F>,
     {
-        if !self.get_number_of_zero_registers().is_zero() {
-            let low_range_correction = P::small_correction(self.get_number_of_zero_registers());
-            if low_range_correction <= P::LINEAR_COUNT_THRESHOLD {
-                return low_range_correction;
-            }
-        }
-
-        P::adjust_estimate(self.iter_registers().map(F::inverse_register).sum())
+        Self::adjust_estimate_with_zeros(self.harmonic_sum(), self.get_number_of_zero_registers())
     }
 
     #[inline(always)]
@@ -108,12 +103,23 @@ pub trait HyperLogLogTrait<P: Precision, B: Bits>:
     ///
     /// assert!(union_cardinality >= 3.0 * 0.9 && union_cardinality <= 3.0 * 1.1);
     /// ```
-    fn estimate_union_cardinality<F: FloatNumber>(&self, other: &Self) -> F
+    fn estimate_union_cardinality<F: FloatNumber, Rhs: HyperLogLogTrait<P, B>>(
+        &self,
+        other: &Rhs,
+    ) -> F
     where
         P: PrecisionConstants<F>,
     {
-        self.estimate_union_and_sets_cardinality(other)
-            .get_union_cardinality()
+        let mut harmonic_sum = F::ZERO;
+        let mut union_zeros = P::NumberOfZeros::ZERO;
+
+        for (left, right) in self.iter_registers().zip(other.iter_registers()) {
+            let max_register = if left > right { left } else { right };
+            harmonic_sum += F::inverse_register(max_register as i32);
+            union_zeros += P::NumberOfZeros::from_bool(max_register.is_zero());
+        }
+
+        Self::adjust_estimate_with_zeros(harmonic_sum, union_zeros)
     }
 
     #[inline(always)]
@@ -125,42 +131,11 @@ pub trait HyperLogLogTrait<P: Precision, B: Bits>:
     where
         P: PrecisionConstants<F>,
     {
-        let (raw_union_estimate, raw_left_estimate, raw_right_estimate, union_zeros) =
-            self.iter_registers().zip(other.iter_registers()).fold(
-                (F::ZERO, F::ZERO, F::ZERO, P::NumberOfZeros::ZERO),
-                |(raw_union_estimate, raw_left_estimate, raw_right_estimate, union_zeros),
-                 (left, right)| {
-                    (
-                        raw_union_estimate
-                            + F::inverse_register(if left > right { left } else { right }),
-                        raw_left_estimate + F::inverse_register(left),
-                        raw_right_estimate + F::inverse_register(right),
-                        union_zeros
-                            + if left.is_zero() && right.is_zero() {
-                                P::NumberOfZeros::ONE
-                            } else {
-                                P::NumberOfZeros::ZERO
-                            },
-                    )
-                },
-            );
-
-        // The raw value, being obtained by summing the inverse of the registers, cannot be higher
-        // than the number of registers as the higher the register value the lower the exponentiation.
-        debug_assert!(raw_union_estimate <= raw_left_estimate);
-        debug_assert!(raw_union_estimate <= raw_right_estimate);
-
-        let union_estimate = Self::adjust_estimate_with_zeros(raw_union_estimate, union_zeros);
-        let left_estimate = Self::adjust_estimate_with_zeros(
-            raw_left_estimate,
-            self.get_number_of_zero_registers(),
-        );
-        let right_estimate = Self::adjust_estimate_with_zeros(
-            raw_right_estimate,
-            other.get_number_of_zero_registers(),
-        );
-
-        EstimatedUnionCardinalities::with_correction(left_estimate, right_estimate, union_estimate)
+        EstimatedUnionCardinalities::with_correction(
+            self.estimate_cardinality(),
+            other.estimate_cardinality(),
+            self.estimate_union_cardinality(other),
+        )
     }
 
     #[inline(always)]
@@ -334,6 +309,65 @@ pub trait HyperLogLogTrait<P: Precision, B: Bits>:
                     .unwrap_unchecked()
             }
     }
+
+    /// Returns whether the HLL counter is full.
+    ///
+    /// A counter is considered full when all registers are maximally filled.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use hyperloglog_rs::prelude::*;
+    ///
+    /// let mut hll: HyperLogLog<
+    ///     Precision4,
+    ///     Bits4,
+    ///     <Precision4 as ArrayRegister<Bits4>>::ArrayRegister,
+    /// > = HyperLogLog::from_registers([u32::MAX; 2]);
+    ///
+    /// assert!(
+    ///     hll.is_full(),
+    ///     "1) The counter is not full: {:?}",
+    ///     hll.harmonic_sum::<f64>()
+    /// );
+    ///
+    /// let mut hll: HyperLogLog<
+    ///     Precision10,
+    ///     Bits4,
+    ///     <Precision10 as ArrayRegister<Bits4>>::ArrayRegister,
+    /// > = HyperLogLog::from_registers([u32::MAX; 128]);
+    ///
+    /// assert!(
+    ///     hll.is_full(),
+    ///     "2) The counter is not full: {:?}",
+    ///     hll.harmonic_sum::<f64>()
+    /// );
+    ///
+    /// let mut hll: HyperLogLog<
+    ///     Precision4,
+    ///     Bits4,
+    ///     <Precision4 as ArrayRegister<Bits4>>::ArrayRegister,
+    /// > = HyperLogLog::from_registers([1; 2]);
+    ///
+    /// assert!(!hll.is_full());
+    ///
+    /// let mut hll: HyperLogLog<
+    ///     Precision10,
+    ///     Bits4,
+    ///     <Precision10 as ArrayRegister<Bits4>>::ArrayRegister,
+    /// > = HyperLogLog::from_registers([1; 128]);
+    ///
+    /// assert!(!hll.is_full());
+    ///
+    /// let mut hll: HyperLogLog<
+    ///     Precision10,
+    ///     Bits4,
+    ///     <Precision10 as ArrayRegister<Bits4>>::ArrayRegister,
+    /// > = HyperLogLog::default();
+    ///
+    /// assert!(!hll.is_full());
+    /// ```
+    fn is_full(&self) -> bool;
 
     /// Returns the number of registers with zero values. This value is used for computing a small
     /// correction when estimating the cardinality of a small set.

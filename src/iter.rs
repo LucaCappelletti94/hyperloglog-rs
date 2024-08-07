@@ -42,7 +42,7 @@ pub trait EstimateIterCardinality {
     /// * `BITS` - The number of bits per register in the HyperLogLog counter.
     fn estimate_cardinality<
         F: FloatNumber,
-        P: Precision + PrecisionConstants<F> + ArrayRegister<B> + ArrayMultiplicities<B>,
+        P: Precision + PrecisionConstants<F> + ArrayRegister<B>,
         B: Bits,
     >(
         self,
@@ -55,16 +55,15 @@ where
 {
     fn estimate_cardinality<
         F: FloatNumber,
-        P: Precision + PrecisionConstants<F> + ArrayRegister<B> + ArrayMultiplicities<B>,
+        P: Precision + PrecisionConstants<F> + ArrayRegister<B>,
         B: Bits,
     >(
         self,
     ) -> F {
-        let hll: HLLMultiplicities<
+        let hll: HyperLogLog<
             P,
             B,
             <P as ArrayRegister<B>>::ArrayRegister,
-            <P as ArrayMultiplicities<B>>::ArrayMultiplicities,
         > = self.collect();
         hll.estimate_cardinality()
     }

@@ -36,38 +36,21 @@ hll2.insert(&3);
 let union = hll | hll2;
 
 let estimated_cardinality: f32 = union.estimate_cardinality();
-assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
-        estimated_cardinality <= 3.0_f32 * 1.1);
+assert!(
+estimated_cardinality >= 3.0_f32 * 0.9 &&
+estimated_cardinality <= 3.0_f32 * 1.1,
+"Expected cardinality to be around 3, got {}",
+estimated_cardinality
+);
 
 let intersection_cardinality: f32 = hll.estimate_intersection_cardinality(&hll2);
 
-assert!(intersection_cardinality >= 1.0_f32 * 0.9 &&
-        intersection_cardinality <= 1.0_f32 * 1.1);
-```
-
-### Hyperloglog with Molteplicities
-Within an HyperLogLog counter, it is possible to precompute the number of molteplicities of the values of the registers. This can lead to a significant performance boost for estimating the cardinality (no improvements for unions or intersections estimations), but increases the memory usage of the counter by the number of possible values that may be stored in a register, as deteremined by the provided bit-size. For instance, register of 4 bits can store 16 different values, one of 5 bits can store 32 different values, and so on.
-
-```rust
-use hyperloglog_rs::prelude::*;
-
-let mut hll = HLLMultiplicities::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister, <Precision14 as ArrayMultiplicities<Bits5>>::ArrayMultiplicities>::default();
-
-hll.insert(&1);
-hll.insert(&1);
-hll.insert(&2);
-
-let mut hll2 = HLLMultiplicities::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister, <Precision14 as ArrayMultiplicities<Bits5>>::ArrayMultiplicities>::default();
-
-hll2.insert(&2);
-hll2.insert(&3);
-
-let union = hll | hll2;
-
-let estimated_cardinality: f32 = union.estimate_cardinality();
-
-assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
-        estimated_cardinality <= 3.0_f32 * 1.1);
+assert!(
+        intersection_cardinality >= 1.0_f32 * 0.9 &&
+        intersection_cardinality <= 1.0_f32 * 1.1,
+        "Expected intersection cardinality to be around 1, got {}",
+        intersection_cardinality
+);
 ```
 
 ### Using MLE estimation
@@ -78,26 +61,34 @@ The [MLE estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github
 {
         use hyperloglog_rs::prelude::*;
 
-        let mut hll1: MLE<2, HLLMultiplicities::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister, <Precision14 as ArrayMultiplicities<Bits5>>::ArrayMultiplicities>> = MLE::default();
+        let mut hll1: MLE<2, HyperLogLog::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister>> = MLE::default();
         
         hll1.insert(&1);
         hll1.insert(&2);
         hll1.insert(&3);
 
-        let mut hll2: MLE<2, HLLMultiplicities::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister, <Precision14 as ArrayMultiplicities<Bits5>>::ArrayMultiplicities>> = MLE::default();
+        let mut hll2: MLE<2, HyperLogLog::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister>> = MLE::default();
 
         hll2.insert(&2);
         hll2.insert(&3);
         hll2.insert(&4);
 
         let estimated_cardinality: f32 = hll1.estimate_cardinality();
-        assert!(estimated_cardinality >= 3.0_f32 * 0.9 &&
-                estimated_cardinality <= 3.0_f32 * 1.1);
+        assert!(
+                estimated_cardinality >= 3.0_f32 * 0.9 &&
+                estimated_cardinality <= 3.0_f32 * 1.1,
+                "MLE: Expected cardinality to be around 3, got {}",
+                estimated_cardinality
+        );
 
         let estimate_intersection_cardinality: f32 = hll1.estimate_intersection_cardinality(&hll2);
 
-        assert!(estimate_intersection_cardinality >= 2.0_f32 * 0.9 &&
-                estimate_intersection_cardinality <= 2.0_f32 * 1.1);
+        assert!(
+                estimate_intersection_cardinality >= 2.0_f32 * 0.9 &&
+                estimate_intersection_cardinality <= 2.0_f32 * 1.1,
+                "MLE: Expected intersection cardinality to be around 2, got {}",
+                estimate_intersection_cardinality
+        );
 }
 ```
 

@@ -27,6 +27,15 @@ pub trait Number:
     + PartialOrd
 {
     fn saturating_zero_sub(self, other: Self) -> Self;
+
+    #[inline(always)] 
+    fn from_bool(value: bool) -> Self {
+        if value {
+            Self::ONE
+        } else {
+            Self::ZERO
+        }
+    }
 }
 
 pub trait PositiveIntegerNumber: Number + Eq + Ord + TryInto<usize> + TryFrom<usize> {}
@@ -37,10 +46,9 @@ pub trait FloatNumber:
     const INFINITY: Self;
     const EPSILON: Self;
 
-    fn inverse_register(register: u32) -> Self;
+    fn inverse_register(register: i32) -> Self;
 
-    fn inverse_register_with_scalar(register: u32, scalar: u32) -> Self;
-
+    #[inline(always)]
     fn saturating_one_div(self, other: Self) -> Self {
         debug_assert!(self >= Self::ZERO);
         debug_assert!(other >= Self::ZERO);
@@ -52,6 +60,8 @@ pub trait FloatNumber:
     }
 
     fn from_usize(value: usize) -> Self;
+
+    fn from_f64(value: f64) -> Self;
 
     fn to_usize(self) -> usize;
 
@@ -87,6 +97,7 @@ macro_rules! impl_number {
     ($($t:ty),*) => {
         $(
             impl Number for $t {
+                #[inline(always)]
                 fn saturating_zero_sub(self, other: Self) -> Self {
                     debug_assert!(self >= Self::ZERO);
                     debug_assert!(other >= Self::ZERO);
@@ -119,15 +130,16 @@ impl FloatNumber for f32 {
     const INFINITY: Self = f32::INFINITY;
     const EPSILON: Self = f32::EPSILON;
 
-    fn inverse_register(register: u32) -> Self {
+    #[inline(always)]
+    fn inverse_register(register: i32) -> Self {
         f32::from_le_bytes(((127 - register) << 23).to_le_bytes())
     }
 
-    fn inverse_register_with_scalar(register: u32, scalar: u32) -> Self {
-        scalar as f32 * f32::inverse_register(register)
+    fn from_usize(value: usize) -> Self {
+        value as Self
     }
 
-    fn from_usize(value: usize) -> Self {
+    fn from_f64(value: f64) -> Self {
         value as Self
     }
 
@@ -184,32 +196,39 @@ impl FloatNumber for f64 {
     const INFINITY: Self = f64::INFINITY;
     const EPSILON: Self = f64::EPSILON;
 
-    fn inverse_register(register: u32) -> Self {
+    #[inline(always)]
+    fn inverse_register(register: i32) -> Self {
         f64::from_le_bytes(((1023 - register as i64) << 52).to_le_bytes())
     }
 
-    fn inverse_register_with_scalar(register: u32, scalar: u32) -> Self {
-        scalar as f64 * f64::inverse_register(register)
-    }
-
+    #[inline(always)]
     fn from_usize(value: usize) -> Self {
         value as Self
     }
 
+    #[inline(always)]
+    fn from_f64(value: f64) -> Self {
+        value as Self
+    }
+
+    #[inline(always)]
     fn to_usize(self) -> usize {
         self as usize
     }
 
+    #[inline(always)]
     #[cfg(feature = "std")]
     fn abs(self) -> Self {
         self.abs()
     }
 
+    #[inline(always)]
     #[cfg(feature = "std")]
     fn ln(self) -> Self {
         self.ln()
     }
 
+    #[inline(always)]
     #[cfg(feature = "std")]
     fn ln_1p(self) -> Self {
         self.ln_1p()
@@ -259,57 +278,28 @@ mod test_inverse_register {
                 for register_value in 0..=maximal_multeplicity(precision, bits) {
                     assert_eq!(
                         2.0_f32.powf(-(register_value as f32)),
-                        f32::inverse_register(register_value as u32),
+                        f32::inverse_register(register_value as i32),
                         "Expected: 2^(-{}), Got: {}",
                         register_value,
-                        f32::inverse_register(register_value as u32)
+                        f32::inverse_register(register_value as i32)
                     );
                     assert_eq!(
                         2.0_f64.powf(-(register_value as f64)),
-                        f64::inverse_register(register_value as u32),
+                        f64::inverse_register(register_value as i32),
                         "Expected: 2^(-{}), Got: {}",
                         register_value,
-                        f64::inverse_register(register_value as u32)
+                        f64::inverse_register(register_value as i32)
                     );
                     assert_eq!(
                         f64::from_bits(
                             u64::max_value().wrapping_sub(u64::from(register_value as u64)) << 54
                                 >> 2
                         ),
-                        f64::inverse_register(register_value as u32),
+                        f64::inverse_register(register_value as i32),
                         "Expected: 2^(-{}), Got: {}",
                         register_value,
-                        f64::inverse_register(register_value as u32)
+                        f64::inverse_register(register_value as i32)
                     );
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_inverse_register_with_scalar() {
-        // At the most, we create registers with 6 bits, which
-        // means that the maximum values is 2^7 - 1 = 127.
-        // For scrupulousness, we test for all values from 0 to 256.
-        for precision in 4..=16 {
-            for bits in 1..=6 {
-                for register_value in 0..=maximal_multeplicity(precision, bits) {
-                    for scalar_value in 0..=maximal_multeplicity(precision, bits) {
-                        assert_eq!(
-                            scalar_value as f32 * 2.0_f32.powf(-(register_value as f32)),
-                            f32::inverse_register_with_scalar(
-                                register_value as u32,
-                                scalar_value as u32
-                            )
-                        );
-                        assert_eq!(
-                            scalar_value as f64 * 2.0_f64.powf(-(register_value as f64)),
-                            f64::inverse_register_with_scalar(
-                                register_value as u32,
-                                scalar_value as u32
-                            )
-                        );
-                    }
                 }
             }
         }

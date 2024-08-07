@@ -12,6 +12,7 @@ use crate::{array_default::ArrayIter, utils::*};
 include!("bias.rs");
 include!(concat!(env!("OUT_DIR"), "/log_values.rs"));
 include!(concat!(env!("OUT_DIR"), "/alpha_values.rs"));
+include!(concat!(env!("OUT_DIR"), "/linear_count_zeros.rs"));
 
 pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     /// The data type to use for the number of zeros registers counter.
@@ -38,7 +39,7 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
 
 pub trait PrecisionConstants<F: FloatNumber>: Precision {
     const ALPHA: F;
-    const LINEAR_COUNT_THRESHOLD: F;
+    const LINEAR_COUNT_ZEROS: Self::NumberOfZeros;
     const NUMBER_OF_REGISTERS_FLOAT: F;
     /// Estimates vector associated to the precision.
     type EstimatesType: ArrayIter<F> + Copy;
@@ -49,11 +50,11 @@ pub trait PrecisionConstants<F: FloatNumber>: Precision {
 
     fn small_correction(number_of_zero_registers: Self::NumberOfZeros) -> F;
 
-    fn bias(raw_estimate: F) -> F {
+    fn bias(harmonic_sum: F) -> F {
         // Raw estimate is first/last in estimates. Return the first/last bias.
-        if raw_estimate <= Self::ESTIMATES[0] {
+        if harmonic_sum <= Self::ESTIMATES[0] {
             Self::BIAS[0]
-        } else if Self::ESTIMATES[Self::ESTIMATES.len() - 1] <= raw_estimate {
+        } else if Self::ESTIMATES[Self::ESTIMATES.len() - 1] <= harmonic_sum {
             Self::BIAS[Self::BIAS.len() - 1]
         } else {
             // Raw estimate is somewhere in between estimates.
@@ -61,10 +62,10 @@ pub trait PrecisionConstants<F: FloatNumber>: Precision {
             //
             // Here we unwrap because neither the values in `estimates`
             // nor `raw` are going to be NaN.
-            let partition_index = Self::ESTIMATES.partition_point(|est| *est <= raw_estimate);
+            let partition_index = Self::ESTIMATES.partition_point(|est| *est <= harmonic_sum);
 
             // Return linear interpolation between raw's neighboring points.
-            let ratio = (raw_estimate - Self::ESTIMATES[partition_index - 1])
+            let ratio = (harmonic_sum - Self::ESTIMATES[partition_index - 1])
                 / (Self::ESTIMATES[partition_index] - Self::ESTIMATES[partition_index - 1]);
 
             // Calculate bias.
@@ -73,75 +74,20 @@ pub trait PrecisionConstants<F: FloatNumber>: Precision {
         }
     }
 
-    fn adjust_estimate(mut raw_estimate: F) -> F {
+    fn adjust_estimate(mut harmonic_sum: F) -> F {
         // Apply the final scaling factor to obtain the estimate of the cardinality
-        raw_estimate =
+        harmonic_sum =
             Self::ALPHA * Self::NUMBER_OF_REGISTERS_FLOAT * Self::NUMBER_OF_REGISTERS_FLOAT
-                / raw_estimate;
+                / harmonic_sum;
 
         // Apply the small range correction factor if the raw estimate is below the threshold
         // and there are zero registers in the counter.
-        if raw_estimate <= F::FIVE * Self::NUMBER_OF_REGISTERS_FLOAT {
-            raw_estimate - Self::bias(raw_estimate)
+        if harmonic_sum <= F::FIVE * Self::NUMBER_OF_REGISTERS_FLOAT {
+            harmonic_sum - Self::bias(harmonic_sum)
         } else {
-            raw_estimate
+            harmonic_sum
         }
     }
-}
-
-/// Macro to map a gven precision exponent to the linear counting threshold.
-macro_rules! impl_linear_count_threshold {
-    (4) => {
-        10
-    };
-    (5) => {
-        20
-    };
-    (6) => {
-        40
-    };
-    (7) => {
-        80
-    };
-    (8) => {
-        220
-    };
-    (9) => {
-        400
-    };
-    (10) => {
-        900
-    };
-    (11) => {
-        1800
-    };
-    (12) => {
-        3100
-    };
-    (13) => {
-        6500
-    };
-    (14) => {
-        11500
-    };
-    (15) => {
-        20000
-    };
-    (16) => {
-        50000
-    };
-    (17) => {
-        120000
-    };
-    (18) => {
-        350000
-    };
-    ($n:expr) => {
-        compile_error!(concat!(
-            "No linear counting threshold defined for number: ",
-            stringify!($n)
-        ));
-    };
 }
 
 /// Macro to map a given precision exponent to the adequate number of zeros data type to use.
@@ -204,7 +150,7 @@ macro_rules! impl_precision {
 
             impl PrecisionConstants<f32> for [<Precision $exponent>] {
                 const ALPHA: f32 = ALPHA_VALUES[Self::EXPONENT - 4] as f32;
-                const LINEAR_COUNT_THRESHOLD: f32 = impl_linear_count_threshold!($exponent) as f32;
+                const LINEAR_COUNT_ZEROS: Self::NumberOfZeros = LINEAR_COUNT_ZEROS[Self::EXPONENT - 4] as Self::NumberOfZeros;
                 const NUMBER_OF_REGISTERS_FLOAT: f32 = Self::NUMBER_OF_REGISTERS as f32;
                 type BiasType = [f32; bias_size_from_precision!($exponent)];
                 const BIAS: Self::BiasType = bias_from_precision!($exponent);
@@ -220,7 +166,7 @@ macro_rules! impl_precision {
 
             impl PrecisionConstants<f64> for [<Precision $exponent>] {
                 const ALPHA: f64 = ALPHA_VALUES[Self::EXPONENT - 4];
-                const LINEAR_COUNT_THRESHOLD: f64 = impl_linear_count_threshold!($exponent) as f64;
+                const LINEAR_COUNT_ZEROS: Self::NumberOfZeros = LINEAR_COUNT_ZEROS[Self::EXPONENT - 4] as Self::NumberOfZeros;
                 const NUMBER_OF_REGISTERS_FLOAT: f64 = Self::NUMBER_OF_REGISTERS as f64;
                 type BiasType = [f64; bias_size_from_precision!($exponent)];
                 const BIAS: Self::BiasType = bias_from_precision!($exponent);

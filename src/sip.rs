@@ -71,7 +71,7 @@ unsafe fn u8to64_le(buf: &[u8], start: usize, len: usize) -> u64 {
 /// Porting of 64-bit SipHash from https://github.com/veorq/SipHash
 #[derive(Debug, Clone, Copy)]
 #[repr(align(16), C)] //alignement and C repr so the compiler can use simd instructions
-struct Sip64Scalar<const C: usize, const D: usize> {
+pub struct Sip64Scalar<const C: usize, const D: usize> {
     // interleave the v values so that the compiler can optimize with simd
     v0: u64,
     v2: u64,
@@ -423,11 +423,7 @@ mod test {
 pub(crate) fn hash_and_index<T: core::hash::Hash, P: Precision, B: Bits>(
     element: &T,
 ) -> (u64, usize) {
-    // let mut hasher = crate::sip::Sip64Scalar::<1, 3>::new();
-    // element.hash(&mut hasher);
-    // let hash = hasher.finish();
-
-    let mut hasher = twox_hash::XxHash64::default();
+    let mut hasher = Sip64Scalar::<2, 4>::new();
     element.hash(&mut hasher);
     let hash = hasher.finish();
 

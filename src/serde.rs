@@ -39,35 +39,6 @@ impl<'de, P: Precision, B: Bits, R: Registers<P, B>> Deserialize<'de> for HyperL
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>> Serialize
-    for HLLMultiplicities<P, B, R, M>
-{
-    #[inline(always)]
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut seq = serializer.serialize_seq(Some(P::NUMBER_OF_REGISTERS))?;
-        for register in self.iter_registers() {
-            let register: u8 = register as u8;
-            seq.serialize_element(&register)?;
-        }
-        seq.end()
-    }
-}
-
-impl<'de, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>> Deserialize<'de>
-    for HLLMultiplicities<P, B, R, M>
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let mut registers: R = R::zeroed();
-        let visitor = RegisterVisitor::<u8>::new(P::NUMBER_OF_REGISTERS);
-        let mut iter = deserializer.deserialize_seq(visitor)?.into_iter();
-        registers.apply(|_| iter.next().unwrap() as u32);
-        Ok(Self::from_registers(registers))
-    }
-}
-
 impl<P: Precision, B: Bits, H: SerdeHyperLogLogTrait<P, B>, const N: usize> Serialize
     for HyperLogLogArray<P, B, H, N>
 {

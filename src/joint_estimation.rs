@@ -37,22 +37,6 @@ impl<const ERROR: i32, H> From<H> for MLE<ERROR, H> {
     }
 }
 
-impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>>
-    AsRef<MLE<ERROR, Self>> for HLLMultiplicities<P, B, R, M>
-{
-    fn as_ref(&self) -> &MLE<ERROR, Self> {
-        unsafe { core::mem::transmute(self) }
-    }
-}
-
-impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>>
-    From<MLE<ERROR, Self>> for HLLMultiplicities<P, B, R, M>
-{
-    fn from(mle: MLE<ERROR, Self>) -> Self {
-        mle.inner
-    }
-}
-
 impl<const ERROR: i32, H: FromIterator<A>, A: Hash> core::iter::FromIterator<A> for MLE<ERROR, H> {
     fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
         Self {
@@ -68,11 +52,11 @@ impl<const ERROR: i32, H> MLE<ERROR, H> {
     }
 }
 
-impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicities<P, B>>
-    HyperLogLogTrait<P, B> for MLE<ERROR, HLLMultiplicities<P, B, R, M>>
+impl<const ERROR: i32, P: Precision, B: Bits, H: HyperLogLogTrait<P, B>> HyperLogLogTrait<P, B>
+    for MLE<ERROR, H>
 {
     type IterRegisters<'a> =
-        <HLLMultiplicities<P, B, R, M> as HyperLogLogTrait<P, B>>::IterRegisters<'a> where Self: 'a;
+        <H as HyperLogLogTrait<P, B>>::IterRegisters<'a> where Self: 'a;
 
     fn get_number_of_zero_registers(&self) -> P::NumberOfZeros {
         self.inner.get_number_of_zero_registers()
@@ -82,44 +66,45 @@ impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicit
         self.inner.iter_registers()
     }
 
+    fn harmonic_sum<F: FloatNumber>(&self) -> F
+    where
+        P: PrecisionConstants<F>,
+    {
+        self.inner.harmonic_sum()
+    }
+
+    fn is_full(&self) -> bool {
+        self.inner.is_full()
+    }
+
     fn estimate_cardinality<F: FloatNumber>(&self) -> F
     where
         P: PrecisionConstants<F>,
     {
-        let multiplicities = self.inner.multiplicities();
-        // If the multeplicity associated to the last register
-        // is equal to the number of registers, we return infinity.
-        let number_of_saturated_registers: usize =
-            unsafe { multiplicities.last().try_into().unwrap_unchecked() };
-        if number_of_saturated_registers == P::NUMBER_OF_REGISTERS {
+        if self.is_full() {
             return F::INFINITY;
         }
 
-        let q = multiplicities.number_of_multiplicities() - 2;
+        let mut multiplicities: Vec<F> =
+            vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+        let q = maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS) as u32 - 2;
 
-        let mut smallest_register_value: Option<usize> = None;
-        let mut largest_register_value: Option<usize> = None;
+        let mut smallest_register_value: u32 = q;
+        let mut largest_register_value: u32 = 0;
 
-        let raw_estimate = multiplicities
-            .iter_multiplicities()
-            .take(q + 1)
-            .enumerate()
-            .skip(1)
-            .map(|(register, multiplicity)| {
-                if multiplicity > 0 {
-                    if smallest_register_value.is_none() {
-                        smallest_register_value = Some(register);
-                    }
-                    largest_register_value = Some(register);
-                }
-                F::inverse_register_with_scalar(register as u32, multiplicity as u32)
-            })
-            .sum();
+        self.iter_registers().for_each(|register| {
+            if register > 0 {
+                smallest_register_value = smallest_register_value.min(register);
+            }
+            largest_register_value = largest_register_value.max(register);
+            multiplicities[register as usize] += F::ONE;
+        });
 
-        let smallest_register_value: usize = smallest_register_value.unwrap_or(1);
-        let largest_register_value: usize = largest_register_value.unwrap_or(1);
+        smallest_register_value = smallest_register_value.max(1);
+        largest_register_value = largest_register_value.min(q).max(1);
 
         debug_assert!(smallest_register_value > 0);
+        debug_assert!(q > 0);
         debug_assert!(
             largest_register_value > 0,
             concat!(
@@ -137,30 +122,25 @@ impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicit
             multiplicities
         );
 
-        let c = F::from_usize(
-            number_of_saturated_registers
-                + unsafe {
-                    multiplicities
-                        .get(largest_register_value)
-                        .try_into()
-                        .unwrap_unchecked()
-                },
-        );
+        let c = multiplicities[multiplicities.len() - 1]
+            + multiplicities[largest_register_value as usize];
 
         let mut g_prev: F = F::ZERO;
-        let number_of_zero_registers = F::from_usize(unsafe {
-            self.get_number_of_zero_registers()
-                .try_into()
-                .unwrap_unchecked()
-        });
-        let a: F = raw_estimate + number_of_zero_registers;
-        let b: F = raw_estimate
-            + F::inverse_register_with_scalar(q as u32, number_of_saturated_registers as u32);
+        let number_of_zero_registers = multiplicities[0];
+        let reciprocal_saturated_registers = multiplicities[multiplicities.len() - 1]
+            * F::inverse_register((multiplicities.len() - 1) as i32);
+
+        let harmonic_sum_minus_zero_and_saturated_registers: F =
+            self.harmonic_sum() - (number_of_zero_registers + reciprocal_saturated_registers);
+
+        let a: F = harmonic_sum_minus_zero_and_saturated_registers + number_of_zero_registers;
+        let b: F = harmonic_sum_minus_zero_and_saturated_registers
+            + multiplicities[multiplicities.len() - 1] * F::inverse_register(q as i32);
 
         let number_of_non_zero_registers: F =
             F::from_usize(P::NUMBER_OF_REGISTERS) - number_of_zero_registers;
 
-        let mut x = if b <= F::THREE / F::TWO * raw_estimate {
+        let mut x = if b <= F::THREE / F::TWO * a {
             number_of_non_zero_registers / (F::HALF * b + a)
         } else {
             (number_of_non_zero_registers / b) * (b / a).ln_1p()
@@ -173,32 +153,28 @@ impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicit
         let forty_five_recip: F = F::ONE / F::from_usize(45);
         let four_seventy_two_point_five_recip: F = F::ONE / (F::from_usize(472) + F::HALF);
 
-        let float_multeplicities = multiplicities
-            .iter_multiplicities()
-            .map(F::from_usize)
-            .collect::<Vec<F>>();
+        let taylor =
+            |x_first: F, h: F| -> F { (x_first + h * (F::ONE - h)) / (x_first + F::ONE - h) };
 
         while delta_x > x * relative_error_limit {
             // In the C++ implementation they call frexp.
-            let kappa_minus_one: usize = x.log2().floor().to_usize();
+            let k: u32 = 2 + x.log2().floor().to_usize() as u32;
 
             // We compute the terms for the Taylor series.
-            let maximal: usize = if largest_register_value + 1 > kappa_minus_one + 2 {
-                largest_register_value + 1
+            let maximal: u32 = if largest_register_value > k {
+                largest_register_value
             } else {
-                kappa_minus_one + 2
+                k
             };
-            let mut x_first = x * F::inverse_register(maximal as u32);
+            let mut x_first = x * F::inverse_register((maximal + 1) as i32);
             let x_second = x_first * x_first;
             let x_forth = x_second * x_second;
             let mut taylor_series_approximation = x_first - x_second / F::THREE
                 + x_forth * (forty_five_recip - x_second * four_seventy_two_point_five_recip);
 
-            // If kappa - 1 is smaller than the maximal register value
-            for _k in (largest_register_value..=kappa_minus_one).rev() {
-                taylor_series_approximation = (x_first
-                    + taylor_series_approximation * (F::ONE - taylor_series_approximation))
-                    / (x_first + F::ONE - taylor_series_approximation);
+            // If k - 1 is smaller than the maximal register value
+            for _ in largest_register_value..k {
+                taylor_series_approximation = taylor(x_first, taylor_series_approximation);
 
                 // And we double the x first:
                 x_first *= F::TWO;
@@ -206,13 +182,9 @@ impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicit
 
             let mut g: F = c * taylor_series_approximation;
 
-            for register_value in
-                (smallest_register_value..=largest_register_value.saturating_sub(1)).rev()
-            {
-                taylor_series_approximation = (x_first
-                    + taylor_series_approximation * (F::ONE - taylor_series_approximation))
-                    / (x_first + F::ONE - taylor_series_approximation);
-                g += float_multeplicities[register_value] * taylor_series_approximation;
+            for register_value in (smallest_register_value..largest_register_value).rev() {
+                taylor_series_approximation = taylor(x_first, taylor_series_approximation);
+                g += multiplicities[register_value as usize] * taylor_series_approximation;
                 x_first *= F::TWO;
             }
 
@@ -238,55 +210,48 @@ impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicit
     where
         P: PrecisionConstants<F>,
     {
-        let mut left_multiplicities_larger = M::zeroed();
-        let mut left_multiplicities_smaller = M::zeroed();
-        let mut right_multiplicities_larger = M::zeroed();
-        let mut right_multiplicities_smaller = M::zeroed();
-        let mut joint_multiplicities = M::zeroed();
+        let mut left_multiplicities_larger =
+            vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+        let mut left_multiplicities_smaller =
+            vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+        let mut right_multiplicities_larger =
+            vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+        let mut right_multiplicities_smaller =
+            vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+        let mut joint_multiplicities =
+            vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
 
-        let (raw_union_estimate, raw_left_estimate, raw_right_estimate, union_zeros) = self
+        let (union_harmonic_sum, union_zeros) = self
             .iter_registers()
             .zip(other.iter_registers())
-            .map(|(left_register, right_register)| {
-                match left_register.cmp(&right_register) {
+            .map(|(left, right)| {
+                match left.cmp(&right) {
                     core::cmp::Ordering::Less => {
-                        left_multiplicities_smaller.increment(left_register as usize);
-                        right_multiplicities_larger.increment(right_register as usize);
+                        left_multiplicities_smaller[left as usize] += F::ONE;
+                        right_multiplicities_larger[right as usize] += F::ONE;
                     }
                     core::cmp::Ordering::Greater => {
-                        left_multiplicities_larger.increment(left_register as usize);
-                        right_multiplicities_smaller.increment(right_register as usize);
+                        left_multiplicities_larger[left as usize] += F::ONE;
+                        right_multiplicities_smaller[right as usize] += F::ONE;
                     }
                     core::cmp::Ordering::Equal => {
                         // If left register is equal to right register
-                        joint_multiplicities.increment(left_register as usize);
+                        joint_multiplicities[left as usize] += F::ONE;
                     }
                 }
 
+                let larger_register = if left > right { left } else { right };
+
                 (
-                    F::inverse_register((left_register).max(right_register) as u32),
-                    F::inverse_register(left_register as u32),
-                    F::inverse_register(right_register as u32),
-                    if left_register == 0 && right_register == 0 {
-                        P::NumberOfZeros::ONE
-                    } else {
-                        P::NumberOfZeros::ZERO
-                    },
+                    F::inverse_register(larger_register as i32),
+                    P::NumberOfZeros::from_bool(larger_register.is_zero()),
                 )
             })
             .fold(
-                (F::ZERO, F::ZERO, F::ZERO, P::NumberOfZeros::ZERO),
-                |(raw_union_estimate, raw_left_estimate, raw_right_estimate, union_zeros),
-                 (
-                    raw_union_estimate_tmp,
-                    raw_left_estimate_tmp,
-                    raw_right_estimate_tmp,
-                    union_zeros_tmp,
-                )| {
+                (F::ZERO, P::NumberOfZeros::ZERO),
+                |(union_harmonic_sum, union_zeros), (union_harmonic_sum_tmp, union_zeros_tmp)| {
                     (
-                        raw_union_estimate + raw_union_estimate_tmp,
-                        raw_left_estimate + raw_left_estimate_tmp,
-                        raw_right_estimate + raw_right_estimate_tmp,
+                        union_harmonic_sum + union_harmonic_sum_tmp,
                         union_zeros + union_zeros_tmp,
                     )
                 },
@@ -294,15 +259,12 @@ impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicit
 
         // We get the best estimates from HyperLogLog++
         let mut union_cardinality_estimate =
-            Self::adjust_estimate_with_zeros(raw_union_estimate, union_zeros);
+            Self::adjust_estimate_with_zeros(union_harmonic_sum, union_zeros);
 
-        let left_cardinality_estimate = Self::adjust_estimate_with_zeros(
-            raw_left_estimate,
-            self.get_number_of_zero_registers(),
-        );
+        let left_cardinality_estimate = self.inner.estimate_cardinality();
 
         let right_cardinality_estimate = Rhs::adjust_estimate_with_zeros(
-            raw_right_estimate,
+            other.harmonic_sum(),
             other.get_number_of_zero_registers(),
         );
 
@@ -315,13 +277,10 @@ impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicit
         // to the number of registers, it means that the intersection
         // is empty.
 
-        let number_of_zeros: usize = unsafe {
-            (left_multiplicities_smaller.first()
-                + left_multiplicities_smaller.first()
-                + right_multiplicities_smaller.first())
-            .try_into()
-            .unwrap_unchecked()
-        };
+        let number_of_zeros: usize = (left_multiplicities_smaller[0]
+            + left_multiplicities_smaller[0]
+            + right_multiplicities_smaller[0])
+            .to_usize();
         if number_of_zeros == P::NUMBER_OF_REGISTERS {
             return EstimatedUnionCardinalities::from((
                 left_cardinality_estimate,
@@ -359,7 +318,7 @@ impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicit
         };
 
         // We precompute q and q+1 for reference.
-        let q_plus_one: usize = joint_multiplicities.number_of_multiplicities() - 1;
+        let q_plus_one: usize = maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS) - 1;
         let q: i32 = q_plus_one as i32 - 1;
 
         // We initialize the vectors for the Adam optimizer.
@@ -372,66 +331,25 @@ impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicit
 
         let mut optimizer: Adam<F, 3> = Adam::default();
 
-        let left_number_of_zeros = F::from_usize(unsafe {
-            (left_multiplicities_smaller.first()
-                + left_multiplicities_larger.first()
-                + joint_multiplicities.first())
-            .try_into()
-            .unwrap_unchecked()
-        });
-        let right_number_of_zeros = F::from_usize(unsafe {
-            (right_multiplicities_smaller.first()
-                + right_multiplicities_larger.first()
-                + joint_multiplicities.first())
-            .try_into()
-            .unwrap_unchecked()
-        });
-        let intersection_number_of_zeros = F::from_usize(unsafe {
-            (right_multiplicities_smaller.first()
-                + left_multiplicities_smaller.first()
-                + joint_multiplicities.first())
-            .try_into()
-            .unwrap_unchecked()
-        });
+        let left_number_of_zeros = left_multiplicities_smaller[0]
+            + left_multiplicities_larger[0]
+            + joint_multiplicities[0];
+        let right_number_of_zeros = right_multiplicities_smaller[0]
+            + right_multiplicities_larger[0]
+            + joint_multiplicities[0];
+        let intersection_number_of_zeros = right_multiplicities_smaller[0]
+            + left_multiplicities_smaller[0]
+            + joint_multiplicities[0];
 
-        let left_number_of_saturated_registers = F::from_usize(unsafe {
-            left_multiplicities_larger
-                .last()
-                .try_into()
-                .unwrap_unchecked()
-        });
-        let right_number_of_saturated_registers = F::from_usize(unsafe {
-            right_multiplicities_larger
-                .last()
-                .try_into()
-                .unwrap_unchecked()
-        });
+        let left_number_of_saturated_registers =
+            left_multiplicities_larger[left_multiplicities_larger.len() - 1];
+        let right_number_of_saturated_registers =
+            right_multiplicities_larger[right_multiplicities_larger.len() - 1];
         let intersection_number_of_saturated_registers =
-            F::from_usize(unsafe { joint_multiplicities.last().try_into().unwrap_unchecked() });
+            joint_multiplicities[joint_multiplicities.len() - 1];
 
-        let joint_multiplicities = joint_multiplicities
-            .iter_multiplicities()
-            .map(F::from_usize)
-            .collect::<Vec<F>>();
-        let left_multiplicities_smaller = left_multiplicities_smaller
-            .iter_multiplicities()
-            .map(F::from_usize)
-            .collect::<Vec<F>>();
-        let left_multiplicities_larger = left_multiplicities_larger
-            .iter_multiplicities()
-            .map(F::from_usize)
-            .collect::<Vec<F>>();
-        let right_multiplicities_smaller = right_multiplicities_smaller
-            .iter_multiplicities()
-            .map(F::from_usize)
-            .collect::<Vec<F>>();
-        let right_multiplicities_larger = right_multiplicities_larger
-            .iter_multiplicities()
-            .map(F::from_usize)
-            .collect::<Vec<F>>();
-
-        let two_to_zero: F = F::inverse_register(P::EXPONENT as u32);
-        let two_to_minus_q: F = F::inverse_register(P::EXPONENT as u32 + q as u32);
+        let two_to_zero: F = F::inverse_register(P::EXPONENT as i32);
+        let two_to_minus_q: F = F::inverse_register(P::EXPONENT as i32 + q as i32);
 
         for _ in 0..10_000 {
             let x_left_0 = x(phis[0], two_to_zero);
@@ -468,7 +386,7 @@ impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, M: Multiplicit
 
             (1..q_plus_one as i32).for_each(|register_value| {
                 let two_to_minus_register: F =
-                    F::inverse_register(P::EXPONENT as u32 + register_value as u32);
+                    F::inverse_register(P::EXPONENT as i32 + register_value as i32);
 
                 let x_left = x(phis[0], two_to_minus_register);
                 let x_right = x(phis[1], two_to_minus_register);
@@ -550,9 +468,8 @@ impl<
         P: Precision + PrecisionConstants<F>,
         B: Bits,
         R: Registers<P, B>,
-        M: Multiplicities<P, B>,
         F: FloatNumber,
-    > SetLike<F> for MLE<ERROR, HLLMultiplicities<P, B, R, M>>
+    > SetLike<F> for MLE<ERROR, HyperLogLog<P, B, R>>
 {
     fn get_estimated_union_cardinality(
         &self,

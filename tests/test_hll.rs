@@ -26,6 +26,17 @@ pub fn test_hyper_log_log_at_precision_and_bits<
             hll.insert(&random_state);
             exact_set.insert(random_state);
             assert!(hll.may_contain(&random_state));
+
+            // The result of the harmonic sum method should always be equal, within
+            // an epsilon, to the actual harmonic sum of the registers.
+            let harmonic_sum = hll.harmonic_sum();
+            let actual_harmonic_sum = hll.iter_registers().map(|register| register as i32).map(F::inverse_register).sum::<F>();
+            assert!(
+                (harmonic_sum - actual_harmonic_sum).abs() < F::EPSILON,
+                "The harmonic sum ({}) is different from the actual harmonic sum ({})",
+                harmonic_sum,
+                actual_harmonic_sum
+            );
         }
 
         let estimated_cardinality = hll.estimate_cardinality();
@@ -60,10 +71,6 @@ macro_rules! test_hyper_log_log_at_precision_and_bits {
                 pub fn [< test_hyper_log_log_at_ $precision:lower _and_ $bits:lower _bits >]() {
                     test_hyper_log_log_at_precision_and_bits::<f64, $precision, $bits, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>>();
                 }
-                #[test]
-                pub fn [< test_multeplicity_hyper_log_log_at_ $precision:lower _and_ $bits:lower _bits >]() {
-                    test_hyper_log_log_at_precision_and_bits::<f64, $precision, $bits, HLLMultiplicities<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, <$precision as ArrayMultiplicities<$bits>>::ArrayMultiplicities>>();
-                }
             }
         )*
     };
@@ -86,7 +93,7 @@ macro_rules! test_mle_hyper_log_log_at_precision_and_bits {
                 #[test]
                 #[cfg(feature = "std")]
                 pub fn [< test_mle_ $error _hyper_log_log_at_ $precision:lower _and_ $bits:lower _bits >]() {
-                    test_hyper_log_log_at_precision_and_bits::<f64, $precision, $bits, MLE<$error, HLLMultiplicities<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, <$precision as ArrayMultiplicities<$bits>>::ArrayMultiplicities>>>();
+                    test_hyper_log_log_at_precision_and_bits::<f64, $precision, $bits, MLE<$error, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>>>();
                 }
             }
         )*

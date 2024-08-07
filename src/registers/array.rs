@@ -14,11 +14,13 @@ where
 
 impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> ArrayRegisterIter<'a, P, B, R> {
     fn new(registers: &'a R) -> Self {
+        let mut words = registers.words();
+        let current_word= words.next();
         Self {
             current_register: 0,
-            words: registers.words(),
+            words,
             current_register_in_word: 0,
-            current_word: None,
+            current_word,
             _phantom: core::marker::PhantomData,
         }
     }
@@ -35,18 +37,15 @@ where
         if self.current_register == P::NUMBER_OF_REGISTERS {
             return None;
         }
-        if self.current_word.is_none() {
-            self.current_word = self.words.next();
-        }
 
         self.current_word.map(|word| {
             let register: R::Word = (word >> (self.current_register_in_word * B::NUMBER_OF_BITS))
                 & R::Word::LOWER_REGISTER_MASK;
             self.current_register_in_word += 1;
             self.current_register += 1;
-            if self.current_register_in_word == 32 / B::NUMBER_OF_BITS {
+            if self.current_register_in_word == <u32 as RegisterWord<B>>::NUMBER_OF_REGISTERS {
                 self.current_register_in_word = 0;
-                self.current_word = None;
+                self.current_word = self.words.next();
             }
             register
         })
@@ -107,7 +106,8 @@ macro_rules! impl_register_for_precision_and_bits {
                         }
                     }
 
-                    unsafe fn set_greater(&mut self, index: usize, value: u32) -> Option<u32> {
+                    #[inline(always)]
+                    unsafe fn set_greater(&mut self, index: usize, new_register: u32) -> (u32, u32) {
                         // Calculate the position of the register in the internal buffer array.
                         let word_position = index / <u32 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS;
                         let register_position = index - word_position * <u32 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS;
@@ -116,12 +116,14 @@ macro_rules! impl_register_for_precision_and_bits {
                         let register_value: u32 =
                             (self[word_position] >> (register_position * [<Bits $bits>]::NUMBER_OF_BITS)) & <u32 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK;
 
-                        // Otherwise, update the register using a bit mask.
-                        (value > register_value).then(||{
-                            self[word_position] &= !(<u32 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK << (register_position * [<Bits $bits>]::NUMBER_OF_BITS));
-                            self[word_position] |= value << (register_position * [<Bits $bits>]::NUMBER_OF_BITS);
-                            register_value
-                        })
+                        if register_value >= new_register {
+                            return (register_value, register_value);
+                        }
+                        
+                        self[word_position] &= !(<u32 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK << (register_position * [<Bits $bits>]::NUMBER_OF_BITS));
+                        self[word_position] |= new_register << (register_position * [<Bits $bits>]::NUMBER_OF_BITS);
+
+                        (register_value, new_register)
                     }
 
                     fn get_register(&self, index: usize) -> u32 {
@@ -172,12 +174,12 @@ mod tests {
             let old_value = unsafe {
                 registers.set_greater(index, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK)
             };
-            assert_eq!(old_value, Some(0));
-            // If we try to do it again, we should receive a None
+            assert_eq!(old_value, (0, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK));
+            // If we try to do it again, we should receive the new value
             let old_value = unsafe {
                 registers.set_greater(index, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK)
             };
-            assert_eq!(old_value, None);
+            assert_eq!(old_value, (<u32 as RegisterWord<B>>::LOWER_REGISTER_MASK, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK));
         }
 
         // ==========================================
@@ -203,7 +205,7 @@ mod tests {
             let old_value = unsafe {
                 registers.set_greater(index, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK)
             };
-            assert_eq!(old_value, None);
+            assert_eq!(old_value, (<u32 as RegisterWord<B>>::LOWER_REGISTER_MASK, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK));
         }
 
         // ==================================================
