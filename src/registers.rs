@@ -13,7 +13,26 @@ pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug {
     where
         Self: 'a;
 
+    type IterZipped<'a>: Iterator<Item = (u32, u32)>
+    where
+        Self: 'a;
+
+    // type IterMax<'a> : Iterator<Item = u32>
+    //     where
+    //         Self: 'a;
+
     fn iter_registers(&self) -> Self::Iter<'_>;
+
+    fn iter_registers_zipped<'a>(&'a self, other: &'a Self) -> Self::IterZipped<'a>;
+
+    // fn iter_registers_max<'a>(&'a self, other: &'a Self) -> Self::IterMax<'a>;
+
+    fn get_harmonic_sum_and_zeros<F: FloatNumber>(
+        &self,
+        other: &Self,
+    ) -> (F, P::NumberOfZeros)
+    where
+        P: PrecisionConstants<F>;
 
     fn apply<F>(&mut self, f: F)
     where

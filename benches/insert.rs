@@ -13,30 +13,35 @@ const NUMBER_OF_ELEMENTS: usize = 50_000;
 
 /// Macro to generate a criterion benchmark with the provided precision exponent and bits
 macro_rules! bench_insert {
-    ($precision:ty, $bits:ty) => {
-        paste::item! {
-            fn [<bench_hll_insert_ $precision:lower _ $bits:lower>] (b: &mut Criterion) {
-                b.bench_function(
-                    format!("hll_insert_precision_{}_bits_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS).as_str(),
-                    |b| {
-                        b.iter(||{
-                            let mut hll: HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister> = HyperLogLog::default();
-                            black_box(for i in 0..NUMBER_OF_ELEMENTS {
-                                hll.insert(i);
+    ($precision:ty, $bits:ty, $($hasher:ty),*) => {
+        $(
+            paste::item! {
+                fn [<bench_hll_insert_ $precision:lower _ $bits:lower _ $hasher:lower >] (b: &mut Criterion) {
+                    b.bench_function(
+                        format!("hll_insert_precision_{}_bits_{}_hasher_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS, stringify!($hasher)).as_str(),
+                        |b| {
+                            b.iter(||{
+                                let mut hll: HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher> = HyperLogLog::default();
+                                for i in 0..NUMBER_OF_ELEMENTS {
+                                    hll.insert(black_box(i));
+                                }
                             })
-                        })
-                });
+                    });
+                }
             }
-        }
+        )*
     };
 }
+
+type XxHash64 = twox_hash::XxHash64;
 
 /// Macro to generate a criterion benchmark with the provided precision exponents
 macro_rules! bench_inserts {
     ($($precision:ty),*) => {
         $(
-            bench_insert!($precision, Bits5);
-            bench_insert!($precision, Bits6);
+            bench_insert!($precision, Bits4, XxHash64);
+            bench_insert!($precision, Bits5, XxHash64);
+            bench_insert!($precision, Bits6, XxHash64);
 
             paste::item! {
                 fn [<bench_tabacplusplus_insert_ $precision:lower>] (b: &mut Criterion) {
@@ -45,9 +50,9 @@ macro_rules! bench_inserts {
                         |b| {
                             b.iter(||{
                                 let mut hll: TabacHyperLogLogPlus<usize, RandomState> = TabacHyperLogLogPlus::new($precision::EXPONENT as u8, RandomState::new()).unwrap();
-                                black_box(for i in 0..NUMBER_OF_ELEMENTS {
-                                    TabacHyperLogLog::insert(&mut hll, &i);
-                                })
+                                for i in 0..NUMBER_OF_ELEMENTS {
+                                    TabacHyperLogLog::insert(&mut hll, black_box(&i));
+                                }
                             })
                     });
                 }
@@ -58,9 +63,9 @@ macro_rules! bench_inserts {
                         |b| {
                             b.iter(||{
                                 let mut hll: SAHyperLogLog<usize> = SAHyperLogLog::new($precision::error_rate());
-                                black_box(for i in 0..NUMBER_OF_ELEMENTS {
-                                    hll.push(&i);
-                                })
+                                for i in 0..NUMBER_OF_ELEMENTS {
+                                    hll.push(&black_box(i));
+                                }
                             })
                     });
                 }
@@ -78,7 +83,7 @@ macro_rules! bench_inserts {
                 criterion_group! {
                     name=[<insert_hll_ $precision:lower>];
                     config = Criterion::default().sample_size(500);
-                    targets=[<bench_hll_insert_ $precision:lower _bits5>], [<bench_hll_insert_ $precision:lower _bits6>]
+                    targets=[<bench_hll_insert_ $precision:lower _bits4_xxhash64>], [<bench_hll_insert_ $precision:lower _bits5_xxhash64>], [<bench_hll_insert_ $precision:lower _bits6_xxhash64>]
                 }
             }
         )*

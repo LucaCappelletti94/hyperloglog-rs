@@ -58,12 +58,12 @@ trait InsertValue {
     fn create(precision: usize) -> Self;
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>> InsertValue for HyperLogLog<P, B, R>
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default> InsertValue for HyperLogLog<P, B, R, Hasher>
 where
-    Self: HyperLogLogTrait<P, B>,
+    Self: HyperLogLogTrait<P, B, Hasher>,
 {
     fn insert(&mut self, value: u64) {
-        <Self as HyperLogLogTrait<P, B>>::insert(self, &value);
+        <Self as HyperLogLogTrait<P, B, Hasher>>::insert(self, &value);
     }
 
     fn create(precision: usize) -> Self {
@@ -72,13 +72,13 @@ where
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>> InsertValue
-    for MLE<3, HyperLogLog<P, B, R>>
+impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default> InsertValue
+    for MLE<HyperLogLog<P, B, R, Hasher>, ERROR>
 where
-    Self: HyperLogLogTrait<P, B>,
+    Self: HyperLogLogTrait<P, B, Hasher>,
 {
     fn insert(&mut self, value: u64) {
-        <Self as HyperLogLogTrait<P, B>>::insert(self, &value);
+        <Self as HyperLogLogTrait<P, B, Hasher>>::insert(self, &value);
     }
 
     fn create(precision: usize) -> Self {
@@ -124,31 +124,42 @@ macro_rules! bench_union {
     ($precision:ty, $bits:ty) => {
         paste::item! {
             fn [<bench_hll_union_ $precision:lower _ $bits:lower>] (b: &mut Criterion) {
-                let (left, right) = populate_hll_vectors_tuple::<$precision, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>>();
+                let (left, right) = populate_hll_vectors_tuple::<$precision, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, twox_hash::XxHash64>>();
                 b.bench_function(
                     format!("hll_union_precision_{}_bits_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS).as_str(),
                     |b| {
                         b.iter(||{
-                            black_box(for l in &left {
+                            let mut total_cardinality = 0.0;
+                            for l in &left {
                                 for r in &right {
-                                    l.estimate_union_cardinality::<f64, _>(r);
+                                    total_cardinality += black_box(l).estimate_union_cardinality::<f64>(black_box(r));
                                 }
-                            })
+                            }
+                            total_cardinality
                         })
                 });
             }
+        }
+    };
+}
 
+/// Macro to generate a criterion benchmark with the provided precision exponent and bits
+macro_rules! bench_union_mle {
+    ($precision:ty, $bits:ty) => {
+        paste::item! {
             fn [<bench_mle_union_ $precision:lower _ $bits:lower>] (b: &mut Criterion) {
-                let (left, right) = populate_hll_vectors_tuple::<$precision, MLE<3, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>>>();
+                let (left, right) = populate_hll_vectors_tuple::<$precision, MLE<HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, twox_hash::XxHash64>>>();
                 b.bench_function(
                     format!("mle_union_precision_{}_bits_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS).as_str(),
                     |b| {
                         b.iter(||{
-                            black_box(for l in &left {
+                            let mut total_cardinality = 0.0;
+                            for l in &left {
                                 for r in &right {
-                                    l.estimate_union_cardinality::<f64, _>(r);
+                                    total_cardinality += black_box(l).estimate_union_cardinality::<f64>(black_box(r));
                                 }
-                            })
+                            }
+                            total_cardinality
                         })
                 });
             }
@@ -160,8 +171,11 @@ macro_rules! bench_union {
 macro_rules! bench_unions {
     ($($precision:ty),*) => {
         $(
-            bench_union!($precision, Bits5);
+            bench_union!($precision, Bits4);
             bench_union!($precision, Bits6);
+            bench_union_mle!($precision, Bits6);
+            bench_union!($precision, Bits8);
+            bench_union_mle!($precision, Bits8);
 
             paste::item! {
                 fn [<bench_tabacpf_union_ $precision:lower>] (b: &mut Criterion) {
@@ -170,12 +184,15 @@ macro_rules! bench_unions {
                         format!("tabacpf_union_precision_{}_bits_6", $precision::EXPONENT).as_str(),
                         |b| {
                             b.iter(||{
-                                black_box(for l in &left {
+                                let mut total_cardinality = 0.0;
+                                for l in &left {
                                     for r in &right {
-                                        let mut copy = l.clone();
-                                        copy.merge(&r).unwrap();
+                                        let mut copy = black_box(l).clone();
+                                        copy.merge(black_box(&r)).unwrap();
+                                        total_cardinality += copy.count();
                                     }
-                                })
+                                }
+                                total_cardinality
                             })
                     });
                 }
@@ -186,12 +203,15 @@ macro_rules! bench_unions {
                         format!("tabacplusplus_union_precision_{}_bits_6", $precision::EXPONENT).as_str(),
                         |b| {
                             b.iter(||{
-                                black_box(for l in &left {
+                                let mut total_cardinality = 0.0;
+                                for l in &left {
                                     for r in &right {
-                                        let mut copy = l.clone();
-                                        copy.merge(&r).unwrap();
+                                        let mut copy = black_box(l).clone();
+                                        copy.merge(black_box(&r)).unwrap();
+                                        total_cardinality += copy.count();
                                     }
-                                })
+                                }
+                             total_cardinality
                             })
                     });
                 }
@@ -202,25 +222,27 @@ macro_rules! bench_unions {
                         format!("sa_union_precision_{}_bits_6", $precision::EXPONENT).as_str(),
                         |b| {
                             b.iter(||{
-                                black_box(for l in &left {
+                                let mut total_cardinality = 0.0;
+                                for l in &left {
                                     for r in &right {
-                                        let mut copy = l.clone();
-                                        copy.union(&r);
-                                        copy.len();
+                                        let mut copy = black_box(l).clone();
+                                        copy.union(black_box(&r));
+                                        total_cardinality += copy.len();
                                     }
-                                })
+                                }
+                                total_cardinality
                             })
                     });
                 }
 
                 criterion_group! {
                     name=[<union_tabacpf_ $precision:lower>];
-                    config = Criterion::default();
+                    config = Criterion::default().sample_size(20);
                     targets=[<bench_tabacpf_union_ $precision:lower>]
                 }
                 criterion_group! {
                     name=[<union_tabacplusplus_ $precision:lower>];
-                    config = Criterion::default();
+                    config = Criterion::default().sample_size(20);
                     targets=[<bench_tabacplusplus_union_ $precision:lower>]
                 }
                 criterion_group! {
@@ -231,12 +253,12 @@ macro_rules! bench_unions {
                 criterion_group! {
                     name=[<union_hll_ $precision:lower>];
                     config = Criterion::default();
-                    targets=[<bench_hll_union_ $precision:lower _bits5>], [<bench_hll_union_ $precision:lower _bits6>]
+                    targets=[<bench_hll_union_ $precision:lower _bits4>], [<bench_hll_union_ $precision:lower _bits6>], [<bench_hll_union_ $precision:lower _bits8>]
                 }
                 criterion_group! {
                     name=[<mle_union_ $precision:lower>];
-                    config = Criterion::default().sample_size(10);
-                    targets=[<bench_mle_union_ $precision:lower _bits5>], [<bench_mle_union_ $precision:lower _bits6>]
+                    config = Criterion::default().sample_size(5);
+                    targets=[<bench_mle_union_ $precision:lower _bits6>], [<bench_mle_union_ $precision:lower _bits8>]
                 }
             }
         )*
@@ -273,45 +295,45 @@ criterion_main!(
     union_hll_precision14,
     union_hll_precision15,
     union_hll_precision16,
-    // mle_union_precision4,
-    // mle_union_precision5,
-    // mle_union_precision6,
-    // mle_union_precision7,
-    // mle_union_precision8,
-    // mle_union_precision9,
-    // mle_union_precision10,
-    // mle_union_precision11,
-    // mle_union_precision12,
-    // mle_union_precision13,
-    // mle_union_precision14,
-    // mle_union_precision15,
-    // mle_union_precision16,
-    // union_tabacpf_precision4,
-    // union_tabacpf_precision5,
-    // union_tabacpf_precision6,
-    // union_tabacpf_precision7,
-    // union_tabacpf_precision8,
-    // union_tabacpf_precision9,
-    // union_tabacpf_precision10,
-    // union_tabacpf_precision11,
-    // union_tabacpf_precision12,
-    // union_tabacpf_precision13,
-    // union_tabacpf_precision14,
-    // union_tabacpf_precision15,
-    // union_tabacpf_precision16,
-    // union_tabacplusplus_precision4,
-    // union_tabacplusplus_precision5,
-    // union_tabacplusplus_precision6,
-    // union_tabacplusplus_precision7,
-    // union_tabacplusplus_precision8,
-    // union_tabacplusplus_precision9,
-    // union_tabacplusplus_precision10,
-    // union_tabacplusplus_precision11,
-    // union_tabacplusplus_precision12,
-    // union_tabacplusplus_precision13,
-    // union_tabacplusplus_precision14,
-    // union_tabacplusplus_precision15,
-    // union_tabacplusplus_precision16,
+    mle_union_precision4,
+    mle_union_precision5,
+    mle_union_precision6,
+    mle_union_precision7,
+    mle_union_precision8,
+    mle_union_precision9,
+    mle_union_precision10,
+    mle_union_precision11,
+    mle_union_precision12,
+    mle_union_precision13,
+    mle_union_precision14,
+    mle_union_precision15,
+    mle_union_precision16,
+    union_tabacpf_precision4,
+    union_tabacpf_precision5,
+    union_tabacpf_precision6,
+    union_tabacpf_precision7,
+    union_tabacpf_precision8,
+    union_tabacpf_precision9,
+    union_tabacpf_precision10,
+    union_tabacpf_precision11,
+    union_tabacpf_precision12,
+    union_tabacpf_precision13,
+    union_tabacpf_precision14,
+    union_tabacpf_precision15,
+    union_tabacpf_precision16,
+    union_tabacplusplus_precision4,
+    union_tabacplusplus_precision5,
+    union_tabacplusplus_precision6,
+    union_tabacplusplus_precision7,
+    union_tabacplusplus_precision8,
+    union_tabacplusplus_precision9,
+    union_tabacplusplus_precision10,
+    union_tabacplusplus_precision11,
+    union_tabacplusplus_precision12,
+    union_tabacplusplus_precision13,
+    union_tabacplusplus_precision14,
+    union_tabacplusplus_precision15,
+    union_tabacplusplus_precision16,
     union_sa_precision4,
     union_sa_precision5,
     union_sa_precision6,

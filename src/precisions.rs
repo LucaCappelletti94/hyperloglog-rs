@@ -50,6 +50,7 @@ pub trait PrecisionConstants<F: FloatNumber>: Precision {
 
     fn small_correction(number_of_zero_registers: Self::NumberOfZeros) -> F;
 
+    #[inline(always)]
     fn bias(harmonic_sum: F) -> F {
         // Raw estimate is first/last in estimates. Return the first/last bias.
         if harmonic_sum <= Self::ESTIMATES[0] {
@@ -69,11 +70,12 @@ pub trait PrecisionConstants<F: FloatNumber>: Precision {
                 / (Self::ESTIMATES[partition_index] - Self::ESTIMATES[partition_index - 1]);
 
             // Calculate bias.
-            Self::BIAS[partition_index - 1]
+            Self::BIAS[partition_index]
                 + ratio * (Self::BIAS[partition_index] - Self::BIAS[partition_index - 1])
         }
     }
 
+    #[inline(always)]
     fn adjust_estimate(mut harmonic_sum: F) -> F {
         // Apply the final scaling factor to obtain the estimate of the cardinality
         harmonic_sum =
@@ -146,6 +148,7 @@ macro_rules! impl_precision {
         paste::paste! {
             #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+            #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
             pub struct [<Precision $exponent>];
 
             impl PrecisionConstants<f32> for [<Precision $exponent>] {
@@ -157,10 +160,9 @@ macro_rules! impl_precision {
                 type EstimatesType = [f32; bias_size_from_precision!($exponent)];
                 const ESTIMATES: Self::EstimatesType = estimates_from_precision!($exponent);
 
+                #[inline(always)]
                 fn small_correction(number_of_zero_registers: Self::NumberOfZeros) -> f32 {
-                    (Self::NUMBER_OF_REGISTERS as f64
-                        * (LOG_VALUES[Self::NUMBER_OF_REGISTERS] - LOG_VALUES[<Self::NumberOfZeros as TryInto<usize>>::try_into(number_of_zero_registers).unwrap()]))
-                        as f32
+                    <Self as PrecisionConstants<f64>>::small_correction(number_of_zero_registers) as f32
                 }
             }
 
@@ -173,6 +175,7 @@ macro_rules! impl_precision {
                 type EstimatesType = [f64; bias_size_from_precision!($exponent)];
                 const ESTIMATES: Self::EstimatesType = estimates_from_precision!($exponent);
 
+                #[inline(always)]
                 fn small_correction(number_of_zero_registers: Self::NumberOfZeros) -> f64 {
                     Self::NUMBER_OF_REGISTERS as f64
                         * (LOG_VALUES[Self::NUMBER_OF_REGISTERS] - LOG_VALUES[<Self::NumberOfZeros as TryInto<usize>>::try_into(number_of_zero_registers).unwrap()])

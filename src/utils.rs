@@ -15,12 +15,17 @@ mod number;
 mod register_word;
 mod word_like;
 mod words;
+#[cfg(feature = "std")]
+mod adam;
 
 pub use constants::*;
 pub use number::{FloatNumber, Number, PositiveIntegerNumber};
 pub(crate) use register_word::RegisterWord;
 pub(crate) use word_like::WordLike;
 pub(crate) use words::Words;
+
+#[cfg(feature = "std")]
+pub(crate) use adam::Adam;
 
 use crate::{bits::Bits, prelude::Precision};
 
@@ -61,7 +66,6 @@ pub(crate) fn miminal_harmonic_sum<P: Precision, B: Bits>() -> f64 {
 mod test {
     use super::*;
     use crate::prelude::*;
-    use crate::sip::hash_and_index;
 
     #[test]
     fn test_miminal_harmonic_sum() {
@@ -118,66 +122,4 @@ mod test {
         assert_eq!(ceil(1, 3), 1);
         assert_eq!(ceil(0, 3), 0);
     }
-
-    fn test_maximal_multeplicity<P: Precision, B: Bits>() {
-        assert_eq!(
-            0_u64.leading_zeros() as usize,
-            64,
-            "The number of zeros in the leading position of a 64-bit integer must be 64, but it is {}.",
-            0_u64.leading_zeros() as usize,
-        );
-        assert_eq!(
-            u64::MAX.leading_zeros() as usize,
-            0,
-            "The number of zeros in the leading position of a 64-bit MAX integer must be 0, but it is {}.",
-            u64::MAX.leading_zeros() as usize,
-        );
-
-        let maximal = maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS) - 1;
-        let mut maximal_encountered = 0;
-
-        for i in 0..1_000_000_u64 {
-            let hash = hash_and_index::<u64, P, B>(&i).0;
-            let number_of_zeros = hash.leading_zeros() as usize + 1;
-            assert!(
-                number_of_zeros <= maximal,
-                "The number of zeros ({}) must be less than or equal to the maximal multiplicity ({}).",
-                number_of_zeros,
-                maximal,
-            );
-            maximal_encountered = maximal_encountered.max(number_of_zeros);
-        }
-        assert_eq!(
-            maximal_encountered,
-            maximal,
-            "At least one hash should have the maximal multiplicity ({}) for precision {} and bits {}, but at most we found {}.",
-            maximal,
-            P::EXPONENT,
-            B::NUMBER_OF_BITS,
-            maximal_encountered,
-        );
-    }
-
-    macro_rules! test_maximal_multeplicity_by_precision_and_bits {
-        ($precision: expr, $($bits: expr),*) => {
-            $(
-                paste::item! {
-                    #[test]
-                    fn [<test_maximal_multeplicity_ $precision _ $bits>]() {
-                        test_maximal_multeplicity::<[<Precision $precision>], [<Bits $bits>]>();
-                    }
-                }
-            )*
-        };
-    }
-
-    macro_rules! test_maximal_multeplicity_by_precisions {
-        ($($precision: expr),*) => {
-            $(
-                test_maximal_multeplicity_by_precision_and_bits!($precision, 1, 2, 3, 4);
-            )*
-        };
-    }
-
-    test_maximal_multeplicity_by_precisions!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
 }

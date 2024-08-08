@@ -9,15 +9,8 @@ where
     I: Eq + Hash,
     <C as TryFrom<usize>>::Error: core::fmt::Debug,
 {
-    fn get_estimated_union_cardinality(
-        &self,
-        self_cardinality: C,
-        other: &Self,
-        other_cardinality: C,
-    ) -> EstimatedUnionCardinalities<C> {
-        let union_cardinality = self.union(other).count().try_into().unwrap();
-
-        EstimatedUnionCardinalities::from((self_cardinality, other_cardinality, union_cardinality))
+    fn get_union_cardinality(&self, other: &Self) -> C {
+        self.union(other).count().try_into().unwrap()
     }
 
     fn get_cardinality(&self) -> C {

@@ -19,31 +19,22 @@ use crate::utils::*;
 
 pub trait SetLike<I> {
     /// Returns the estimated intersection and left and right difference cardinality between two sets.
-    fn get_estimated_union_cardinality(
-        &self,
-        self_cardinality: I,
-        other: &Self,
-        other_cardinality: I,
-    ) -> EstimatedUnionCardinalities<I>;
+    fn get_union_cardinality(&self, other: &Self) -> I;
 
     /// Returns the cardinality of the set.
     fn get_cardinality(&self) -> I;
 }
 
-impl<F: FloatNumber, P: Precision + PrecisionConstants<F>, B: Bits, R: Registers<P, B>> SetLike<F>
-    for HyperLogLog<P, B, R>
+impl<
+        F: FloatNumber,
+        P: Precision + PrecisionConstants<F>,
+        B: Bits,
+        R: Registers<P, B>,
+        Hasher: core::hash::Hasher + Default,
+    > SetLike<F> for HyperLogLog<P, B, R, Hasher>
 {
-    fn get_estimated_union_cardinality(
-        &self,
-        self_cardinality: F,
-        other: &Self,
-        other_cardinality: F,
-    ) -> EstimatedUnionCardinalities<F> {
-        EstimatedUnionCardinalities::with_correction(
-            self_cardinality,
-            other_cardinality,
-            self.estimate_union_cardinality(other),
-        )
+    fn get_union_cardinality(&self, other: &Self) -> F {
+        self.estimate_union_cardinality(other)
     }
 
     fn get_cardinality(&self) -> F {
@@ -89,28 +80,29 @@ pub trait HyperSpheresSketch: Sized {
         let mut left_difference_cardinality_vector = [I::default(); L];
         let mut right_cardinalities = [I::default(); R];
 
-        right.iter().zip(right_cardinalities.iter_mut()).for_each(
-            |(right_hll, right_cardinality)| {
-                *right_cardinality = right_hll.get_cardinality();
-            },
-        );
+        right
+            .iter()
+            .zip(right_cardinalities.iter_mut())
+            .for_each(|(right, right_cardinality)| {
+                *right_cardinality = right.get_cardinality();
+            });
 
         let mut right_difference_cardinality_vector = [I::default(); R];
         let mut euc: EstimatedUnionCardinalities<I> = EstimatedUnionCardinalities::default();
         let mut last_left_difference: I = I::default();
 
         // Populate the overlap cardinality matrix.
-        for (i, left_hll) in left.iter().enumerate() {
+        for (i, left) in left.iter().enumerate() {
             let mut last_right_difference: I = I::default();
-            let left_cardinality = left_hll.get_cardinality();
+            let left_cardinality = left.get_cardinality();
             let mut comulative_row = I::default();
-            for (j, (right_hll, right_cardinality)) in
-                right.iter().zip(right_cardinalities).enumerate()
+            for (j, (right, right_cardinality)) in right.iter().zip(right_cardinalities).enumerate()
             {
-                euc = left_hll.get_estimated_union_cardinality(
+                let union_cardinality = left.get_union_cardinality(right);
+                euc = EstimatedUnionCardinalities::with_correction(
                     left_cardinality,
-                    right_hll,
                     right_cardinality,
+                    union_cardinality,
                 );
                 let delta = last_row[j] + comulative_row;
                 differential_overlap_cardinality_matrix[i][j] = euc
@@ -184,30 +176,32 @@ pub trait HyperSpheresSketch: Sized {
         let mut left_difference_cardinality_vector = vec![I::default(); left.len()];
         let mut right_cardinalities = vec![I::default(); right.len()];
 
-        right.iter().zip(right_cardinalities.iter_mut()).for_each(
-            |(right_hll, right_cardinality)| {
-                *right_cardinality = right_hll.get_cardinality();
-            },
-        );
+        right
+            .iter()
+            .zip(right_cardinalities.iter_mut())
+            .for_each(|(right, right_cardinality)| {
+                *right_cardinality = right.get_cardinality();
+            });
 
         let mut right_difference_cardinality_vector = vec![I::default(); right.len()];
         let mut euc: EstimatedUnionCardinalities<I> = EstimatedUnionCardinalities::default();
         let mut last_left_difference: I = I::default();
 
         // Populate the overlap cardinality matrix.
-        for (i, left_hll) in left.iter().enumerate() {
+        for (i, left) in left.iter().enumerate() {
             let mut last_right_difference: I = I::default();
-            let left_cardinality = left_hll.get_cardinality();
+            let left_cardinality = left.get_cardinality();
             let mut comulative_row = I::default();
-            for (j, (right_hll, right_cardinality)) in right
+            for (j, (right, right_cardinality)) in right
                 .iter()
                 .zip(right_cardinalities.iter().copied())
                 .enumerate()
             {
-                euc = left_hll.get_estimated_union_cardinality(
+                let union_cardinality = left.get_union_cardinality(right);
+                euc = EstimatedUnionCardinalities::with_correction(
                     left_cardinality,
-                    right_hll,
                     right_cardinality,
+                    union_cardinality,
                 );
                 let delta = last_row[j] + comulative_row;
                 differential_overlap_cardinality_matrix[i][j] = euc
@@ -272,11 +266,12 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch {
         let mut left_difference_cardinality_vector = [F::default(); L];
         let mut right_cardinalities = [F::default(); R];
 
-        right.iter().zip(right_cardinalities.iter_mut()).for_each(
-            |(right_hll, right_cardinality)| {
-                *right_cardinality = right_hll.get_cardinality();
-            },
-        );
+        right
+            .iter()
+            .zip(right_cardinalities.iter_mut())
+            .for_each(|(right, right_cardinality)| {
+                *right_cardinality = right.get_cardinality();
+            });
 
         // We run a debug assert where we check that each right cardinality is
         // larger than the previous one.
@@ -292,12 +287,12 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch {
         let mut last_left_cardinality: F = F::default();
 
         // Populate the overlap cardinality matrix.
-        for (i, left_hll) in left.iter().enumerate() {
+        for (i, left) in left.iter().enumerate() {
             let mut last_right_difference: F = F::default();
-            let left_cardinality = left_hll.get_cardinality();
+            let left_cardinality = left.get_cardinality();
             let mut comulative_row = F::default();
             let mut last_right_cardinality = F::default();
-            for (j, (right_hll, (right_cardinality, last_inner_left_difference))) in right
+            for (j, (right, (right_cardinality, last_inner_left_difference))) in right
                 .iter()
                 .zip(
                     right_cardinalities
@@ -307,10 +302,11 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch {
                 )
                 .enumerate()
             {
-                euc = left_hll.get_estimated_union_cardinality(
+                let union_cardinality = left.get_union_cardinality(right);
+                euc = EstimatedUnionCardinalities::with_correction(
                     left_cardinality,
-                    right_hll,
                     right_cardinality,
+                    union_cardinality,
                 );
                 let delta = last_row[j] + comulative_row;
                 let differential_intersection = euc
@@ -397,11 +393,12 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch {
         let mut left_difference_cardinality_vector = vec![F::default(); left.len()];
         let mut right_cardinalities = vec![F::default(); right.len()];
 
-        right.iter().zip(right_cardinalities.iter_mut()).for_each(
-            |(right_hll, right_cardinality)| {
-                *right_cardinality = right_hll.get_cardinality();
-            },
-        );
+        right
+            .iter()
+            .zip(right_cardinalities.iter_mut())
+            .for_each(|(right, right_cardinality)| {
+                *right_cardinality = right.get_cardinality();
+            });
 
         // We run a debug assert where we check that each right cardinality is
         // larger than the previous one.
@@ -417,12 +414,12 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch {
         let mut last_inner_left_differences = vec![F::default(); right.len()];
 
         // Populate the overlap cardinality matrix.
-        for (i, left_hll) in left.iter().enumerate() {
+        for (i, left) in left.iter().enumerate() {
             let mut last_right_difference: F = F::default();
-            let left_cardinality = left_hll.get_cardinality();
+            let left_cardinality = left.get_cardinality();
             let mut comulative_row = F::default();
             let mut last_right_cardinality = F::default();
-            for (j, (right_hll, (right_cardinality, last_inner_left_difference))) in right
+            for (j, (right, (right_cardinality, last_inner_left_difference))) in right
                 .iter()
                 .zip(
                     right_cardinalities
@@ -432,10 +429,11 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch {
                 )
                 .enumerate()
             {
-                euc = left_hll.get_estimated_union_cardinality(
+                let union_cardinality = left.get_union_cardinality(right);
+                euc = EstimatedUnionCardinalities::with_correction(
                     left_cardinality,
-                    right_hll,
                     right_cardinality,
+                    union_cardinality,
                 );
                 let delta = last_row[j] + comulative_row;
                 let differential_intersection = euc
@@ -496,13 +494,12 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>> HyperSpheresSketch for HyperLogLog<P, B, R> {}
-
-impl<const ERROR: i32, H> HyperSpheresSketch for MLE<ERROR, H> {}
-
-impl<P: Precision, B: Bits, R: Registers<P, B>> NormalizedHyperSpheresSketch
-    for HyperLogLog<P, B, R>
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default> HyperSpheresSketch
+    for HyperLogLog<P, B, R, Hasher>
 {
 }
 
-impl<const ERROR: i32, H> NormalizedHyperSpheresSketch for MLE<ERROR, H> {}
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default>
+    NormalizedHyperSpheresSketch for HyperLogLog<P, B, R, Hasher>
+{
+}

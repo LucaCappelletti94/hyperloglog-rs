@@ -3,7 +3,7 @@ use core::hash::Hash;
 use crate::prelude::*;
 use crate::utils::FloatNumber;
 
-pub trait HyperLogLogArrayTrait<P: Precision, B: Bits, H: HyperLogLogTrait<P, B>, const N: usize>:
+pub trait HyperLogLogArrayTrait<P: Precision, B: Bits, H: HyperLogLogTrait<P, B, Hasher>, Hasher: core::hash::Hasher + Default, const N: usize>:
     Default + PartialEq + Eq + Clone
 {
     /// Returns the estimated overlap and difference cardinality matrices and vectors with the provided HyperLogLogArray.

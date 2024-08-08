@@ -1,6 +1,7 @@
 use crate::utils::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A struct for more readable code.
 pub struct EstimatedUnionCardinalities<F> {

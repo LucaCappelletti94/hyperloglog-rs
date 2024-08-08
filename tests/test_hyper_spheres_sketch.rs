@@ -5,6 +5,7 @@
 //! results of the hyper spheres sketch of the HyperLogLog with
 //! the results of the hyper spheres sketch of the HashSet.
 use hyperloglog_rs::prelude::*;
+use hyperloglog_rs::sip::Sip64Scalar;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
@@ -53,10 +54,11 @@ where
 }
 
 fn get_random_hyper_spheres_hll<
-    HA: HyperLogLogArrayTrait<P, B, H, N>,
+    Hasher: Default + core::hash::Hasher,
+    HA: HyperLogLogArrayTrait<P, B, H, Hasher, N>,
     P: Precision,
     B: Bits,
-    H: Copy + HyperLogLogTrait<P, B>,
+    H: Copy + HyperLogLogTrait<P, B, Hasher>,
     const N: usize,
 >(
     random_state: u64,
@@ -71,12 +73,13 @@ fn get_random_hyper_spheres_hll<
     hyperspheres_hll
 }
 
-fn test_hyper_spheres_sketch<HA, P, B, H, const N: usize>()
+fn test_hyper_spheres_sketch<Hasher, HA, P, B, H, const N: usize>()
 where
-    HA: HyperLogLogArrayTrait<P, B, H, N>,
+    Hasher: Default + core::hash::Hasher,
+    HA: HyperLogLogArrayTrait<P, B, H, Hasher, N>,
     P: Precision + PrecisionConstants<f64>,
     B: Bits,
-    H: Copy + HyperLogLogTrait<P, B> + SetLike<f64>,
+    H: Copy + HyperLogLogTrait<P, B, Hasher> + SetLike<f64>,
     [HashSet<usize>; N]: Default,
 {
     let number_of_tests = 100;
@@ -86,8 +89,8 @@ where
         let random_state = (current_test as u64 + 173845_u64).wrapping_mul(456789);
         let left_sets = get_random_hyper_spheres_sets::<N>(random_state);
         let right_sets = get_random_hyper_spheres_sets::<N>(random_state * 2);
-        let left_hll = get_random_hyper_spheres_hll::<HA, P, B, H, N>(random_state);
-        let right_hll = get_random_hyper_spheres_hll::<HA, P, B, H, N>(random_state * 2);
+        let left_hll = get_random_hyper_spheres_hll::<Hasher, HA, P, B, H, N>(random_state);
+        let right_hll = get_random_hyper_spheres_hll::<Hasher, HA, P, B, H, N>(random_state * 2);
 
         let (overlap_sets, left_diff_sets, right_diff_sets) =
             HashSet::overlap_and_differences_cardinality_matrices(&left_sets, &right_sets);
@@ -254,17 +257,12 @@ where
 }
 
 macro_rules! test_hyper_spheres_by_precision_and_size {
-    ($precision:ty, $bits:ty, $($size:expr),+) => {
+    ($hasher:ty, $precision:ty, $bits:ty, $($size:expr),+) => {
         $(
             paste::paste! {
                 #[test]
-                fn [<test_hll_hyper_spheres_sketch_ $precision:lower _ $bits:lower _size_ $size>]() {
-                    test_hyper_spheres_sketch::<HyperLogLogArray<$precision, $bits, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>, $size>, $precision, $bits, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>, $size>();
-                }
-
-                #[test]
-                fn [<test_mle_hll_multi_hyper_spheres_sketch_ $precision:lower _ $bits:lower _size_ $size>]() {
-                    test_hyper_spheres_sketch::<HyperLogLogArray<$precision, $bits, MLE<3, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>>, $size>, $precision, $bits, MLE<3, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>>, $size>();
+                fn [<test_hll_hyper_spheres_sketch_ $hasher:lower _ $precision:lower _ $bits:lower _size_ $size>]() {
+                    test_hyper_spheres_sketch::<$hasher, HyperLogLogArray<$precision, $bits, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>, $hasher, $size>, $precision, $bits, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>, $size>();
                 }
             }
         )+
@@ -272,36 +270,32 @@ macro_rules! test_hyper_spheres_by_precision_and_size {
 }
 
 macro_rules! test_hyper_spheres_by_precision_and_bits {
-    ($precision:ty, ($($bits:ty),+)) => {
+    ($hasher:ty, $precision:ty, ($($bits:ty),+)) => {
         $(
-            test_hyper_spheres_by_precision_and_size!($precision, $bits, 3, 4, 5);
+            test_hyper_spheres_by_precision_and_size!($hasher, $precision, $bits, 3, 4, 5);
         )+
     };
 }
 
 macro_rules! test_hyper_spheres_by_precisions {
-    ($($precision:ty),*) => {
+    ($hasher:ty, $($precision:ty),*) => {
         $(
-            test_hyper_spheres_by_precision_and_bits!($precision, (Bits4, Bits5, Bits6));
+            test_hyper_spheres_by_precision_and_bits!($hasher, $precision, (Bits4, Bits5, Bits6));
         )*
     };
 }
 
-test_hyper_spheres_by_precisions!(
-    Precision4,
-    Precision5,
-    Precision6,
-    Precision7,
-    Precision8,
-    Precision9,
-    Precision10,
-    Precision11,
-    Precision12,
-    Precision13,
-    Precision14,
-    Precision15,
-    Precision16
-);
+macro_rules! test_hyper_spheres_by_hashers {
+    ($($hasher:ty),*) => {
+        $(
+            test_hyper_spheres_by_precisions!($hasher, Precision4, Precision5, Precision6, Precision7, Precision8, Precision9, Precision10, Precision11, Precision12, Precision13, Precision14, Precision15, Precision16);
+        )*
+    };
+}
+
+type Sip64Scalar24 = Sip64Scalar<2, 4>;
+
+test_hyper_spheres_by_hashers!(Sip64Scalar24);
 
 fn test_hyper_spheres(
     left: &[Vec<usize>; 3],

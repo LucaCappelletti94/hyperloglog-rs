@@ -18,4 +18,3 @@ Cargo.lock
 *.tsv.zip
 .DS_Store
 .vscode/
-*.log

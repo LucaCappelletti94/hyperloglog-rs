@@ -184,7 +184,7 @@ def load_criterion_log(path: str) -> pd.DataFrame:
 
 def get_bits_line_style(bits: int) -> Dict:
     """Returns the line style for a given number of bits."""
-    return {4: "..", 5: "-.", 6: "-"}[bits]
+    return {4: ":", 5: "-.", 6: "-", 8: "--"}[bits]
 
 
 def get_library_color(library_name: str) -> str:
@@ -243,7 +243,7 @@ def plot_benchmarks(path: str) -> None:
                 axes.set_xlabel("Memory usage (bytes)")
                 axes.set_ylabel("Time (s)")
                 axes.set_title(f"{task} - {scale} scale")
-                axes.grid(b=True, which="both", axis="both")
+                axes.grid(True, which="both", axis="both")
                 axes.fill_between(
                     subdf["minimum_memory_usage"],
                     subdf["lower_bound"],

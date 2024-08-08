@@ -6,15 +6,57 @@ use core::{
 use crate::{prelude::*, utils::FloatNumber};
 
 #[repr(transparent)]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HyperLogLogArray<P: Precision, B: Bits, H: HyperLogLogTrait<P, B>, const N: usize> {
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
+pub struct HyperLogLogArray<
+    P: Precision,
+    B: Bits,
+    H: HyperLogLogTrait<P, B, Hasher>,
+    Hasher: core::hash::Hasher + Default,
+    const N: usize,
+> {
     counters: [H; N],
-    _precision: core::marker::PhantomData<P>,
-    _bits: core::marker::PhantomData<B>,
+    _phantom: core::marker::PhantomData<(P, B, Hasher)>,
 }
 
-impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B> + Copy, const N: usize> Default
-    for HyperLogLogArray<P, B, H, N>
+impl<
+        P: Precision,
+        B: Bits,
+        H: HyperLogLogTrait<P, B, Hasher>,
+        Hasher: core::hash::Hasher + Default,
+        const N: usize,
+    > PartialEq for HyperLogLogArray<P, B, H, Hasher, N>
+{
+    #[inline(always)]
+    /// Returns true if the two HyperLogLogArrays are equal.
+    ///
+    /// # Arguments
+    /// * `other`: The other HyperLogLogArray to compare with.
+    ///
+    /// # Returns
+    /// True if the two HyperLogLogArrays are equal.
+    fn eq(&self, other: &Self) -> bool {
+        self.counters == other.counters
+    }
+}
+
+impl<
+        P: Precision,
+        B: Bits,
+        H: HyperLogLogTrait<P, B, Hasher>,
+        Hasher: core::hash::Hasher + Default,
+        const N: usize,
+    > Eq for HyperLogLogArray<P, B, H, Hasher, N>
+{
+}
+
+impl<
+        P: Precision,
+        B: Bits,
+        Hasher: core::hash::Hasher + Default,
+        H: HyperLogLogTrait<P, B, Hasher> + Copy,
+        const N: usize,
+    > Default for HyperLogLogArray<P, B, H, Hasher, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray with the given precision and number of bits.
@@ -37,14 +79,18 @@ impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B> + Copy, const N: usize> De
     fn default() -> Self {
         Self {
             counters: [H::default(); N],
-            _precision: core::marker::PhantomData,
-            _bits: core::marker::PhantomData,
+            _phantom: core::marker::PhantomData,
         }
     }
 }
 
-impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B>, const N: usize> AsRef<[H; N]>
-    for HyperLogLogArray<P, B, H, N>
+impl<
+        P: Precision,
+        B: Bits,
+        H: HyperLogLogTrait<P, B, Hasher>,
+        Hasher: core::hash::Hasher + Default,
+        const N: usize,
+    > AsRef<[H; N]> for HyperLogLogArray<P, B, H, Hasher, N>
 {
     #[inline(always)]
     /// Returns a reference to the underlying array of HyperLogLog counters.
@@ -56,8 +102,13 @@ impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B>, const N: usize> AsRef<[H;
     }
 }
 
-impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B>, const N: usize> AsMut<[H; N]>
-    for HyperLogLogArray<P, B, H, N>
+impl<
+        P: Precision,
+        B: Bits,
+        H: HyperLogLogTrait<P, B, Hasher>,
+        Hasher: core::hash::Hasher + Default,
+        const N: usize,
+    > AsMut<[H; N]> for HyperLogLogArray<P, B, H, Hasher, N>
 {
     #[inline(always)]
     /// Returns a mutable reference to the underlying array of HyperLogLog counters.
@@ -69,8 +120,13 @@ impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B>, const N: usize> AsMut<[H;
     }
 }
 
-impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B>, const N: usize> Index<usize>
-    for HyperLogLogArray<P, B, H, N>
+impl<
+        P: Precision,
+        B: Bits,
+        H: HyperLogLogTrait<P, B, Hasher>,
+        Hasher: core::hash::Hasher + Default,
+        const N: usize,
+    > Index<usize> for HyperLogLogArray<P, B, H, Hasher, N>
 {
     type Output = H;
 
@@ -123,8 +179,13 @@ impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B>, const N: usize> Index<usi
     }
 }
 
-impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B>, const N: usize> IndexMut<usize>
-    for HyperLogLogArray<P, B, H, N>
+impl<
+        P: Precision,
+        B: Bits,
+        H: HyperLogLogTrait<P, B, Hasher>,
+        Hasher: core::hash::Hasher + Default,
+        const N: usize,
+    > IndexMut<usize> for HyperLogLogArray<P, B, H, Hasher, N>
 {
     #[inline(always)]
     /// Returns a mutable reference to the HyperLogLog counter at the given index.
@@ -175,8 +236,13 @@ impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B>, const N: usize> IndexMut<
     }
 }
 
-impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B>, const N: usize> From<[H; N]>
-    for HyperLogLogArray<P, B, H, N>
+impl<
+        P: Precision,
+        B: Bits,
+        H: HyperLogLogTrait<P, B, Hasher>,
+        Hasher: core::hash::Hasher + Default,
+        const N: usize,
+    > From<[H; N]> for HyperLogLogArray<P, B, H, Hasher, N>
 {
     #[inline(always)]
     /// Creates a new HyperLogLogArray from the given array of HyperLogLog counters.
@@ -206,8 +272,7 @@ impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B>, const N: usize> From<[H; 
     fn from(counters: [H; N]) -> Self {
         Self {
             counters,
-            _precision: core::marker::PhantomData,
-            _bits: core::marker::PhantomData,
+            _phantom: core::marker::PhantomData,
         }
     }
 }
@@ -215,9 +280,10 @@ impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B>, const N: usize> From<[H; 
 impl<
         P: Precision,
         B: Bits,
-        H: HyperLogLogTrait<P, B> + HyperSpheresSketch + NormalizedHyperSpheresSketch + Copy,
+        H: HyperLogLogTrait<P, B, Hasher> + HyperSpheresSketch + NormalizedHyperSpheresSketch + Copy,
         const N: usize,
-    > HyperLogLogArrayTrait<P, B, H, N> for HyperLogLogArray<P, B, H, N>
+        Hasher: core::hash::Hasher + Default + Clone,
+    > HyperLogLogArrayTrait<P, B, H, Hasher, N> for HyperLogLogArray<P, B, H, Hasher, N>
 {
     #[inline(always)]
     /// Returns the estimated overlap and difference cardinality matrices and vectors with the provided HyperLogLogArray.

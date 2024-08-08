@@ -4,28 +4,36 @@ use serde::ser::SerializeSeq;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-pub trait SerdeHyperLogLogTrait<P: Precision, B: Bits>:
-    HyperLogLogTrait<P, B> + Serialize + DeserializeOwned
+pub trait SerdeHyperLogLogTrait<P: Precision, B: Bits, Hasher: core::hash::Hasher + Default>:
+    HyperLogLogTrait<P, B, Hasher> + Serialize + DeserializeOwned
 {
 }
 
-impl<P: Precision, B: Bits, H: HyperLogLogTrait<P, B> + Serialize + DeserializeOwned>
-    SerdeHyperLogLogTrait<P, B> for H
+impl<
+        P: Precision,
+        B: Bits,
+        Hasher: core::hash::Hasher + Default,
+        H: HyperLogLogTrait<P, B, Hasher> + Serialize + DeserializeOwned,
+    > SerdeHyperLogLogTrait<P, B, Hasher> for H
 {
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>> Serialize for HyperLogLog<P, B, R> {
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default> Serialize
+    for HyperLogLog<P, B, R, Hasher>
+{
     #[inline(always)]
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut seq = serializer.serialize_seq(Some(P::NUMBER_OF_REGISTERS))?;
-        for register in self.iter_registers() {
+        for register in self.registers().iter_registers() {
             seq.serialize_element(&(register as u8))?;
         }
         seq.end()
     }
 }
 
-impl<'de, P: Precision, B: Bits, R: Registers<P, B>> Deserialize<'de> for HyperLogLog<P, B, R> {
+impl<'de, P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default> Deserialize<'de>
+    for HyperLogLog<P, B, R, Hasher>
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -39,8 +47,13 @@ impl<'de, P: Precision, B: Bits, R: Registers<P, B>> Deserialize<'de> for HyperL
     }
 }
 
-impl<P: Precision, B: Bits, H: SerdeHyperLogLogTrait<P, B>, const N: usize> Serialize
-    for HyperLogLogArray<P, B, H, N>
+impl<
+        P: Precision,
+        B: Bits,
+        H: SerdeHyperLogLogTrait<P, B, Hasher>,
+        Hasher: core::hash::Hasher + Default,
+        const N: usize,
+    > Serialize for HyperLogLogArray<P, B, H, Hasher, N>
 {
     #[inline(always)]
     /// Serializes the HyperLogLog counter using the given serializer.
@@ -105,8 +118,14 @@ impl<P: Precision, B: Bits, H: SerdeHyperLogLogTrait<P, B>, const N: usize> Seri
     }
 }
 
-impl<'de, P: Precision, B: Bits, H: SerdeHyperLogLogTrait<P, B> + Copy, const N: usize>
-    Deserialize<'de> for HyperLogLogArray<P, B, H, N>
+impl<
+        'de,
+        P: Precision,
+        B: Bits,
+        H: SerdeHyperLogLogTrait<P, B, Hasher> + Copy,
+        Hasher: core::hash::Hasher + Default + Default,
+        const N: usize,
+    > Deserialize<'de> for HyperLogLogArray<P, B, H, Hasher, N>
 {
     #[inline(always)]
     /// Deserializes the HyperLogLog counter using the given deserializer.
@@ -128,15 +147,25 @@ impl<'de, P: Precision, B: Bits, H: SerdeHyperLogLogTrait<P, B> + Copy, const N:
 
 #[derive(Default)]
 /// Struct to deserialize a vector of u32
-pub struct HLLArrayVisitor<P: Precision, B: Bits, H: SerdeHyperLogLogTrait<P, B>, const N: usize> {
-    _precision: core::marker::PhantomData<P>,
-    _bits: core::marker::PhantomData<B>,
-    _hll: core::marker::PhantomData<H>,
+pub struct HLLArrayVisitor<
+    P: Precision,
+    B: Bits,
+    H: SerdeHyperLogLogTrait<P, B, Hasher>,
+    Hasher: core::hash::Hasher + Default,
+    const N: usize,
+> {
+    _phantom: core::marker::PhantomData<(P, B, H, Hasher)>,
 }
 
 /// A visitor implementation used for deserializing an array.
-impl<'de, P: Precision, B: Bits, H: SerdeHyperLogLogTrait<P, B> + Copy, const N: usize> Visitor<'de>
-    for HLLArrayVisitor<P, B, H, N>
+impl<
+        'de,
+        P: Precision,
+        B: Bits,
+        H: SerdeHyperLogLogTrait<P, B, Hasher> + Copy,
+        Hasher: core::hash::Hasher + Default,
+        const N: usize,
+    > Visitor<'de> for HLLArrayVisitor<P, B, H, Hasher, N>
 {
     type Value = [H; N];
 

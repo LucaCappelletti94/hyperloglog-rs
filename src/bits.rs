@@ -10,6 +10,7 @@ macro_rules! impl_bits {
         $(
             paste::paste! {
                 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+                #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
                 pub struct [<Bits $n>];
 
                 impl Bits for [<Bits $n>] {
@@ -20,4 +21,4 @@ macro_rules! impl_bits {
     };
 }
 
-impl_bits!(1, 2, 3, 4, 5, 6);
+impl_bits!(1, 2, 3, 4, 5, 6, 7, 8);

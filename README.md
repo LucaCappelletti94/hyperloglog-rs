@@ -61,13 +61,13 @@ The [MLE estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github
 {
         use hyperloglog_rs::prelude::*;
 
-        let mut hll1: MLE<2, HyperLogLog::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister>> = MLE::default();
+        let mut hll1: MLE<HyperLogLog::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister>> = MLE::default();
         
         hll1.insert(&1);
         hll1.insert(&2);
         hll1.insert(&3);
 
-        let mut hll2: MLE<2, HyperLogLog::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister>> = MLE::default();
+        let mut hll2: MLE<HyperLogLog::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister>> = MLE::default();
 
         hll2.insert(&2);
         hll2.insert(&3);

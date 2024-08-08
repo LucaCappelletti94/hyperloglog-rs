@@ -15,7 +15,7 @@ where
 impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> ArrayRegisterIter<'a, P, B, R> {
     fn new(registers: &'a R) -> Self {
         let mut words = registers.words();
-        let current_word= words.next();
+        let current_word = words.next();
         Self {
             current_register: 0,
             words,
@@ -52,6 +52,69 @@ where
     }
 }
 
+pub struct ArrayRegisterTupleIter<'a, P: Precision, B: Bits, R: Words + Registers<P, B>>
+where
+    R: 'a,
+{
+    current_register: usize,
+    current_register_in_word: usize,
+    left: R::WordIter<'a>,
+    right: R::WordIter<'a>,
+    current_word: Option<(R::Word, R::Word)>,
+    _phantom: core::marker::PhantomData<(P, B, R)>,
+}
+
+impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> ArrayRegisterTupleIter<'a, P, B, R> {
+    fn new(left: &'a R, right: &'a R) -> Self {
+        let mut left = left.words();
+        let mut right = right.words();
+        let current_word = left
+            .next()
+            .map(|left_word| unsafe { (left_word, right.next().unwrap_unchecked()) });
+        Self {
+            current_register: 0,
+            left,
+            right,
+            current_register_in_word: 0,
+            current_word,
+            _phantom: core::marker::PhantomData,
+        }
+    }
+}
+
+impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> Iterator
+    for ArrayRegisterTupleIter<'a, P, B, R>
+where
+    R::Word: RegisterWord<B>,
+{
+    type Item = (R::Word, R::Word);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_register == P::NUMBER_OF_REGISTERS {
+            return None;
+        }
+
+        self.current_word.map(|(left, right)| {
+            let left_register: R::Word = (left
+                >> (self.current_register_in_word * B::NUMBER_OF_BITS))
+                & R::Word::LOWER_REGISTER_MASK;
+            let right_register: R::Word = (right
+                >> (self.current_register_in_word * B::NUMBER_OF_BITS))
+                & R::Word::LOWER_REGISTER_MASK;
+            self.current_register_in_word += 1;
+            self.current_register += 1;
+            if self.current_register_in_word == <u32 as RegisterWord<B>>::NUMBER_OF_REGISTERS {
+                self.current_register_in_word = 0;
+                self.current_word = self
+                    .left
+                    .next()
+                    .map(|left_word| unsafe { (left_word, self.right.next().unwrap_unchecked()) });
+            }
+            (left_register, right_register)
+        })
+    }
+}
+
 /// Trait marker to associate a specific register array with a combination of precision and bits.
 ///
 /// Meant to be associated with a specific Precision.
@@ -75,13 +138,58 @@ macro_rules! impl_register_for_precision_and_bits {
 
                 impl Registers<[<Precision $exponent>], [<Bits $bits>]> for [u32; crate::utils::ceil(usize::pow(2, $exponent), 32 / $bits)] {
                     type Iter<'a> = ArrayRegisterIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>;
-
+                    type IterZipped<'a> = ArrayRegisterTupleIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>
+                        where
+                            Self: 'a;
+                        
                     fn zeroed() -> Self {
                         [0; crate::utils::ceil(usize::pow(2, $exponent), 32 / $bits)]
                     }
 
                     fn iter_registers(&self) -> Self::Iter<'_> {
                         ArrayRegisterIter::new(self)
+                    }
+
+                    fn iter_registers_zipped<'a>(&'a self, other: &'a Self) -> Self::IterZipped<'a>{
+                        ArrayRegisterTupleIter::new(self, other)
+                    }
+
+                    fn get_harmonic_sum_and_zeros<F: FloatNumber>(
+                        &self,
+                        other: &Self,
+                    ) -> (F, <[<Precision $exponent>] as Precision>::NumberOfZeros)
+                    where
+                    [<Precision $exponent>]: PrecisionConstants<F> {
+                        let mut harmonic_sum = F::ZERO;
+                        let mut union_zeros = <[<Precision $exponent>] as Precision>::NumberOfZeros::ZERO;
+
+                        for i in 0..self.len() {
+                            let mut left = self[i];
+                            let mut right = other[i];
+                            let mut partial_sum = F::ZERO;
+                            let mut partial_zeros = <[<Precision $exponent>] as Precision>::NumberOfZeros::ZERO;
+
+                            for _ in 0..<u32 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS {
+                                let left_register = left & <u32 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK;
+                                let right_register = right & <u32 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK;
+                                left >>= [<Bits $bits>]::NUMBER_OF_BITS;
+                                right >>= [<Bits $bits>]::NUMBER_OF_BITS;
+                                let max_register = left_register.max(right_register);
+                                partial_sum += F::inverse_register(max_register as i32);
+                                partial_zeros += <[<Precision $exponent>] as Precision>::NumberOfZeros::from_bool(max_register == 0);
+                            }
+                            harmonic_sum += partial_sum;
+                            union_zeros += partial_zeros;
+                        }
+
+                        const NUMBER_OF_PADDING_REGISTERS: usize = ceil(<[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS, 32 / [<Bits $bits>]::NUMBER_OF_BITS)
+                        * <u32 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS
+                        - <[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS;
+
+                        union_zeros -= unsafe{<[<Precision $exponent>] as Precision>::NumberOfZeros::try_from(NUMBER_OF_PADDING_REGISTERS).unwrap_unchecked()};
+                        harmonic_sum -= F::from_usize(NUMBER_OF_PADDING_REGISTERS);
+
+                        (harmonic_sum, union_zeros)
                     }
 
                     fn apply<F>(&mut self, mut f: F)
@@ -119,7 +227,7 @@ macro_rules! impl_register_for_precision_and_bits {
                         if register_value >= new_register {
                             return (register_value, register_value);
                         }
-                        
+
                         self[word_position] &= !(<u32 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK << (register_position * [<Bits $bits>]::NUMBER_OF_BITS));
                         self[word_position] |= new_register << (register_position * [<Bits $bits>]::NUMBER_OF_BITS);
 
@@ -143,7 +251,7 @@ macro_rules! impl_register_for_precision_and_bits {
 macro_rules! impl_registers_for_precisions {
     ($($exponent: expr),*) => {
         $(
-            impl_register_for_precision_and_bits!($exponent, 1, 2, 3, 4, 5, 6);
+            impl_register_for_precision_and_bits!($exponent, 1, 2, 3, 4, 5, 6, 7, 8);
         )*
     };
 }
@@ -174,12 +282,21 @@ mod tests {
             let old_value = unsafe {
                 registers.set_greater(index, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK)
             };
-            assert_eq!(old_value, (0, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK));
+            assert_eq!(
+                old_value,
+                (0, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK)
+            );
             // If we try to do it again, we should receive the new value
             let old_value = unsafe {
                 registers.set_greater(index, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK)
             };
-            assert_eq!(old_value, (<u32 as RegisterWord<B>>::LOWER_REGISTER_MASK, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK));
+            assert_eq!(
+                old_value,
+                (
+                    <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK,
+                    <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK
+                )
+            );
         }
 
         // ==========================================
@@ -205,7 +322,13 @@ mod tests {
             let old_value = unsafe {
                 registers.set_greater(index, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK)
             };
-            assert_eq!(old_value, (<u32 as RegisterWord<B>>::LOWER_REGISTER_MASK, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK));
+            assert_eq!(
+                old_value,
+                (
+                    <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK,
+                    <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK
+                )
+            );
         }
 
         // ==================================================
@@ -261,7 +384,7 @@ mod tests {
     macro_rules! test_register_iterators_by_precision {
         ($($precision:ty),*) => {
             $(
-                test_register_iterator!($precision, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6);
+                test_register_iterator!($precision, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6, Bits7, Bits8);
             )*
         };
     }

@@ -2,6 +2,7 @@
 
 pub trait WordLike:
     Copy
+    + Ord
     + core::ops::Shl<usize, Output = Self>
     + core::ops::Shr<usize, Output = Self>
     + core::ops::BitAnd<Self, Output = Self>

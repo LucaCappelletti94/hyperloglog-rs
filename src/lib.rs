@@ -14,22 +14,19 @@ mod precisions;
 mod registers;
 pub mod sip;
 mod utils;
+#[cfg(feature = "serde")]
+mod mle;
 
 #[cfg(feature = "serde")]
 pub mod serde;
 
 #[cfg(feature = "std")]
 mod exact_hyper_spheres_sketch;
-#[cfg(feature = "std")]
-mod joint_estimation;
 
 pub use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
 pub use crate::hyperloglog::HyperLogLog;
 
 pub mod prelude {
-    #[cfg(feature = "std")]
-    pub use crate::joint_estimation::*;
-
     pub use crate::array_default::*;
     pub use crate::bits::*;
     pub use crate::estimated_union_cardinalities::*;
@@ -39,10 +36,13 @@ pub mod prelude {
     pub use crate::hyperloglog_array_trait::*;
     pub use crate::hyperloglog_trait::*;
     pub use crate::iter::*;
+    pub use crate::sip::*;
     pub use crate::precisions::*;
     pub use crate::registers::*;
     #[cfg(feature = "serde")]
     pub use crate::serde::*;
+    #[cfg(feature = "std")]
+    pub use crate::mle::*;
     pub use crate::utils::*;
     pub use core::ops::{BitOr, BitOrAssign};
 }

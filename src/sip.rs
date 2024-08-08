@@ -21,9 +21,6 @@
 //! - The [most popular rust library](https://github.com/jedisct1/rust-siphash/tree/master)
 //!   is just a port of rust implementation and has the same problems minus the deprecation
 
-use crate::{bits::Bits, prelude::Precision};
-use core::hash::Hasher;
-
 /// Loads an integer of the desired type from a byte stream, in LE order. Uses
 /// `copy_nonoverlapping` to let the compiler generate the most efficient way
 /// to load it from a possibly unaligned address.
@@ -71,6 +68,8 @@ unsafe fn u8to64_le(buf: &[u8], start: usize, len: usize) -> u64 {
 /// Porting of 64-bit SipHash from https://github.com/veorq/SipHash
 #[derive(Debug, Clone, Copy)]
 #[repr(align(16), C)] //alignement and C repr so the compiler can use simd instructions
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub struct Sip64Scalar<const C: usize, const D: usize> {
     // interleave the v values so that the compiler can optimize with simd
     v0: u64,
@@ -296,90 +295,6 @@ impl<const C: usize, const D: usize> core::hash::Hasher for Sip64Scalar<C, D> {
     }
 }
 
-/// Porting of 128-bit SipHash from https://github.com/veorq/SipHash
-#[derive(Debug, Clone, Copy)]
-#[repr(transparent)]
-pub struct Sip128Scalar<const C: usize, const D: usize>(Sip64Scalar<C, D>);
-
-impl<const C: usize, const D: usize> core::default::Default for Sip128Scalar<C, D> {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<const C: usize, const D: usize> Sip128Scalar<C, D> {
-    #[inline]
-    fn new() -> Self {
-        Self(<Sip64Scalar<C, D>>::new())
-    }
-}
-
-impl<const C: usize, const D: usize> core::hash::Hasher for Sip128Scalar<C, D> {
-    #[inline(always)]
-    fn write(&mut self, msg: &[u8]) {
-        self.0.write(msg)
-    }
-
-    #[inline]
-    fn finish(&self) -> u64 {
-        let (high, low) = self.finish_tuple();
-
-        high ^ low
-    }
-
-    #[inline]
-    fn write_usize(&mut self, i: usize) {
-        self.0.write_usize(i);
-    }
-
-    #[inline]
-    fn write_u8(&mut self, i: u8) {
-        self.0.write_u8(i);
-    }
-
-    #[inline]
-    fn write_u32(&mut self, i: u32) {
-        self.0.write_u32(i);
-    }
-
-    #[inline]
-    fn write_u64(&mut self, i: u64) {
-        self.0.write_u64(i);
-    }
-}
-
-impl<const C: usize, const D: usize> Sip128Scalar<C, D> {
-    #[inline]
-    fn finish_tuple(&self) -> (u64, u64) {
-        let mut state = *self;
-
-        let b: u64 = ((self.0.length as u64 & 0xff) << 56) | self.0.tail;
-
-        state.0.v3 ^= b;
-        for _ in 0..C {
-            state.0.round();
-        }
-        state.0.v0 ^= b;
-
-        state.0.v2 ^= 0xff;
-        for _ in 0..D {
-            state.0.round();
-        }
-
-        let low = state.0.v0 ^ state.0.v1 ^ state.0.v2 ^ state.0.v3;
-
-        state.0.v1 ^= 0xdd;
-        for _ in 0..D {
-            state.0.round();
-        }
-
-        let high = state.0.v0 ^ state.0.v1 ^ state.0.v2 ^ state.0.v3;
-
-        (high, low)
-    }
-}
-
 #[cfg(test)]
 #[cfg(feature = "std")]
 mod test {
@@ -417,46 +332,4 @@ mod test {
             assert_eq!(sip.finish(), truth);
         }
     }
-}
-
-#[inline(always)]
-pub(crate) fn hash_and_index<T: core::hash::Hash, P: Precision, B: Bits>(
-    element: &T,
-) -> (u64, usize) {
-    let mut hasher = Sip64Scalar::<2, 4>::new();
-    element.hash(&mut hasher);
-    let hash = hasher.finish();
-
-    // Calculate the register's index using the highest bits of the hash.
-    // The index of the register has to vary from 0 to 2^p - 1, where p is the precision,
-    // so we use the highest p bits of the hash.
-    let index: usize = hash as usize >> (64 - P::EXPONENT);
-
-    // And we delete the used bits from the hash.
-    let mut hash: u64 = hash << P::EXPONENT;
-
-    debug_assert!(
-        index < P::NUMBER_OF_REGISTERS,
-        "The index {} must be less than the number of registers {}.",
-        index,
-        P::NUMBER_OF_REGISTERS
-    );
-
-    // We need to add ones to the hash to make sure that the
-    // the number of zeros we obtain afterwards is never higher
-    // than the maximal value that may be represented in a register
-    // with BITS bits.
-    if B::NUMBER_OF_BITS < 6 {
-        hash |= 1 << (64 - ((1 << B::NUMBER_OF_BITS) - 1));
-    } else {
-        // The only goal of this operation is to guarantee that the
-        // number of zeros in the leading position of the hash does
-        // not include the zeroes elided by the shift by the EXPONENT,
-        // and therefore limits the multeplicity of the number of zeros,
-        // which are the values that will be used to calculate the register's
-        // values, so as to avoid unused values.
-        hash |= 1 << (P::EXPONENT - 1);
-    }
-
-    (hash, index)
 }
