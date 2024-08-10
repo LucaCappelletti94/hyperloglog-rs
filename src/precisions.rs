@@ -26,6 +26,11 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     /// The number of registers that will be used.
     const NUMBER_OF_REGISTERS: usize = 1 << Self::EXPONENT;
 
+    type EstimatesType: ArrayIter<u32> + Copy + Debug;
+    const ESTIMATES: Self::EstimatesType;
+    type BiasType: ArrayIter<i32> + Copy + Debug;
+    const BIAS: Self::BiasType;
+
     /// Type for small corrections:
     type Registers: Copy + ArrayIter<u32>;
 
@@ -33,17 +38,19 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
         let exponent = (Self::EXPONENT as f64) / 2.0;
         1.04 / 2f64.powf(exponent)
     }
+
+    #[inline(always)]
+    fn bias(estimate: u32) -> i32 {
+        Self::BIAS[Self::ESTIMATES
+            .partition_point(|est| *est <= estimate)
+            .min(Self::ESTIMATES.len() - 1)]
+    }
 }
 
 pub trait PrecisionConstants<F: FloatNumber>: Precision {
     const ALPHA: F;
     const LINEAR_COUNT_ZEROS: Self::NumberOfZeros;
     const NUMBER_OF_REGISTERS_FLOAT: F;
-    /// Estimates vector associated to the precision.
-    type EstimatesType: ArrayIter<F> + Copy + Debug;
-    const ESTIMATES: Self::EstimatesType;
-    /// Bias vector associated to the precision.
-    const BIAS: Self::EstimatesType;
     /// Betas for LogLog-Beta
     const BETA: [F; 8];
 
@@ -65,30 +72,6 @@ pub trait PrecisionConstants<F: FloatNumber>: Precision {
     }
 
     #[inline(always)]
-    fn bias(estimate: F) -> F {
-        let partition_point = Self::ESTIMATES.partition_point(|est| *est <= estimate);
-
-        let mut min = if partition_point > 6 {
-            partition_point - 6
-        } else {
-            0
-        };
-        let mut max = core::cmp::min(partition_point + 6, Self::ESTIMATES.len());
-
-        while max - min != 6 {
-            let (min_val, max_val) = (Self::ESTIMATES[min], Self::ESTIMATES[max - 1]);
-            // assert!(min_val <= e && e <= max_val);
-            if F::TWO * estimate - min_val > max_val {
-                min += 1;
-            } else {
-                max -= 1;
-            }
-        }
-
-        (min..max).map(|i| Self::BIAS[i]).sum::<F>() / F::SIX
-    }
-
-    #[inline(always)]
     fn requires_bias_correction(estimate: F) -> bool {
         estimate <= F::FIVE * Self::NUMBER_OF_REGISTERS_FLOAT
     }
@@ -98,7 +81,7 @@ pub trait PrecisionConstants<F: FloatNumber>: Precision {
         // Apply the small range correction factor if the raw estimate is below the threshold
         // and there are zero registers in the counter.
         if Self::requires_bias_correction(estimate) {
-            estimate - Self::bias(estimate)
+            estimate - F::from_i32(Self::bias(estimate.to_u32()))
         } else {
             estimate
         }
@@ -175,9 +158,6 @@ macro_rules! impl_precision {
                 const ALPHA: f32 = ALPHA_VALUES[Self::EXPONENT - 4] as f32;
                 const LINEAR_COUNT_ZEROS: Self::NumberOfZeros = LINEAR_COUNT_ZEROS[Self::EXPONENT - 4] as Self::NumberOfZeros;
                 const NUMBER_OF_REGISTERS_FLOAT: f32 = Self::NUMBER_OF_REGISTERS as f32;
-                type EstimatesType = [<WeightsF32 $exponent>];
-                const ESTIMATES: Self::EstimatesType = [<ESTIMATES_F32_ $exponent>];
-                const BIAS: Self::EstimatesType = [<BIAS_F32_ $exponent>];
                 const BETA: [f32; 8] = [<BETA_F32_ $exponent>];
 
                 #[inline(always)]
@@ -190,9 +170,6 @@ macro_rules! impl_precision {
                 const ALPHA: f64 = ALPHA_VALUES[Self::EXPONENT - 4];
                 const LINEAR_COUNT_ZEROS: Self::NumberOfZeros = LINEAR_COUNT_ZEROS[Self::EXPONENT - 4] as Self::NumberOfZeros;
                 const NUMBER_OF_REGISTERS_FLOAT: f64 = Self::NUMBER_OF_REGISTERS as f64;
-                type EstimatesType = [<WeightsF64 $exponent>];
-                const ESTIMATES: Self::EstimatesType = [<ESTIMATES_F64_ $exponent>];
-                const BIAS: Self::EstimatesType = [<BIAS_F64_ $exponent>];
                 const BETA: [f64; 8] = [<BETA_F64_ $exponent>];
 
                 #[inline(always)]
@@ -206,6 +183,11 @@ macro_rules! impl_precision {
                 type NumberOfZeros = impl_number_of_zeros!($exponent);
                 const EXPONENT: usize = $exponent;
                 type Registers = [u32; usize::pow(2, $exponent)];
+                type EstimatesType = [<Estimates $exponent>];
+                const ESTIMATES: Self::EstimatesType = [<ESTIMATES_ $exponent>];
+                type BiasType = [<Bias $exponent>];
+                const BIAS: Self::BiasType = [<BIAS_ $exponent>];
+
             }
         }
     };
@@ -255,13 +237,13 @@ mod tests {
                 paste::paste! {
                     #[test]
                     fn [<test_estimates_sorted_ $precision:lower>]() {
-                        let mut last = 0.0;
-                        for estimate in <$precision as PrecisionConstants<f64>>::ESTIMATES.iter() {
+                        let mut last = 0;
+                        for estimate in <$precision as Precision>::ESTIMATES.iter() {
                             assert!(*estimate >= last, "Estimate: {}, Last: {}", *estimate, last);
                             last = *estimate;
                         }
-                        let mut last = 0.0;
-                        for estimate in <$precision as PrecisionConstants<f32>>::ESTIMATES.iter() {
+                        let mut last = 0;
+                        for estimate in <$precision as Precision>::ESTIMATES.iter() {
                             assert!(*estimate >= last, "Estimate: {}, Last: {}", *estimate, last);
                             last = *estimate;
                         }

@@ -12,7 +12,8 @@ use streaming_algorithms::HyperLogLog as SAHyperLogLog;
 use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
 use cardinality_estimator::CardinalityEstimator;
 
-const NUMBER_OF_ELEMENTS: usize = 50_000;
+const RANDOM_STATE: u64 = 87561346897134_u64;
+const NUMBER_OF_ELEMENTS: usize = 10_000;
 
 /// Macro to generate a criterion benchmark with the provided precision exponent and bits
 macro_rules! bench_insert {
@@ -25,7 +26,7 @@ macro_rules! bench_insert {
                         |b| {
                             b.iter(||{
                                 let mut hll: HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher> = HyperLogLog::default();
-                                for i in 0..NUMBER_OF_ELEMENTS {
+                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                                     hll.insert(black_box(i));
                                 }
                             })
@@ -45,8 +46,8 @@ macro_rules! bench_ce_insert {
                         format!("ce_insert_precision_{}_bits_{}_hasher_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS, stringify!($hasher)).as_str(),
                         |b| {
                             b.iter(||{
-                                let mut hll: CardinalityEstimator<usize, $hasher, {$precision::EXPONENT}, {$bits::NUMBER_OF_BITS}> = CardinalityEstimator::default();
-                                for i in 0..NUMBER_OF_ELEMENTS {
+                                let mut hll: CardinalityEstimator<u64, $hasher, {$precision::EXPONENT}, {$bits::NUMBER_OF_BITS}> = CardinalityEstimator::default();
+                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                                     hll.insert(black_box(&i));
                                 }
                             })
@@ -82,8 +83,8 @@ macro_rules! bench_inserts {
                         format!("tabacplusplus_insert_precision_{}_bits_6", $precision::EXPONENT).as_str(),
                         |b| {
                             b.iter(||{
-                                let mut hll: TabacHyperLogLogPlus<usize, RandomState> = TabacHyperLogLogPlus::new($precision::EXPONENT as u8, RandomState::new()).unwrap();
-                                for i in 0..NUMBER_OF_ELEMENTS {
+                                let mut hll: TabacHyperLogLogPlus<u64, RandomState> = TabacHyperLogLogPlus::new($precision::EXPONENT as u8, RandomState::new()).unwrap();
+                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                                     TabacHyperLogLog::insert(&mut hll, black_box(&i));
                                 }
                             })
@@ -96,7 +97,7 @@ macro_rules! bench_inserts {
                         |b| {
                             b.iter(||{
                                 let mut hll: RustHyperLogLog = RustHyperLogLog::new_deterministic($precision::error_rate(), 6785467548654986_128);
-                                for i in 0..NUMBER_OF_ELEMENTS {
+                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                                     hll.insert(&black_box(i));
                                 }
                             })
@@ -108,8 +109,8 @@ macro_rules! bench_inserts {
                         format!("sa_insert_precision_{}_bits_6", $precision::EXPONENT).as_str(),
                         |b| {
                             b.iter(||{
-                                let mut hll: SAHyperLogLog<usize> = SAHyperLogLog::new($precision::error_rate());
-                                for i in 0..NUMBER_OF_ELEMENTS {
+                                let mut hll: SAHyperLogLog<u64> = SAHyperLogLog::new($precision::error_rate());
+                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                                     hll.push(&black_box(i));
                                 }
                             })

@@ -1,21 +1,17 @@
 ,task,approach,win,tie,loss,error
-0,cardinality,HLL6 + WyHash,9,90,5,0.05358331268125343
-1,cardinality,Beta6 + WyHash,10,90,4,0.053590774743529426
-2,cardinality,Tabac's HLL,2,82,20,0.053738387453359446
-3,cardinality,Cardinality Estimator,9,89,6,0.05390637575155218
-4,cardinality,Streaming Algorithms,4,98,2,0.05421574302625895
-5,cardinality,HLL6 + Xxhasher,8,90,6,0.05425284775626154
-6,cardinality,Beta6 + Xxhasher,6,91,7,0.05426664620575495
-7,cardinality,Rust-HLL,4,95,5,0.054606360740995424
-8,cardinality,Tabac's HLL++,10,87,7,0.05495985679096492
-9,union,MLE2 + Xxhasher,104,6,20,0.04116722731410891
-10,union,HLL6 + Xxhasher,75,9,46,0.04407710464901822
-11,union,MLE2 + WyHash,82,9,39,0.04427991594711684
-12,union,HLL6 + WyHash,52,7,71,0.048636434202307954
-13,union,Cardinality Estimator,76,8,46,0.051113448621600284
-14,union,Rust-HLL,71,11,48,0.05246339550177011
-15,union,Streaming Algorithms,65,10,55,0.05663352340409285
-16,union,MLE2 + DefaultHasher,84,4,42,0.060610195506788485
-17,union,HLL6 + DefaultHasher,55,10,65,0.06454249615395458
-18,union,Tabac's HLL++,1,13,116,0.22924401005571382
-19,union,Tabac's HLL,0,13,117,0.22946495575479284
+0,cardinality,Cardinality Estimator,5,94,5,0.05391126143094626
+1,cardinality,Tabac's HLL,0,78,26,0.05401183276449488
+2,cardinality,Beta6 + WyHash,14,86,4,0.05408433021112126
+3,cardinality,HLL6 + WyHash,11,84,9,0.05410140846253034
+4,cardinality,Streaming Algorithms,7,96,1,0.05413982484702199
+5,cardinality,Tabac's HLL++,5,96,3,0.05424680459323745
+6,cardinality,Beta6 + Xxhasher,7,93,4,0.054256751141241996
+7,cardinality,HLL6 + Xxhasher,6,90,8,0.05427291257785886
+8,cardinality,Rust-HLL,6,97,1,0.05456243199698689
+9,union,MLE2 + Xxhasher,76,1,1,0.04549601091298139
+10,union,Cardinality Estimator,41,20,17,0.05073820735681452
+11,union,HLL6 + Xxhasher,41,15,22,0.051059383694767056
+12,union,Streaming Algorithms,31,18,29,0.0527504841839537
+13,union,Rust-HLL,32,20,26,0.0541613699538819
+14,union,Tabac's HLL++,1,14,63,0.07312940675119904
+15,union,Tabac's HLL,0,14,64,0.07330746021855591

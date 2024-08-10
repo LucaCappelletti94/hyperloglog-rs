@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-fn get_biases_and_estimates(precision: usize) -> (Vec<f64>, Vec<f64>) {
+fn get_biases_and_estimates(precision: usize) -> (Vec<i32>, Vec<u32>) {
     // We load the 'original_biases.json' and 'original_estimates.json' files
     let original_biases = include_str!("original_biases.json");
     let original_estimates = include_str!("original_estimates.json");
@@ -12,15 +12,55 @@ fn get_biases_and_estimates(precision: usize) -> (Vec<f64>, Vec<f64>) {
     let original_estimates: Vec<Vec<f64>> = serde_json::from_str(original_estimates).unwrap();
 
     // Get the biases and estimates for the specified precision
-    let biases = original_biases[precision-4].clone();
-    let estimates = original_estimates[precision-4].clone();
+    let biases = original_biases[precision - 4].clone();
+    let estimates = original_estimates[precision - 4].clone();
 
     // We need to sort them in ascending order by estimates, making sure the biases are sorted accordingly
-    let mut data: Vec<(f64, f64)> = biases.iter().zip(estimates.iter()).map(|(a, b)| (*a, *b)).collect();
-    data.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    let data: Vec<(f64, f64)> = biases
+        .iter()
+        .zip(estimates.iter())
+        .map(|(a, b)| (*a, *b))
+        .collect();
 
-    let biases: Vec<f64> = data.iter().map(|(a, _)| *a).collect();
-    let estimates: Vec<f64> = data.iter().map(|(_, b)| *b).collect();
+    // We exclude the data whose estimate (the first value) is lower than the linear count threshold
+    // associated with the current precision, as it wil never be used. I am not sure why they ever provided
+    // weights for these values in the first place.
+    let linear_count_threshold = get_linear_count_threshold(precision);
+    let data: Vec<(f64, f64)> = data
+        .into_iter()
+        .filter(|(_, b)| *b >= linear_count_threshold as f64)
+        .collect();
+
+    // We convert by rounding the values into u32s and i32s respectively
+    let mut data: Vec<(i32, u32)> = data
+        .into_iter()
+        .map(|(bias, estimate)| (bias.round() as i32, estimate.round() as u32))
+        .collect();
+
+    // We need to sort them in ascending order by estimates, and then drop the duplicates
+    data.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    data.dedup_by(|a, b| a.1 == b.1);
+
+    // We now identify whether at some point in the bias series there are all and solely zeros afterwards.
+    // In such cases, we keep the first zero and drop the rest.
+    let mut first_zero_index: Option<usize> = None;
+    for (i, (bias, _estimate)) in data.iter().enumerate() {
+        if *bias != 0 {
+            first_zero_index = None;
+            continue;
+        }
+        if bias == &0 && first_zero_index.is_none(){
+            first_zero_index = Some(i);
+        }
+    }
+
+    if let Some(first_zero_index) = first_zero_index {
+        data.truncate(first_zero_index + 1);
+    }
+
+    // We convert the data back into biases and estimates
+    let biases: Vec<i32> = data.iter().map(|(a, _)| *a).collect();
+    let estimates: Vec<u32> = data.iter().map(|(_, b)| *b).collect();
 
     // We check that both vectors have the same length
     assert_eq!(biases.len(), estimates.len());
@@ -38,7 +78,7 @@ fn get_beta(precision: usize) -> Vec<f64> {
     let beta: Vec<Vec<f64>> = serde_json::from_str(beta).unwrap();
 
     // Get the biases and estimates for the specified precision
-    let beta = beta[precision-4].clone();
+    let beta = beta[precision - 4].clone();
 
     beta
 }
@@ -58,16 +98,21 @@ fn get_linear_count(number_of_registers: usize, threshold: usize) -> usize {
         .round() as usize
 }
 
-fn get_linear_count_zeros() -> [usize; 15] {
+fn get_linear_count_threshold(precision: usize) -> usize {
     let linear_count_threshold: [usize; 15] = [
         10, 20, 40, 80, 220, 400, 900, 1_800, 3_100, 6_500, 11_500, 20_000, 50_000, 120_000,
         350_000,
     ];
+    linear_count_threshold[precision - 4]
+}
+
+fn get_linear_count_zeros() -> [usize; 15] {
     let mut linear_count_zeros = [0; 15];
     for i in 0..15 {
         let exponent = i + 4;
         let number_of_registers = 1 << exponent;
-        linear_count_zeros[i] = get_linear_count(number_of_registers, linear_count_threshold[i]);
+        linear_count_zeros[i] =
+            get_linear_count(number_of_registers, get_linear_count_threshold(exponent));
     }
     linear_count_zeros
 }
@@ -124,6 +169,8 @@ fn format_float_with_underscores(value: f64, precision: usize) -> String {
     // Combine the integer part with underscores and the fractional part
     let result = if !fractional_part.is_empty() {
         format!("{}.{fractional_part}", integer_with_underscores)
+    } else if precision == 0 {
+        integer_with_underscores
     } else {
         format!("{integer_with_underscores}.0")
     };
@@ -145,45 +192,49 @@ fn write_bias_and_estimate_files(minimum_precision: usize, maximal_precision: us
     for precision in minimum_precision..=maximal_precision {
         let (biases, estimates) = get_biases_and_estimates(precision);
         let beta = get_beta(precision);
+        let number_of_biases = biases.len();
 
         for data_type in ["f32", "f64"] {
-            let number_of_biases = biases.len();
             let capitalized_data_type = data_type.to_uppercase();
-
-            let weights_type = format!("type Weights{capitalized_data_type}{precision} = [{data_type}; {number_of_biases}];");
-
-            let biases = format!(
-                "const BIAS_{capitalized_data_type}_{precision}:  Weights{capitalized_data_type}{precision} = [\n{}\n];",
-                biases
-                    .iter()
-                    .map(|x| format!("    {},", format_float_with_underscores(*x, 6)))
-                    .collect::<Vec<String>>()
-                    .join("\n")
-            );
-    
-            let estimates = format!(
-                "const ESTIMATES_{capitalized_data_type}_{precision}:  Weights{capitalized_data_type}{precision} = [\n{}\n];",
-                estimates
-                    .iter()
-                    .map(|x| format!("    {},", format_float_with_underscores(*x, 6)))
-                    .collect::<Vec<String>>()
-                    .join("\n")
-            );
 
             let beta = format!(
                 "const BETA_{capitalized_data_type}_{precision}: [{data_type}; 8] = [\n{}\n];",
-                beta
-                    .iter()
+                beta.iter()
                     .map(|x| format!("    {},", format_float_with_underscores(*x, 6)))
                     .collect::<Vec<String>>()
                     .join("\n")
             );
-            
-            all_types.push(weights_type);
-            all_biases.push(biases);
-            all_estimates.push(estimates);
+
             all_betas.push(beta);
         }
+
+        let weights_type = format!("type Bias{precision} = [i32; {number_of_biases}];");
+
+        let biases = format!(
+            "const BIAS_{precision}:  Bias{precision} = [\n{}\n];",
+            biases
+                .iter()
+                .map(|x| format!("    {},", format_float_with_underscores(*x as f64, 0)))
+                .collect::<Vec<String>>()
+                .join("\n")
+        );
+
+        let estimate_type = format!("type Estimates{precision} = [u32; {number_of_biases}];");
+
+        all_types.push(estimate_type);
+
+        let estimates = format!(
+            "const ESTIMATES_{precision}:  Estimates{precision} = [\n{}\n];",
+            estimates
+                .iter()
+                .map(|x| format!("    {},", format_float_with_underscores(*x as f64, 0)))
+                .collect::<Vec<String>>()
+                .join("\n")
+        );
+
+        all_types.push(weights_type);
+        all_biases.push(biases);
+        all_estimates.push(estimates);
     }
 
     // Define the output path for the generated code
@@ -192,16 +243,18 @@ fn write_bias_and_estimate_files(minimum_precision: usize, maximal_precision: us
 
     // Write the generated code to the file
     let mut weights_file = File::create(weights_path).unwrap();
-    weights_file.write_all(
-        format!(
-            "{}\n\n{}\n\n{}\n\n{}\n",
-            all_types.join("\n"),
-            all_biases.join("\n"),
-            all_estimates.join("\n"),
-            all_betas.join("\n"),
+    weights_file
+        .write_all(
+            format!(
+                "{}\n\n{}\n\n{}\n\n{}\n",
+                all_types.join("\n"),
+                all_biases.join("\n"),
+                all_estimates.join("\n"),
+                all_betas.join("\n"),
+            )
+            .as_bytes(),
         )
-        .as_bytes(),
-    ).unwrap();
+        .unwrap();
 }
 
 fn main() {

@@ -1,0 +1,519 @@
+hll_union_precision_4_bits_6
+                        time:   [14.604 µs 14.615 µs 14.629 µs]
+                        change: [+121.67% +121.94% +122.21%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) high mild
+  7 (7.00%) high severe
+
+hll_union_precision_5_bits_6
+                        time:   [27.228 µs 27.252 µs 27.278 µs]
+                        change: [+121.18% +121.35% +121.52%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+
+hll_union_precision_6_bits_6
+                        time:   [51.720 µs 51.732 µs 51.746 µs]
+                        change: [+122.56% +122.70% +122.85%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 15 outliers among 100 measurements (15.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  10 (10.00%) high severe
+
+hll_union_precision_7_bits_6
+                        time:   [94.589 µs 94.611 µs 94.635 µs]
+                        change: [+127.26% +127.41% +127.52%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  8 (8.00%) high severe
+
+hll_union_precision_8_bits_6
+                        time:   [185.76 µs 185.84 µs 185.95 µs]
+                        change: [+124.85% +125.01% +125.16%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) low mild
+  8 (8.00%) high mild
+  4 (4.00%) high severe
+
+hll_union_precision_9_bits_6
+                        time:   [401.42 µs 401.51 µs 401.61 µs]
+                        change: [+124.99% +125.06% +125.13%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 14 outliers among 100 measurements (14.00%)
+  6 (6.00%) high mild
+  8 (8.00%) high severe
+
+hll_union_precision_10_bits_6
+                        time:   [804.41 µs 804.61 µs 804.86 µs]
+                        change: [+125.52% +125.61% +125.69%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 16 outliers among 100 measurements (16.00%)
+  5 (5.00%) high mild
+  11 (11.00%) high severe
+
+hll_union_precision_11_bits_6
+                        time:   [1.4278 ms 1.4282 ms 1.4287 ms]
+                        change: [+125.40% +125.66% +125.89%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 16 outliers among 100 measurements (16.00%)
+  3 (3.00%) high mild
+  13 (13.00%) high severe
+
+hll_union_precision_12_bits_6
+                        time:   [2.8695 ms 2.8704 ms 2.8717 ms]
+                        change: [+123.02% +123.41% +123.72%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) high mild
+  7 (7.00%) high severe
+
+hll_union_precision_13_bits_6
+                        time:   [6.3657 ms 6.3672 ms 6.3692 ms]
+                        change: [+128.17% +128.26% +128.35%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  9 (9.00%) high severe
+
+hll_union_precision_14_bits_6
+                        time:   [12.728 ms 12.731 ms 12.734 ms]
+                        change: [+125.09% +125.22% +125.32%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 11 outliers among 100 measurements (11.00%)
+  11 (11.00%) high severe
+
+hll_union_precision_15_bits_6
+                        time:   [22.607 ms 22.610 ms 22.615 ms]
+                        change: [+124.90% +125.00% +125.10%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 15 outliers among 100 measurements (15.00%)
+  6 (6.00%) high mild
+  9 (9.00%) high severe
+
+hll_union_precision_16_bits_6
+                        time:   [49.513 ms 49.521 ms 49.530 ms]
+                        change: [+123.01% +123.16% +123.28%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) high mild
+  11 (11.00%) high severe
+
+mle_union_precision_4_bits_6
+                        time:   [204.66 ms 204.71 ms 204.77 ms]
+
+mle_union_precision_5_bits_6
+                        time:   [373.91 ms 374.00 ms 374.08 ms]
+
+mle_union_precision_6_bits_6
+                        time:   [823.04 ms 823.34 ms 823.68 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+mle_union_precision_7_bits_6
+                        time:   [1.4909 s 1.4915 s 1.4925 s]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+
+mle_union_precision_8_bits_6
+                        time:   [2.4321 s 2.4325 s 2.4329 s]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low mild
+  1 (10.00%) high severe
+
+mle_union_precision_9_bits_6
+                        time:   [6.0228 s 6.0239 s 6.0257 s]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+
+mle_union_precision_10_bits_6
+                        time:   [14.095 s 14.096 s 14.098 s]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+
+mle_union_precision_11_bits_6
+                        time:   [15.534 s 15.536 s 15.538 s]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+mle_union_precision_12_bits_6
+                        time:   [15.681 s 15.693 s 15.712 s]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+
+mle_union_precision_13_bits_6
+                        time:   [15.950 s 15.953 s 15.955 s]
+
+mle_union_precision_14_bits_6
+                        time:   [15.464 s 15.467 s 15.469 s]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low mild
+
+mle_union_precision_15_bits_6
+                        time:   [15.834 s 15.837 s 15.840 s]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low severe
+
+mle_union_precision_16_bits_6
+                        time:   [15.485 s 15.488 s 15.490 s]
+
+tabacpf_union_precision_4_bits_6
+                        time:   [53.581 µs 53.645 µs 53.734 µs]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+
+tabacpf_union_precision_5_bits_6
+                        time:   [123.36 µs 123.41 µs 123.45 µs]
+
+tabacpf_union_precision_6_bits_6
+                        time:   [255.58 µs 255.68 µs 255.80 µs]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+tabacpf_union_precision_7_bits_6
+                        time:   [524.29 µs 524.39 µs 524.50 µs]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+tabacpf_union_precision_8_bits_6
+                        time:   [1.0560 ms 1.0562 ms 1.0564 ms]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) low mild
+  1 (5.00%) high severe
+
+tabacpf_union_precision_9_bits_6
+                        time:   [2.1645 ms 2.1651 ms 2.1661 ms]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+
+tabacpf_union_precision_10_bits_6
+                        time:   [4.5136 ms 4.5150 ms 4.5165 ms]
+
+tabacpf_union_precision_11_bits_6
+                        time:   [9.3477 ms 9.3509 ms 9.3550 ms]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
+tabacpf_union_precision_12_bits_6
+                        time:   [18.278 ms 18.281 ms 18.285 ms]
+
+tabacpf_union_precision_13_bits_6
+                        time:   [33.075 ms 33.085 ms 33.100 ms]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
+tabacpf_union_precision_14_bits_6
+                        time:   [54.669 ms 54.683 ms 54.700 ms]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+tabacpf_union_precision_15_bits_6
+                        time:   [91.144 ms 91.163 ms 91.185 ms]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+tabacpf_union_precision_16_bits_6
+                        time:   [160.18 ms 160.22 ms 160.28 ms]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+tabacplusplus_union_precision_4_bits_6
+                        time:   [73.378 µs 73.465 µs 73.534 µs]
+
+tabacplusplus_union_precision_5_bits_6
+                        time:   [141.28 µs 141.37 µs 141.47 µs]
+
+tabacplusplus_union_precision_6_bits_6
+                        time:   [277.72 µs 277.83 µs 278.03 µs]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+
+tabacplusplus_union_precision_7_bits_6
+                        time:   [539.09 µs 539.20 µs 539.31 µs]
+
+tabacplusplus_union_precision_8_bits_6
+                        time:   [1.0553 ms 1.0555 ms 1.0557 ms]
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) low severe
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+tabacplusplus_union_precision_9_bits_6
+                        time:   [2.1729 ms 2.1751 ms 2.1787 ms]
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) high mild
+  2 (10.00%) high severe
+
+tabacplusplus_union_precision_10_bits_6
+                        time:   [4.4734 ms 4.4774 ms 4.4830 ms]
+
+tabacplusplus_union_precision_11_bits_6
+                        time:   [9.4049 ms 9.4076 ms 9.4116 ms]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
+tabacplusplus_union_precision_12_bits_6
+                        time:   [19.985 ms 19.993 ms 20.003 ms]
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) high mild
+  2 (10.00%) high severe
+
+tabacplusplus_union_precision_13_bits_6
+                        time:   [46.210 ms 46.223 ms 46.236 ms]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+tabacplusplus_union_precision_14_bits_6
+                        time:   [115.72 ms 115.76 ms 115.83 ms]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
+tabacplusplus_union_precision_15_bits_6
+                        time:   [275.45 ms 275.54 ms 275.67 ms]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
+tabacplusplus_union_precision_16_bits_6
+                        time:   [272.33 ms 272.40 ms 272.50 ms]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
+sa_union_precision_4_bits_6
+                        time:   [26.326 µs 26.343 µs 26.364 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+
+sa_union_precision_5_bits_6
+                        time:   [38.016 µs 38.046 µs 38.078 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+
+sa_union_precision_6_bits_6
+                        time:   [59.767 µs 59.826 µs 59.890 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+
+sa_union_precision_7_bits_6
+                        time:   [104.05 µs 104.12 µs 104.20 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+
+sa_union_precision_8_bits_6
+                        time:   [193.90 µs 193.99 µs 194.08 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+
+sa_union_precision_9_bits_6
+                        time:   [380.28 µs 380.42 µs 380.59 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+
+sa_union_precision_10_bits_6
+                        time:   [751.00 µs 751.16 µs 751.33 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  5 (5.00%) high mild
+  3 (3.00%) high severe
+
+sa_union_precision_11_bits_6
+                        time:   [1.5149 ms 1.5153 ms 1.5157 ms]
+Found 14 outliers among 100 measurements (14.00%)
+  8 (8.00%) high mild
+  6 (6.00%) high severe
+
+sa_union_precision_12_bits_6
+                        time:   [2.9551 ms 2.9557 ms 2.9563 ms]
+Found 11 outliers among 100 measurements (11.00%)
+  2 (2.00%) high mild
+  9 (9.00%) high severe
+
+sa_union_precision_13_bits_6
+                        time:   [5.8112 ms 5.8132 ms 5.8159 ms]
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) high mild
+  9 (9.00%) high severe
+
+sa_union_precision_14_bits_6
+                        time:   [11.601 ms 11.606 ms 11.611 ms]
+Found 14 outliers among 100 measurements (14.00%)
+  2 (2.00%) high mild
+  12 (12.00%) high severe
+
+sa_union_precision_15_bits_6
+                        time:   [23.427 ms 23.447 ms 23.466 ms]
+Found 7 outliers among 100 measurements (7.00%)
+  6 (6.00%) low mild
+  1 (1.00%) high severe
+
+sa_union_precision_16_bits_6
+                        time:   [46.955 ms 46.980 ms 47.004 ms]
+Found 14 outliers among 100 measurements (14.00%)
+  5 (5.00%) low severe
+  7 (7.00%) low mild
+  2 (2.00%) high severe
+
+ce_union_precision_4_bits_6
+                        time:   [55.314 µs 55.374 µs 55.440 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+
+ce_union_precision_5_bits_6
+                        time:   [103.53 µs 103.59 µs 103.66 µs]
+
+ce_union_precision_6_bits_6
+                        time:   [251.31 µs 251.41 µs 251.52 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+
+ce_union_precision_7_bits_6
+                        time:   [493.31 µs 493.44 µs 493.59 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) low mild
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+
+ce_union_precision_8_bits_6
+                        time:   [956.64 µs 956.86 µs 957.11 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+
+ce_union_precision_9_bits_6
+                        time:   [1.8887 ms 1.8897 ms 1.8912 ms]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+
+ce_union_precision_10_bits_6
+                        time:   [3.8370 ms 3.8382 ms 3.8396 ms]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+
+ce_union_precision_11_bits_6
+                        time:   [7.6398 ms 7.6437 ms 7.6488 ms]
+Found 12 outliers among 100 measurements (12.00%)
+  2 (2.00%) high mild
+  10 (10.00%) high severe
+
+ce_union_precision_12_bits_6
+                        time:   [14.605 ms 14.609 ms 14.613 ms]
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) high mild
+  8 (8.00%) high severe
+
+ce_union_precision_13_bits_6
+                        time:   [26.757 ms 26.770 ms 26.787 ms]
+Found 11 outliers among 100 measurements (11.00%)
+  3 (3.00%) high mild
+  8 (8.00%) high severe
+
+ce_union_precision_14_bits_6
+                        time:   [39.661 ms 39.669 ms 39.678 ms]
+Found 12 outliers among 100 measurements (12.00%)
+  4 (4.00%) high mild
+  8 (8.00%) high severe
+
+ce_union_precision_15_bits_6
+                        time:   [61.672 ms 61.690 ms 61.713 ms]
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) high mild
+  9 (9.00%) high severe
+
+ce_union_precision_16_bits_6
+                        time:   [95.227 ms 95.246 ms 95.268 ms]
+Found 14 outliers among 100 measurements (14.00%)
+  6 (6.00%) high mild
+  8 (8.00%) high severe
+
+rhll_union_precision_4_bits_6
+                        time:   [144.39 µs 144.49 µs 144.58 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+
+rhll_union_precision_5_bits_6
+                        time:   [295.60 µs 295.76 µs 295.96 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+
+rhll_union_precision_6_bits_6
+                        time:   [551.07 µs 551.44 µs 551.80 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) low mild
+  2 (2.00%) high mild
+
+rhll_union_precision_7_bits_6
+                        time:   [1.1700 ms 1.1707 ms 1.1715 ms]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low severe
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+
+rhll_union_precision_8_bits_6
+                        time:   [2.3658 ms 2.3671 ms 2.3685 ms]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+
+rhll_union_precision_9_bits_6
+                        time:   [4.7307 ms 4.7326 ms 4.7346 ms]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+
+rhll_union_precision_10_bits_6
+                        time:   [9.3404 ms 9.3432 ms 9.3461 ms]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+
+rhll_union_precision_11_bits_6
+                        time:   [17.996 ms 18.001 ms 18.007 ms]
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  7 (7.00%) high severe
+
+rhll_union_precision_12_bits_6
+                        time:   [33.628 ms 33.639 ms 33.654 ms]
+Found 9 outliers among 100 measurements (9.00%)
+  3 (3.00%) high mild
+  6 (6.00%) high severe
+
+rhll_union_precision_13_bits_6
+                        time:   [51.468 ms 51.477 ms 51.488 ms]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+
+rhll_union_precision_14_bits_6
+                        time:   [51.863 ms 51.910 ms 51.969 ms]
+Found 11 outliers among 100 measurements (11.00%)
+  6 (6.00%) high mild
+  5 (5.00%) high severe
+
+rhll_union_precision_15_bits_6
+                        time:   [40.473 ms 40.481 ms 40.489 ms]
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) high mild
+  10 (10.00%) high severe
+
+rhll_union_precision_16_bits_6
+                        time:   [57.134 ms 57.146 ms 57.161 ms]
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) high mild
+  11 (11.00%) high severe
+

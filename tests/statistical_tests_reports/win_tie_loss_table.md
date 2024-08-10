@@ -1,22 +1,18 @@
 | task        | approach              |   win |   tie |   loss |     error |
 |:------------|:----------------------|------:|------:|-------:|----------:|
-| cardinality | HLL6 + WyHash         |     9 |    90 |      5 | 0.0535833 |
-| cardinality | Beta6 + WyHash        |    10 |    90 |      4 | 0.0535908 |
-| cardinality | Tabac's HLL           |     2 |    82 |     20 | 0.0537384 |
-| cardinality | Cardinality Estimator |     9 |    89 |      6 | 0.0539064 |
-| cardinality | Streaming Algorithms  |     4 |    98 |      2 | 0.0542157 |
-| cardinality | HLL6 + Xxhasher       |     8 |    90 |      6 | 0.0542528 |
-| cardinality | Beta6 + Xxhasher      |     6 |    91 |      7 | 0.0542666 |
-| cardinality | Rust-HLL              |     4 |    95 |      5 | 0.0546064 |
-| cardinality | Tabac's HLL++         |    10 |    87 |      7 | 0.0549599 |
-| union       | MLE2 + Xxhasher       |   104 |     6 |     20 | 0.0411672 |
-| union       | HLL6 + Xxhasher       |    75 |     9 |     46 | 0.0440771 |
-| union       | MLE2 + WyHash         |    82 |     9 |     39 | 0.0442799 |
-| union       | HLL6 + WyHash         |    52 |     7 |     71 | 0.0486364 |
-| union       | Cardinality Estimator |    76 |     8 |     46 | 0.0511134 |
-| union       | Rust-HLL              |    71 |    11 |     48 | 0.0524634 |
-| union       | Streaming Algorithms  |    65 |    10 |     55 | 0.0566335 |
-| union       | MLE2 + DefaultHasher  |    84 |     4 |     42 | 0.0606102 |
-| union       | HLL6 + DefaultHasher  |    55 |    10 |     65 | 0.0645425 |
-| union       | Tabac's HLL++         |     1 |    13 |    116 | 0.229244  |
-| union       | Tabac's HLL           |     0 |    13 |    117 | 0.229465  |
+| cardinality | Cardinality Estimator |     5 |    94 |      5 | 0.0539113 |
+| cardinality | Tabac's HLL           |     0 |    78 |     26 | 0.0540118 |
+| cardinality | Beta6 + WyHash        |    14 |    86 |      4 | 0.0540843 |
+| cardinality | HLL6 + WyHash         |    11 |    84 |      9 | 0.0541014 |
+| cardinality | Streaming Algorithms  |     7 |    96 |      1 | 0.0541398 |
+| cardinality | Tabac's HLL++         |     5 |    96 |      3 | 0.0542468 |
+| cardinality | Beta6 + Xxhasher      |     7 |    93 |      4 | 0.0542568 |
+| cardinality | HLL6 + Xxhasher       |     6 |    90 |      8 | 0.0542729 |
+| cardinality | Rust-HLL              |     6 |    97 |      1 | 0.0545624 |
+| union       | MLE2 + Xxhasher       |    76 |     1 |      1 | 0.045496  |
+| union       | Cardinality Estimator |    41 |    20 |     17 | 0.0507382 |
+| union       | HLL6 + Xxhasher       |    41 |    15 |     22 | 0.0510594 |
+| union       | Streaming Algorithms  |    31 |    18 |     29 | 0.0527505 |
+| union       | Rust-HLL              |    32 |    20 |     26 | 0.0541614 |
+| union       | Tabac's HLL++         |     1 |    14 |     63 | 0.0731294 |
+| union       | Tabac's HLL           |     0 |    14 |     64 | 0.0733075 |

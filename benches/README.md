@@ -18,6 +18,12 @@ RUSTFLAGS='-C target-cpu=native' cargo bench --bench binary_search
 RUSTFLAGS='-C target-cpu=native' cargo bench --bench cardinality > benches/cardinality.log
 ```
 
+## Union
+
+```bash
+RUSTFLAGS='-C target-cpu=native' cargo bench --bench union > benches/union.log
+```
+
 ## Hash functions
 One of the cardinal parts of any HyperLogLog implementation is the hash function. This benchmark compares the speed of different hash functions, including WyHash, XxHash, and the default Rust hasher. Earlier, it included also a custom implementation of SipHash, but it was removed due to the lack of entropy - potentially a bug in the implementation.
 

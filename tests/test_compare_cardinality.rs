@@ -181,7 +181,7 @@ mod test_comparison {
         <P as hyperloglog_rs::prelude::Precision>::NumberOfZeros: mem_dbg::MemSize,
     {
         assert_eq!(P::EXPONENT, EXPONENT);
-        let number_of_vectors = 3_000;
+        let number_of_vectors = 10_000;
         let mut random_state = splitmix64(6516781878233_u64);
 
         let mut exact_mrs = Vec::with_capacity(number_of_vectors);

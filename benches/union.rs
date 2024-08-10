@@ -1,43 +1,28 @@
 #![feature(test)]
 extern crate test;
 
+use cardinality_estimator::CardinalityEstimator;
 use criterion::{criterion_group, criterion_main, Criterion};
 use hyperloglog_rs::prelude::*;
 use hyperloglogplus::HyperLogLog as TabacHyperLogLog;
 use hyperloglogplus::HyperLogLogPF as TabacHyperLogLogPF;
 use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
+use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
 use std::hash::RandomState;
 use std::hint::black_box;
 use streaming_algorithms::HyperLogLog as SAHyperLogLog;
 
 const MAXIMAL_ARRAY_SIZE: usize = 10_000;
-const NUMBER_OF_ELEMENTS: usize = 20;
+const NUMBER_OF_ELEMENTS: usize = 30;
+const LEFT_RANDOM_STATE: u64 = 87561346897134_u64;
+const RIGHT_RANDOM_STATE: u64 = 2344357875478_u64;
 
-fn splitmix64(mut x: u64) -> u64 {
-    x = x.wrapping_add(0x9E3779B97F4A7C15);
-    x = (x ^ (x >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
-    x = (x ^ (x >> 27)).wrapping_mul(0x94D049BB133111EB);
-    x ^ (x >> 31)
-}
-
-fn xorshift64(x: &mut u64) -> u64 {
-    *x ^= *x << 13;
-    *x ^= *x >> 7;
-    *x ^= *x << 17;
-    *x
-}
-
-fn iter_xorshift64(x: &mut u64) -> impl Iterator<Item = u64> + '_{
-    *x = splitmix64(*x);
-    let this_array_size = splitmix64(*x) as usize % MAXIMAL_ARRAY_SIZE;
-    (0..this_array_size).map(move |_| xorshift64(x))
-}
-
-fn populate_hll_vector<P: Precision, H: InsertValue>(random_state: &mut u64) -> Vec<H> {
+fn populate_hll_vector<P: Precision, H: InsertValue>(mut random_state: u64) -> Vec<H> {
     let mut hll_vector = Vec::with_capacity(NUMBER_OF_ELEMENTS);
     for _ in 0..NUMBER_OF_ELEMENTS {
         let mut hll = H::create(P::EXPONENT);
-        for value in iter_xorshift64(random_state) {
+        random_state = splitmix64(random_state);
+        for value in iter_random_values(MAXIMAL_ARRAY_SIZE, None, random_state) {
             hll.insert(value);
         }
         hll_vector.push(hll);
@@ -46,9 +31,8 @@ fn populate_hll_vector<P: Precision, H: InsertValue>(random_state: &mut u64) -> 
 }
 
 fn populate_hll_vectors_tuple<P: Precision, H: InsertValue>() -> (Vec<H>, Vec<H>) {
-    let mut random_state = 534543539_u64;
-    let left = populate_hll_vector::<P, H>(&mut random_state);
-    let right = populate_hll_vector::<P, H>(&mut random_state);
+    let left = populate_hll_vector::<P, H>(LEFT_RANDOM_STATE);
+    let right = populate_hll_vector::<P, H>(RIGHT_RANDOM_STATE);
     (left, right)
 }
 
@@ -58,7 +42,33 @@ trait InsertValue {
     fn create(precision: usize) -> Self;
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> InsertValue for HyperLogLog<P, B, R, Hasher>
+impl InsertValue for RustHyperLogLog {
+    fn insert(&mut self, value: u64) {
+        self.insert(&value);
+    }
+
+    fn create(precision: usize) -> Self {
+        let exponent = (precision as f64) / 2.0;
+        let error_rate = 1.04 / 2f64.powf(exponent);
+        RustHyperLogLog::new_deterministic(error_rate, 857686755678_u128)
+    }
+}
+
+impl<const P: usize, const B: usize, Hasher: HasherType> InsertValue
+    for CardinalityEstimator<u64, Hasher, P, B>
+{
+    fn insert(&mut self, value: u64) {
+        self.insert(&value);
+    }
+
+    fn create(precision: usize) -> Self {
+        assert_eq!(precision, P);
+        CardinalityEstimator::new()
+    }
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> InsertValue
+    for HyperLogLog<P, B, R, Hasher>
 where
     Self: HyperLogLogTrait<P, B, Hasher>,
 {
@@ -124,7 +134,7 @@ macro_rules! bench_union {
     ($precision:ty, $bits:ty) => {
         paste::item! {
             fn [<bench_hll_union_ $precision:lower _ $bits:lower>] (b: &mut Criterion) {
-                let (left, right) = populate_hll_vectors_tuple::<$precision, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, twox_hash::XxHash64>>();
+                let (left, right) = populate_hll_vectors_tuple::<$precision, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, wyhash::WyHash>>();
                 b.bench_function(
                     format!("hll_union_precision_{}_bits_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS).as_str(),
                     |b| {
@@ -133,6 +143,25 @@ macro_rules! bench_union {
                             for l in &left {
                                 for r in &right {
                                     total_cardinality += black_box(l).estimate_union_cardinality::<f64>(black_box(r));
+                                }
+                            }
+                            total_cardinality
+                        })
+                });
+            }
+
+            fn [<bench_ce_union_ $precision:lower _ $bits:lower>] (b: &mut Criterion) {
+                let (left, right) = populate_hll_vectors_tuple::<$precision, CardinalityEstimator<u64, twox_hash::XxHash64, {$precision::EXPONENT}, {$bits::NUMBER_OF_BITS}>>();
+                b.bench_function(
+                    format!("ce_union_precision_{}_bits_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS).as_str(),
+                    |b| {
+                        b.iter(||{
+                            let mut total_cardinality = 0.0;
+                            for l in &left {
+                                for r in &right {
+                                    let mut copy = black_box(l).clone();
+                                    black_box(&mut copy).merge(black_box(&r));
+                                    total_cardinality += black_box(copy).estimate() as f64;
                                 }
                             }
                             total_cardinality
@@ -190,6 +219,25 @@ macro_rules! bench_unions {
                                         let mut copy = black_box(l).clone();
                                         copy.merge(black_box(&r)).unwrap();
                                         total_cardinality += copy.count();
+                                    }
+                                }
+                                total_cardinality
+                            })
+                    });
+                }
+
+                fn [<bench_rhll_union_ $precision:lower>] (b: &mut Criterion) {
+                    let (left, right) = populate_hll_vectors_tuple::<$precision, RustHyperLogLog>();
+                    b.bench_function(
+                        format!("rhll_union_precision_{}_bits_6", $precision::EXPONENT).as_str(),
+                        |b| {
+                            b.iter(||{
+                                let mut total_cardinality = 0.0;
+                                for l in &left {
+                                    for r in &right {
+                                        let mut copy = black_box(l).clone();
+                                        black_box(&mut copy).merge(black_box(&r));
+                                        total_cardinality += black_box(copy).len() as f64;
                                     }
                                 }
                                 total_cardinality
@@ -257,8 +305,18 @@ macro_rules! bench_unions {
                 }
                 criterion_group! {
                     name=[<mle_union_ $precision:lower>];
-                    config = Criterion::default().sample_size(5);
+                    config = Criterion::default().sample_size(10);
                     targets=[<bench_mle_union_ $precision:lower _bits6>]
+                }
+                criterion_group! {
+                    name=[<union_rhll_ $precision:lower>];
+                    config = Criterion::default();
+                    targets=[<bench_rhll_union_ $precision:lower>]
+                }
+                criterion_group! {
+                    name=[<union_ce_ $precision:lower>];
+                    config = Criterion::default();
+                    targets=[<bench_ce_union_ $precision:lower _bits6>]
                 }
             }
         )*
@@ -282,69 +340,95 @@ bench_unions!(
 );
 
 criterion_main!(
-    union_hll_precision4,
-    union_hll_precision5,
-    union_hll_precision6,
-    union_hll_precision7,
-    union_hll_precision8,
-    union_hll_precision9,
-    union_hll_precision10,
-    union_hll_precision11,
-    union_hll_precision12,
-    union_hll_precision13,
-    union_hll_precision14,
-    union_hll_precision15,
-    union_hll_precision16,
-    mle_union_precision4,
-    mle_union_precision5,
-    mle_union_precision6,
-    mle_union_precision7,
-    mle_union_precision8,
-    mle_union_precision9,
-    mle_union_precision10,
-    mle_union_precision11,
-    mle_union_precision12,
-    mle_union_precision13,
-    mle_union_precision14,
-    mle_union_precision15,
-    mle_union_precision16,
-    union_tabacpf_precision4,
-    union_tabacpf_precision5,
-    union_tabacpf_precision6,
-    union_tabacpf_precision7,
-    union_tabacpf_precision8,
-    union_tabacpf_precision9,
-    union_tabacpf_precision10,
-    union_tabacpf_precision11,
-    union_tabacpf_precision12,
-    union_tabacpf_precision13,
-    union_tabacpf_precision14,
-    union_tabacpf_precision15,
-    union_tabacpf_precision16,
-    union_tabacplusplus_precision4,
-    union_tabacplusplus_precision5,
-    union_tabacplusplus_precision6,
-    union_tabacplusplus_precision7,
-    union_tabacplusplus_precision8,
-    union_tabacplusplus_precision9,
-    union_tabacplusplus_precision10,
-    union_tabacplusplus_precision11,
-    union_tabacplusplus_precision12,
-    union_tabacplusplus_precision13,
-    union_tabacplusplus_precision14,
-    union_tabacplusplus_precision15,
-    union_tabacplusplus_precision16,
-    union_sa_precision4,
-    union_sa_precision5,
-    union_sa_precision6,
-    union_sa_precision7,
-    union_sa_precision8,
-    union_sa_precision9,
-    union_sa_precision10,
-    union_sa_precision11,
-    union_sa_precision12,
-    union_sa_precision13,
-    union_sa_precision14,
-    union_sa_precision15,
-    union_sa_precision16
+    // union_hll_precision4,
+    // union_hll_precision5,
+    // union_hll_precision6,
+    // union_hll_precision7,
+    // union_hll_precision8,
+    // union_hll_precision9,
+    // union_hll_precision10,
+    // union_hll_precision11,
+    // union_hll_precision12,
+    // union_hll_precision13,
+    // union_hll_precision14,
+    // union_hll_precision15,
+    // union_hll_precision16,
+    // mle_union_precision4,
+    // mle_union_precision5,
+    // mle_union_precision6,
+    // mle_union_precision7,
+    // mle_union_precision8,
+    // mle_union_precision9,
+    // mle_union_precision10,
+    // mle_union_precision11,
+    // mle_union_precision12,
+    // mle_union_precision13,
+    // mle_union_precision14,
+    // mle_union_precision15,
+    // mle_union_precision16,
+    // union_tabacpf_precision4,
+    // union_tabacpf_precision5,
+    // union_tabacpf_precision6,
+    // union_tabacpf_precision7,
+    // union_tabacpf_precision8,
+    // union_tabacpf_precision9,
+    // union_tabacpf_precision10,
+    // union_tabacpf_precision11,
+    // union_tabacpf_precision12,
+    // union_tabacpf_precision13,
+    // union_tabacpf_precision14,
+    // union_tabacpf_precision15,
+    // union_tabacpf_precision16,
+    // union_tabacplusplus_precision4,
+    // union_tabacplusplus_precision5,
+    // union_tabacplusplus_precision6,
+    // union_tabacplusplus_precision7,
+    // union_tabacplusplus_precision8,
+    // union_tabacplusplus_precision9,
+    // union_tabacplusplus_precision10,
+    // union_tabacplusplus_precision11,
+    // union_tabacplusplus_precision12,
+    // union_tabacplusplus_precision13,
+    // union_tabacplusplus_precision14,
+    // union_tabacplusplus_precision15,
+    // union_tabacplusplus_precision16,
+    // union_sa_precision4,
+    // union_sa_precision5,
+    // union_sa_precision6,
+    // union_sa_precision7,
+    // union_sa_precision8,
+    // union_sa_precision9,
+    // union_sa_precision10,
+    // union_sa_precision11,
+    // union_sa_precision12,
+    // union_sa_precision13,
+    // union_sa_precision14,
+    // union_sa_precision15,
+    // union_sa_precision16,
+    union_ce_precision4,
+    union_ce_precision5,
+    union_ce_precision6,
+    union_ce_precision7,
+    union_ce_precision8,
+    union_ce_precision9,
+    union_ce_precision10,
+    union_ce_precision11,
+    union_ce_precision12,
+    union_ce_precision13,
+    union_ce_precision14,
+    union_ce_precision15,
+    union_ce_precision16,
+    union_rhll_precision4,
+    union_rhll_precision5,
+    union_rhll_precision6,
+    union_rhll_precision7,
+    union_rhll_precision8,
+    union_rhll_precision9,
+    union_rhll_precision10,
+    union_rhll_precision11,
+    union_rhll_precision12,
+    union_rhll_precision13,
+    union_rhll_precision14,
+    union_rhll_precision15,
+    union_rhll_precision16,
 );

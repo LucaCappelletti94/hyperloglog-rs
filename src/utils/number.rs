@@ -62,6 +62,8 @@ pub trait FloatNumber:
         }
     }
 
+    fn from_i32(value: i32) -> Self;
+
     fn from_usize(value: usize) -> Self;
 
     fn from_f64(value: f64) -> Self;
@@ -69,6 +71,8 @@ pub trait FloatNumber:
     fn to_usize(self) -> usize;
 
     fn to_f64(self) -> f64;
+
+    fn to_u32(self) -> u32;
 
     #[cfg(feature = "std")]
     fn abs(self) -> Self;
@@ -139,6 +143,16 @@ impl FloatNumber for f32 {
     #[inline(always)]
     fn inverse_register(register: i32) -> Self {
         f32::from_le_bytes(((127 - register) << 23).to_le_bytes())
+    }
+
+    #[inline(always)]
+    fn from_i32(value: i32) -> Self {
+        value as Self
+    }
+
+    #[inline(always)]
+    fn to_u32(self) -> u32 {
+        self as u32
     }
 
     #[inline(always)]
@@ -214,6 +228,16 @@ impl FloatNumber for f64 {
     #[inline(always)]
     fn inverse_register(register: i32) -> Self {
         f64::from_le_bytes(((1023 - register as i64) << 52).to_le_bytes())
+    }
+
+    #[inline(always)]
+    fn from_i32(value: i32) -> Self {
+        value as Self
+    }
+
+    #[inline(always)]
+    fn to_u32(self) -> u32 {
+        self as u32
     }
 
     #[inline(always)]

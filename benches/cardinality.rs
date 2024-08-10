@@ -1,40 +1,20 @@
 #![feature(test)]
 extern crate test;
 
+use cardinality_estimator::CardinalityEstimator;
 use criterion::{criterion_group, criterion_main, Criterion};
 use hyperloglog_rs::prelude::*;
 use hyperloglogplus::HyperLogLog as TabacHyperLogLog;
 use hyperloglogplus::HyperLogLogPF as TabacHyperLogLogPF;
-use std::hash::RandomState;
 use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
-use std::hint::black_box;
-use wyhash::WyHash;
-use streaming_algorithms::HyperLogLog as SAHyperLogLog;
 use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
-use cardinality_estimator::CardinalityEstimator;
+use std::hash::RandomState;
+use std::hint::black_box;
+use streaming_algorithms::HyperLogLog as SAHyperLogLog;
+use wyhash::WyHash;
 
-const NUMBER_OF_ELEMENTS: usize = 7564;
-
-fn splitmix64(mut x: u64) -> u64 {
-    x = x.wrapping_add(0x9E3779B97F4A7C15);
-    x = (x ^ (x >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
-    x = (x ^ (x >> 27)).wrapping_mul(0x94D049BB133111EB);
-    x ^ (x >> 31)
-}
-
-fn xorshift64(x: &mut u64) -> u64 {
-    *x ^= *x << 13;
-    *x ^= *x >> 7;
-    *x ^= *x << 17;
-    *x
-}
-
-fn iter_xorshift64() -> impl Iterator<Item = u64> {
-    let mut x = 8675438654567345_128;
-    x = splitmix64(x);
-    let this_array_size = splitmix64(x) as usize % NUMBER_OF_ELEMENTS;
-    (0..this_array_size).map(move |_| xorshift64(&mut x))
-}
+const RANDOM_STATE: u64 = 87561346897134_u64;
+const NUMBER_OF_ELEMENTS: usize = 10_000;
 
 macro_rules! bench_cardinality {
     ($precision:ty, $bits:ty, $($hasher:ty),*) => {
@@ -47,7 +27,7 @@ macro_rules! bench_cardinality {
                             b.iter(||{
                                 let mut hll: HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher> = HyperLogLog::default();
                                 let mut total_cardinality = 0.0;
-                                for i in iter_xorshift64() {
+                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                                     hll.insert(black_box(i));
                                     total_cardinality += hll.estimate_cardinality::<f64>();
                                 }
@@ -63,7 +43,7 @@ macro_rules! bench_cardinality {
                             b.iter(||{
                                 let mut hll: HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher> = HyperLogLog::default();
                                 let mut total_cardinality = 0.0;
-                                for i in iter_xorshift64() {
+                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                                     hll.insert(black_box(i));
                                     total_cardinality += hll.estimate_cardinality_with_beta::<f64>();
                                 }
@@ -87,7 +67,7 @@ macro_rules! bench_ce_cardinality {
                             b.iter(||{
                                 let mut hll: CardinalityEstimator<u64, $hasher, {$precision::EXPONENT}, {$bits::NUMBER_OF_BITS}> = CardinalityEstimator::default();
                                 let mut total_cardinality = 0;
-                                for i in iter_xorshift64() {
+                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                                     hll.insert(black_box(&i));
                                     total_cardinality += hll.estimate();
                                 }
@@ -95,7 +75,7 @@ macro_rules! bench_ce_cardinality {
                             })
                     });
                 }
-                
+
             }
         )*
     };
@@ -127,7 +107,7 @@ macro_rules! bench_cardinalities {
                             b.iter(||{
                                 let mut hll: TabacHyperLogLogPF<u64, RandomState> = TabacHyperLogLogPF::new($precision::EXPONENT as u8, RandomState::new()).unwrap();
                                 let mut total_cardinality = 0.0;
-                                for i in iter_xorshift64() {
+                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                                     TabacHyperLogLog::insert(&mut hll, black_box(&i));
                                     total_cardinality += hll.count();
                                 }
@@ -143,7 +123,7 @@ macro_rules! bench_cardinalities {
                             b.iter(||{
                                 let mut hll: TabacHyperLogLogPlus<u64, RandomState> = TabacHyperLogLogPlus::new($precision::EXPONENT as u8, RandomState::new()).unwrap();
                                 let mut total_cardinality = 0.0;
-                                for i in iter_xorshift64() {
+                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                                     TabacHyperLogLog::insert(&mut hll, black_box(&i));
                                     total_cardinality += hll.count();
                                 }
@@ -159,7 +139,7 @@ macro_rules! bench_cardinalities {
                             b.iter(||{
                                 let mut hll: RustHyperLogLog = RustHyperLogLog::new_deterministic($precision::error_rate(), 6785467548654986_128);
                                 let mut total_cardinality = 0;
-                                for i in iter_xorshift64() {
+                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                                     hll.insert(black_box(&i));
                                     total_cardinality ^= black_box(hll.len()) as usize;
                                 }
@@ -175,7 +155,7 @@ macro_rules! bench_cardinalities {
                             b.iter(||{
                                 let mut hll: SAHyperLogLog<u64> = SAHyperLogLog::new($precision::error_rate());
                                 let mut total_cardinality = 0.0;
-                                for i in iter_xorshift64() {
+                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                                     hll.push(black_box(&i));
                                     total_cardinality += hll.len();
                                 }
@@ -202,7 +182,12 @@ macro_rules! bench_cardinalities {
                 criterion_group! {
                     name=[<cardinality_hll_ $precision:lower>];
                     config = Criterion::default().sample_size($sample_size);
-                    targets=[<bench_hll_cardinality_ $precision:lower _bits6_xxhash64>], [<bench_hll_cardinality_ $precision:lower _bits6_wyhash>], [<bench_beta_cardinality_ $precision:lower _bits6_xxhash64>], [<bench_beta_cardinality_ $precision:lower _bits6_wyhash>]
+                    targets=[<bench_hll_cardinality_ $precision:lower _bits6_xxhash64>], [<bench_hll_cardinality_ $precision:lower _bits6_wyhash>]
+                }
+                criterion_group! {
+                    name=[<cardinality_beta_ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size);
+                    targets=[<bench_beta_cardinality_ $precision:lower _bits6_xxhash64>], [<bench_beta_cardinality_ $precision:lower _bits6_wyhash>]
                 }
                 criterion_group! {
                     name=[<cardinality_rhll_ $precision:lower>];
@@ -220,15 +205,15 @@ macro_rules! bench_cardinalities {
 }
 
 bench_cardinalities!(
-    (Precision4, 500),
-    (Precision5, 500),
-    (Precision6, 500),
-    (Precision7, 500),
-    (Precision8, 500),
-    (Precision9, 500),
-    (Precision10, 500),
-    (Precision11, 500),
-    (Precision12, 500),
+    (Precision4, 100),
+    (Precision5, 100),
+    (Precision6, 100),
+    (Precision7, 100),
+    (Precision8, 100),
+    (Precision9, 100),
+    (Precision10, 100),
+    (Precision11, 100),
+    (Precision12, 100),
     (Precision13, 50),
     (Precision14, 50),
     (Precision15, 50),
@@ -249,6 +234,19 @@ criterion_main!(
     cardinality_hll_precision14,
     cardinality_hll_precision15,
     cardinality_hll_precision16,
+    cardinality_beta_precision4,
+    cardinality_beta_precision5,
+    cardinality_beta_precision6,
+    cardinality_beta_precision7,
+    cardinality_beta_precision8,
+    cardinality_beta_precision9,
+    cardinality_beta_precision10,
+    cardinality_beta_precision11,
+    cardinality_beta_precision12,
+    cardinality_beta_precision13,
+    cardinality_beta_precision14,
+    cardinality_beta_precision15,
+    cardinality_beta_precision16,
     cardinality_tabacpf_precision4,
     cardinality_tabacpf_precision5,
     cardinality_tabacpf_precision6,
@@ -313,5 +311,5 @@ criterion_main!(
     cardinality_rhll_precision13,
     cardinality_rhll_precision14,
     cardinality_rhll_precision15,
-    cardinality_rhll_precision16    
+    cardinality_rhll_precision16
 );

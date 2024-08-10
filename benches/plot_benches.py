@@ -55,6 +55,7 @@ def normalize_name(name: str) -> str:
         "ce4_WyHash": "Cardinality Estimator",
         "ce6_wyhash": "Cardinality Estimator",
         "ce6_WyHash": "Cardinality Estimator",
+        "ce6": "Cardinality Estimator",
         "rhll6": "Rust-HLL",
     }[name]
 
@@ -86,10 +87,15 @@ def parse_name_line(line: str) -> Dict:
     # We expect the line to be in the format:
     # hll_cardinality_precision_4_bits_5
     if line.count("_") == 7:
-        name, task, _, precision, _, bits, _, hasher_type = line.split("_")
+        name, task, _precision, precision, _bits, bits, _hasher, hasher_type = line.split("_")
+        assert _precision == "precision"
+        assert _bits == "bits"
+        assert _hasher == "hasher"
         name = f"{name}{bits}_{hasher_type}"
     elif line.count("_") == 5:
-        name, task, _, precision, _, bits = line.split("_")
+        name, task, _precision, precision, _bits, bits = line.split("_")
+        assert _precision == "precision"
+        assert _bits == "bits"
         name = f"{name}{bits}"
     else:
         raise NotImplementedError(f"Line has an unexpected format: {line}")
