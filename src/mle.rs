@@ -107,4 +107,8 @@ impl<P: Precision, B: Bits, Hasher: core::hash::Hasher + Default, H: HyperLogLog
             .estimate_union_cardinality_with_mle::<ERROR, F>(&other.inner)
             .get_jaccard_index()
     }
+
+    fn clear(&mut self) {
+        self.inner.clear();
+    }
 }

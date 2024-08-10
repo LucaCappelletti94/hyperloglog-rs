@@ -2,6 +2,47 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
+fn get_biases_and_estimates(precision: usize) -> (Vec<f64>, Vec<f64>) {
+    // We load the 'original_biases.json' and 'original_estimates.json' files
+    let original_biases = include_str!("original_biases.json");
+    let original_estimates = include_str!("original_estimates.json");
+
+    // Parse the JSON files
+    let original_biases: Vec<Vec<f64>> = serde_json::from_str(original_biases).unwrap();
+    let original_estimates: Vec<Vec<f64>> = serde_json::from_str(original_estimates).unwrap();
+
+    // Get the biases and estimates for the specified precision
+    let biases = original_biases[precision-4].clone();
+    let estimates = original_estimates[precision-4].clone();
+
+    // We need to sort them in ascending order by estimates, making sure the biases are sorted accordingly
+    let mut data: Vec<(f64, f64)> = biases.iter().zip(estimates.iter()).map(|(a, b)| (*a, *b)).collect();
+    data.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+    let biases: Vec<f64> = data.iter().map(|(a, _)| *a).collect();
+    let estimates: Vec<f64> = data.iter().map(|(_, b)| *b).collect();
+
+    // We check that both vectors have the same length
+    assert_eq!(biases.len(), estimates.len());
+
+    // We check that the estimates vector are sorted
+    assert!(estimates.windows(2).all(|w| w[0] <= w[1]));
+
+    (biases, estimates)
+}
+
+fn get_beta(precision: usize) -> Vec<f64> {
+    let beta = include_str!("beta.json");
+
+    // Parse the JSON files
+    let beta: Vec<Vec<f64>> = serde_json::from_str(beta).unwrap();
+
+    // Get the biases and estimates for the specified precision
+    let beta = beta[precision-4].clone();
+
+    beta
+}
+
 fn get_alpha(number_of_registers: usize) -> f64 {
     // Match the number of registers to the known alpha values
     match number_of_registers {
@@ -43,6 +84,13 @@ fn format_float_with_underscores(value: f64, precision: usize) -> String {
     // Trim zeros from the fractional part
     let fractional_part = fractional_part.trim_end_matches('0');
 
+    // We save whether the number is negative, so to remove the minus sign
+    // and re-add it at the end
+    let is_negative = integer_part.starts_with('-');
+
+    // Remove the minus sign from the integer part
+    let integer_part = integer_part.trim_start_matches('-');
+
     // Add underscores to the integer part
     let integer_with_underscores = integer_part
         .chars()
@@ -57,6 +105,12 @@ fn format_float_with_underscores(value: f64, precision: usize) -> String {
         .chars()
         .rev()
         .collect::<String>();
+
+    let integer_with_underscores = if is_negative {
+        format!("-{}", integer_with_underscores)
+    } else {
+        integer_with_underscores
+    };
 
     // Add underscores to the fractional part
     let fractional_part = fractional_part
@@ -79,6 +133,75 @@ fn format_float_with_underscores(value: f64, precision: usize) -> String {
         "2.302_585" => "core::f64::consts::LN_10".to_owned(),
         _ => result,
     }
+}
+
+fn write_bias_and_estimate_files(minimum_precision: usize, maximal_precision: usize) {
+    // For each precision, we generate the biases and estimates
+    let mut all_types = Vec::new();
+    let mut all_biases = Vec::new();
+    let mut all_estimates = Vec::new();
+    let mut all_betas = Vec::new();
+
+    for precision in minimum_precision..=maximal_precision {
+        let (biases, estimates) = get_biases_and_estimates(precision);
+        let beta = get_beta(precision);
+
+        for data_type in ["f32", "f64"] {
+            let number_of_biases = biases.len();
+            let capitalized_data_type = data_type.to_uppercase();
+
+            let weights_type = format!("type Weights{capitalized_data_type}{precision} = [{data_type}; {number_of_biases}];");
+
+            let biases = format!(
+                "const BIAS_{capitalized_data_type}_{precision}:  Weights{capitalized_data_type}{precision} = [\n{}\n];",
+                biases
+                    .iter()
+                    .map(|x| format!("    {},", format_float_with_underscores(*x, 6)))
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            );
+    
+            let estimates = format!(
+                "const ESTIMATES_{capitalized_data_type}_{precision}:  Weights{capitalized_data_type}{precision} = [\n{}\n];",
+                estimates
+                    .iter()
+                    .map(|x| format!("    {},", format_float_with_underscores(*x, 6)))
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            );
+
+            let beta = format!(
+                "const BETA_{capitalized_data_type}_{precision}: [{data_type}; 8] = [\n{}\n];",
+                beta
+                    .iter()
+                    .map(|x| format!("    {},", format_float_with_underscores(*x, 6)))
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            );
+            
+            all_types.push(weights_type);
+            all_biases.push(biases);
+            all_estimates.push(estimates);
+            all_betas.push(beta);
+        }
+    }
+
+    // Define the output path for the generated code
+    let out_dir = std::env::var("OUT_DIR").unwrap();
+    let weights_path = Path::new(&out_dir).join("weights.rs");
+
+    // Write the generated code to the file
+    let mut weights_file = File::create(weights_path).unwrap();
+    weights_file.write_all(
+        format!(
+            "{}\n\n{}\n\n{}\n\n{}\n",
+            all_types.join("\n"),
+            all_biases.join("\n"),
+            all_estimates.join("\n"),
+            all_betas.join("\n"),
+        )
+        .as_bytes(),
+    ).unwrap();
 }
 
 fn main() {
@@ -136,4 +259,6 @@ fn main() {
     linear_count_zeros_file
         .write_all(linear_count_zeros.as_bytes())
         .unwrap();
+
+    write_bias_and_estimate_files(minimum_precision, maximal_precision);
 }

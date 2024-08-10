@@ -30,7 +30,7 @@ impl<
         P: Precision + PrecisionConstants<F>,
         B: Bits,
         R: Registers<P, B>,
-        Hasher: core::hash::Hasher + Default,
+        Hasher: HasherType,
     > SetLike<F> for HyperLogLog<P, B, R, Hasher>
 {
     fn get_union_cardinality(&self, other: &Self) -> F {
@@ -494,12 +494,12 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default> HyperSpheresSketch
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperSpheresSketch
     for HyperLogLog<P, B, R, Hasher>
 {
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default>
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType>
     NormalizedHyperSpheresSketch for HyperLogLog<P, B, R, Hasher>
 {
 }

@@ -12,9 +12,8 @@ mod hyperloglog_trait;
 pub mod iter;
 mod precisions;
 mod registers;
-pub mod sip;
 mod utils;
-#[cfg(feature = "serde")]
+#[cfg(feature = "std")]
 mod mle;
 
 #[cfg(feature = "serde")]
@@ -36,7 +35,6 @@ pub mod prelude {
     pub use crate::hyperloglog_array_trait::*;
     pub use crate::hyperloglog_trait::*;
     pub use crate::iter::*;
-    pub use crate::sip::*;
     pub use crate::precisions::*;
     pub use crate::registers::*;
     #[cfg(feature = "serde")]

@@ -1,398 +1,737 @@
-hll_cardinality_precision_4_bits_5
-                        time:   [363.35 µs 363.46 µs 363.59 µs]
-Found 42 outliers among 500 measurements (8.40%)
-  13 (2.60%) high mild
-  29 (5.80%) high severe
-
-hll_cardinality_precision_4_bits_6
-                        time:   [374.77 µs 375.02 µs 375.43 µs]
-Found 79 outliers among 500 measurements (15.80%)
-  7 (1.40%) high mild
-  72 (14.40%) high severe
-
-hll_cardinality_precision_5_bits_5
-                        time:   [369.59 µs 369.97 µs 370.38 µs]
-Found 3 outliers among 500 measurements (0.60%)
-  3 (0.60%) high mild
-
-hll_cardinality_precision_5_bits_6
-                        time:   [367.08 µs 367.17 µs 367.29 µs]
-Found 43 outliers among 500 measurements (8.60%)
-  10 (2.00%) high mild
-  33 (6.60%) high severe
-
-hll_cardinality_precision_6_bits_5
-                        time:   [380.18 µs 380.30 µs 380.43 µs]
-Found 44 outliers among 500 measurements (8.80%)
-  9 (1.80%) high mild
-  35 (7.00%) high severe
-
-hll_cardinality_precision_6_bits_6
-                        time:   [369.56 µs 369.66 µs 369.77 µs]
+hll_cardinality_precision_4_bits_6_hasher_XxHash64
+                        time:   [26.071 µs 26.083 µs 26.097 µs]
 Found 32 outliers among 500 measurements (6.40%)
-  12 (2.40%) high mild
-  20 (4.00%) high severe
-
-hll_cardinality_precision_7_bits_5
-                        time:   [371.81 µs 371.89 µs 371.98 µs]
-Found 39 outliers among 500 measurements (7.80%)
-  17 (3.40%) high mild
-  22 (4.40%) high severe
-
-hll_cardinality_precision_7_bits_6
-                        time:   [378.80 µs 378.90 µs 379.01 µs]
-Found 29 outliers among 500 measurements (5.80%)
   7 (1.40%) high mild
-  22 (4.40%) high severe
+  25 (5.00%) high severe
 
-hll_cardinality_precision_8_bits_5
-                        time:   [384.14 µs 384.29 µs 384.45 µs]
-Found 8 outliers among 500 measurements (1.60%)
-  5 (1.00%) high mild
-  3 (0.60%) high severe
-
-hll_cardinality_precision_8_bits_6
-                        time:   [393.62 µs 393.75 µs 393.90 µs]
-Found 43 outliers among 500 measurements (8.60%)
-  16 (3.20%) high mild
-  27 (5.40%) high severe
-
-hll_cardinality_precision_9_bits_5
-                        time:   [409.00 µs 409.13 µs 409.27 µs]
-Found 41 outliers among 500 measurements (8.20%)
-  15 (3.00%) high mild
-  26 (5.20%) high severe
-
-hll_cardinality_precision_9_bits_6
-                        time:   [416.75 µs 417.01 µs 417.30 µs]
-Found 53 outliers among 500 measurements (10.60%)
-  12 (2.40%) high mild
-  41 (8.20%) high severe
-
-hll_cardinality_precision_10_bits_5
-                        time:   [448.18 µs 448.51 µs 448.96 µs]
-Found 31 outliers among 500 measurements (6.20%)
-  5 (1.00%) high mild
-  26 (5.20%) high severe
-
-hll_cardinality_precision_10_bits_6
-                        time:   [454.25 µs 454.34 µs 454.45 µs]
-Found 9 outliers among 500 measurements (1.80%)
-  2 (0.40%) high mild
-  7 (1.40%) high severe
-
-hll_cardinality_precision_11_bits_5
-                        time:   [520.62 µs 520.76 µs 520.92 µs]
-Found 30 outliers among 500 measurements (6.00%)
+hll_cardinality_precision_4_bits_6_hasher_WyHash
+                        time:   [10.489 µs 10.492 µs 10.495 µs]
+Found 23 outliers among 500 measurements (4.60%)
   7 (1.40%) high mild
+  16 (3.20%) high severe
+
+beta_cardinality_precision_4_bits_6_hasher_XxHash64
+                        time:   [35.674 µs 35.686 µs 35.697 µs]
+Found 79 outliers among 500 measurements (15.80%)
+  66 (13.20%) high mild
+  13 (2.60%) high severe
+
+beta_cardinality_precision_4_bits_6_hasher_WyHash
+                        time:   [18.286 µs 18.293 µs 18.302 µs]
+Found 27 outliers among 500 measurements (5.40%)
+  12 (2.40%) high mild
+  15 (3.00%) high severe
+
+hll_cardinality_precision_5_bits_6_hasher_XxHash64
+                        time:   [29.549 µs 29.559 µs 29.571 µs]
+Found 33 outliers among 500 measurements (6.60%)
+  21 (4.20%) high mild
+  12 (2.40%) high severe
+
+hll_cardinality_precision_5_bits_6_hasher_WyHash
+                        time:   [12.918 µs 12.922 µs 12.928 µs]
+Found 38 outliers among 500 measurements (7.60%)
+  7 (1.40%) high mild
+  31 (6.20%) high severe
+
+beta_cardinality_precision_5_bits_6_hasher_XxHash64
+                        time:   [37.541 µs 37.549 µs 37.559 µs]
+Found 52 outliers among 500 measurements (10.40%)
+  7 (1.40%) low mild
+  7 (1.40%) high mild
+  38 (7.60%) high severe
+
+beta_cardinality_precision_5_bits_6_hasher_WyHash
+                        time:   [19.108 µs 19.113 µs 19.120 µs]
+Found 27 outliers among 500 measurements (5.40%)
+  4 (0.80%) high mild
   23 (4.60%) high severe
 
-hll_cardinality_precision_11_bits_6
-                        time:   [522.82 µs 522.94 µs 523.08 µs]
-Found 33 outliers among 500 measurements (6.60%)
-  15 (3.00%) high mild
-  18 (3.60%) high severe
+hll_cardinality_precision_6_bits_6_hasher_XxHash64
+                        time:   [37.565 µs 37.573 µs 37.581 µs]
+Found 51 outliers among 500 measurements (10.20%)
+  1 (0.20%) low severe
+  15 (3.00%) low mild
+  11 (2.20%) high mild
+  24 (4.80%) high severe
 
-hll_cardinality_precision_12_bits_5
-                        time:   [670.96 µs 671.09 µs 671.24 µs]
-Found 16 outliers among 500 measurements (3.20%)
-  5 (1.00%) high mild
-  11 (2.20%) high severe
-
-hll_cardinality_precision_12_bits_6
-                        time:   [681.42 µs 681.59 µs 681.79 µs]
-Found 31 outliers among 500 measurements (6.20%)
+hll_cardinality_precision_6_bits_6_hasher_WyHash
+                        time:   [18.071 µs 18.077 µs 18.084 µs]
+Found 18 outliers among 500 measurements (3.60%)
   1 (0.20%) low mild
-  13 (2.60%) high mild
+  3 (0.60%) high mild
+  14 (2.80%) high severe
+
+beta_cardinality_precision_6_bits_6_hasher_XxHash64
+                        time:   [39.525 µs 39.533 µs 39.545 µs]
+Found 63 outliers among 500 measurements (12.60%)
+  8 (1.60%) low mild
+  14 (2.80%) high mild
+  41 (8.20%) high severe
+
+beta_cardinality_precision_6_bits_6_hasher_WyHash
+                        time:   [20.934 µs 20.940 µs 20.946 µs]
+Found 33 outliers among 500 measurements (6.60%)
+  4 (0.80%) high mild
+  29 (5.80%) high severe
+
+hll_cardinality_precision_7_bits_6_hasher_XxHash64
+                        time:   [48.862 µs 48.890 µs 48.921 µs]
+Found 27 outliers among 500 measurements (5.40%)
+  10 (2.00%) high mild
   17 (3.40%) high severe
 
-hll_cardinality_precision_13_bits_5
-                        time:   [950.59 µs 951.17 µs 951.93 µs]
-Found 4 outliers among 50 measurements (8.00%)
-  2 (4.00%) high mild
-  2 (4.00%) high severe
+hll_cardinality_precision_7_bits_6_hasher_WyHash
+                        time:   [28.961 µs 28.968 µs 28.976 µs]
+Found 28 outliers among 500 measurements (5.60%)
+  2 (0.40%) low mild
+  4 (0.80%) high mild
+  22 (4.40%) high severe
 
-hll_cardinality_precision_13_bits_6
-                        time:   [951.27 µs 951.59 µs 952.03 µs]
+beta_cardinality_precision_7_bits_6_hasher_XxHash64
+                        time:   [42.507 µs 42.522 µs 42.542 µs]
+Found 48 outliers among 500 measurements (9.60%)
+  9 (1.80%) low mild
+  8 (1.60%) high mild
+  31 (6.20%) high severe
+
+beta_cardinality_precision_7_bits_6_hasher_WyHash
+                        time:   [24.532 µs 24.537 µs 24.543 µs]
+Found 49 outliers among 500 measurements (9.80%)
+  2 (0.40%) low severe
+  16 (3.20%) low mild
+  9 (1.80%) high mild
+  22 (4.40%) high severe
+
+hll_cardinality_precision_8_bits_6_hasher_XxHash64
+                        time:   [72.212 µs 72.224 µs 72.238 µs]
+Found 37 outliers among 500 measurements (7.40%)
+  3 (0.60%) low mild
+  13 (2.60%) high mild
+  21 (4.20%) high severe
+
+hll_cardinality_precision_8_bits_6_hasher_WyHash
+                        time:   [48.921 µs 48.934 µs 48.948 µs]
+Found 24 outliers among 500 measurements (4.80%)
+  8 (1.60%) high mild
+  16 (3.20%) high severe
+
+beta_cardinality_precision_8_bits_6_hasher_XxHash64
+                        time:   [54.208 µs 54.224 µs 54.242 µs]
+Found 54 outliers among 500 measurements (10.80%)
+  8 (1.60%) low mild
+  13 (2.60%) high mild
+  33 (6.60%) high severe
+
+beta_cardinality_precision_8_bits_6_hasher_WyHash
+                        time:   [34.288 µs 34.295 µs 34.302 µs]
+Found 56 outliers among 500 measurements (11.20%)
+  9 (1.80%) low mild
+  12 (2.40%) high mild
+  35 (7.00%) high severe
+
+hll_cardinality_precision_9_bits_6_hasher_XxHash64
+                        time:   [92.324 µs 92.348 µs 92.377 µs]
+Found 29 outliers among 500 measurements (5.80%)
+  12 (2.40%) high mild
+  17 (3.40%) high severe
+
+hll_cardinality_precision_9_bits_6_hasher_WyHash
+                        time:   [71.657 µs 71.674 µs 71.695 µs]
+Found 33 outliers among 500 measurements (6.60%)
+  3 (0.60%) low mild
+  9 (1.80%) high mild
+  21 (4.20%) high severe
+
+beta_cardinality_precision_9_bits_6_hasher_XxHash64
+                        time:   [63.536 µs 63.596 µs 63.668 µs]
+Found 45 outliers among 500 measurements (9.00%)
+  9 (1.80%) low mild
+  10 (2.00%) high mild
+  26 (5.20%) high severe
+
+beta_cardinality_precision_9_bits_6_hasher_WyHash
+                        time:   [38.359 µs 38.368 µs 38.378 µs]
+Found 57 outliers among 500 measurements (11.40%)
+  11 (2.20%) low mild
+  10 (2.00%) high mild
+  36 (7.20%) high severe
+
+hll_cardinality_precision_10_bits_6_hasher_XxHash64
+                        time:   [70.164 µs 70.176 µs 70.191 µs]
+Found 43 outliers among 500 measurements (8.60%)
+  6 (1.20%) low mild
+  11 (2.20%) high mild
+  26 (5.20%) high severe
+
+hll_cardinality_precision_10_bits_6_hasher_WyHash
+                        time:   [49.139 µs 49.152 µs 49.167 µs]
+Found 33 outliers among 500 measurements (6.60%)
+  3 (0.60%) low mild
+  6 (1.20%) high mild
+  24 (4.80%) high severe
+
+beta_cardinality_precision_10_bits_6_hasher_XxHash64
+                        time:   [63.177 µs 63.199 µs 63.225 µs]
+Found 75 outliers among 500 measurements (15.00%)
+  36 (7.20%) high mild
+  39 (7.80%) high severe
+
+beta_cardinality_precision_10_bits_6_hasher_WyHash
+                        time:   [37.853 µs 37.862 µs 37.872 µs]
+Found 60 outliers among 500 measurements (12.00%)
+  12 (2.40%) low mild
+  12 (2.40%) high mild
+  36 (7.20%) high severe
+
+hll_cardinality_precision_11_bits_6_hasher_XxHash64
+                        time:   [31.245 µs 31.260 µs 31.276 µs]
+Found 12 outliers among 500 measurements (2.40%)
+  5 (1.00%) low mild
+  2 (0.40%) high mild
+  5 (1.00%) high severe
+
+hll_cardinality_precision_11_bits_6_hasher_WyHash
+                        time:   [13.058 µs 13.063 µs 13.068 µs]
+Found 59 outliers among 500 measurements (11.80%)
+  1 (0.20%) low mild
+  34 (6.80%) high mild
+  24 (4.80%) high severe
+
+beta_cardinality_precision_11_bits_6_hasher_XxHash64
+                        time:   [64.777 µs 64.788 µs 64.802 µs]
+Found 49 outliers among 500 measurements (9.80%)
+  11 (2.20%) low mild
+  10 (2.00%) high mild
+  28 (5.60%) high severe
+
+beta_cardinality_precision_11_bits_6_hasher_WyHash
+                        time:   [38.717 µs 38.727 µs 38.739 µs]
+Found 56 outliers among 500 measurements (11.20%)
+  9 (1.80%) low mild
+  5 (1.00%) high mild
+  42 (8.40%) high severe
+
+hll_cardinality_precision_12_bits_6_hasher_XxHash64
+                        time:   [23.473 µs 23.481 µs 23.491 µs]
+Found 14 outliers among 500 measurements (2.80%)
+  1 (0.20%) low mild
+  5 (1.00%) high mild
+  8 (1.60%) high severe
+
+hll_cardinality_precision_12_bits_6_hasher_WyHash
+                        time:   [8.1679 µs 8.1706 µs 8.1737 µs]
+Found 23 outliers among 500 measurements (4.60%)
+  7 (1.40%) high mild
+  16 (3.20%) high severe
+
+beta_cardinality_precision_12_bits_6_hasher_XxHash64
+                        time:   [65.647 µs 65.658 µs 65.672 µs]
+Found 49 outliers among 500 measurements (9.80%)
+  13 (2.60%) low mild
+  11 (2.20%) high mild
+  25 (5.00%) high severe
+
+beta_cardinality_precision_12_bits_6_hasher_WyHash
+                        time:   [38.814 µs 38.825 µs 38.839 µs]
+Found 50 outliers among 500 measurements (10.00%)
+  7 (1.40%) low mild
+  6 (1.20%) high mild
+  37 (7.40%) high severe
+
+hll_cardinality_precision_13_bits_6_hasher_XxHash64
+                        time:   [22.196 µs 22.208 µs 22.222 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+hll_cardinality_precision_13_bits_6_hasher_WyHash
+                        time:   [8.1290 µs 8.1435 µs 8.1644 µs]
 Found 5 outliers among 50 measurements (10.00%)
   1 (2.00%) high mild
   4 (8.00%) high severe
 
-hll_cardinality_precision_14_bits_5
-                        time:   [1.0263 ms 1.0266 ms 1.0268 ms]
+beta_cardinality_precision_13_bits_6_hasher_XxHash64
+                        time:   [65.445 µs 65.481 µs 65.524 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  3 (6.00%) high mild
+  2 (4.00%) high severe
+
+beta_cardinality_precision_13_bits_6_hasher_WyHash
+                        time:   [38.734 µs 38.767 µs 38.821 µs]
 Found 6 outliers among 50 measurements (12.00%)
-  5 (10.00%) high mild
-  1 (2.00%) high severe
-
-hll_cardinality_precision_14_bits_6
-                        time:   [1.0312 ms 1.0317 ms 1.0323 ms]
-Found 8 outliers among 50 measurements (16.00%)
-  2 (4.00%) low mild
-  3 (6.00%) high mild
-  3 (6.00%) high severe
-
-hll_cardinality_precision_15_bits_5
-                        time:   [900.88 µs 901.12 µs 901.41 µs]
-Found 9 outliers among 50 measurements (18.00%)
-  4 (8.00%) high mild
-  5 (10.00%) high severe
-
-hll_cardinality_precision_15_bits_6
-                        time:   [910.22 µs 910.50 µs 910.93 µs]
-Found 7 outliers among 50 measurements (14.00%)
-  3 (6.00%) high mild
+  2 (4.00%) high mild
   4 (8.00%) high severe
 
-hll_cardinality_precision_16_bits_5
-                        time:   [463.26 µs 463.55 µs 463.92 µs]
+hll_cardinality_precision_14_bits_6_hasher_XxHash64
+                        time:   [20.867 µs 20.877 µs 20.889 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  7 (14.00%) high severe
+
+hll_cardinality_precision_14_bits_6_hasher_WyHash
+                        time:   [8.3965 µs 8.4053 µs 8.4172 µs]
+Found 8 outliers among 50 measurements (16.00%)
+  3 (6.00%) low mild
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+beta_cardinality_precision_14_bits_6_hasher_XxHash64
+                        time:   [65.811 µs 65.848 µs 65.895 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  4 (8.00%) high mild
+  3 (6.00%) high severe
+
+beta_cardinality_precision_14_bits_6_hasher_WyHash
+                        time:   [38.814 µs 38.829 µs 38.850 µs]
+Found 9 outliers among 50 measurements (18.00%)
+  1 (2.00%) low mild
+  2 (4.00%) high mild
+  6 (12.00%) high severe
+
+hll_cardinality_precision_15_bits_6_hasher_XxHash64
+                        time:   [21.399 µs 21.421 µs 21.457 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  3 (6.00%) high severe
+
+hll_cardinality_precision_15_bits_6_hasher_WyHash
+                        time:   [8.5090 µs 8.5134 µs 8.5200 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+beta_cardinality_precision_15_bits_6_hasher_XxHash64
+                        time:   [66.800 µs 66.836 µs 66.887 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  1 (2.00%) high mild
+  6 (12.00%) high severe
+
+beta_cardinality_precision_15_bits_6_hasher_WyHash
+                        time:   [39.043 µs 39.052 µs 39.064 µs]
 Found 4 outliers among 50 measurements (8.00%)
   2 (4.00%) high mild
   2 (4.00%) high severe
 
-hll_cardinality_precision_16_bits_6
-                        time:   [471.17 µs 471.27 µs 471.39 µs]
-Found 5 outliers among 50 measurements (10.00%)
+hll_cardinality_precision_16_bits_6_hasher_XxHash64
+                        time:   [21.122 µs 21.133 µs 21.148 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  1 (2.00%) high mild
+  6 (12.00%) high severe
+
+hll_cardinality_precision_16_bits_6_hasher_WyHash
+                        time:   [8.7837 µs 8.7883 µs 8.7947 µs]
+Found 9 outliers among 50 measurements (18.00%)
+  1 (2.00%) low mild
+  8 (16.00%) high severe
+
+beta_cardinality_precision_16_bits_6_hasher_XxHash64
+                        time:   [64.640 µs 64.686 µs 64.763 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  6 (12.00%) high severe
+
+beta_cardinality_precision_16_bits_6_hasher_WyHash
+                        time:   [38.814 µs 38.821 µs 38.830 µs]
+Found 9 outliers among 50 measurements (18.00%)
   2 (4.00%) high mild
-  3 (6.00%) high severe
+  7 (14.00%) high severe
 
 tabacpf_cardinality_precision_4_bits_6
-                        time:   [786.27 µs 786.48 µs 786.76 µs]
+                        time:   [33.317 µs 33.333 µs 33.351 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  4 (4.00%) high mild
+  2 (2.00%) high severe
+
+tabacpf_cardinality_precision_5_bits_6
+                        time:   [51.353 µs 51.363 µs 51.375 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  9 (9.00%) high severe
+
+tabacpf_cardinality_precision_6_bits_6
+                        time:   [91.130 µs 91.155 µs 91.189 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  4 (4.00%) high mild
+  7 (7.00%) high severe
+
+tabacpf_cardinality_precision_7_bits_6
+                        time:   [175.93 µs 176.00 µs 176.12 µs]
+Found 15 outliers among 100 measurements (15.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  13 (13.00%) high severe
+
+tabacpf_cardinality_precision_8_bits_6
+                        time:   [347.17 µs 347.30 µs 347.46 µs]
+Found 32 outliers among 100 measurements (32.00%)
+  22 (22.00%) low severe
+  2 (2.00%) high mild
+  8 (8.00%) high severe
+
+tabacpf_cardinality_precision_9_bits_6
+                        time:   [688.86 µs 689.04 µs 689.27 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low severe
+  4 (4.00%) high mild
+  9 (9.00%) high severe
+
+tabacpf_cardinality_precision_10_bits_6
+                        time:   [1.3511 ms 1.3517 ms 1.3524 ms]
+Found 17 outliers among 100 measurements (17.00%)
+  4 (4.00%) high mild
+  13 (13.00%) high severe
+
+tabacpf_cardinality_precision_11_bits_6
+                        time:   [2.6670 ms 2.6677 ms 2.6685 ms]
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) high mild
+  11 (11.00%) high severe
+
+tabacpf_cardinality_precision_12_bits_6
+                        time:   [5.2942 ms 5.2986 ms 5.3048 ms]
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) high mild
+  11 (11.00%) high severe
+
+tabacpf_cardinality_precision_13_bits_6
+                        time:   [10.553 ms 10.556 ms 10.561 ms]
+
+tabacpf_cardinality_precision_14_bits_6
+                        time:   [21.065 ms 21.077 ms 21.091 ms]
+
+tabacpf_cardinality_precision_15_bits_6
+                        time:   [42.095 ms 42.111 ms 42.128 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+tabacpf_cardinality_precision_16_bits_6
+                        time:   [84.238 ms 84.253 ms 84.279 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+tabacplusplus_cardinality_precision_4_bits_6
+                        time:   [34.755 µs 34.771 µs 34.793 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  8 (8.00%) high severe
+
+tabacplusplus_cardinality_precision_5_bits_6
+                        time:   [55.880 µs 55.907 µs 55.945 µs]
 Found 10 outliers among 100 measurements (10.00%)
   1 (1.00%) low mild
   4 (4.00%) high mild
   5 (5.00%) high severe
 
-tabacpf_cardinality_precision_5_bits_6
-                        time:   [1.2500 ms 1.2502 ms 1.2505 ms]
-Found 14 outliers among 100 measurements (14.00%)
-  2 (2.00%) low mild
-  7 (7.00%) high mild
-  5 (5.00%) high severe
-
-tabacpf_cardinality_precision_6_bits_6
-                        time:   [2.2555 ms 2.2564 ms 2.2575 ms]
+tabacplusplus_cardinality_precision_6_bits_6
+                        time:   [102.09 µs 102.14 µs 102.19 µs]
 Found 9 outliers among 100 measurements (9.00%)
-  9 (9.00%) high severe
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  3 (3.00%) high severe
 
-tabacpf_cardinality_precision_7_bits_6
-                        time:   [4.3794 ms 4.3804 ms 4.3814 ms]
-Found 13 outliers among 100 measurements (13.00%)
-  7 (7.00%) high mild
+tabacplusplus_cardinality_precision_7_bits_6
+                        time:   [195.84 µs 195.87 µs 195.92 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) low severe
+  2 (2.00%) low mild
+  2 (2.00%) high mild
   6 (6.00%) high severe
 
-tabacpf_cardinality_precision_8_bits_6
-                        time:   [8.6494 ms 8.6530 ms 8.6581 ms]
-Found 12 outliers among 100 measurements (12.00%)
-  1 (1.00%) high mild
-  11 (11.00%) high severe
+tabacplusplus_cardinality_precision_8_bits_6
+                        time:   [367.42 µs 367.55 µs 367.72 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
 
-tabacpf_cardinality_precision_9_bits_6
-                        time:   [17.160 ms 17.164 ms 17.171 ms]
-Found 9 outliers among 100 measurements (9.00%)
-  1 (1.00%) high mild
+tabacplusplus_cardinality_precision_9_bits_6
+                        time:   [658.91 µs 659.24 µs 659.64 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  2 (2.00%) low severe
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+  3 (3.00%) high severe
+
+tabacplusplus_cardinality_precision_10_bits_6
+                        time:   [1.0120 ms 1.0138 ms 1.0169 ms]
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
+tabacplusplus_cardinality_precision_11_bits_6
+                        time:   [1.2350 ms 1.2367 ms 1.2383 ms]
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+
+tabacplusplus_cardinality_precision_12_bits_6
+                        time:   [4.5326 ms 4.5385 ms 4.5443 ms]
+
+tabacplusplus_cardinality_precision_13_bits_6
+                        time:   [12.611 ms 12.619 ms 12.627 ms]
+
+tabacplusplus_cardinality_precision_14_bits_6
+                        time:   [12.518 ms 12.530 ms 12.538 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+
+tabacplusplus_cardinality_precision_15_bits_6
+                        time:   [12.587 ms 12.601 ms 12.621 ms]
+
+tabacplusplus_cardinality_precision_16_bits_6
+                        time:   [12.617 ms 12.625 ms 12.633 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+sa_cardinality_precision_4_bits_6
+                        time:   [29.302 µs 29.318 µs 29.334 µs]
+Found 9 outliers among 500 measurements (1.80%)
+  6 (1.20%) high mild
+  3 (0.60%) high severe
+
+sa_cardinality_precision_5_bits_6
+                        time:   [31.662 µs 31.673 µs 31.685 µs]
+Found 26 outliers among 500 measurements (5.20%)
+  4 (0.80%) low mild
+  14 (2.80%) high mild
+  8 (1.60%) high severe
+
+sa_cardinality_precision_6_bits_6
+                        time:   [39.607 µs 39.619 µs 39.632 µs]
+Found 112 outliers among 500 measurements (22.40%)
+  35 (7.00%) high mild
+  77 (15.40%) high severe
+
+sa_cardinality_precision_7_bits_6
+                        time:   [50.261 µs 50.303 µs 50.346 µs]
+Found 102 outliers among 500 measurements (20.40%)
+  12 (2.40%) high mild
+  90 (18.00%) high severe
+
+sa_cardinality_precision_8_bits_6
+                        time:   [78.913 µs 78.944 µs 78.979 µs]
+Found 46 outliers among 500 measurements (9.20%)
+  7 (1.40%) low mild
+  5 (1.00%) high mild
+  34 (6.80%) high severe
+
+sa_cardinality_precision_9_bits_6
+                        time:   [89.594 µs 89.615 µs 89.639 µs]
+Found 20 outliers among 500 measurements (4.00%)
+  1 (0.20%) low mild
+  4 (0.80%) high mild
+  15 (3.00%) high severe
+
+sa_cardinality_precision_10_bits_6
+                        time:   [79.269 µs 79.309 µs 79.352 µs]
+Found 67 outliers among 500 measurements (13.40%)
+  8 (1.60%) low mild
+  9 (1.80%) high mild
+  50 (10.00%) high severe
+
+sa_cardinality_precision_11_bits_6
+                        time:   [60.771 µs 60.782 µs 60.795 µs]
+Found 43 outliers among 500 measurements (8.60%)
+  9 (1.80%) low mild
+  11 (2.20%) high mild
+  23 (4.60%) high severe
+
+sa_cardinality_precision_12_bits_6
+                        time:   [59.134 µs 59.144 µs 59.157 µs]
+Found 61 outliers among 500 measurements (12.20%)
+  21 (4.20%) low mild
+  15 (3.00%) high mild
+  25 (5.00%) high severe
+
+sa_cardinality_precision_13_bits_6
+                        time:   [59.157 µs 59.227 µs 59.351 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  2 (4.00%) high mild
+  4 (8.00%) high severe
+
+sa_cardinality_precision_14_bits_6
+                        time:   [59.202 µs 59.285 µs 59.402 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  2 (4.00%) high mild
+  5 (10.00%) high severe
+
+sa_cardinality_precision_15_bits_6
+                        time:   [59.332 µs 59.364 µs 59.415 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  1 (2.00%) high mild
+  5 (10.00%) high severe
+
+sa_cardinality_precision_16_bits_6
+                        time:   [59.601 µs 59.613 µs 59.626 µs]
+Found 10 outliers among 50 measurements (20.00%)
+  6 (12.00%) high mild
+  4 (8.00%) high severe
+
+ce_cardinality_precision_4_bits_6_hasher_WyHash
+                        time:   [22.710 µs 22.718 µs 22.729 µs]
+Found 74 outliers among 500 measurements (14.80%)
+  56 (11.20%) low mild
+  5 (1.00%) high mild
+  13 (2.60%) high severe
+
+ce_cardinality_precision_5_bits_6_hasher_WyHash
+                        time:   [22.830 µs 22.837 µs 22.846 µs]
+Found 39 outliers among 500 measurements (7.80%)
+  12 (2.40%) high mild
+  27 (5.40%) high severe
+
+ce_cardinality_precision_6_bits_6_hasher_WyHash
+                        time:   [25.007 µs 25.017 µs 25.029 µs]
+Found 40 outliers among 500 measurements (8.00%)
+  20 (4.00%) low mild
+  2 (0.40%) high mild
+  18 (3.60%) high severe
+
+ce_cardinality_precision_7_bits_6_hasher_WyHash
+                        time:   [30.209 µs 30.221 µs 30.236 µs]
+Found 81 outliers among 500 measurements (16.20%)
+  2 (0.40%) low mild
+  7 (1.40%) high mild
+  72 (14.40%) high severe
+
+ce_cardinality_precision_8_bits_6_hasher_WyHash
+                        time:   [38.688 µs 38.694 µs 38.702 µs]
+Found 41 outliers among 500 measurements (8.20%)
+  15 (3.00%) high mild
+  26 (5.20%) high severe
+
+ce_cardinality_precision_9_bits_6_hasher_WyHash
+                        time:   [45.874 µs 45.892 µs 45.913 µs]
+Found 62 outliers among 500 measurements (12.40%)
+  45 (9.00%) high mild
+  17 (3.40%) high severe
+
+ce_cardinality_precision_10_bits_6_hasher_WyHash
+                        time:   [46.976 µs 46.991 µs 47.009 µs]
+Found 56 outliers among 500 measurements (11.20%)
+  14 (2.80%) low mild
+  7 (1.40%) high mild
+  35 (7.00%) high severe
+
+ce_cardinality_precision_11_bits_6_hasher_WyHash
+                        time:   [47.928 µs 47.948 µs 47.972 µs]
+Found 46 outliers among 500 measurements (9.20%)
+  5 (1.00%) low mild
+  9 (1.80%) high mild
+  32 (6.40%) high severe
+
+ce_cardinality_precision_12_bits_6_hasher_WyHash
+                        time:   [48.913 µs 48.931 µs 48.953 µs]
+Found 64 outliers among 500 measurements (12.80%)
+  13 (2.60%) high mild
+  51 (10.20%) high severe
+
+ce_cardinality_precision_13_bits_6_hasher_WyHash
+                        time:   [49.505 µs 49.523 µs 49.548 µs]
+Found 8 outliers among 50 measurements (16.00%)
+  2 (4.00%) high mild
+  6 (12.00%) high severe
+
+ce_cardinality_precision_14_bits_6_hasher_WyHash
+                        time:   [49.566 µs 49.589 µs 49.621 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+ce_cardinality_precision_15_bits_6_hasher_WyHash
+                        time:   [49.947 µs 49.974 µs 50.007 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  3 (6.00%) high mild
+  4 (8.00%) high severe
+
+ce_cardinality_precision_16_bits_6_hasher_WyHash
+                        time:   [50.699 µs 50.735 µs 50.784 µs]
+Found 8 outliers among 50 measurements (16.00%)
+  8 (16.00%) high severe
+
+rhll_cardinality_precision_4_bits_6
+                        time:   [121.82 µs 121.87 µs 121.93 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  6 (6.00%) high mild
+  4 (4.00%) high severe
+
+rhll_cardinality_precision_5_bits_6
+                        time:   [210.93 µs 210.99 µs 211.08 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  4 (4.00%) high mild
+  7 (7.00%) high severe
+
+rhll_cardinality_precision_6_bits_6
+                        time:   [387.78 µs 388.03 µs 388.42 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
   8 (8.00%) high severe
 
-tabacpf_cardinality_precision_10_bits_6
-                        time:   [34.188 ms 34.198 ms 34.211 ms]
+rhll_cardinality_precision_7_bits_6
+                        time:   [715.40 µs 715.52 µs 715.66 µs]
 Found 15 outliers among 100 measurements (15.00%)
   3 (3.00%) high mild
   12 (12.00%) high severe
 
-tabacpf_cardinality_precision_11_bits_6
-                        time:   [68.095 ms 68.117 ms 68.147 ms]
-Found 18 outliers among 100 measurements (18.00%)
+rhll_cardinality_precision_8_bits_6
+                        time:   [1.3029 ms 1.3032 ms 1.3036 ms]
+                        change: [-1.2285% -1.1509% -1.0622%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 15 outliers among 100 measurements (15.00%)
+  1 (1.00%) low mild
   5 (5.00%) high mild
-  13 (13.00%) high severe
+  9 (9.00%) high severe
 
-tabacpf_cardinality_precision_12_bits_6
-                        time:   [135.97 ms 135.99 ms 136.02 ms]
-Found 9 outliers among 100 measurements (9.00%)
-  8 (8.00%) high mild
-  1 (1.00%) high severe
+rhll_cardinality_precision_9_bits_6
+                        time:   [2.3259 ms 2.3267 ms 2.3279 ms]
+Found 15 outliers among 100 measurements (15.00%)
+  1 (1.00%) high mild
+  14 (14.00%) high severe
 
-tabacpf_cardinality_precision_13_bits_6
-                        time:   [271.74 ms 271.85 ms 272.02 ms]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) high severe
+rhll_cardinality_precision_10_bits_6
+                        time:   [3.0950 ms 3.0957 ms 3.0966 ms]
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) high mild
+  8 (8.00%) high severe
 
-tabacpf_cardinality_precision_14_bits_6
-                        time:   [543.37 ms 543.61 ms 543.89 ms]
+rhll_cardinality_precision_11_bits_6
+                        time:   [1.1548 ms 1.1550 ms 1.1552 ms]
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  11 (11.00%) high severe
+
+rhll_cardinality_precision_12_bits_6
+                        time:   [203.27 µs 203.36 µs 203.46 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+
+rhll_cardinality_precision_13_bits_6
+                        time:   [333.23 µs 333.41 µs 333.72 µs]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-tabacpf_cardinality_precision_15_bits_6
-                        time:   [1.0858 s 1.0861 s 1.0865 s]
-Found 2 outliers among 10 measurements (20.00%)
-  2 (20.00%) high severe
-
-tabacpf_cardinality_precision_16_bits_6
-                        time:   [2.1707 s 2.1712 s 2.1719 s]
-Found 2 outliers among 10 measurements (20.00%)
-  1 (10.00%) high mild
+rhll_cardinality_precision_14_bits_6
+                        time:   [593.78 µs 594.01 µs 594.39 µs]
+Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high severe
 
-tabacplusplus_cardinality_precision_4_bits_6
-                        time:   [808.46 µs 808.71 µs 809.00 µs]
-Found 30 outliers among 500 measurements (6.00%)
-  1 (0.20%) low mild
-  6 (1.20%) high mild
-  23 (4.60%) high severe
+rhll_cardinality_precision_15_bits_6
+                        time:   [1.1211 ms 1.1215 ms 1.1219 ms]
+                        change: [-99.982% -99.982% -99.982%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low severe
+  1 (10.00%) high severe
 
-tabacplusplus_cardinality_precision_5_bits_6
-                        time:   [1.1783 ms 1.1786 ms 1.1790 ms]
-Found 33 outliers among 500 measurements (6.60%)
-  11 (2.20%) high mild
-  22 (4.40%) high severe
-
-tabacplusplus_cardinality_precision_6_bits_6
-                        time:   [2.2049 ms 2.2053 ms 2.2057 ms]
-Found 30 outliers among 500 measurements (6.00%)
-  1 (0.20%) low mild
-  8 (1.60%) high mild
-  21 (4.20%) high severe
-
-tabacplusplus_cardinality_precision_7_bits_6
-                        time:   [4.3316 ms 4.3324 ms 4.3333 ms]
-Found 25 outliers among 500 measurements (5.00%)
-  6 (1.20%) high mild
-  19 (3.80%) high severe
-
-tabacplusplus_cardinality_precision_8_bits_6
-                        time:   [8.7194 ms 8.7215 ms 8.7237 ms]
-Found 16 outliers among 500 measurements (3.20%)
-  5 (1.00%) high mild
-  11 (2.20%) high severe
-
-tabacplusplus_cardinality_precision_9_bits_6
-                        time:   [17.207 ms 17.210 ms 17.213 ms]
-Found 20 outliers among 500 measurements (4.00%)
-  5 (1.00%) high mild
-  15 (3.00%) high severe
-
-tabacplusplus_cardinality_precision_10_bits_6
-                        time:   [33.947 ms 33.952 ms 33.958 ms]
-Found 23 outliers among 500 measurements (4.60%)
-  2 (0.40%) low mild
-  2 (0.40%) high mild
-  19 (3.80%) high severe
-
-tabacplusplus_cardinality_precision_11_bits_6
-                        time:   [66.920 ms 66.928 ms 66.936 ms]
-Found 25 outliers among 500 measurements (5.00%)
-  21 (4.20%) high mild
-  4 (0.80%) high severe
-
-tabacplusplus_cardinality_precision_12_bits_6
-                        time:   [132.69 ms 132.71 ms 132.73 ms]
-Found 7 outliers among 500 measurements (1.40%)
-  4 (0.80%) high mild
-  3 (0.60%) high severe
-
-tabacplusplus_cardinality_precision_13_bits_6
-                        time:   [261.05 ms 261.17 ms 261.28 ms]
-Found 5 outliers among 50 measurements (10.00%)
-  2 (4.00%) low mild
-  3 (6.00%) high mild
-
-tabacplusplus_cardinality_precision_14_bits_6
-                        time:   [537.92 ms 538.68 ms 539.68 ms]
-Found 5 outliers among 50 measurements (10.00%)
-  1 (2.00%) high mild
-  4 (8.00%) high severe
-
-tabacplusplus_cardinality_precision_15_bits_6
-                        time:   [1.0999 s 1.1005 s 1.1012 s]
-Found 1 outliers among 50 measurements (2.00%)
-  1 (2.00%) high mild
-
-tabacplusplus_cardinality_precision_16_bits_6
-                        time:   [1.6366 s 1.6383 s 1.6400 s]
-
-sa_cardinality_precision_4_bits_6
-                        time:   [660.53 µs 660.67 µs 660.83 µs]
-Found 66 outliers among 500 measurements (13.20%)
-  29 (5.80%) high mild
-  37 (7.40%) high severe
-
-sa_cardinality_precision_5_bits_6
-                        time:   [666.37 µs 666.59 µs 666.83 µs]
-Found 42 outliers among 500 measurements (8.40%)
-  14 (2.80%) low severe
-  10 (2.00%) low mild
-  2 (0.40%) high mild
-  16 (3.20%) high severe
-
-sa_cardinality_precision_6_bits_6
-                        time:   [676.97 µs 677.12 µs 677.29 µs]
-Found 14 outliers among 500 measurements (2.80%)
-  2 (0.40%) high mild
-  12 (2.40%) high severe
-
-sa_cardinality_precision_7_bits_6
-                        time:   [686.33 µs 686.51 µs 686.71 µs]
-Found 52 outliers among 500 measurements (10.40%)
-  8 (1.60%) low severe
-  11 (2.20%) low mild
-  17 (3.40%) high mild
-  16 (3.20%) high severe
-
-sa_cardinality_precision_8_bits_6
-                        time:   [700.18 µs 700.40 µs 700.64 µs]
-Found 34 outliers among 500 measurements (6.80%)
-  6 (1.20%) low mild
-  3 (0.60%) high mild
-  25 (5.00%) high severe
-
-sa_cardinality_precision_9_bits_6
-                        time:   [754.99 µs 755.24 µs 755.50 µs]
-Found 68 outliers among 500 measurements (13.60%)
-  25 (5.00%) low mild
-  29 (5.80%) high mild
-  14 (2.80%) high severe
-
-sa_cardinality_precision_10_bits_6
-                        time:   [849.59 µs 849.84 µs 850.10 µs]
-Found 121 outliers among 500 measurements (24.20%)
-  15 (3.00%) low severe
-  10 (2.00%) low mild
-  57 (11.40%) high mild
-  39 (7.80%) high severe
-
-sa_cardinality_precision_11_bits_6
-                        time:   [1.2138 ms 1.2141 ms 1.2144 ms]
-Found 28 outliers among 500 measurements (5.60%)
-  1 (0.20%) low mild
-  7 (1.40%) high mild
-  20 (4.00%) high severe
-
-sa_cardinality_precision_12_bits_6
-                        time:   [1.7711 ms 1.7714 ms 1.7718 ms]
-Found 34 outliers among 500 measurements (6.80%)
-  17 (3.40%) low mild
-  6 (1.20%) high mild
-  11 (2.20%) high severe
-
-sa_cardinality_precision_13_bits_6
-                        time:   [2.2003 ms 2.2010 ms 2.2018 ms]
-Found 6 outliers among 50 measurements (12.00%)
-  3 (6.00%) high mild
-  3 (6.00%) high severe
-
-sa_cardinality_precision_14_bits_6
-                        time:   [2.2817 ms 2.2825 ms 2.2835 ms]
-Found 5 outliers among 50 measurements (10.00%)
-  3 (6.00%) high mild
-  2 (4.00%) high severe
-
-sa_cardinality_precision_15_bits_6
-                        time:   [2.1061 ms 2.1069 ms 2.1081 ms]
-Found 7 outliers among 50 measurements (14.00%)
-  1 (2.00%) low mild
-  2 (4.00%) high mild
-  4 (8.00%) high severe
-
-sa_cardinality_precision_16_bits_6
-                        time:   [1.5026 ms 1.5030 ms 1.5035 ms]
-Found 2 outliers among 50 measurements (4.00%)
-  2 (4.00%) high severe
+rhll_cardinality_precision_16_bits_6
+                        time:   [2.2093 ms 2.2105 ms 2.2127 ms]
+                        change: [-0.5508% -0.3832% -0.1928%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
 

@@ -1,32 +1,22 @@
-| task        | approach             |   win |   tie |   loss |
-|:------------|:---------------------|------:|------:|-------:|
-| cardinality | HLL6 + Xxhasher      |    77 |    28 |     38 |
-| cardinality | HLL5 + Xxhasher      |    77 |    28 |     38 |
-| cardinality | Streaming Algorithms |    63 |    29 |     51 |
-| cardinality | HLL4 + Xxhasher      |    62 |    26 |     55 |
-| cardinality | HLL4 + Siphasher13   |    60 |    32 |     51 |
-| cardinality | Tabac's HLL++        |    51 |    38 |     54 |
-| cardinality | HLL6 + Siphasher24   |    51 |    37 |     55 |
-| cardinality | HLL5 + Siphasher24   |    51 |    37 |     55 |
-| cardinality | HLL6 + Siphasher13   |    47 |    36 |     60 |
-| cardinality | HLL5 + Siphasher13   |    47 |    36 |     60 |
-| cardinality | HLL4 + Siphasher24   |    43 |    25 |     75 |
-| cardinality | Tabac's HLL          |    35 |    36 |     72 |
-| union       | MLE3 + Xxhasher      |   175 |    20 |     26 |
-| union       | MLE2 + Xxhasher      |   175 |    20 |     26 |
-| union       | MLE3 + Siphasher13   |   152 |    13 |     56 |
-| union       | MLE2 + Siphasher13   |   138 |    18 |     65 |
-| union       | MLE3 + Siphasher24   |   130 |    16 |     75 |
-| union       | HLL6 + Xxhasher      |   121 |    24 |     76 |
-| union       | HLL5 + Xxhasher      |   121 |    24 |     76 |
-| union       | MLE2 + Siphasher24   |   120 |    14 |     87 |
-| union       | Streaming Algorithms |   113 |    19 |     89 |
-| union       | HLL4 + Siphasher13   |   100 |    12 |    109 |
-| union       | HLL4 + Xxhasher      |    99 |    15 |    107 |
-| union       | HLL6 + Siphasher13   |    85 |    23 |    113 |
-| union       | HLL5 + Siphasher13   |    85 |    23 |    113 |
-| union       | HLL6 + Siphasher24   |    71 |    29 |    121 |
-| union       | HLL5 + Siphasher24   |    71 |    29 |    121 |
-| union       | HLL4 + Siphasher24   |    58 |    15 |    148 |
-| union       | Tabac's HLL++        |     4 |    12 |    205 |
-| union       | Tabac's HLL          |     2 |    12 |    207 |
+| task        | approach              |   win |   tie |   loss |     error |
+|:------------|:----------------------|------:|------:|-------:|----------:|
+| cardinality | HLL6 + WyHash         |     9 |    90 |      5 | 0.0535833 |
+| cardinality | Beta6 + WyHash        |    10 |    90 |      4 | 0.0535908 |
+| cardinality | Tabac's HLL           |     2 |    82 |     20 | 0.0537384 |
+| cardinality | Cardinality Estimator |     9 |    89 |      6 | 0.0539064 |
+| cardinality | Streaming Algorithms  |     4 |    98 |      2 | 0.0542157 |
+| cardinality | HLL6 + Xxhasher       |     8 |    90 |      6 | 0.0542528 |
+| cardinality | Beta6 + Xxhasher      |     6 |    91 |      7 | 0.0542666 |
+| cardinality | Rust-HLL              |     4 |    95 |      5 | 0.0546064 |
+| cardinality | Tabac's HLL++         |    10 |    87 |      7 | 0.0549599 |
+| union       | MLE2 + Xxhasher       |   104 |     6 |     20 | 0.0411672 |
+| union       | HLL6 + Xxhasher       |    75 |     9 |     46 | 0.0440771 |
+| union       | MLE2 + WyHash         |    82 |     9 |     39 | 0.0442799 |
+| union       | HLL6 + WyHash         |    52 |     7 |     71 | 0.0486364 |
+| union       | Cardinality Estimator |    76 |     8 |     46 | 0.0511134 |
+| union       | Rust-HLL              |    71 |    11 |     48 | 0.0524634 |
+| union       | Streaming Algorithms  |    65 |    10 |     55 | 0.0566335 |
+| union       | MLE2 + DefaultHasher  |    84 |     4 |     42 | 0.0606102 |
+| union       | HLL6 + DefaultHasher  |    55 |    10 |     65 | 0.0645425 |
+| union       | Tabac's HLL++         |     1 |    13 |    116 | 0.229244  |
+| union       | Tabac's HLL           |     0 |    13 |    117 | 0.229465  |

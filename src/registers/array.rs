@@ -242,6 +242,12 @@ macro_rules! impl_register_for_precision_and_bits {
                         // Extract the current value of the register at `index`.
                         (self[word_position] >> (register_position * [<Bits $bits>]::NUMBER_OF_BITS)) & <u32 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK
                     }
+
+                    fn clear(&mut self) {
+                        for word in self.iter_mut() {
+                            *word = 0;
+                        }
+                    }
                 }
             }
         )*
@@ -256,7 +262,7 @@ macro_rules! impl_registers_for_precisions {
     };
 }
 
-impl_registers_for_precisions!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_registers_for_precisions!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
 
 #[cfg(test)]
 mod tests {
@@ -402,6 +408,8 @@ mod tests {
         Precision13,
         Precision14,
         Precision15,
-        Precision16
+        Precision16,
+        Precision17,
+        Precision18
     );
 }

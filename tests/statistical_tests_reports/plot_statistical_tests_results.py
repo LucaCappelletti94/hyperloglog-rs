@@ -17,8 +17,8 @@ def load_test_results():
     cardinality,HashSet,Tabac's HLL++,0.00000,First,3809216.6544,0.0000000000000002220446049250313,0,3474.256,0.01265437523044048,0.009503921612939932,12,0.01625
     cardinality,HashSet,Tabac's HLL,0.00000,First,3809216.6544,0.0000000000000002220446049250313,0,2804,0.012661636088409827,0.009466995766800382,12,0.01625
     cardinality,HashSet,Streaming Algorithms,0.00000,First,3809216.6544,0.0000000000000002220446049250313,0,4152,0.010886160965328712,0.007983075620151478,12,0.01625
-    cardinality,HashSet,HLL6 + Siphasher13,0.00000,First,3809216.6544,0.0000000000000002220446049250313,0,3296,0.010823410313277677,0.008056849624719085,12,0.01625
-    cardinality,HashSet,HLL6 + Siphasher24,0.00000,First,3809216.6544,0.0000000000000002220446049250313,0,3296,0.011627617049038684,0.008446708230154911,12,0.01625
+    cardinality,HashSet,HLL6 + WyHash,0.00000,First,3809216.6544,0.0000000000000002220446049250313,0,3296,0.010823410313277677,0.008056849624719085,12,0.01625
+    cardinality,HashSet,HLL6 + DefaultHasher,0.00000,First,3809216.6544,0.0000000000000002220446049250313,0,3296,0.011627617049038684,0.008446708230154911,12,0.01625
     cardinality,HashSet,HLL6 + Xxhasher,0.00000,First,3809216.6544,0.0000000000000002220446049250313,0,3296,0.01238917485216544,0.008562564133659738,12,0.01625
 
     """
@@ -48,19 +48,19 @@ def load_results():
     feature,first_approach,second_approach,p-value,winner,first_mean,first_std,second_mean,second_std,precision,theoretical_error
     cardinality,Tabac's HLL++,Tabac's HLL,0.04494,First,0.01266,0.00961,0.01305,0.00982,12,0.01625
     cardinality,Tabac's HLL++,Streaming Algorithms,0.00000,Second,0.01266,0.00961,0.01089,0.00798,12,0.01625
-    cardinality,Tabac's HLL++,HLL6 + Siphasher13,0.00000,Second,0.01266,0.00961,0.01082,0.00806,12,0.01625
-    cardinality,Tabac's HLL++,HLL6 + Siphasher24,0.00001,Second,0.01266,0.00961,0.01163,0.00845,12,0.01625
+    cardinality,Tabac's HLL++,HLL6 + WyHash,0.00000,Second,0.01266,0.00961,0.01082,0.00806,12,0.01625
+    cardinality,Tabac's HLL++,HLL6 + DefaultHasher,0.00001,Second,0.01266,0.00961,0.01163,0.00845,12,0.01625
     cardinality,Tabac's HLL++,HLL6 + Xxhasher,0.87753,None,0.01266,0.00961,0.01239,0.00856,12,0.01625
     cardinality,Tabac's HLL,Streaming Algorithms,0.00000,Second,0.01305,0.00982,0.01089,0.00798,12,0.01625
-    cardinality,Tabac's HLL,HLL6 + Siphasher13,0.00000,Second,0.01305,0.00982,0.01082,0.00806,12,0.01625
-    cardinality,Tabac's HLL,HLL6 + Siphasher24,0.00000,Second,0.01305,0.00982,0.01163,0.00845,12,0.01625
+    cardinality,Tabac's HLL,HLL6 + WyHash,0.00000,Second,0.01305,0.00982,0.01082,0.00806,12,0.01625
+    cardinality,Tabac's HLL,HLL6 + DefaultHasher,0.00000,Second,0.01305,0.00982,0.01163,0.00845,12,0.01625
     cardinality,Tabac's HLL,HLL6 + Xxhasher,0.02789,Second,0.01305,0.00982,0.01239,0.00856,12,0.01625
-    cardinality,Streaming Algorithms,HLL6 + Siphasher13,0.81066,None,0.01089,0.00798,0.01082,0.00806,12,0.01625
-    cardinality,Streaming Algorithms,HLL6 + Siphasher24,0.00000,First,0.01089,0.00798,0.01163,0.00845,12,0.01625
+    cardinality,Streaming Algorithms,HLL6 + WyHash,0.81066,None,0.01089,0.00798,0.01082,0.00806,12,0.01625
+    cardinality,Streaming Algorithms,HLL6 + DefaultHasher,0.00000,First,0.01089,0.00798,0.01163,0.00845,12,0.01625
     cardinality,Streaming Algorithms,HLL6 + Xxhasher,0.00000,First,0.01089,0.00798,0.01239,0.00856,12,0.01625
-    cardinality,HLL6 + Siphasher13,HLL6 + Siphasher24,0.00000,First,0.01082,0.00806,0.01163,0.00845,12,0.01625
-    cardinality,HLL6 + Siphasher13,HLL6 + Xxhasher,0.00000,First,0.01082,0.00806,0.01239,0.00856,12,0.01625
-    cardinality,HLL6 + Siphasher24,HLL6 + Xxhasher,0.00019,First,0.01163,0.00845,0.01239,0.00856,12,0.01625
+    cardinality,HLL6 + WyHash,HLL6 + DefaultHasher,0.00000,First,0.01082,0.00806,0.01163,0.00845,12,0.01625
+    cardinality,HLL6 + WyHash,HLL6 + Xxhasher,0.00000,First,0.01082,0.00806,0.01239,0.00856,12,0.01625
+    cardinality,HLL6 + DefaultHasher,HLL6 + Xxhasher,0.00019,First,0.01163,0.00845,0.01239,0.00856,12,0.01625
 
     """
     df = load_test_results()
@@ -139,100 +139,41 @@ def load_results():
 def is_our_approach(approach_name: str) -> bool:
     """Returns whether the approach is one of the approaches we have created."""
     return approach_name in [
-        "HLL6 + Siphasher13",
-        "HLL6 + Siphasher24",
+        "HLL8 + WyHash",
+        "HLL8 + DefaultHasher",
+        "HLL8 + Xxhasher",
+        "HLL6 + WyHash",
+        "HLL6 + DefaultHasher",
         "HLL6 + Xxhasher",
-        "HLL5 + Siphasher13",
-        "HLL5 + Siphasher24",
+        "HLL5 + WyHash",
+        "HLL5 + DefaultHasher",
         "HLL5 + Xxhasher",
-        "HLL4 + Siphasher13",
-        "HLL4 + Siphasher24",
+        "HLL4 + WyHash",
+        "HLL4 + DefaultHasher",
         "HLL4 + Xxhasher",
-        "MLE2 + Siphasher13",
-        "MLE2 + Siphasher24",
+        "MLE2 + WyHash",
+        "MLE2 + DefaultHasher",
         "MLE2 + Xxhasher",
-        "MLE3 + Siphasher13",
-        "MLE3 + Siphasher24",
+        "MLE3 + WyHash",
+        "MLE3 + DefaultHasher",
         "MLE3 + Xxhasher",
     ]
 
 
 def get_approach_color(approach_name: str) -> str:
     """Returns the color for a given normalized approach name."""
-    return {
-        "HashSet": "red",
-        "HLL6 + Siphasher13": "tab:blue",
-        "HLL6 + Siphasher24": "tab:purple",
-        "HLL6 + Xxhasher": "tab:pink",
-        "HLL5 + Siphasher13": "tab:blue",
-        "HLL5 + Siphasher24": "tab:purple",
-        "HLL5 + Xxhasher": "tab:pink",
-        "HLL4 + Siphasher13": "tab:blue",
-        "HLL4 + Siphasher24": "tab:purple",
-        "HLL4 + Xxhasher": "tab:pink",
-        "MLE2 + Siphasher13": "tab:blue",
-        "MLE2 + Siphasher24": "tab:purple",
-        "MLE2 + Xxhasher": "tab:pink",
-        "MLE3 + Siphasher13": "tab:blue",
-        "MLE3 + Siphasher24": "tab:purple",
-        "MLE3 + Xxhasher": "tab:pink",
-        "Tabac's HLL": "tab:red",
-        "Tabac's HLL++": "tab:brown",
-        "Streaming Algorithms": "tab:orange",
-        "Theoretical (6 bits)": "green",
-    }[approach_name]
-
-
+    colors = pd.read_csv("utilities/colors.csv", index_col="approach")
+    return colors.loc[approach_name, "color"]
+    
 def get_approach_linestyle(approach_name: str) -> str:
     """Returns the marker for a given normalized approach name."""
-    return {
-        "HashSet": ":",
-        "HLL6 + Siphasher13": "-",
-        "HLL6 + Siphasher24": "-",
-        "HLL6 + Xxhasher": "-",
-        "HLL5 + Siphasher13": "-",
-        "HLL5 + Siphasher24": "-",
-        "HLL5 + Xxhasher": "-",
-        "HLL4 + Siphasher13": "-",
-        "HLL4 + Siphasher24": "-",
-        "HLL4 + Xxhasher": "-",
-        "MLE2 + Siphasher13": "-",
-        "MLE2 + Siphasher24": "-",
-        "MLE2 + Xxhasher": "-",
-        "MLE3 + Siphasher13": "-",
-        "MLE3 + Siphasher24": "-",
-        "MLE3 + Xxhasher": "-",
-        "Tabac's HLL": "--",
-        "Tabac's HLL++": "--",
-        "Streaming Algorithms": "--",
-        "Theoretical (6 bits)": "-.",
-    }[approach_name]
-
+    linestyles = pd.read_csv("utilities/linestyles.csv", index_col="approach")
+    return linestyles.loc[approach_name, "linestyle"]
 
 def get_approach_marker(approach_name: str) -> str:
     """Returns the marker for a given normalized approach name."""
-    return {
-        "HashSet": "s",
-        "HLL6 + Siphasher13": "$6$",
-        "HLL6 + Siphasher24": "$6$",
-        "HLL6 + Xxhasher": "$6$",
-        "HLL5 + Siphasher13": "$5$",
-        "HLL5 + Siphasher24": "$5$",
-        "HLL5 + Xxhasher": "$5$",
-        "HLL4 + Siphasher13": "$4$",
-        "HLL4 + Siphasher24": "$4$",
-        "HLL4 + Xxhasher": "$4$",
-        "MLE2 + Siphasher13": "$M2$",
-        "MLE2 + Siphasher24": "$M2$",
-        "MLE2 + Xxhasher": "$M2$",
-        "MLE3 + Siphasher13": "$M3$",
-        "MLE3 + Siphasher24": "$M3$",
-        "MLE3 + Xxhasher": "$M3$",
-        "Tabac's HLL": "x",
-        "Tabac's HLL++": "x",
-        "Streaming Algorithms": "x",
-        "Theoretical (6 bits)": ".",
-    }[approach_name]
+    markers = pd.read_csv("utilities/markers.csv", index_col="approach")
+    return markers.loc[approach_name, "marker"]
 
 
 def plot_feature(feature_name: str, feature_results: pd.DataFrame):
@@ -308,7 +249,7 @@ def get_win_tie_loss_table() -> pd.DataFrame:
         & (tests_df["second_approach"] != "HashSet")
     ]
 
-    outcomes = ["win", "tie", "loss"]
+    outcomes = ["win", "tie", "loss", "error"]
 
     results = []
 
@@ -331,17 +272,14 @@ def get_win_tie_loss_table() -> pd.DataFrame:
         # For each pair of methods
         for _, row in task_df.iterrows():
             first_method = row["first_approach"]
-            second_method = row["second_approach"]
+            task_results[first_method]["error"] += row["first_mean"]
 
             if row["winner"] == "First":
                 task_results[first_method]["win"] += 1
-                task_results[second_method]["loss"] += 1
             elif row["winner"] == "Second":
                 task_results[first_method]["loss"] += 1
-                task_results[second_method]["win"] += 1
             else:
                 task_results[first_method]["tie"] += 1
-                task_results[second_method]["tie"] += 1
 
         # We flatten the dictionary to a list of dictionaries.
         task_results = [
@@ -349,13 +287,17 @@ def get_win_tie_loss_table() -> pd.DataFrame:
             for method, outcomes in task_results.items()
         ]
 
+        # We compute the mean of the error
+        for result in task_results:
+            result["error"] /= float(result["tie"] + result["win"] + result["loss"])
+
         results.extend(task_results)
 
     win_tie_loss_table = pd.DataFrame(results)
 
     # We sort by the number of wins.
     win_tie_loss_table = win_tie_loss_table.sort_values(
-        by=["task", "win", "approach"], ascending=[True, False, False]
+        by=["task", "error", "approach"], ascending=[True, True, False]
     )
 
     # Then we reset the index

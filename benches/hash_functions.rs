@@ -26,7 +26,7 @@ fn bench_xx_hasher(b: &mut Criterion) {
 }
 
 fn bench_xx3_hasher(b: &mut Criterion) {
-    b.bench_function("xx_hasher", |b| {
+    b.bench_function("xx3_hasher", |b| {
         b.iter(|| {
             let mut xor = 4567890987_u64;
             for element in 0..NUMBER_OF_ELEMENTS {
@@ -39,10 +39,50 @@ fn bench_xx3_hasher(b: &mut Criterion) {
     });
 }
 
+fn bench_wyhash(b: &mut Criterion) {
+    b.bench_function("wyhash", |b| {
+        b.iter(|| {
+            let mut xor = 4567890987_u64;
+            for element in 0..NUMBER_OF_ELEMENTS {
+                let mut hasher = wyhash::WyHash::default();
+                black_box(element).hash(&mut hasher);
+                xor ^= hasher.finish();
+            }
+            xor
+        })
+    });
+}
+
+fn bench_default_hasher(b: &mut Criterion) {
+    b.bench_function("default_hasher", |b| {
+        b.iter(|| {
+            let mut xor = 4567890987_u64;
+            for element in 0..NUMBER_OF_ELEMENTS {
+                let mut hasher = std::collections::hash_map::DefaultHasher::default();
+                black_box(element).hash(&mut hasher);
+                xor ^= hasher.finish();
+            }
+            xor
+        })
+    });
+}
+
 criterion_group! {
     name=xx_hasher;
-    config = Criterion::default().sample_size(500);
+    config = Criterion::default();
     targets=bench_xx_hasher, bench_xx3_hasher
 }
 
-criterion_main!(xx_hasher);
+criterion_group! {
+    name=wyhash;
+    config = Criterion::default();
+    targets=bench_wyhash
+}
+
+criterion_group! {
+    name=default_hasher;
+    config = Criterion::default();
+    targets=bench_default_hasher
+}
+
+criterion_main!(xx_hasher, wyhash, default_hasher);

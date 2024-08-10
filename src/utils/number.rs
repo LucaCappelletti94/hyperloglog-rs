@@ -25,6 +25,8 @@ pub trait Number:
     + crate::utils::Ten
     + core::iter::Sum
     + PartialOrd
+    + Send
+    + Sync
 {
     fn saturating_zero_sub(self, other: Self) -> Self;
 
@@ -44,6 +46,7 @@ pub trait FloatNumber:
     Number + Half + crate::utils::OneThousand + core::ops::Neg<Output = Self>
 {
     const INFINITY: Self;
+    const NEG_INFINITY: Self;
     const EPSILON: Self;
 
     fn inverse_register(register: i32) -> Self;
@@ -64,6 +67,8 @@ pub trait FloatNumber:
     fn from_f64(value: f64) -> Self;
 
     fn to_usize(self) -> usize;
+
+    fn to_f64(self) -> f64;
 
     #[cfg(feature = "std")]
     fn abs(self) -> Self;
@@ -128,6 +133,7 @@ impl_positive_integer_number!(u8, u16, u32, u64, u128, usize);
 
 impl FloatNumber for f32 {
     const INFINITY: Self = f32::INFINITY;
+    const NEG_INFINITY: Self = f32::NEG_INFINITY;
     const EPSILON: Self = f32::EPSILON;
 
     #[inline(always)]
@@ -135,16 +141,24 @@ impl FloatNumber for f32 {
         f32::from_le_bytes(((127 - register) << 23).to_le_bytes())
     }
 
+    #[inline(always)]
     fn from_usize(value: usize) -> Self {
         value as Self
     }
 
+    #[inline(always)]
     fn from_f64(value: f64) -> Self {
         value as Self
     }
 
+    #[inline(always)]
     fn to_usize(self) -> usize {
         self as usize
+    }
+
+    #[inline(always)]
+    fn to_f64(self) -> f64 {
+        self as f64
     }
 
     #[cfg(feature = "std")]
@@ -194,6 +208,7 @@ impl FloatNumber for f32 {
 }
 impl FloatNumber for f64 {
     const INFINITY: Self = f64::INFINITY;
+    const NEG_INFINITY: Self = f64::NEG_INFINITY;
     const EPSILON: Self = f64::EPSILON;
 
     #[inline(always)]
@@ -214,6 +229,11 @@ impl FloatNumber for f64 {
     #[inline(always)]
     fn to_usize(self) -> usize {
         self as usize
+    }
+
+    #[inline(always)]
+    fn to_f64(self) -> f64 {
+        self as f64
     }
 
     #[inline(always)]

@@ -4,7 +4,7 @@ use serde::ser::SerializeSeq;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-pub trait SerdeHyperLogLogTrait<P: Precision, B: Bits, Hasher: core::hash::Hasher + Default>:
+pub trait SerdeHyperLogLogTrait<P: Precision, B: Bits, Hasher: HasherType>:
     HyperLogLogTrait<P, B, Hasher> + Serialize + DeserializeOwned
 {
 }
@@ -12,13 +12,13 @@ pub trait SerdeHyperLogLogTrait<P: Precision, B: Bits, Hasher: core::hash::Hashe
 impl<
         P: Precision,
         B: Bits,
-        Hasher: core::hash::Hasher + Default,
+        Hasher: HasherType,
         H: HyperLogLogTrait<P, B, Hasher> + Serialize + DeserializeOwned,
     > SerdeHyperLogLogTrait<P, B, Hasher> for H
 {
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default> Serialize
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Serialize
     for HyperLogLog<P, B, R, Hasher>
 {
     #[inline(always)]
@@ -31,7 +31,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Def
     }
 }
 
-impl<'de, P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default> Deserialize<'de>
+impl<'de, P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Deserialize<'de>
     for HyperLogLog<P, B, R, Hasher>
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -51,7 +51,7 @@ impl<
         P: Precision,
         B: Bits,
         H: SerdeHyperLogLogTrait<P, B, Hasher>,
-        Hasher: core::hash::Hasher + Default,
+        Hasher: HasherType,
         const N: usize,
     > Serialize for HyperLogLogArray<P, B, H, Hasher, N>
 {
@@ -123,7 +123,7 @@ impl<
         P: Precision,
         B: Bits,
         H: SerdeHyperLogLogTrait<P, B, Hasher> + Copy,
-        Hasher: core::hash::Hasher + Default + Default,
+        Hasher: HasherType + Default,
         const N: usize,
     > Deserialize<'de> for HyperLogLogArray<P, B, H, Hasher, N>
 {
@@ -151,7 +151,7 @@ pub struct HLLArrayVisitor<
     P: Precision,
     B: Bits,
     H: SerdeHyperLogLogTrait<P, B, Hasher>,
-    Hasher: core::hash::Hasher + Default,
+    Hasher: HasherType,
     const N: usize,
 > {
     _phantom: core::marker::PhantomData<(P, B, H, Hasher)>,
@@ -163,7 +163,7 @@ impl<
         P: Precision,
         B: Bits,
         H: SerdeHyperLogLogTrait<P, B, Hasher> + Copy,
-        Hasher: core::hash::Hasher + Default,
+        Hasher: HasherType,
         const N: usize,
     > Visitor<'de> for HLLArrayVisitor<P, B, H, Hasher, N>
 {

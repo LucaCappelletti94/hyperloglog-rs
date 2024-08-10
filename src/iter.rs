@@ -44,7 +44,7 @@ pub trait EstimateIterCardinality {
         F: FloatNumber,
         P: Precision + PrecisionConstants<F> + ArrayRegister<B>,
         B: Bits,
-        Hasher: core::hash::Hasher + Default,
+        Hasher: HasherType,
     >(
         self,
     ) -> F;
@@ -58,7 +58,7 @@ where
         F: FloatNumber,
         P: Precision + PrecisionConstants<F> + ArrayRegister<B>,
         B: Bits,
-        Hasher: core::hash::Hasher + Default,
+        Hasher: HasherType,
     >(
         self,
     ) -> F {
@@ -72,7 +72,7 @@ where
     }
 }
 
-pub trait HyperLogLogIterator<P: Precision, B: Bits, Hasher: core::hash::Hasher + Default>: Sized + IntoIterator
+pub trait HyperLogLogIterator<P: Precision, B: Bits, Hasher: HasherType>: Sized + IntoIterator
 where
     <Self as IntoIterator>::Item: HyperLogLogTrait<P, B, Hasher>,
 {
@@ -124,7 +124,7 @@ where
     }
 }
 
-impl<P: Precision, B: Bits, I, Hasher: core::hash::Hasher + Default> HyperLogLogIterator<P, B, Hasher> for I
+impl<P: Precision, B: Bits, I, Hasher: HasherType> HyperLogLogIterator<P, B, Hasher> for I
 where
     I: IntoIterator,
     I::Item: HyperLogLogTrait<P, B, Hasher>,

@@ -5,11 +5,10 @@
 //! using a number of registers equal or inferior to 65536, which would make us waste another byte.
 
 use core::fmt::Debug;
-use core::ops::Index;
 
 use crate::{array_default::ArrayIter, utils::*};
 
-include!("bias.rs");
+include!(concat!(env!("OUT_DIR"), "/weights.rs"));
 include!(concat!(env!("OUT_DIR"), "/log_values.rs"));
 include!(concat!(env!("OUT_DIR"), "/alpha_values.rs"));
 include!(concat!(env!("OUT_DIR"), "/linear_count_zeros.rs"));
@@ -28,7 +27,6 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     const NUMBER_OF_REGISTERS: usize = 1 << Self::EXPONENT;
 
     /// Type for small corrections:
-    type SmallCorrections: Index<usize, Output = f64> + Copy;
     type Registers: Copy + ArrayIter<u32>;
 
     fn error_rate() -> f64 {
@@ -42,52 +40,67 @@ pub trait PrecisionConstants<F: FloatNumber>: Precision {
     const LINEAR_COUNT_ZEROS: Self::NumberOfZeros;
     const NUMBER_OF_REGISTERS_FLOAT: F;
     /// Estimates vector associated to the precision.
-    type EstimatesType: ArrayIter<F> + Copy;
+    type EstimatesType: ArrayIter<F> + Copy + Debug;
     const ESTIMATES: Self::EstimatesType;
     /// Bias vector associated to the precision.
-    type BiasType: ArrayIter<F> + Copy;
-    const BIAS: Self::BiasType;
+    const BIAS: Self::EstimatesType;
+    /// Betas for LogLog-Beta
+    const BETA: [F; 8];
 
     fn small_correction(number_of_zero_registers: Self::NumberOfZeros) -> F;
 
-    #[inline(always)]
-    fn bias(harmonic_sum: F) -> F {
-        // Raw estimate is first/last in estimates. Return the first/last bias.
-        if harmonic_sum <= Self::ESTIMATES[0] {
-            Self::BIAS[0]
-        } else if Self::ESTIMATES[Self::ESTIMATES.len() - 1] <= harmonic_sum {
-            Self::BIAS[Self::BIAS.len() - 1]
-        } else {
-            // Raw estimate is somewhere in between estimates.
-            // Binary search for the calculated raw estimate.
-            //
-            // Here we unwrap because neither the values in `estimates`
-            // nor `raw` are going to be NaN.
-            let partition_index = Self::ESTIMATES.partition_point(|est| *est <= harmonic_sum);
-
-            // Return linear interpolation between raw's neighboring points.
-            let ratio = (harmonic_sum - Self::ESTIMATES[partition_index - 1])
-                / (Self::ESTIMATES[partition_index] - Self::ESTIMATES[partition_index - 1]);
-
-            // Calculate bias.
-            Self::BIAS[partition_index]
-                + ratio * (Self::BIAS[partition_index] - Self::BIAS[partition_index - 1])
+    /// Computes LogLog-Beta estimate bias correction using Horner's method.
+    ///
+    /// Paper: https://arxiv.org/pdf/1612.02284.pdf
+    /// Wikipedia: https://en.wikipedia.org/wiki/Horner%27s_method
+    #[inline]
+    #[cfg(feature = "std")]
+    fn beta_horner(number_of_zero_registers: F) -> F {
+        let number_of_zero_registers_ln = number_of_zero_registers.ln_1p();
+        let mut res: F = F::ZERO;
+        for i in (1..8).rev() {
+            res = res * number_of_zero_registers_ln + Self::BETA[i];
         }
+        res * number_of_zero_registers_ln + Self::BETA[0] * number_of_zero_registers
     }
 
     #[inline(always)]
-    fn adjust_estimate(mut harmonic_sum: F) -> F {
-        // Apply the final scaling factor to obtain the estimate of the cardinality
-        harmonic_sum =
-            Self::ALPHA * Self::NUMBER_OF_REGISTERS_FLOAT * Self::NUMBER_OF_REGISTERS_FLOAT
-                / harmonic_sum;
+    fn bias(estimate: F) -> F {
+        let partition_point = Self::ESTIMATES.partition_point(|est| *est <= estimate);
 
+        let mut min = if partition_point > 6 {
+            partition_point - 6
+        } else {
+            0
+        };
+        let mut max = core::cmp::min(partition_point + 6, Self::ESTIMATES.len());
+
+        while max - min != 6 {
+            let (min_val, max_val) = (Self::ESTIMATES[min], Self::ESTIMATES[max - 1]);
+            // assert!(min_val <= e && e <= max_val);
+            if F::TWO * estimate - min_val > max_val {
+                min += 1;
+            } else {
+                max -= 1;
+            }
+        }
+
+        (min..max).map(|i| Self::BIAS[i]).sum::<F>() / F::SIX
+    }
+
+    #[inline(always)]
+    fn requires_bias_correction(estimate: F) -> bool {
+        estimate <= F::FIVE * Self::NUMBER_OF_REGISTERS_FLOAT
+    }
+
+    #[inline(always)]
+    fn adjust_estimate(estimate: F) -> F {
         // Apply the small range correction factor if the raw estimate is below the threshold
         // and there are zero registers in the counter.
-        if harmonic_sum <= F::FIVE * Self::NUMBER_OF_REGISTERS_FLOAT {
-            harmonic_sum - Self::bias(harmonic_sum)
+        if Self::requires_bias_correction(estimate) {
+            estimate - Self::bias(estimate)
         } else {
-            harmonic_sum
+            estimate
         }
     }
 }
@@ -133,6 +146,12 @@ macro_rules! impl_number_of_zeros {
     (16) => {
         u32
     };
+    (17) => {
+        u32
+    };
+    (18) => {
+        u32
+    };
     // Add more mappings as needed
     ($n:expr) => {
         compile_error!(concat!(
@@ -151,14 +170,15 @@ macro_rules! impl_precision {
             #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
             pub struct [<Precision $exponent>];
 
+
             impl PrecisionConstants<f32> for [<Precision $exponent>] {
                 const ALPHA: f32 = ALPHA_VALUES[Self::EXPONENT - 4] as f32;
                 const LINEAR_COUNT_ZEROS: Self::NumberOfZeros = LINEAR_COUNT_ZEROS[Self::EXPONENT - 4] as Self::NumberOfZeros;
                 const NUMBER_OF_REGISTERS_FLOAT: f32 = Self::NUMBER_OF_REGISTERS as f32;
-                type BiasType = [f32; bias_size_from_precision!($exponent)];
-                const BIAS: Self::BiasType = bias_from_precision!($exponent);
-                type EstimatesType = [f32; bias_size_from_precision!($exponent)];
-                const ESTIMATES: Self::EstimatesType = estimates_from_precision!($exponent);
+                type EstimatesType = [<WeightsF32 $exponent>];
+                const ESTIMATES: Self::EstimatesType = [<ESTIMATES_F32_ $exponent>];
+                const BIAS: Self::EstimatesType = [<BIAS_F32_ $exponent>];
+                const BETA: [f32; 8] = [<BETA_F32_ $exponent>];
 
                 #[inline(always)]
                 fn small_correction(number_of_zero_registers: Self::NumberOfZeros) -> f32 {
@@ -170,10 +190,10 @@ macro_rules! impl_precision {
                 const ALPHA: f64 = ALPHA_VALUES[Self::EXPONENT - 4];
                 const LINEAR_COUNT_ZEROS: Self::NumberOfZeros = LINEAR_COUNT_ZEROS[Self::EXPONENT - 4] as Self::NumberOfZeros;
                 const NUMBER_OF_REGISTERS_FLOAT: f64 = Self::NUMBER_OF_REGISTERS as f64;
-                type BiasType = [f64; bias_size_from_precision!($exponent)];
-                const BIAS: Self::BiasType = bias_from_precision!($exponent);
-                type EstimatesType = [f64; bias_size_from_precision!($exponent)];
-                const ESTIMATES: Self::EstimatesType = estimates_from_precision!($exponent);
+                type EstimatesType = [<WeightsF64 $exponent>];
+                const ESTIMATES: Self::EstimatesType = [<ESTIMATES_F64_ $exponent>];
+                const BIAS: Self::EstimatesType = [<BIAS_F64_ $exponent>];
+                const BETA: [f64; 8] = [<BETA_F64_ $exponent>];
 
                 #[inline(always)]
                 fn small_correction(number_of_zero_registers: Self::NumberOfZeros) -> f64 {
@@ -185,7 +205,6 @@ macro_rules! impl_precision {
             impl Precision for [<Precision $exponent>] {
                 type NumberOfZeros = impl_number_of_zeros!($exponent);
                 const EXPONENT: usize = $exponent;
-                type SmallCorrections = [f64; usize::pow(2, $exponent)];
                 type Registers = [u32; usize::pow(2, $exponent)];
             }
         }
@@ -201,7 +220,7 @@ macro_rules! impl_precisions {
     };
 }
 
-impl_precisions!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
+impl_precisions!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
 
 #[cfg(test)]
 mod tests {
@@ -226,5 +245,47 @@ mod tests {
         };
     }
 
-    test_error_rate_simmetry!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
+    test_error_rate_simmetry!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
+
+    /// Macro rule to generate test to verify that the estimates are sorted in ascending order
+    /// for a given precision.
+    macro_rules! test_estimates_sorted {
+        ($($precision:ty),*) => {
+            $(
+                paste::paste! {
+                    #[test]
+                    fn [<test_estimates_sorted_ $precision:lower>]() {
+                        let mut last = 0.0;
+                        for estimate in <$precision as PrecisionConstants<f64>>::ESTIMATES.iter() {
+                            assert!(*estimate >= last, "Estimate: {}, Last: {}", *estimate, last);
+                            last = *estimate;
+                        }
+                        let mut last = 0.0;
+                        for estimate in <$precision as PrecisionConstants<f32>>::ESTIMATES.iter() {
+                            assert!(*estimate >= last, "Estimate: {}, Last: {}", *estimate, last);
+                            last = *estimate;
+                        }
+                    }
+                }
+            )*
+        };
+    }
+
+    test_estimates_sorted!(
+        Precision4,
+        Precision5,
+        Precision6,
+        Precision7,
+        Precision8,
+        Precision9,
+        Precision10,
+        Precision11,
+        Precision12,
+        Precision13,
+        Precision14,
+        Precision15,
+        Precision16,
+        Precision17,
+        Precision18
+    );
 }

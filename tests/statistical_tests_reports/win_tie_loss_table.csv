@@ -1,31 +1,21 @@
-,task,approach,win,tie,loss
-0,cardinality,HLL6 + Xxhasher,77,28,38
-1,cardinality,HLL5 + Xxhasher,77,28,38
-2,cardinality,Streaming Algorithms,63,29,51
-3,cardinality,HLL4 + Xxhasher,62,26,55
-4,cardinality,HLL4 + Siphasher13,60,32,51
-5,cardinality,Tabac's HLL++,51,38,54
-6,cardinality,HLL6 + Siphasher24,51,37,55
-7,cardinality,HLL5 + Siphasher24,51,37,55
-8,cardinality,HLL6 + Siphasher13,47,36,60
-9,cardinality,HLL5 + Siphasher13,47,36,60
-10,cardinality,HLL4 + Siphasher24,43,25,75
-11,cardinality,Tabac's HLL,35,36,72
-12,union,MLE3 + Xxhasher,175,20,26
-13,union,MLE2 + Xxhasher,175,20,26
-14,union,MLE3 + Siphasher13,152,13,56
-15,union,MLE2 + Siphasher13,138,18,65
-16,union,MLE3 + Siphasher24,130,16,75
-17,union,HLL6 + Xxhasher,121,24,76
-18,union,HLL5 + Xxhasher,121,24,76
-19,union,MLE2 + Siphasher24,120,14,87
-20,union,Streaming Algorithms,113,19,89
-21,union,HLL4 + Siphasher13,100,12,109
-22,union,HLL4 + Xxhasher,99,15,107
-23,union,HLL6 + Siphasher13,85,23,113
-24,union,HLL5 + Siphasher13,85,23,113
-25,union,HLL6 + Siphasher24,71,29,121
-26,union,HLL5 + Siphasher24,71,29,121
-27,union,HLL4 + Siphasher24,58,15,148
-28,union,Tabac's HLL++,4,12,205
-29,union,Tabac's HLL,2,12,207
+,task,approach,win,tie,loss,error
+0,cardinality,HLL6 + WyHash,9,90,5,0.05358331268125343
+1,cardinality,Beta6 + WyHash,10,90,4,0.053590774743529426
+2,cardinality,Tabac's HLL,2,82,20,0.053738387453359446
+3,cardinality,Cardinality Estimator,9,89,6,0.05390637575155218
+4,cardinality,Streaming Algorithms,4,98,2,0.05421574302625895
+5,cardinality,HLL6 + Xxhasher,8,90,6,0.05425284775626154
+6,cardinality,Beta6 + Xxhasher,6,91,7,0.05426664620575495
+7,cardinality,Rust-HLL,4,95,5,0.054606360740995424
+8,cardinality,Tabac's HLL++,10,87,7,0.05495985679096492
+9,union,MLE2 + Xxhasher,104,6,20,0.04116722731410891
+10,union,HLL6 + Xxhasher,75,9,46,0.04407710464901822
+11,union,MLE2 + WyHash,82,9,39,0.04427991594711684
+12,union,HLL6 + WyHash,52,7,71,0.048636434202307954
+13,union,Cardinality Estimator,76,8,46,0.051113448621600284
+14,union,Rust-HLL,71,11,48,0.05246339550177011
+15,union,Streaming Algorithms,65,10,55,0.05663352340409285
+16,union,MLE2 + DefaultHasher,84,4,42,0.060610195506788485
+17,union,HLL6 + DefaultHasher,55,10,65,0.06454249615395458
+18,union,Tabac's HLL++,1,13,116,0.22924401005571382
+19,union,Tabac's HLL,0,13,117,0.22946495575479284

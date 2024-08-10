@@ -1,7 +1,6 @@
 use hyperloglog_rs::prelude::*;
-use hyperloglog_rs::sip::Sip64Scalar;
 mod utils;
-use utils::{splitmix64, xorshift64};
+use twox_hash::XxHash;
 
 pub fn test_hll_at_precision_and_bits<
     F: FloatNumber,
@@ -66,17 +65,17 @@ pub fn test_hll_at_precision_and_bits<
 
 /// Macro to generate a range of tests with the provided lists of precisions and bits
 macro_rules! test_hll_at_precision_and_bits {
-    ($precision:ty, $($bits:ty),*) => {
+    ($precision:ty, $hasher:ty, $($bits:ty),*) => {
         $(
             paste::item! {
                 #[test]
                 pub fn [< test_hll_at_ $precision:lower _and_ $bits:lower _bits >]() {
-                    test_hll_at_precision_and_bits::<f64, $precision, $bits, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, Sip64Scalar<2, 4>>, Sip64Scalar<2, 4>>();
+                    test_hll_at_precision_and_bits::<f64, $precision, $bits, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>, $hasher>();
                 }
 
                 #[test]
                 pub fn [< test_mle2_at_ $precision:lower _and_ $bits:lower _bits >]() {
-                    test_hll_at_precision_and_bits::<f64, $precision, $bits, MLE<HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, Sip64Scalar<2, 4>>>, Sip64Scalar<2, 4>>();
+                    test_hll_at_precision_and_bits::<f64, $precision, $bits, MLE<HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>, $hasher>();
                 }
             }
         )*
@@ -84,10 +83,20 @@ macro_rules! test_hll_at_precision_and_bits {
 }
 
 /// Macro to generate a range of tests with the provided lists of precisions
+macro_rules! test_hll_at_precision_and_hashers {
+    ($precision:ty, $($hasher:ty),*) => {
+        $(
+            test_hll_at_precision_and_bits!($precision, $hasher, Bits5, Bits6);
+        )*
+    };
+}
+
+
+/// Macro to generate a range of tests with the provided lists of precisions
 macro_rules! test_hll_at_precisions {
     ($($precision:ty),*) => {
         $(
-            test_hll_at_precision_and_bits!($precision, Bits5, Bits6);
+            test_hll_at_precision_and_hashers!($precision, XxHash);
         )*
     };
 }

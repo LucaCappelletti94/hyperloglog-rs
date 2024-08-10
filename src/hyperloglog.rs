@@ -56,7 +56,7 @@ pub struct HyperLogLog<
     P: Precision,
     B: Bits,
     R: Registers<P, B>,
-    Hasher: core::hash::Hasher + Default = twox_hash::XxHash64,
+    Hasher: HasherType = twox_hash::XxHash64,
 > {
     registers: R,
     number_of_zero_registers: P::NumberOfZeros,
@@ -66,7 +66,7 @@ pub struct HyperLogLog<
 
 /// Implementation of partial equality for HyperLogLog so as to compare two HyperLogLog instances
 /// ignoring the harmonic sum.
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default> PartialEq
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> PartialEq
     for HyperLogLog<P, B, R, Hasher>
 {
     fn eq(&self, other: &Self) -> bool {
@@ -76,12 +76,12 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Def
 
 /// Implementation of equality for HyperLogLog so as to compare two HyperLogLog instances
 /// ignoring the harmonic sum.
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default> Eq
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Eq
     for HyperLogLog<P, B, R, Hasher>
 {
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default>
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType>
     HyperLogLog<P, B, R, Hasher>
 {
     /// Create a new HyperLogLog counter.
@@ -106,18 +106,13 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Def
     ///
     /// A new HyperLogLog counter initialized with the given registers.
     pub fn from_registers(registers: R) -> Self {
-        let (number_of_zero_registers, harmonic_sum) = registers
-            .iter_registers()
-            .map(|register| {
-                (
-                    P::NumberOfZeros::from_bool(register.is_zero()),
-                    f64::inverse_register(register as i32),
-                )
-            })
-            .fold(
-                (P::NumberOfZeros::ZERO, 0.0),
-                |(acc_zeros, acc_sum), (zeros, sum)| (acc_zeros + zeros, acc_sum + sum),
-            );
+        let mut number_of_zero_registers = P::NumberOfZeros::ZERO;
+        let mut harmonic_sum = 0.0;
+
+        for register in registers.iter_registers() {
+            number_of_zero_registers += P::NumberOfZeros::from_bool(register == 0);
+            harmonic_sum += f64::inverse_register(register as i32);
+        }
 
         Self {
             registers,
@@ -128,7 +123,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Def
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default> Default
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Default
     for HyperLogLog<P, B, R, Hasher>
 {
     /// Returns a new HyperLogLog instance with default configuration settings.
@@ -137,7 +132,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Def
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default>
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType>
     HyperLogLogTrait<P, B, Hasher> for HyperLogLog<P, B, R, Hasher>
 {
     type Registers = R;
@@ -248,9 +243,17 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Def
     fn get_register(&self, index: usize) -> u32 {
         self.registers.get_register(index)
     }
+
+    fn clear(&mut self) {
+        self.registers.clear();
+        self.number_of_zero_registers = unsafe {
+            P::NumberOfZeros::try_from(P::NUMBER_OF_REGISTERS).unwrap_unchecked()
+        };
+        self.harmonic_sum = P::NUMBER_OF_REGISTERS as f64;
+    }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, A: Hash, Hasher: core::hash::Hasher + Default>
+impl<P: Precision, B: Bits, R: Registers<P, B>, A: Hash, Hasher: HasherType>
     core::iter::FromIterator<A> for HyperLogLog<P, B, R, Hasher>
 {
     fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
@@ -265,7 +268,7 @@ impl<
         P: Precision,
         B: Bits,
         R: Registers<P, B>,
-        Hasher: core::hash::Hasher + Default,
+        Hasher: HasherType,
         Rhs: HyperLogLogTrait<P, B, Hasher>,
     > core::ops::BitOrAssign<Rhs> for HyperLogLog<P, B, R, Hasher>
 {
@@ -295,7 +298,7 @@ impl<
         B: Bits,
         R: Registers<P, B>,
         Rhs: HyperLogLogTrait<P, B, Hasher>,
-        Hasher: core::hash::Hasher + Default,
+        Hasher: HasherType,
     > core::ops::BitOr<Rhs> for HyperLogLog<P, B, R, Hasher>
 {
     type Output = Self;

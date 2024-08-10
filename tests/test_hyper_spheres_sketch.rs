@@ -5,9 +5,9 @@
 //! results of the hyper spheres sketch of the HyperLogLog with
 //! the results of the hyper spheres sketch of the HashSet.
 use hyperloglog_rs::prelude::*;
-use hyperloglog_rs::sip::Sip64Scalar;
 use rand::rngs::StdRng;
 use rand::Rng;
+use twox_hash::XxHash64;
 use rand::SeedableRng;
 use std::collections::HashSet;
 
@@ -293,9 +293,7 @@ macro_rules! test_hyper_spheres_by_hashers {
     };
 }
 
-type Sip64Scalar24 = Sip64Scalar<2, 4>;
-
-test_hyper_spheres_by_hashers!(Sip64Scalar24);
+test_hyper_spheres_by_hashers!(XxHash64);
 
 fn test_hyper_spheres(
     left: &[Vec<usize>; 3],

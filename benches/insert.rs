@@ -4,10 +4,13 @@ extern crate test;
 use criterion::{criterion_group, criterion_main, Criterion};
 use hyperloglog_rs::prelude::*;
 use hyperloglogplus::HyperLogLog as TabacHyperLogLog;
-use std::hash::RandomState;
 use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
+use std::hash::RandomState;
+use wyhash::WyHash;
 use std::hint::black_box;
 use streaming_algorithms::HyperLogLog as SAHyperLogLog;
+use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
+use cardinality_estimator::CardinalityEstimator;
 
 const NUMBER_OF_ELEMENTS: usize = 50_000;
 
@@ -33,15 +36,45 @@ macro_rules! bench_insert {
     };
 }
 
+macro_rules! bench_ce_insert {
+    ($precision:ty, $bits:ty, $($hasher:ty),*) => {
+        $(
+            paste::item! {
+                fn [<bench_ce_insert_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                    b.bench_function(
+                        format!("ce_insert_precision_{}_bits_{}_hasher_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS, stringify!($hasher)).as_str(),
+                        |b| {
+                            b.iter(||{
+                                let mut hll: CardinalityEstimator<usize, $hasher, {$precision::EXPONENT}, {$bits::NUMBER_OF_BITS}> = CardinalityEstimator::default();
+                                for i in 0..NUMBER_OF_ELEMENTS {
+                                    hll.insert(black_box(&i));
+                                }
+                            })
+                    });
+                }
+
+            }
+        )*
+    };
+}
+
+/// Macro to generate a criterion benchmark with the provided precision exponent and bits
+macro_rules! bench_insert_bits {
+    ($precision:ty, $($bits:ty),*) => {
+        $(
+            bench_ce_insert!($precision, $bits, WyHash);
+            bench_insert!($precision, $bits, XxHash64, WyHash);
+        )*
+    };
+}
+
 type XxHash64 = twox_hash::XxHash64;
 
 /// Macro to generate a criterion benchmark with the provided precision exponents
 macro_rules! bench_inserts {
     ($($precision:ty),*) => {
         $(
-            bench_insert!($precision, Bits4, XxHash64);
-            bench_insert!($precision, Bits5, XxHash64);
-            bench_insert!($precision, Bits6, XxHash64);
+            bench_insert_bits!($precision, Bits6);
 
             paste::item! {
                 fn [<bench_tabacplusplus_insert_ $precision:lower>] (b: &mut Criterion) {
@@ -52,6 +85,19 @@ macro_rules! bench_inserts {
                                 let mut hll: TabacHyperLogLogPlus<usize, RandomState> = TabacHyperLogLogPlus::new($precision::EXPONENT as u8, RandomState::new()).unwrap();
                                 for i in 0..NUMBER_OF_ELEMENTS {
                                     TabacHyperLogLog::insert(&mut hll, black_box(&i));
+                                }
+                            })
+                    });
+                }
+
+                fn [<bench_rhll_insert_ $precision:lower _bits6>] (b: &mut Criterion) {
+                    b.bench_function(
+                        format!("rhll_insert_precision_{}_bits_6", $precision::EXPONENT).as_str(),
+                        |b| {
+                            b.iter(||{
+                                let mut hll: RustHyperLogLog = RustHyperLogLog::new_deterministic($precision::error_rate(), 6785467548654986_128);
+                                for i in 0..NUMBER_OF_ELEMENTS {
+                                    hll.insert(&black_box(i));
                                 }
                             })
                     });
@@ -72,7 +118,7 @@ macro_rules! bench_inserts {
 
                 criterion_group! {
                     name=[<insert_tabacplusplus_ $precision:lower>];
-                    config = Criterion::default().sample_size(500);
+                    config = Criterion::default().sample_size(100);
                     targets=[<bench_tabacplusplus_insert_ $precision:lower>]
                 }
                 criterion_group! {
@@ -82,9 +128,20 @@ macro_rules! bench_inserts {
                 }
                 criterion_group! {
                     name=[<insert_hll_ $precision:lower>];
-                    config = Criterion::default().sample_size(500);
-                    targets=[<bench_hll_insert_ $precision:lower _bits4_xxhash64>], [<bench_hll_insert_ $precision:lower _bits5_xxhash64>], [<bench_hll_insert_ $precision:lower _bits6_xxhash64>]
+                    config = Criterion::default().sample_size(100);
+                    targets=[<bench_hll_insert_ $precision:lower _bits6_xxhash64>], [<bench_hll_insert_ $precision:lower _bits6_wyhash>]
                 }
+                criterion_group! {
+                    name=[<insert_rhll_ $precision:lower>];
+                    config = Criterion::default().sample_size(10);
+                    targets=[<bench_rhll_insert_ $precision:lower _bits6>]
+                }
+                criterion_group! {
+                    name=[<insert_ce_ $precision:lower>];
+                    config = Criterion::default().sample_size(100);
+                    targets=[<bench_ce_insert_ $precision:lower _bits6_wyhash>]
+                }
+
             }
         )*
     };
@@ -145,5 +202,31 @@ criterion_main!(
     insert_sa_precision13,
     insert_sa_precision14,
     insert_sa_precision15,
-    insert_sa_precision16
+    insert_sa_precision16,
+    insert_ce_precision4,
+    insert_ce_precision5,
+    insert_ce_precision6,
+    insert_ce_precision7,
+    insert_ce_precision8,
+    insert_ce_precision9,
+    insert_ce_precision10,
+    insert_ce_precision11,
+    insert_ce_precision12,
+    insert_ce_precision13,
+    insert_ce_precision14,
+    insert_ce_precision15,
+    insert_ce_precision16,
+    insert_rhll_precision4,
+    insert_rhll_precision5,
+    insert_rhll_precision6,
+    insert_rhll_precision7,
+    insert_rhll_precision8,
+    insert_rhll_precision9,
+    insert_rhll_precision10,
+    insert_rhll_precision11,
+    insert_rhll_precision12,
+    insert_rhll_precision13,
+    insert_rhll_precision14,
+    insert_rhll_precision15,
+    insert_rhll_precision16,
 );

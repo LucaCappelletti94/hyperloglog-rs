@@ -4,23 +4,52 @@ use crate::prelude::*;
 use crate::utils::FloatNumber;
 use core::hash::Hash;
 
-pub trait HyperLogLogTrait<P: Precision, B: Bits, Hasher: core::hash::Hasher + Default + Default = twox_hash::XxHash64>:
-    Sized + Default + Eq + PartialEq + BitOrAssign<Self> + BitOr<Self, Output = Self>
+pub trait HyperLogLogTrait<
+    P: Precision,
+    B: Bits,
+    Hasher: core::hash::Hasher + Default + Default = twox_hash::XxHash64,
+>:
+    Sized + Default + Eq + PartialEq + BitOrAssign<Self> + BitOr<Self, Output = Self> + Send + Sync
 {
     type Registers: Registers<P, B>;
 
     #[inline(always)]
-    fn adjust_estimate_with_zeros<F: FloatNumber>(
+    fn currently_applies_linear_counting<F: FloatNumber>(&self) -> bool
+    where
+        P: PrecisionConstants<F>,
+    {
+        Self::linear_count_zeros(self.get_number_of_zero_registers())
+    }
+
+    #[inline(always)]
+    fn linear_count_zeros<F: FloatNumber>(number_of_zeros: P::NumberOfZeros) -> bool
+    where
+        P: PrecisionConstants<F>,
+    {
+        number_of_zeros >= P::LINEAR_COUNT_ZEROS
+    }
+
+    #[inline(always)]
+    fn get_estimate_from_harmonic_sum<F: FloatNumber>(harmonic_sum: F) -> F
+    where
+        P: PrecisionConstants<F>,
+    {
+        // Apply the final scaling factor to obtain the estimate of the cardinality
+        P::ALPHA * P::NUMBER_OF_REGISTERS_FLOAT * P::NUMBER_OF_REGISTERS_FLOAT / harmonic_sum
+    }
+
+    #[inline(always)]
+    fn adjust_harmonic_sum_with_zeros<F: FloatNumber>(
         harmonic_sum: F,
         number_of_zeros: P::NumberOfZeros,
     ) -> F
     where
         P: PrecisionConstants<F>,
     {
-        if number_of_zeros >= P::LINEAR_COUNT_ZEROS {
+        if Self::linear_count_zeros(number_of_zeros) {
             return P::small_correction(number_of_zeros);
         }
-        P::adjust_estimate(harmonic_sum)
+        P::adjust_estimate(Self::get_estimate_from_harmonic_sum(harmonic_sum))
     }
 
     /// Returns a reference to the registers of the HyperLogLog counter.
@@ -60,7 +89,73 @@ pub trait HyperLogLogTrait<P: Precision, B: Bits, Hasher: core::hash::Hasher + D
     where
         P: PrecisionConstants<F>,
     {
-        Self::adjust_estimate_with_zeros(self.harmonic_sum(), self.get_number_of_zero_registers())
+        Self::adjust_harmonic_sum_with_zeros(
+            self.harmonic_sum(),
+            self.get_number_of_zero_registers(),
+        )
+    }
+
+    fn estimate_cardinality_with_beta<F: FloatNumber>(&self) -> F
+    where
+        P: PrecisionConstants<F>,
+    {
+        let number_of_zero_registers = F::from_usize(unsafe {
+            self.get_number_of_zero_registers()
+                .try_into()
+                .unwrap_unchecked()
+        });
+        P::ALPHA
+            * (P::NUMBER_OF_REGISTERS_FLOAT
+                * (P::NUMBER_OF_REGISTERS_FLOAT - number_of_zero_registers))
+            / (self.harmonic_sum() + P::beta_horner(number_of_zero_registers))
+            + F::HALF
+    }
+
+    fn estimate_cardinality_with_biases<F: FloatNumber>(&self, estimates: &[F], biases: &[F]) -> F
+    where
+        P: PrecisionConstants<F>,
+    {
+        assert_eq!(estimates.len(), biases.len());
+        if Self::linear_count_zeros(self.get_number_of_zero_registers()) {
+            return P::small_correction(self.get_number_of_zero_registers());
+        }
+
+        let estimate = Self::get_estimate_from_harmonic_sum(self.harmonic_sum());
+
+        // Apply the small range correction factor if the raw estimate is below the threshold
+        // and there are zero registers in the counter.
+        estimate
+            - F::from_usize(
+                (if P::requires_bias_correction(estimate) {
+                    if estimate < estimates[0] {
+                        biases[0]
+                    } else if estimate >= estimates[estimates.len() - 1] {
+                        biases[biases.len() - 1]
+                    } else {
+                        // Find the partition index of the estimate.
+                        let partition_index = estimates.partition_point(|est| *est <= estimate);
+
+                        // Return linear interpolation between raw's neighboring points.
+                        let ratio = (estimate - estimates[partition_index - 1])
+                            / (estimates[partition_index] - estimates[partition_index - 1]);
+
+                        // Calculate bias.
+                        biases[partition_index - 1]
+                            + ratio * (biases[partition_index] - biases[partition_index - 1])
+                    }
+                } else {
+                    F::ZERO
+                })
+                .to_usize(),
+            )
+    }
+
+    /// Returns cardinality without the application of any correction.
+    fn estimate_incorrected_cardinality<F: FloatNumber>(&self) -> F
+    where
+        P: PrecisionConstants<F>,
+    {
+        Self::get_estimate_from_harmonic_sum(self.harmonic_sum())
     }
 
     #[inline(always)]
@@ -109,7 +204,7 @@ pub trait HyperLogLogTrait<P: Precision, B: Bits, Hasher: core::hash::Hasher + D
             .registers()
             .get_harmonic_sum_and_zeros(other.registers());
 
-        Self::adjust_estimate_with_zeros(harmonic_sum, union_zeros)
+        Self::adjust_harmonic_sum_with_zeros(harmonic_sum, union_zeros)
     }
 
     #[cfg(feature = "std")]
@@ -169,7 +264,7 @@ pub trait HyperLogLogTrait<P: Precision, B: Bits, Hasher: core::hash::Hasher + D
 
         // We get the best estimates from HyperLogLog++
         let union_cardinality_estimate =
-            Self::adjust_estimate_with_zeros(union_harmonic_sum, union_zeros);
+            Self::adjust_harmonic_sum_with_zeros(union_harmonic_sum, union_zeros);
 
         let left_cardinality_estimate = self.estimate_cardinality();
         let right_cardinality_estimate = other.estimate_cardinality();
@@ -717,9 +812,7 @@ pub trait HyperLogLogTrait<P: Precision, B: Bits, Hasher: core::hash::Hasher + D
     fn insert<T: Hash>(&mut self, value: T) -> bool;
 
     #[inline(always)]
-    fn hash_and_index<T: core::hash::Hash>(
-        element: &T,
-    ) -> (u64, usize) {
+    fn hash_and_index<T: core::hash::Hash>(element: &T) -> (u64, usize) {
         let mut hasher = Hasher::default();
         element.hash(&mut hasher);
         let hash = hasher.finish();
@@ -760,6 +853,9 @@ pub trait HyperLogLogTrait<P: Precision, B: Bits, Hasher: core::hash::Hasher + D
 
     /// Return the value of the register at the given index.
     fn get_register(&self, index: usize) -> u32;
+
+    /// Clears out the HyperLogLog counter.
+    fn clear(&mut self);
 
     /// Extend the HyperLogLog counter with the elements from an iterator.
     fn extend<I: IntoIterator<Item = T>, T: Hash>(&mut self, iter: I) {

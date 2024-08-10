@@ -8,7 +8,7 @@ mod array;
 
 pub use array::ArrayRegister;
 
-pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug {
+pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug + Send + Sync {
     type Iter<'a>: Iterator<Item = u32>
     where
         Self: 'a;
@@ -56,4 +56,7 @@ pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug {
 
     /// Returns the value of the register at the given index.
     fn get_register(&self, index: usize) -> u32;
+
+    /// Clears the registers to zero.
+    fn clear(&mut self);
 }

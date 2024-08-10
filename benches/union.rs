@@ -58,7 +58,7 @@ trait InsertValue {
     fn create(precision: usize) -> Self;
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default> InsertValue for HyperLogLog<P, B, R, Hasher>
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> InsertValue for HyperLogLog<P, B, R, Hasher>
 where
     Self: HyperLogLogTrait<P, B, Hasher>,
 {
@@ -72,7 +72,7 @@ where
     }
 }
 
-impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, Hasher: core::hash::Hasher + Default> InsertValue
+impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> InsertValue
     for MLE<HyperLogLog<P, B, R, Hasher>, ERROR>
 where
     Self: HyperLogLogTrait<P, B, Hasher>,
@@ -171,11 +171,11 @@ macro_rules! bench_union_mle {
 macro_rules! bench_unions {
     ($($precision:ty),*) => {
         $(
-            bench_union!($precision, Bits4);
+            // bench_union!($precision, Bits4);
             bench_union!($precision, Bits6);
             bench_union_mle!($precision, Bits6);
-            bench_union!($precision, Bits8);
-            bench_union_mle!($precision, Bits8);
+            // bench_union!($precision, Bits8);
+            // bench_union_mle!($precision, Bits8);
 
             paste::item! {
                 fn [<bench_tabacpf_union_ $precision:lower>] (b: &mut Criterion) {
@@ -253,12 +253,12 @@ macro_rules! bench_unions {
                 criterion_group! {
                     name=[<union_hll_ $precision:lower>];
                     config = Criterion::default();
-                    targets=[<bench_hll_union_ $precision:lower _bits4>], [<bench_hll_union_ $precision:lower _bits6>], [<bench_hll_union_ $precision:lower _bits8>]
+                    targets=[<bench_hll_union_ $precision:lower _bits6>]
                 }
                 criterion_group! {
                     name=[<mle_union_ $precision:lower>];
                     config = Criterion::default().sample_size(5);
-                    targets=[<bench_mle_union_ $precision:lower _bits6>], [<bench_mle_union_ $precision:lower _bits8>]
+                    targets=[<bench_mle_union_ $precision:lower _bits6>]
                 }
             }
         )*

@@ -1,14 +1,15 @@
 use std::hash::{BuildHasher, Hash};
 
+use cardinality_estimator::CardinalityEstimator;
 use hyperloglog_rs::prelude::*;
 use hyperloglogplus::HyperLogLog as TabacHyperLogLog;
 use hyperloglogplus::HyperLogLogPF as TabacHyperLogLogPF;
 use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
-use cardinality_estimator::CardinalityEstimator;
-use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
+use mem_dbg::MemDbg;
 use mem_dbg::MemSize;
-use stattest::test::WilcoxonWTest;
+use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
 use stattest::test::StatisticalTest;
+use stattest::test::WilcoxonWTest;
 use streaming_algorithms::HyperLogLog as SAHyperLogLog;
 
 pub trait MutableSet<I: Hash>: MemSize {
@@ -16,11 +17,11 @@ pub trait MutableSet<I: Hash>: MemSize {
     fn insert(&mut self, x: I);
 }
 
-impl MutableSet<usize> for std::collections::HashSet<usize> {
+impl MutableSet<u64> for std::collections::HashSet<u64> {
     fn create(_precision: usize) -> Self {
         Self::new()
     }
-    fn insert(&mut self, x: usize) {
+    fn insert(&mut self, x: u64) {
         self.insert(x);
     }
 }
@@ -29,14 +30,17 @@ impl<I: Hash> MutableSet<I> for RustHyperLogLog {
     fn create(precision: usize) -> Self {
         let exponent = (precision as f64) / 2.0;
         let error_rate = 1.04 / 2f64.powf(exponent);
-        RustHyperLogLog::new(error_rate)
+        RustHyperLogLog::new_deterministic(error_rate, 7465567467454675_u128)
     }
+
     fn insert(&mut self, x: I) {
         self.insert(&x);
     }
 }
 
-impl<I: Hash, const P: usize, H: core::hash::Hasher + Default, const W: usize> MutableSet<I> for CardinalityEstimator<I, H, P, W> {
+impl<I: Hash, const P: usize, H: core::hash::Hasher + Default, const W: usize> MutableSet<I>
+    for CardinalityEstimator<I, H, P, W>
+{
     fn create(precision: usize) -> Self {
         assert!(precision == P);
         Self::new()
@@ -46,9 +50,26 @@ impl<I: Hash, const P: usize, H: core::hash::Hasher + Default, const W: usize> M
     }
 }
 
+#[derive(Debug, Clone, MemSize, MemDbg)]
+pub struct BetaHLL<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> {
+    hll: HyperLogLog<P, B, R, Hasher>,
+}
+
+impl<
+        P: Precision + PrecisionConstants<f64>,
+        B: Bits,
+        R: Registers<P, B>,
+        Hasher: HasherType,
+    > BetaHLL<P, B, R, Hasher>
+{
+    pub fn beta_cardinality(&self) -> f64 {
+        self.hll.estimate_cardinality_with_beta()
+    }
+}
+
 impl<
         I: Hash,
-        Hasher: Default + core::hash::Hasher,
+        Hasher: HasherType,
         P: MemSize + Precision + PrecisionConstants<f64>,
         B: MemSize + Bits,
         R: MemSize + Registers<P, B>,
@@ -67,12 +88,33 @@ where
 }
 
 impl<
+        I: Hash,
+        Hasher: HasherType,
+        P: MemSize + Precision + PrecisionConstants<f64>,
+        B: MemSize + Bits,
+        R: MemSize + Registers<P, B>,
+    > MutableSet<I> for BetaHLL<P, B, R, Hasher>
+where
+    <P as Precision>::NumberOfZeros: MemSize,
+{
+    fn create(precision: usize) -> Self {
+        assert!(precision == P::EXPONENT);
+        Self {
+            hll: HyperLogLog::default(),
+        }
+    }
+    fn insert(&mut self, x: I) {
+        <HyperLogLog<P, B, R, Hasher> as HyperLogLogTrait<P, B, Hasher>>::insert(&mut self.hll, x);
+    }
+}
+
+impl<
         const ERROR: i32,
         I: Hash,
         P: MemSize + Precision + PrecisionConstants<f64>,
         B: MemSize + Bits,
         R: MemSize + Registers<P, B>,
-        Hasher: Default + core::hash::Hasher,
+        Hasher: HasherType,
     > MutableSet<I> for MLE<HyperLogLog<P, B, R, Hasher>, ERROR>
 where
     Self: HyperLogLogTrait<P, B, Hasher>,
@@ -127,20 +169,6 @@ impl<I: Hash + Eq + PartialEq> MutableSet<I> for SAHyperLogLog<I> {
     }
 }
 
-pub fn splitmix64(mut x: u64) -> u64 {
-    x = x.wrapping_add(0x9E3779B97F4A7C15);
-    x = (x ^ (x >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
-    x = (x ^ (x >> 27)).wrapping_mul(0x94D049BB133111EB);
-    x ^ (x >> 31)
-}
-
-pub fn xorshift64(mut x: u64) -> u64 {
-    x ^= x << 13;
-    x ^= x >> 7;
-    x ^= x << 17;
-    x
-}
-
 fn standard_deviation(values: &[f64], mean: f64) -> f64 {
     let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
     variance.sqrt()
@@ -154,27 +182,16 @@ fn mean_usize(values: &[usize]) -> f64 {
     values.iter().sum::<usize>() as f64 / values.len() as f64
 }
 
-pub fn iter_random_vector(mut random_state: u64) -> impl Iterator<Item = usize> {
-    let maximal_size = 1_000_000;
-    let maximal_value = 1_000_000;
-    random_state = splitmix64(random_state);
-    let maximal_size = 1 + xorshift64(random_state) as usize % maximal_size;
-    random_state = splitmix64(random_state);
-    let maximal_value = 1 + xorshift64(random_state) as usize % maximal_value;
-    (0..maximal_size).map(move |_| {
-        random_state = splitmix64(random_state);
-        random_state = xorshift64(random_state);
-        random_state as usize % maximal_value
-    })
-}
-
-pub fn populate<P: Precision, S: MutableSet<usize>>(random_state: u64) -> (S, usize) {
+pub fn populate<P: Precision, S: MutableSet<u64>>(
+    random_state: u64,
+    maximal_value: Option<usize>,
+) -> (S, usize) {
     let mut set_like: S = S::create(P::EXPONENT);
-    for l in iter_random_vector(random_state) {
+    for l in iter_random_values(1_000_000, maximal_value, random_state) {
         set_like.insert(l.clone());
     }
 
-    let size = set_like.mem_size(mem_dbg::SizeFlags::default());
+    let size = set_like.mem_size(mem_dbg::SizeFlags::default() | mem_dbg::SizeFlags::FOLLOW_REFS);
     (set_like, size)
 }
 
@@ -220,36 +237,36 @@ pub fn statistical_report<const N: usize, P: Precision>(
         ])
         .unwrap();
 
-    for (
-        i,
-        ((first_approach_name, first_memsize), (first_absolute_errors, (first_mean, first_std))),
-    ) in approach_names
-        .iter()
-        .zip(memory_requirements.iter())
-        .zip(absolute_errors.iter().zip(means.iter().zip(stds.iter())))
-        .enumerate()
+    for ((first_approach_name, first_memsize), (first_absolute_errors, (first_mean, first_std))) in
+        approach_names
+            .iter()
+            .zip(memory_requirements.iter())
+            .zip(absolute_errors.iter().zip(means.iter().zip(stds.iter())))
     {
         for (
             (second_approach_name, second_memsize),
             (second_absolute_errors, (second_mean, second_std)),
-        ) in approach_names[i + 1..]
+        ) in approach_names
             .iter()
-            .zip(memory_requirements[i + 1..].iter())
-            .zip(
-                absolute_errors[i + 1..]
-                    .iter()
-                    .zip(means[i + 1..].iter().zip(stds[i + 1..].iter())),
-            )
+            .zip(memory_requirements.iter())
+            .zip(absolute_errors.iter().zip(means.iter().zip(stds.iter())))
         {
-            let w_test =
-                WilcoxonWTest::paired(first_absolute_errors, second_absolute_errors);
+            if first_approach_name == second_approach_name {
+                continue;
+            }
+
+            let w_test = WilcoxonWTest::paired(first_absolute_errors, second_absolute_errors);
 
             writer
                 .write_record(&[
                     feature_name,
                     first_approach_name,
                     second_approach_name,
-                    w_test.as_ref().map(|w_test| format!("{:.5}", w_test.p_value())).unwrap_or("Unknown".to_owned()).as_str(),
+                    w_test
+                        .as_ref()
+                        .map(|w_test| format!("{:.5}", w_test.p_value()))
+                        .unwrap_or("Unknown".to_owned())
+                        .as_str(),
                     if let Ok(w_test) = w_test.as_ref() {
                         if w_test.p_value() < 0.05 {
                             if first_mean < second_mean {
@@ -273,25 +290,6 @@ pub fn statistical_report<const N: usize, P: Precision>(
                     format!("{}", P::error_rate()).as_str(),
                 ])
                 .unwrap();
-
-            // We check with a Wilcoxon signed-rank test if the difference between the
-            // two approaches is significant. If it is, we compare the mean absolute error
-            // of the two approaches. If the mean absolute error of the competitor library
-            // is lower, we fail the test.
-            // if w_test.p_value() < 0.05 {
-            //     assert!(
-            //         their_mean >= ours_hll6_mean,
-            //         "MAE ({:.4}±{:.4}) of {} > MAE ({:.4}±{:.4}) of {} approach (p-value {:.4}), expected at most {:.4}.",
-            //         ours_hll6_mean,
-            //         ours_hll6_std,
-            //         "HLL<bits=6>",
-            //         their_mean,
-            //         their_std,
-            //         library_name,
-            //         w_test.p_value(),
-            //         P::error_rate()
-            //     );
-            // }
         }
     }
     // We close the CSV document.

@@ -1,9 +1,9 @@
 """Python script to load and plot the benchmarks results."""
 
 from typing import List, Dict
+from glob import glob
 import pandas as pd
 import matplotlib.pyplot as plt
-from glob import glob
 
 
 def unit_to_factor(unit: str) -> float:
@@ -28,20 +28,71 @@ def is_name_line(line: str) -> bool:
 def normalize_name(name: str) -> str:
     """Normalizes a name."""
     return {
-        "hll": "Our HLL++",
+        "beta6_xxhash64": "Beta6 + Xxhasher",
+        "beta6_XxHash64": "Beta6 + Xxhasher",
+        "beta6_WyHash": "Beta6 + WyHash",
+        "beta6_wyhash": "Beta6 + WyHash",
+        "hll4_xxhash64": "HLL4 + Xxhasher",
+        "hll4_XxHash64": "HLL4 + Xxhasher",
+        "hll4": "HLL4 + Xxhasher",
+        "hll5": "HLL5 + Xxhasher",
+        "hll6_WyHash": "HLL6 + WyHash",
+        "hll6_wyhash": "HLL6 + WyHash",
+        "hll6_xxhash64": "HLL6 + Xxhasher",
+        "hll6_XxHash64": "HLL6 + Xxhasher",
+        "hll6": "HLL6 + Xxhasher",
+        "hll8": "HLL8 + Xxhasher",
+        "hll_xxhash64": "HLL6 + Xxhasher",
         "mle": "Our MLE",
+        "mle6": "MLE2 + Xxhasher",
+        "mle8": "MLE2 + Xxhasher",
         "multiplicities": "Our Multi",
+        "tabacpf6": "Tabac's HLL",
         "tabacpf": "Tabac's HLL",
-        "tabacplusplus": "Tabac's HLL++",
-        "sa": "Alec's HLL++",
+        "tabacplusplus6": "Tabac's HLL++",
+        "sa6": "Streaming Algorithms",
+        "ce4_wyhash": "Cardinality Estimator",
+        "ce4_WyHash": "Cardinality Estimator",
+        "ce6_wyhash": "Cardinality Estimator",
+        "ce6_WyHash": "Cardinality Estimator",
+        "rhll6": "Rust-HLL",
     }[name]
+
+
+def retrieve_memory_usage(approach_name: str, precision: int) -> float:
+    """Returns the memory usage for a given approach and precision."""
+    assert precision >= 4
+    assert precision <= 16
+    path1 = f"tests/statistical_tests_reports/cardinality_{precision}.csv"
+    path2 = f"tests/statistical_tests_reports/union_{precision}.csv"
+    df = pd.concat(
+        [
+            pd.read_csv(path1),
+            pd.read_csv(path2),
+        ]
+    )
+    # We find the first row that has as first_approach column the approach_name
+    # and return the first_memsize column value.
+    filtered = df[df["first_approach"] == approach_name]
+    if filtered.empty:
+        raise ValueError(
+            f"Could not find memory usage for {approach_name} and precision {precision}"
+        )
+    return filtered["first_memsize"].iloc[0]
 
 
 def parse_name_line(line: str) -> Dict:
     """Parses a name line."""
     # We expect the line to be in the format:
     # hll_cardinality_precision_4_bits_5
-    name, task, _, precision, _, bits = line.split("_")
+    if line.count("_") == 7:
+        name, task, _, precision, _, bits, _, hasher_type = line.split("_")
+        name = f"{name}{bits}_{hasher_type}"
+    elif line.count("_") == 5:
+        name, task, _, precision, _, bits = line.split("_")
+        name = f"{name}{bits}"
+    else:
+        raise NotImplementedError(f"Line has an unexpected format: {line}")
     precision = int(precision)
     bits = int(bits)
 
@@ -50,7 +101,7 @@ def parse_name_line(line: str) -> Dict:
         "task": task,
         "precision": precision,
         "bits": bits,
-        "minimum_memory_usage": (2**precision) * 4,
+        "memory_usage": retrieve_memory_usage(normalize_name(name), precision),
     }
 
 
@@ -70,7 +121,7 @@ def is_performance_comment_line(line: str) -> bool:
         "Performance has improved",
         "Performance has regressed",
         "Change within noise threshold",
-        "No change in performance detected."
+        "No change in performance detected.",
     ]
 
     return any(needle in line for needle in needles)
@@ -171,8 +222,8 @@ def load_criterion_log(path: str) -> pd.DataFrame:
             if is_time_line(line):
                 current_line.update(parse_time_line(line))
                 continue
-        except ValueError as e:
-            raise ValueError(f"Error while parsing line: {line}") from e
+        except ValueError as exception:
+            raise ValueError(f"Error while parsing line: {line}") from exception
 
         raise NotImplementedError(f"Unknown line: {line}")
 
@@ -187,28 +238,22 @@ def get_bits_line_style(bits: int) -> Dict:
     return {4: ":", 5: "-.", 6: "-", 8: "--"}[bits]
 
 
-def get_library_color(library_name: str) -> str:
-    """Returns the color for a given normalized library name."""
-    return {
-        "Our HLL++": "tab:blue",
-        "Our MLE": "tab:green",
-        "Our Multi": "tab:cyan",
-        "Tabac's HLL": "tab:red",
-        "Tabac's HLL++": "tab:purple",
-        "Alec's HLL++": "tab:orange",
-    }[library_name]
+def get_approach_color(approach_name: str) -> str:
+    """Returns the color for a given normalized approach name."""
+    colors = pd.read_csv("utilities/colors.csv", index_col="approach")
+    return colors.loc[approach_name, "color"]
 
 
-def get_library_marker(library_name: str) -> str:
-    """Returns the marker for a given normalized library name."""
-    return {
-        "Our HLL++": ".",
-        "Our MLE": ".",
-        "Our Multi": ".",
-        "Tabac's HLL": "x",
-        "Tabac's HLL++": "x",
-        "Alec's HLL++": "x",
-    }[library_name]
+def get_approach_linestyle(approach_name: str) -> str:
+    """Returns the linestyle for a given normalized approach name."""
+    linestyles = pd.read_csv("utilities/linestyles.csv", index_col="approach")
+    return linestyles.loc[approach_name, "linestyle"]
+
+
+def get_approach_marker(approach_name: str) -> str:
+    """Returns the marker for a given normalized approach name."""
+    markers = pd.read_csv("utilities/markers.csv", index_col="approach")
+    return markers.loc[approach_name, "marker"]
 
 
 def plot_benchmarks(path: str) -> None:
@@ -245,29 +290,19 @@ def plot_benchmarks(path: str) -> None:
                 axes.set_title(f"{task} - {scale} scale")
                 axes.grid(True, which="both", axis="both")
                 axes.fill_between(
-                    subdf["minimum_memory_usage"],
+                    subdf["memory_usage"],
                     subdf["lower_bound"],
                     subdf["upper_bound"],
-                    color=get_library_color(name),
+                    color=get_approach_color(name),
                     alpha=0.5,
                 )
-                axes.errorbar(
-                    subdf["minimum_memory_usage"],
+                axes.plot(
+                    subdf["memory_usage"],
                     subdf["mean"],
-                    yerr=[
-                        subdf["mean"] - subdf["lower_bound"],
-                        subdf["upper_bound"] - subdf["mean"],
-                    ],
+                    marker=get_approach_marker(name),
                     linestyle=get_bits_line_style(bits),
-                    color=get_library_color(name),
+                    color=get_approach_color(name),
                     label=f"{name} - {bits} bits",
-                )
-                # We  also plot the points
-                axes.scatter(
-                    subdf["minimum_memory_usage"],
-                    subdf["mean"],
-                    marker=get_library_marker(name),
-                    color=get_library_color(name),
                 )
 
     # We position the legend outside the plot, on the right
@@ -284,4 +319,8 @@ def plot_benchmarks(path: str) -> None:
 
 if __name__ == "__main__":
     for log_path in glob("benches/*.log"):
-        plot_benchmarks(log_path)
+        try:
+            plot_benchmarks(log_path)
+        except Exception as e:
+            print(f"Error while plotting {log_path}: {e}")
+            continue
