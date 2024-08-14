@@ -288,6 +288,12 @@ impl<
                     self.registers
                         .sorted_insert_with_len(hash, self.number_of_hashes())
                 } {
+                    debug_assert!(
+                        self.number_of_zero_registers <= unsafe{P::NumberOfZeros::try_from(P::NUMBER_OF_REGISTERS).unwrap_unchecked()},
+                        "Number of zero registers ({}) is greater than the number of registers ({})",
+                        self.number_of_zero_registers,
+                        P::NUMBER_OF_REGISTERS
+                    );
                     self.number_of_zero_registers += P::NumberOfZeros::ONE;
                     true
                 } else {

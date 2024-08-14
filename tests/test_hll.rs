@@ -176,9 +176,9 @@ macro_rules! test_hll_at_precision_and_bits {
         $(
             paste::paste!{
                 type [<Array $precision $hasher $bits>] = <$precision as ArrayRegister<$bits>>::ArrayRegister;
-                // type [<PackedArray $precision $hasher $bits>] = <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister;
-                // type [<Vec $precision $hasher $bits>] = Vec<u64>;
-                test_hll_at_precision_and_bits_and_register!($precision, $hasher, $bits, [<Array $precision $hasher $bits>]);//, [<PackedArray $precision $hasher $bits>], [<Vec $precision $hasher $bits>]);
+                type [<PackedArray $precision $hasher $bits>] = <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister;
+                type [<Vec $precision $hasher $bits>] = Vec<u64>;
+                test_hll_at_precision_and_bits_and_register!($precision, $hasher, $bits, [<Array $precision $hasher $bits>], [<PackedArray $precision $hasher $bits>], [<Vec $precision $hasher $bits>]);
             }
         )*
     };

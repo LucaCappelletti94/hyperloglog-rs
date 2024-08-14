@@ -5,8 +5,8 @@ use core::fmt::Debug;
 use crate::prelude::*;
 use crate::utils::*;
 mod array;
-mod vector;
 mod packed_array;
+mod vector;
 
 pub use array::ArrayRegister;
 pub use packed_array::{PackedArray, PackedArrayRegister};
@@ -60,7 +60,6 @@ pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug + Sen
     /// Clears the registers to zero.
     fn clear(&mut self);
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -190,10 +189,74 @@ mod tests {
         }
     }
 
+    fn test_registers_self_consistency<
+        P: Precision + ArrayRegister<B> + PackedArrayRegister<B>,
+        B: Bits,
+    >()
+    where
+        Vec<u64>: Registers<P, B>,
+    {
+        let iterations = 1000;
+        let mut random_state = splitmix64(324564567865354);
+        let mut index_random_state = splitmix64(324566754567865354);
+        let mut vector_registers = <Vec<u64> as Registers<P, B>>::zeroed();
+        let mut packed_registers = <P as PackedArrayRegister<B>>::PackedArrayRegister::zeroed();
+        let mut array_registers = <P as ArrayRegister<B>>::ArrayRegister::zeroed();
+
+        let maximal_register_value = <u64 as RegisterWord<B>>::LOWER_REGISTER_MASK;
+        let number_of_registers = P::NUMBER_OF_REGISTERS;
+
+        for _ in 0..iterations {
+            random_state = splitmix64(random_state);
+            index_random_state = splitmix64(index_random_state);
+
+            for (index, value) in
+                iter_random_values(1_000_000, Some(number_of_registers), random_state).zip(
+                    iter_random_values(1_000_000, Some(maximal_register_value as usize), random_state),
+                )
+            {
+                // We set the values in all of the registers, and we check that the values are consistent.
+                let old_value_vector =
+                    unsafe { vector_registers.set_greater(index as usize, value as u32) };
+                let old_value_packed =
+                    unsafe { packed_registers.set_greater(index as usize, value as u32) };
+                let old_value_array =
+                    unsafe { array_registers.set_greater(index as usize, value as u32) };
+                assert_eq!(old_value_vector, old_value_packed);
+                assert_eq!(old_value_vector, old_value_array);
+                assert_eq!(old_value_packed, old_value_array);
+
+                let largest_value = old_value_vector.1;
+
+                // We check that the values are consistent with the get method.
+                assert_eq!(array_registers.get_register(index as usize), largest_value as u32);
+                assert_eq!(vector_registers.get_register(index as usize), largest_value as u32);
+                assert_eq!(packed_registers.get_register(index as usize), largest_value as u32);
+            }
+
+            for index in 0..number_of_registers {
+                // We check that the values are consistent with the get method.
+                assert_eq!(
+                    vector_registers.get_register(index),
+                    packed_registers.get_register(index)
+                );
+                assert_eq!(
+                    vector_registers.get_register(index),
+                    array_registers.get_register(index)
+                );
+            }
+        }
+    }
+
     macro_rules! test_register_iterator {
         ($precision:ty, $($bits:ty),*) => {
             $(
                 paste::item! {
+                    #[test]
+                    fn [< test_registers_self_consistency_ $precision:lower _and_ $bits:lower _bits >]() {
+                        test_registers_self_consistency::<$precision, $bits>();
+                    }
+
                     #[test]
                     fn [< test_array_register_iterator_ $precision:lower _and_ $bits:lower _bits >]() {
                         test_register_iterator::<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>();

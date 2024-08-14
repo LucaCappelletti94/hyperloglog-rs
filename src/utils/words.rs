@@ -82,7 +82,8 @@ impl<T: WordLike> Words for Vec<T> {
         match self[..len].binary_search(&value) {
             Ok(_) => false,
             Err(index) => {
-                self.insert(index, value);
+                self.copy_within(index..len, index + 1);
+                self[index] = value;
                 true
             }
         }

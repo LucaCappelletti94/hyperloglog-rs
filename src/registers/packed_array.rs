@@ -30,14 +30,29 @@ fn extract_bridge_register_from_word<B: Bits, const N: usize, W: WordLike + Regi
     upper_word: [W; N],
     offset: usize,
 ) -> [W; N] {
-    debug_assert!(offset + B::NUMBER_OF_BITS > W::NUMBER_OF_BITS);
-    debug_assert!(offset < W::NUMBER_OF_BITS);
+    debug_assert!(
+        offset + B::NUMBER_OF_BITS > W::NUMBER_OF_BITS,
+        "Offset + bits ({} + {}) should be greater than {}",
+        offset,
+        B::NUMBER_OF_BITS,
+        W::NUMBER_OF_BITS
+    );
+    debug_assert!(
+        offset <= W::NUMBER_OF_BITS,
+        "Offset {} should be less than {}",
+        offset,
+        W::NUMBER_OF_BITS
+    );
     let mut registers = [W::default(); N];
     for i in 0..N {
         let number_of_bits_in_lower_register = W::NUMBER_OF_BITS - offset;
         let number_of_bits_in_upper_register = B::NUMBER_OF_BITS - number_of_bits_in_lower_register;
         let upper_register_mask = (W::ONE << number_of_bits_in_upper_register) - W::ONE;
-        let lower_register = lower_word[i] >> offset;
+        let lower_register = if offset == W::NUMBER_OF_BITS {
+            W::ZERO
+        } else {
+            lower_word[i] >> offset
+        };
         let upper_register = upper_word[i] & upper_register_mask;
         registers[i] = (upper_register << number_of_bits_in_lower_register) | lower_register;
     }
@@ -99,9 +114,6 @@ where
             if self.word_offset + B::NUMBER_OF_BITS <= R::Word::NUMBER_OF_BITS {
                 let [register] = extract_register_from_word::<B, 1, u64>([word], self.word_offset);
                 self.word_offset += B::NUMBER_OF_BITS;
-                if self.word_offset == R::Word::NUMBER_OF_BITS {
-                    self.word_offset = 0;
-                }
                 return register as u32;
             }
             // Otherwise, we need to extract the register from the bridge between the current word
@@ -363,7 +375,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                                 *word |= (new_register as u64) << relative_register_offset;
                                 (old_register as u32, new_register as u32)
                             } else {
-                                (old_register as u32, new_register as u32)
+                                (old_register as u32, old_register as u32)
                             }
                         } else {
                             // We are dealing with a bridge register
@@ -382,7 +394,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                                 self.words[word_position + 1] |= (new_register as u64) >> number_of_bits_in_lower_register;
                                 (old_register, new_register)
                             } else {
-                                (old_register, new_register)
+                                (old_register, old_register)
                             }
                         }
                     }
