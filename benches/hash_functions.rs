@@ -10,7 +10,6 @@ use std::hint::black_box;
 
 const NUMBER_OF_ELEMENTS: usize = 1_000_000;
 
-
 fn bench_xx_hasher(b: &mut Criterion) {
     b.bench_function("xx_hasher", |b| {
         b.iter(|| {

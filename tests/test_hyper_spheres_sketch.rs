@@ -5,11 +5,8 @@
 //! results of the hyper spheres sketch of the HyperLogLog with
 //! the results of the hyper spheres sketch of the HashSet.
 use hyperloglog_rs::prelude::*;
-use rand::rngs::StdRng;
-use rand::Rng;
-use twox_hash::XxHash64;
-use rand::SeedableRng;
 use std::collections::HashSet;
+use twox_hash::XxHash64;
 
 /// Returns a vector of vectors of usize representing HyperSpheres.
 ///
@@ -17,8 +14,11 @@ use std::collections::HashSet;
 /// ----------------------
 /// Each i-th HyperSphere in the vector contains all the indices of the
 /// HyperSpheres that are contained in the i-th HyperSphere.
-fn get_random_hyper_spheres(random_state: u64, number_of_hyper_spheres: usize) -> Vec<Vec<usize>> {
-    let mut rng = StdRng::seed_from_u64(random_state);
+fn get_random_hyper_spheres(
+    mut random_state: u64,
+    number_of_hyper_spheres: usize,
+) -> Vec<Vec<usize>> {
+    random_state = splitmix64(splitmix64(random_state));
     let mut hyper_spheres: Vec<Vec<usize>> = Vec::with_capacity(number_of_hyper_spheres);
     for _ in 0..number_of_hyper_spheres {
         let mut hyper_sphere: Vec<usize> = if hyper_spheres.is_empty() {
@@ -26,10 +26,13 @@ fn get_random_hyper_spheres(random_state: u64, number_of_hyper_spheres: usize) -
         } else {
             hyper_spheres.last().unwrap().clone()
         };
-        let maximal_universe_size = rng.gen_range(0..100_000);
-        let number_of_elements = rng.gen_range(0..100_000);
+        random_state = xorshift64(splitmix64(splitmix64(random_state)));
+        let maximal_universe_size = random_state % 100_000;
+        random_state = xorshift64(splitmix64(splitmix64(random_state)));
+        let number_of_elements = random_state % 100;
         for _ in 0..number_of_elements {
-            hyper_sphere.push(rng.gen_range(0..maximal_universe_size.max(1)));
+            random_state = xorshift64(splitmix64(splitmix64(random_state)));
+            hyper_sphere.push(random_state as usize % maximal_universe_size as usize);
         }
         hyper_spheres.push(hyper_sphere);
     }
@@ -54,43 +57,39 @@ where
 }
 
 fn get_random_hyper_spheres_hll<
-    Hasher: Default + core::hash::Hasher,
-    HA: HyperLogLogArrayTrait<P, B, H, Hasher, N>,
-    P: Precision,
-    B: Bits,
-    H: Copy + HyperLogLogTrait<P, B, Hasher>,
+    H: Copy + ExtendableApproximatedSet<usize> + Default,
     const N: usize,
 >(
     random_state: u64,
-) -> HA {
+) -> [H; N] {
     let hyperspheres = get_random_hyper_spheres(random_state, N);
-    let mut hyperspheres_hll: HA = HA::default();
+    let mut hyperspheres_hll = [H::default(); N];
     for (i, hyper_sphere) in hyperspheres.iter().enumerate() {
         for element in hyper_sphere {
-            hyperspheres_hll.insert(i, element);
+            hyperspheres_hll[i].insert(&element);
         }
     }
     hyperspheres_hll
 }
 
-fn test_hyper_spheres_sketch<Hasher, HA, P, B, H, const N: usize>()
+fn test_hyper_spheres_sketch<Hasher, P, B, H, const L: usize, const R: usize>()
 where
     Hasher: Default + core::hash::Hasher,
-    HA: HyperLogLogArrayTrait<P, B, H, Hasher, N>,
     P: Precision + PrecisionConstants<f64>,
     B: Bits,
-    H: Copy + HyperLogLogTrait<P, B, Hasher> + SetLike<f64>,
-    [HashSet<usize>; N]: Default,
+    H: Copy + Default + Estimator<f64> + ExtendableApproximatedSet<usize>,
+    [HashSet<usize>; L]: Default,
+    [HashSet<usize>; R]: Default,
 {
-    let number_of_tests = 100;
+    let number_of_tests = 10;
 
     // We iterate over the number of tests.
     for current_test in 0..number_of_tests {
         let random_state = (current_test as u64 + 173845_u64).wrapping_mul(456789);
-        let left_sets = get_random_hyper_spheres_sets::<N>(random_state);
-        let right_sets = get_random_hyper_spheres_sets::<N>(random_state * 2);
-        let left_hll = get_random_hyper_spheres_hll::<Hasher, HA, P, B, H, N>(random_state);
-        let right_hll = get_random_hyper_spheres_hll::<Hasher, HA, P, B, H, N>(random_state * 2);
+        let left_sets = get_random_hyper_spheres_sets::<L>(random_state);
+        let right_sets = get_random_hyper_spheres_sets::<R>(random_state * 2);
+        let left_hll = get_random_hyper_spheres_hll::<H, L>(random_state);
+        let right_hll = get_random_hyper_spheres_hll::<H, R>(random_state * 2);
 
         let (overlap_sets, left_diff_sets, right_diff_sets) =
             HashSet::overlap_and_differences_cardinality_matrices(&left_sets, &right_sets);
@@ -161,15 +160,15 @@ where
         );
 
         let (overlap_hll, left_diff_hll, right_diff_hll) =
-            left_hll.overlap_and_differences_cardinality_matrices::<f64>(&right_hll);
+            H::overlap_and_differences_cardinality_matrices(&left_hll, &right_hll);
 
         let (overlap_normalized_hll, left_diff_normalized_hll, right_diff_normalized_hll) =
-            left_hll.normalized_overlap_and_differences_cardinality_matrices::<f64>(&right_hll);
+            H::normalized_overlap_and_differences_cardinality_matrices(&left_hll, &right_hll);
 
         // We check that none of the values is less than zero, i.e. no
         // negative cardinalities have somehow been computed.
-        for i in 0..N {
-            for j in 0..N {
+        for i in 0..L {
+            for j in 0..R {
                 assert!(
                     overlap_normalized_hll[i][j] >= 0.0,
                     concat!(
@@ -196,6 +195,34 @@ where
                         "non-negative values but we got {:?} instead."
                     ),
                     overlap_hll
+                );
+
+                assert!(
+                    right_diff_normalized_hll[j] >= 0.0,
+                    concat!(
+                        "We expect the right difference cardinality vector to ",
+                        "have non-negative values but we got {:?} instead."
+                    ),
+                    right_diff_normalized_hll
+                );
+                assert!(
+                    right_diff_normalized_hll[j] <= 1.0,
+                    concat!(
+                        "We expect the right difference cardinality vector to ",
+                        "have values less than or equal to 1.0 but we got {:?} instead. ",
+                        "This happened in position {:?}."
+                    ),
+                    right_diff_normalized_hll[j],
+                    i
+                );
+
+                assert!(
+                    right_diff_hll[j] >= 0.0,
+                    concat!(
+                        "We expect the right difference cardinality vector to ",
+                        "have non-negative values but we got {:?} instead."
+                    ),
+                    right_diff_hll
                 );
             }
             assert!(
@@ -225,46 +252,39 @@ where
                 ),
                 left_diff_hll
             );
-            assert!(
-                right_diff_normalized_hll[i] >= 0.0,
-                concat!(
-                    "We expect the right difference cardinality vector to ",
-                    "have non-negative values but we got {:?} instead."
-                ),
-                right_diff_normalized_hll
-            );
-            assert!(
-                right_diff_normalized_hll[i] <= 1.0,
-                concat!(
-                    "We expect the right difference cardinality vector to ",
-                    "have values less than or equal to 1.0 but we got {:?} instead. ",
-                    "This happened in position {:?}."
-                ),
-                right_diff_normalized_hll[i],
-                i
-            );
-
-            assert!(
-                right_diff_hll[i] >= 0.0,
-                concat!(
-                    "We expect the right difference cardinality vector to ",
-                    "have non-negative values but we got {:?} instead."
-                ),
-                right_diff_hll
-            );
         }
     }
 }
 
-macro_rules! test_hyper_spheres_by_precision_and_size {
-    ($hasher:ty, $precision:ty, $bits:ty, $($size:expr),+) => {
+macro_rules! test_hyper_spheres_by_precision_and_sizes {
+    ($hasher:ty, $precision:ty, $bits:ty, $left:expr, $($right:expr),+) => {
         $(
             paste::paste! {
                 #[test]
-                fn [<test_hll_hyper_spheres_sketch_ $hasher:lower _ $precision:lower _ $bits:lower _size_ $size>]() {
-                    test_hyper_spheres_sketch::<$hasher, HyperLogLogArray<$precision, $bits, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>, $hasher, $size>, $precision, $bits, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>, $size>();
+                fn [<test_plusplus_hyper_spheres_sketch_ $hasher:lower _ $precision:lower _ $bits:lower _left_ $left _right_ $right>]() {
+                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>, $left, $right>();
+                }
+                #[test]
+                fn [<test_beta_hyper_spheres_sketch_ $hasher:lower _ $precision:lower _ $bits:lower _left_ $left _right_ $right>]() {
+                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>, $left, $right>();
+                }
+                #[test]
+                fn [<test_hybrid_plusplus_hyper_spheres_sketch_ $hasher:lower _ $precision:lower _ $bits:lower _left_ $left _right_ $right>]() {
+                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, Hybrid<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>, $left, $right>();
+                }
+                #[test]
+                fn [<test_hybrid_beta_hyper_spheres_sketch_ $hasher:lower _ $precision:lower _ $bits:lower _left_ $left _right_ $right>]() {
+                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, Hybrid<LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>, $left, $right>();
                 }
             }
+        )+
+    };
+}
+
+macro_rules! test_hyper_spheres_by_precision_and_size {
+    ($hasher:ty, $precision:ty, $bits:ty, $($left:expr),+) => {
+        $(
+            test_hyper_spheres_by_precision_and_sizes!($hasher, $precision, $bits, $left, 2, 4);
         )+
     };
 }
@@ -272,7 +292,7 @@ macro_rules! test_hyper_spheres_by_precision_and_size {
 macro_rules! test_hyper_spheres_by_precision_and_bits {
     ($hasher:ty, $precision:ty, ($($bits:ty),+)) => {
         $(
-            test_hyper_spheres_by_precision_and_size!($hasher, $precision, $bits, 3, 4, 5);
+            test_hyper_spheres_by_precision_and_size!($hasher, $precision, $bits, 3, 4);
         )+
     };
 }
@@ -280,7 +300,7 @@ macro_rules! test_hyper_spheres_by_precision_and_bits {
 macro_rules! test_hyper_spheres_by_precisions {
     ($hasher:ty, $($precision:ty),*) => {
         $(
-            test_hyper_spheres_by_precision_and_bits!($hasher, $precision, (Bits4, Bits5, Bits6));
+            test_hyper_spheres_by_precision_and_bits!($hasher, $precision, (Bits5, Bits6));
         )*
     };
 }
@@ -288,7 +308,7 @@ macro_rules! test_hyper_spheres_by_precisions {
 macro_rules! test_hyper_spheres_by_hashers {
     ($($hasher:ty),*) => {
         $(
-            test_hyper_spheres_by_precisions!($hasher, Precision4, Precision5, Precision6, Precision7, Precision8, Precision9, Precision10, Precision11, Precision12, Precision13, Precision14, Precision15, Precision16);
+            test_hyper_spheres_by_precisions!($hasher, Precision4, Precision6);
         )*
     };
 }

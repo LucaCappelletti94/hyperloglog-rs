@@ -1,16 +1,16 @@
 #![feature(test)]
 extern crate test;
 
+use cardinality_estimator::CardinalityEstimator;
 use criterion::{criterion_group, criterion_main, Criterion};
 use hyperloglog_rs::prelude::*;
 use hyperloglogplus::HyperLogLog as TabacHyperLogLog;
 use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
+use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
 use std::hash::RandomState;
-use wyhash::WyHash;
 use std::hint::black_box;
 use streaming_algorithms::HyperLogLog as SAHyperLogLog;
-use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
-use cardinality_estimator::CardinalityEstimator;
+use wyhash::WyHash;
 
 const RANDOM_STATE: u64 = 87561346897134_u64;
 const NUMBER_OF_ELEMENTS: usize = 10_000;
@@ -25,7 +25,7 @@ macro_rules! bench_insert {
                         format!("hll_insert_precision_{}_bits_{}_hasher_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS, stringify!($hasher)).as_str(),
                         |b| {
                             b.iter(||{
-                                let mut hll: HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher> = HyperLogLog::default();
+                                let mut hll: PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher> = PlusPlus::default();
                                 for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                                     hll.insert(black_box(i));
                                 }
@@ -119,7 +119,7 @@ macro_rules! bench_inserts {
 
                 criterion_group! {
                     name=[<insert_tabacplusplus_ $precision:lower>];
-                    config = Criterion::default().sample_size(100);
+                    config = Criterion::default();
                     targets=[<bench_tabacplusplus_insert_ $precision:lower>]
                 }
                 criterion_group! {
@@ -129,17 +129,17 @@ macro_rules! bench_inserts {
                 }
                 criterion_group! {
                     name=[<insert_hll_ $precision:lower>];
-                    config = Criterion::default().sample_size(100);
+                    config = Criterion::default();
                     targets=[<bench_hll_insert_ $precision:lower _bits6_xxhash64>], [<bench_hll_insert_ $precision:lower _bits6_wyhash>]
                 }
                 criterion_group! {
                     name=[<insert_rhll_ $precision:lower>];
-                    config = Criterion::default().sample_size(10);
+                    config = Criterion::default();
                     targets=[<bench_rhll_insert_ $precision:lower _bits6>]
                 }
                 criterion_group! {
                     name=[<insert_ce_ $precision:lower>];
-                    config = Criterion::default().sample_size(100);
+                    config = Criterion::default();
                     targets=[<bench_ce_insert_ $precision:lower _bits6_wyhash>]
                 }
 
@@ -148,6 +148,7 @@ macro_rules! bench_inserts {
     };
 }
 
+#[cfg(feature = "low_precisions")]
 bench_inserts!(
     Precision4,
     Precision5,
@@ -155,7 +156,11 @@ bench_inserts!(
     Precision7,
     Precision8,
     Precision9,
-    Precision10,
+    Precision10
+);
+
+#[cfg(feature = "medium_precisions")]
+bench_inserts!(
     Precision11,
     Precision12,
     Precision13,
@@ -163,6 +168,9 @@ bench_inserts!(
     Precision15,
     Precision16
 );
+
+#[cfg(feature = "high_precisions")]
+bench_inserts!(Precision17, Precision18);
 
 criterion_main!(
     insert_hll_precision4,
@@ -178,6 +186,8 @@ criterion_main!(
     insert_hll_precision14,
     insert_hll_precision15,
     insert_hll_precision16,
+    // insert_hll_precision17,
+    // insert_hll_precision18,
     insert_tabacplusplus_precision4,
     insert_tabacplusplus_precision5,
     insert_tabacplusplus_precision6,
@@ -191,6 +201,8 @@ criterion_main!(
     insert_tabacplusplus_precision14,
     insert_tabacplusplus_precision15,
     insert_tabacplusplus_precision16,
+    // insert_tabacplusplus_precision17,
+    // insert_tabacplusplus_precision18,
     insert_sa_precision4,
     insert_sa_precision5,
     insert_sa_precision6,
@@ -204,6 +216,8 @@ criterion_main!(
     insert_sa_precision14,
     insert_sa_precision15,
     insert_sa_precision16,
+    // insert_sa_precision17,
+    // insert_sa_precision18,
     insert_ce_precision4,
     insert_ce_precision5,
     insert_ce_precision6,
@@ -217,6 +231,8 @@ criterion_main!(
     insert_ce_precision14,
     insert_ce_precision15,
     insert_ce_precision16,
+    // insert_ce_precision17,
+    // insert_ce_precision18,
     insert_rhll_precision4,
     insert_rhll_precision5,
     insert_rhll_precision6,
@@ -230,4 +246,6 @@ criterion_main!(
     insert_rhll_precision14,
     insert_rhll_precision15,
     insert_rhll_precision16,
+    // insert_rhll_precision17,
+    // insert_rhll_precision18,
 );

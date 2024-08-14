@@ -23,6 +23,7 @@ pub trait Number:
     + crate::utils::Eight
     + crate::utils::Nine
     + crate::utils::Ten
+    + crate::utils::OneHundred
     + core::iter::Sum
     + PartialOrd
     + Send
@@ -30,7 +31,11 @@ pub trait Number:
 {
     fn saturating_zero_sub(self, other: Self) -> Self;
 
-    #[inline(always)] 
+    fn to_f32(self) -> f32;
+
+    fn to_f64(self) -> f64;
+
+    #[inline(always)]
     fn from_bool(value: bool) -> Self {
         if value {
             Self::ONE
@@ -68,11 +73,13 @@ pub trait FloatNumber:
 
     fn from_f64(value: f64) -> Self;
 
-    fn to_usize(self) -> usize;
-
-    fn to_f64(self) -> f64;
+    fn from_f32(value: f32) -> Self;
 
     fn to_u32(self) -> u32;
+
+    fn to_usize(self) -> usize;
+
+    fn is_finite(self) -> bool;
 
     #[cfg(feature = "std")]
     fn abs(self) -> Self;
@@ -116,6 +123,16 @@ macro_rules! impl_number {
                         self - other
                     }
                 }
+
+                #[inline(always)]
+                fn to_f32(self) -> f32 {
+                    self as f32
+                }
+
+                #[inline(always)]
+                fn to_f64(self) -> f64 {
+                    self as f64
+                }
             }
         )*
     };
@@ -141,81 +158,103 @@ impl FloatNumber for f32 {
     const EPSILON: Self = f32::EPSILON;
 
     #[inline(always)]
+    #[must_use]
     fn inverse_register(register: i32) -> Self {
         f32::from_le_bytes(((127 - register) << 23).to_le_bytes())
     }
 
     #[inline(always)]
+    #[must_use]
     fn from_i32(value: i32) -> Self {
         value as Self
     }
 
     #[inline(always)]
+    #[must_use]
     fn to_u32(self) -> u32 {
         self as u32
     }
 
     #[inline(always)]
+    #[must_use]
+    fn is_finite(self) -> bool {
+        self.is_finite()
+    }
+
+    #[inline(always)]
+    #[must_use]
     fn from_usize(value: usize) -> Self {
         value as Self
     }
 
     #[inline(always)]
+    #[must_use]
     fn from_f64(value: f64) -> Self {
         value as Self
     }
 
     #[inline(always)]
+    #[must_use]
+    fn from_f32(value: f32) -> Self {
+        value as Self
+    }
+
+    #[inline(always)]
+    #[must_use]
     fn to_usize(self) -> usize {
         self as usize
     }
 
-    #[inline(always)]
-    fn to_f64(self) -> f64 {
-        self as f64
-    }
-
     #[cfg(feature = "std")]
+    #[must_use]
     fn abs(self) -> Self {
         self.abs()
     }
 
     #[cfg(feature = "std")]
+    #[must_use]
     fn ln(self) -> Self {
         self.ln()
     }
 
     #[cfg(feature = "std")]
+    #[must_use]
     fn ln_1p(self) -> Self {
         self.ln_1p()
     }
 
     #[cfg(feature = "std")]
+    #[must_use]
     fn log2(self) -> Self {
         self.log2()
     }
 
     #[cfg(feature = "std")]
+    #[must_use]
     fn exp(self) -> Self {
         self.exp()
     }
 
     #[cfg(feature = "std")]
+    #[must_use]
     fn sqrt(self) -> Self {
         self.sqrt()
     }
 
     #[cfg(feature = "std")]
+    #[must_use]
     fn powi(self, n: i32) -> Self {
         self.powi(n)
     }
 
     #[cfg(feature = "std")]
+    #[must_use]
     fn floor(self) -> Self {
         self.floor()
     }
 
     #[cfg(feature = "std")]
+    #[must_use]
     fn exp_m1(self) -> Self {
         self.exp_m1()
     }
@@ -246,7 +285,17 @@ impl FloatNumber for f64 {
     }
 
     #[inline(always)]
+    fn is_finite(self) -> bool {
+        self.is_finite()
+    }
+
+    #[inline(always)]
     fn from_f64(value: f64) -> Self {
+        value as Self
+    }
+
+    #[inline(always)]
+    fn from_f32(value: f32) -> Self {
         value as Self
     }
 
@@ -256,53 +305,63 @@ impl FloatNumber for f64 {
     }
 
     #[inline(always)]
-    fn to_f64(self) -> f64 {
-        self as f64
-    }
-
-    #[inline(always)]
+    #[must_use]
     #[cfg(feature = "std")]
     fn abs(self) -> Self {
         self.abs()
     }
 
     #[inline(always)]
+    #[must_use]
     #[cfg(feature = "std")]
     fn ln(self) -> Self {
         self.ln()
     }
 
     #[inline(always)]
+    #[must_use]
     #[cfg(feature = "std")]
     fn ln_1p(self) -> Self {
         self.ln_1p()
     }
 
+    #[inline(always)]
+    #[must_use]
     #[cfg(feature = "std")]
     fn log2(self) -> Self {
         self.log2()
     }
 
+    #[inline(always)]
+    #[must_use]
     #[cfg(feature = "std")]
     fn exp(self) -> Self {
         self.exp()
     }
 
+    #[inline(always)]
+    #[must_use]
     #[cfg(feature = "std")]
     fn sqrt(self) -> Self {
         self.sqrt()
     }
 
+    #[inline(always)]
+    #[must_use]
     #[cfg(feature = "std")]
     fn powi(self, n: i32) -> Self {
         self.powi(n)
     }
 
+    #[inline(always)]
+    #[must_use]
     #[cfg(feature = "std")]
     fn floor(self) -> Self {
         self.floor()
     }
 
+    #[inline(always)]
+    #[must_use]
     #[cfg(feature = "std")]
     fn exp_m1(self) -> Self {
         self.exp_m1()

@@ -1,461 +1,725 @@
 hll_insert_precision_4_bits_6_hasher_XxHash64
-                        time:   [63.837 µs 63.863 µs 63.895 µs]
-Found 13 outliers among 100 measurements (13.00%)
-  1 (1.00%) low severe
-  2 (2.00%) high mild
-  10 (10.00%) high severe
+                        time:   [63.618 µs 63.658 µs 63.707 µs]
+                        change: [+0.2106% +0.3302% +0.4474%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 9 outliers among 100 measurements (9.00%)
+  3 (3.00%) high mild
+  6 (6.00%) high severe
 
 hll_insert_precision_4_bits_6_hasher_WyHash
-                        time:   [33.078 µs 33.087 µs 33.098 µs]
-Found 13 outliers among 100 measurements (13.00%)
+                        time:   [33.085 µs 33.095 µs 33.106 µs]
+                        change: [-0.2826% -0.1821% -0.1074%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 19 outliers among 100 measurements (19.00%)
   1 (1.00%) low severe
   1 (1.00%) low mild
-  3 (3.00%) high mild
-  8 (8.00%) high severe
+  6 (6.00%) high mild
+  11 (11.00%) high severe
 
 hll_insert_precision_5_bits_6_hasher_XxHash64
-                        time:   [68.755 µs 68.803 µs 68.848 µs]
-Found 10 outliers among 100 measurements (10.00%)
-  3 (3.00%) low severe
+                        time:   [68.095 µs 68.167 µs 68.250 µs]
+                        change: [-5.1372% -4.9874% -4.8238%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
   2 (2.00%) low mild
-  5 (5.00%) high mild
+  3 (3.00%) high mild
 
 hll_insert_precision_5_bits_6_hasher_WyHash
-                        time:   [34.705 µs 34.714 µs 34.724 µs]
+                        time:   [34.654 µs 34.664 µs 34.678 µs]
+                        change: [+0.0524% +0.0810% +0.1105%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
 Found 15 outliers among 100 measurements (15.00%)
-  1 (1.00%) low severe
-  5 (5.00%) high mild
-  9 (9.00%) high severe
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  10 (10.00%) high severe
 
 hll_insert_precision_6_bits_6_hasher_XxHash64
-                        time:   [69.294 µs 69.358 µs 69.428 µs]
-Found 9 outliers among 100 measurements (9.00%)
-  1 (1.00%) low mild
-  7 (7.00%) high mild
-  1 (1.00%) high severe
+                        time:   [68.958 µs 69.028 µs 69.107 µs]
+                        change: [-0.3166% -0.1978% -0.0715%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
 
 hll_insert_precision_6_bits_6_hasher_WyHash
-                        time:   [35.623 µs 35.633 µs 35.645 µs]
-Found 14 outliers among 100 measurements (14.00%)
-  6 (6.00%) high mild
-  8 (8.00%) high severe
+                        time:   [38.074 µs 38.086 µs 38.100 µs]
+                        change: [+0.8242% +0.9187% +1.0013%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 22 outliers among 100 measurements (22.00%)
+  1 (1.00%) low severe
+  7 (7.00%) low mild
+  9 (9.00%) high mild
+  5 (5.00%) high severe
 
 hll_insert_precision_7_bits_6_hasher_XxHash64
-                        time:   [78.572 µs 78.604 µs 78.638 µs]
+                        time:   [77.657 µs 77.699 µs 77.745 µs]
+                        change: [-0.0845% +0.0473% +0.1734%] (p = 0.48 > 0.05)
+                        No change in performance detected.
 Found 5 outliers among 100 measurements (5.00%)
-  1 (1.00%) low mild
-  3 (3.00%) high mild
+  4 (4.00%) high mild
   1 (1.00%) high severe
 
 hll_insert_precision_7_bits_6_hasher_WyHash
-                        time:   [43.327 µs 43.340 µs 43.356 µs]
-Found 7 outliers among 100 measurements (7.00%)
-  5 (5.00%) high mild
-  2 (2.00%) high severe
+                        time:   [43.318 µs 43.333 µs 43.352 µs]
+                        change: [+0.0071% +0.0546% +0.1143%] (p = 0.05 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high severe
 
 hll_insert_precision_8_bits_6_hasher_XxHash64
-                        time:   [69.895 µs 69.914 µs 69.936 µs]
-Found 9 outliers among 100 measurements (9.00%)
-  5 (5.00%) high mild
-  4 (4.00%) high severe
-
-hll_insert_precision_8_bits_6_hasher_WyHash
-                        time:   [36.482 µs 36.499 µs 36.516 µs]
-Found 2 outliers among 100 measurements (2.00%)
-  1 (1.00%) high mild
+                        time:   [70.686 µs 70.708 µs 70.730 µs]
+                        change: [-1.2621% -1.1065% -0.9523%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) low mild
+  4 (4.00%) high mild
   1 (1.00%) high severe
 
-hll_insert_precision_9_bits_6_hasher_XxHash64
-                        time:   [79.998 µs 80.034 µs 80.071 µs]
+hll_insert_precision_8_bits_6_hasher_WyHash
+                        time:   [35.162 µs 35.184 µs 35.213 µs]
+                        change: [-0.0572% +0.0137% +0.0891%] (p = 0.72 > 0.05)
+                        No change in performance detected.
 Found 10 outliers among 100 measurements (10.00%)
-  7 (7.00%) low mild
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  6 (6.00%) high severe
+
+hll_insert_precision_9_bits_6_hasher_XxHash64
+                        time:   [128.76 µs 128.81 µs 128.88 µs]
+                        change: [+58.278% +58.376% +58.482%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
   3 (3.00%) high severe
 
 hll_insert_precision_9_bits_6_hasher_WyHash
-                        time:   [37.760 µs 37.768 µs 37.778 µs]
-Found 10 outliers among 100 measurements (10.00%)
-  3 (3.00%) high mild
-  7 (7.00%) high severe
-
-hll_insert_precision_10_bits_6_hasher_XxHash64
-                        time:   [85.874 µs 85.903 µs 85.933 µs]
-Found 7 outliers among 100 measurements (7.00%)
-  3 (3.00%) high mild
-  4 (4.00%) high severe
-
-hll_insert_precision_10_bits_6_hasher_WyHash
-                        time:   [37.229 µs 37.248 µs 37.271 µs]
+                        time:   [37.668 µs 37.682 µs 37.700 µs]
+                        change: [+2.9538% +3.0544% +3.1572%] (p = 0.00 < 0.05)
+                        Performance has regressed.
 Found 11 outliers among 100 measurements (11.00%)
-  5 (5.00%) high mild
-  6 (6.00%) high severe
-
-hll_insert_precision_11_bits_6_hasher_XxHash64
-                        time:   [96.051 µs 97.134 µs 98.367 µs]
-Found 33 outliers among 100 measurements (33.00%)
-  21 (21.00%) low severe
-  4 (4.00%) high mild
+  3 (3.00%) high mild
   8 (8.00%) high severe
 
-hll_insert_precision_11_bits_6_hasher_WyHash
-                        time:   [44.288 µs 44.345 µs 44.419 µs]
-Found 10 outliers among 100 measurements (10.00%)
-  4 (4.00%) high mild
+hll_insert_precision_10_bits_6_hasher_XxHash64
+                        time:   [87.741 µs 87.778 µs 87.815 µs]
+                        change: [+0.4840% +0.5903% +0.6989%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) low severe
+  4 (4.00%) low mild
+  3 (3.00%) high mild
+
+hll_insert_precision_10_bits_6_hasher_WyHash
+                        time:   [37.207 µs 37.221 µs 37.237 µs]
+                        change: [-0.1374% -0.0200% +0.0743%] (p = 0.75 > 0.05)
+                        No change in performance detected.
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+  8 (8.00%) high severe
+
+hll_insert_precision_11_bits_6_hasher_XxHash64
+                        time:   [102.54 µs 102.57 µs 102.60 µs]
+                        change: [+0.2954% +0.3531% +0.4120%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 12 outliers among 100 measurements (12.00%)
+  2 (2.00%) low severe
+  1 (1.00%) low mild
+  3 (3.00%) high mild
   6 (6.00%) high severe
 
+hll_insert_precision_11_bits_6_hasher_WyHash
+                        time:   [42.971 µs 42.994 µs 43.027 µs]
+                        change: [-2.6260% -2.5622% -2.4853%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+
 hll_insert_precision_12_bits_6_hasher_XxHash64
-                        time:   [103.25 µs 103.31 µs 103.38 µs]
+                        time:   [103.65 µs 103.68 µs 103.73 µs]
+                        change: [+0.0552% +0.1168% +0.1870%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
 Found 1 outliers among 100 measurements (1.00%)
-  1 (1.00%) high severe
+  1 (1.00%) high mild
 
 hll_insert_precision_12_bits_6_hasher_WyHash
-                        time:   [44.189 µs 44.215 µs 44.244 µs]
-Found 10 outliers among 100 measurements (10.00%)
-  2 (2.00%) low mild
+                        time:   [44.323 µs 44.339 µs 44.356 µs]
+                        change: [-0.0599% +0.0575% +0.1703%] (p = 0.35 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+
+hll_insert_precision_13_bits_6_hasher_XxHash64
+                        time:   [89.863 µs 89.924 µs 89.989 µs]
+                        change: [-1.4119% -1.3015% -1.1923%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) low mild
+  2 (2.00%) high severe
+
+hll_insert_precision_13_bits_6_hasher_WyHash
+                        time:   [37.615 µs 37.639 µs 37.670 µs]
+                        change: [-5.9483% -5.8674% -5.7927%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
   3 (3.00%) high mild
   5 (5.00%) high severe
 
-hll_insert_precision_13_bits_6_hasher_XxHash64
-                        time:   [89.370 µs 89.414 µs 89.464 µs]
-Found 3 outliers among 100 measurements (3.00%)
-  1 (1.00%) low severe
-  1 (1.00%) high mild
-  1 (1.00%) high severe
-
-hll_insert_precision_13_bits_6_hasher_WyHash
-                        time:   [37.862 µs 37.878 µs 37.898 µs]
-Found 10 outliers among 100 measurements (10.00%)
-  6 (6.00%) high mild
-  4 (4.00%) high severe
-
 hll_insert_precision_14_bits_6_hasher_XxHash64
-                        time:   [80.779 µs 80.814 µs 80.863 µs]
-Found 6 outliers among 100 measurements (6.00%)
-  3 (3.00%) high mild
+                        time:   [82.691 µs 82.746 µs 82.818 µs]
+                        change: [+0.4572% +0.5506% +0.6473%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
   3 (3.00%) high severe
 
 hll_insert_precision_14_bits_6_hasher_WyHash
-                        time:   [38.351 µs 38.364 µs 38.382 µs]
-Found 7 outliers among 100 measurements (7.00%)
-  1 (1.00%) low mild
-  2 (2.00%) high mild
-  4 (4.00%) high severe
+                        time:   [38.161 µs 38.219 µs 38.306 µs]
+                        change: [-0.6434% -0.4861% -0.2956%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) high mild
+  9 (9.00%) high severe
 
 hll_insert_precision_15_bits_6_hasher_XxHash64
-                        time:   [82.644 µs 82.666 µs 82.693 µs]
-Found 8 outliers among 100 measurements (8.00%)
+                        time:   [82.920 µs 82.952 µs 82.990 µs]
+                        change: [+0.0888% +0.1489% +0.2071%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 9 outliers among 100 measurements (9.00%)
   1 (1.00%) low mild
   5 (5.00%) high mild
-  2 (2.00%) high severe
+  3 (3.00%) high severe
 
 hll_insert_precision_15_bits_6_hasher_WyHash
-                        time:   [44.886 µs 44.905 µs 44.929 µs]
-Found 5 outliers among 100 measurements (5.00%)
-  3 (3.00%) high mild
+                        time:   [44.973 µs 44.991 µs 45.009 µs]
+                        change: [-0.1306% -0.0669% +0.0076%] (p = 0.06 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
   2 (2.00%) high severe
 
 hll_insert_precision_16_bits_6_hasher_XxHash64
-                        time:   [71.170 µs 71.188 µs 71.209 µs]
-Found 17 outliers among 100 measurements (17.00%)
-  6 (6.00%) high mild
-  11 (11.00%) high severe
-
-hll_insert_precision_16_bits_6_hasher_WyHash
-                        time:   [39.609 µs 39.623 µs 39.641 µs]
-Found 13 outliers among 100 measurements (13.00%)
-  6 (6.00%) high mild
+                        time:   [70.463 µs 70.487 µs 70.517 µs]
+                        change: [-0.2273% -0.1596% -0.0773%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 15 outliers among 100 measurements (15.00%)
+  8 (8.00%) high mild
   7 (7.00%) high severe
 
-tabacplusplus_insert_precision_4_bits_6
-                        time:   [78.590 µs 78.634 µs 78.690 µs]
-Found 14 outliers among 100 measurements (14.00%)
+hll_insert_precision_16_bits_6_hasher_WyHash
+                        time:   [38.887 µs 38.906 µs 38.933 µs]
+                        change: [-0.0527% +0.0204% +0.0880%] (p = 0.59 > 0.05)
+                        No change in performance detected.
+Found 9 outliers among 100 measurements (9.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+
+hll_insert_precision_17_bits_6_hasher_XxHash64
+                        time:   [75.506 µs 75.544 µs 75.608 µs]
+                        change: [-0.1183% -0.0463% +0.0429%] (p = 0.30 > 0.05)
+                        No change in performance detected.
+Found 16 outliers among 100 measurements (16.00%)
+  2 (2.00%) low mild
   3 (3.00%) high mild
   11 (11.00%) high severe
 
-tabacplusplus_insert_precision_5_bits_6
-                        time:   [79.496 µs 79.525 µs 79.562 µs]
-Found 14 outliers among 100 measurements (14.00%)
-  1 (1.00%) high mild
-  13 (13.00%) high severe
+hll_insert_precision_17_bits_6_hasher_WyHash
+                        time:   [40.259 µs 40.273 µs 40.289 µs]
+                        change: [-0.5346% -0.4671% -0.4093%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 12 outliers among 100 measurements (12.00%)
+  2 (2.00%) high mild
+  10 (10.00%) high severe
 
-tabacplusplus_insert_precision_6_bits_6
-                        time:   [75.426 µs 75.655 µs 75.915 µs]
-Found 21 outliers among 100 measurements (21.00%)
+hll_insert_precision_18_bits_6_hasher_XxHash64
+                        time:   [75.467 µs 75.491 µs 75.520 µs]
+                        change: [-0.0506% +0.0155% +0.0729%] (p = 0.64 > 0.05)
+                        No change in performance detected.
+Found 13 outliers among 100 measurements (13.00%)
   5 (5.00%) high mild
-  16 (16.00%) high severe
-
-tabacplusplus_insert_precision_7_bits_6
-                        time:   [86.008 µs 86.033 µs 86.072 µs]
-Found 14 outliers among 100 measurements (14.00%)
-  1 (1.00%) low severe
-  1 (1.00%) low mild
-  4 (4.00%) high mild
   8 (8.00%) high severe
 
-tabacplusplus_insert_precision_8_bits_6
-                        time:   [88.730 µs 88.792 µs 88.860 µs]
-Found 6 outliers among 100 measurements (6.00%)
-  4 (4.00%) high mild
-  2 (2.00%) high severe
-
-tabacplusplus_insert_precision_9_bits_6
-                        time:   [108.88 µs 108.93 µs 109.00 µs]
-Found 9 outliers among 100 measurements (9.00%)
-  4 (4.00%) high mild
-  5 (5.00%) high severe
-
-tabacplusplus_insert_precision_10_bits_6
-                        time:   [130.87 µs 130.95 µs 131.04 µs]
-Found 7 outliers among 100 measurements (7.00%)
-  4 (4.00%) high mild
+hll_insert_precision_18_bits_6_hasher_WyHash
+                        time:   [40.846 µs 40.901 µs 40.988 µs]
+                        change: [+0.2919% +0.3757% +0.4980%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
   3 (3.00%) high severe
 
-tabacplusplus_insert_precision_11_bits_6
-                        time:   [184.23 µs 184.38 µs 184.55 µs]
-Found 15 outliers among 100 measurements (15.00%)
+tabacplusplus_insert_precision_4_bits_6
+                        time:   [78.566 µs 78.581 µs 78.600 µs]
+                        change: [-0.0575% -0.0267% +0.0015%] (p = 0.08 > 0.05)
+                        No change in performance detected.
+Found 12 outliers among 100 measurements (12.00%)
   1 (1.00%) low mild
+  6 (6.00%) high mild
+  5 (5.00%) high severe
+
+tabacplusplus_insert_precision_5_bits_6
+                        time:   [79.495 µs 79.518 µs 79.553 µs]
+                        change: [+9.1827% +9.3991% +9.5937%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) low severe
+  3 (3.00%) high mild
+  9 (9.00%) high severe
+
+tabacplusplus_insert_precision_6_bits_6
+                        time:   [81.938 µs 81.977 µs 82.039 µs]
+                        change: [-0.1408% -0.0966% -0.0434%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) high mild
+  12 (12.00%) high severe
+
+tabacplusplus_insert_precision_7_bits_6
+                        time:   [85.739 µs 85.766 µs 85.801 µs]
+                        change: [-0.4237% -0.3371% -0.2721%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 17 outliers among 100 measurements (17.00%)
+  2 (2.00%) low mild
+  3 (3.00%) high mild
+  12 (12.00%) high severe
+
+tabacplusplus_insert_precision_8_bits_6
+                        time:   [94.398 µs 94.434 µs 94.480 µs]
+                        change: [+0.1949% +0.3115% +0.4457%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 20 outliers among 100 measurements (20.00%)
+  3 (3.00%) high mild
+  17 (17.00%) high severe
+
+tabacplusplus_insert_precision_9_bits_6
+                        time:   [104.26 µs 104.34 µs 104.42 µs]
+                        change: [-0.0842% +0.0483% +0.1826%] (p = 0.50 > 0.05)
+                        No change in performance detected.
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+
+tabacplusplus_insert_precision_10_bits_6
+                        time:   [131.65 µs 131.69 µs 131.74 µs]
+                        change: [-2.2543% -2.1485% -2.0537%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+
+tabacplusplus_insert_precision_11_bits_6
+                        time:   [185.23 µs 185.37 µs 185.59 µs]
+                        change: [+0.7365% +0.8798% +1.0160%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 26 outliers among 100 measurements (26.00%)
+  5 (5.00%) low severe
+  3 (3.00%) low mild
+  4 (4.00%) high mild
+  14 (14.00%) high severe
+
+tabacplusplus_insert_precision_12_bits_6
+                        time:   [299.04 µs 299.18 µs 299.36 µs]
+                        change: [+1.1924% +1.3141% +1.4279%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
+tabacplusplus_insert_precision_13_bits_6
+                        time:   [598.15 µs 598.37 µs 598.68 µs]
+                        change: [+3.2201% +3.3054% +3.3956%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) low mild
+  6 (6.00%) high mild
+  4 (4.00%) high severe
+
+tabacplusplus_insert_precision_14_bits_6
+                        time:   [1.2442 ms 1.2446 ms 1.2450 ms]
+                        change: [-1.8742% -1.6215% -1.3609%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) low severe
+  3 (3.00%) high mild
+  6 (6.00%) high severe
+
+tabacplusplus_insert_precision_15_bits_6
+                        time:   [905.22 µs 905.37 µs 905.53 µs]
+                        change: [-0.6123% -0.5696% -0.5259%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+
+tabacplusplus_insert_precision_16_bits_6
+                        time:   [612.99 µs 613.42 µs 613.80 µs]
+                        change: [+1.7097% +1.8586% +2.0158%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+
+tabacplusplus_insert_precision_17_bits_6
+                        time:   [423.37 µs 423.47 µs 423.61 µs]
+                        change: [+0.4054% +0.4579% +0.5077%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 16 outliers among 100 measurements (16.00%)
+  9 (9.00%) high mild
+  7 (7.00%) high severe
+
+tabacplusplus_insert_precision_18_bits_6
+                        time:   [366.90 µs 367.15 µs 367.47 µs]
+                        change: [+1.3908% +1.4973% +1.5972%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+
+sa_insert_precision_4_bits_6
+                        time:   [70.771 µs 70.845 µs 70.919 µs]
+                        change: [+0.1768% +0.3245% +0.4634%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+
+sa_insert_precision_5_bits_6
+                        time:   [71.552 µs 71.627 µs 71.707 µs]
+                        change: [-1.1215% -0.7567% -0.4129%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+
+sa_insert_precision_6_bits_6
+                        time:   [70.761 µs 70.828 µs 70.890 µs]
+                        change: [+0.2093% +0.3115% +0.4099%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+
+sa_insert_precision_7_bits_6
+                        time:   [70.042 µs 70.258 µs 70.487 µs]
+                        change: [-3.0768% -2.6540% -2.2657%] (p = 0.00 < 0.05)
+                        Performance has improved.
+
+sa_insert_precision_8_bits_6
+                        time:   [69.764 µs 69.904 µs 70.052 µs]
+                        change: [-2.1444% -1.9756% -1.7868%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+
+sa_insert_precision_9_bits_6
+                        time:   [71.185 µs 71.215 µs 71.250 µs]
+                        change: [-2.6657% -2.5735% -2.4819%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 14 outliers among 100 measurements (14.00%)
   4 (4.00%) high mild
   10 (10.00%) high severe
 
-tabacplusplus_insert_precision_12_bits_6
-                        time:   [294.43 µs 294.90 µs 295.29 µs]
-
-tabacplusplus_insert_precision_13_bits_6
-                        time:   [582.44 µs 582.73 µs 583.02 µs]
-
-tabacplusplus_insert_precision_14_bits_6
-                        time:   [1.2229 ms 1.2232 ms 1.2237 ms]
-Found 12 outliers among 100 measurements (12.00%)
-  2 (2.00%) low mild
+sa_insert_precision_10_bits_6
+                        time:   [71.282 µs 71.315 µs 71.359 µs]
+                        change: [+1.2986% +1.3791% +1.4713%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low mild
   5 (5.00%) high mild
-  5 (5.00%) high severe
+  8 (8.00%) high severe
 
-tabacplusplus_insert_precision_15_bits_6
-                        time:   [883.55 µs 883.80 µs 884.10 µs]
+sa_insert_precision_11_bits_6
+                        time:   [69.823 µs 69.863 µs 69.910 µs]
+                        change: [-0.9080% -0.8374% -0.7715%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+
+sa_insert_precision_12_bits_6
+                        time:   [70.396 µs 70.422 µs 70.455 µs]
+                        change: [+0.3644% +0.5633% +0.7377%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 11 outliers among 100 measurements (11.00%)
+  5 (5.00%) high mild
+  6 (6.00%) high severe
+
+sa_insert_precision_13_bits_6
+                        time:   [70.427 µs 70.451 µs 70.483 µs]
+                        change: [-0.1662% -0.0357% +0.0905%] (p = 0.61 > 0.05)
+                        No change in performance detected.
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  7 (7.00%) high severe
+
+sa_insert_precision_14_bits_6
+                        time:   [71.441 µs 71.472 µs 71.519 µs]
+                        change: [+1.9881% +2.0762% +2.1577%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 16 outliers among 100 measurements (16.00%)
+  1 (1.00%) low severe
+  4 (4.00%) low mild
+  4 (4.00%) high mild
+  7 (7.00%) high severe
+
+sa_insert_precision_15_bits_6
+                        time:   [71.569 µs 71.587 µs 71.611 µs]
+                        change: [+1.4806% +1.5595% +1.6381%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 15 outliers among 100 measurements (15.00%)
+  1 (1.00%) low severe
+  2 (2.00%) high mild
+  12 (12.00%) high severe
+
+sa_insert_precision_16_bits_6
+                        time:   [70.790 µs 70.816 µs 70.856 µs]
+                        change: [-2.5194% -2.4125% -2.3292%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) high mild
+  11 (11.00%) high severe
+
+sa_insert_precision_17_bits_6
+                        time:   [70.839 µs 70.862 µs 70.888 µs]
+Found 19 outliers among 100 measurements (19.00%)
+  1 (1.00%) low severe
+  7 (7.00%) high mild
+  11 (11.00%) high severe
+
+sa_insert_precision_18_bits_6
+                        time:   [74.196 µs 74.218 µs 74.247 µs]
 Found 10 outliers among 100 measurements (10.00%)
   3 (3.00%) high mild
   7 (7.00%) high severe
 
-tabacplusplus_insert_precision_16_bits_6
-                        time:   [590.26 µs 591.23 µs 592.44 µs]
+ce_insert_precision_4_bits_6_hasher_WyHash
+                        time:   [41.180 µs 41.192 µs 41.207 µs]
+                        change: [+1.4589% +1.8327% +2.1618%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 17 outliers among 100 measurements (17.00%)
+  1 (1.00%) low severe
+  1 (1.00%) high mild
+  15 (15.00%) high severe
+
+ce_insert_precision_5_bits_6_hasher_WyHash
+                        time:   [41.716 µs 41.762 µs 41.822 µs]
+                        change: [-0.2350% +0.0495% +0.3239%] (p = 0.74 > 0.05)
+                        No change in performance detected.
+Found 15 outliers among 100 measurements (15.00%)
+  4 (4.00%) high mild
+  11 (11.00%) high severe
+
+ce_insert_precision_6_bits_6_hasher_WyHash
+                        time:   [42.366 µs 42.381 µs 42.398 µs]
+                        change: [+1.4920% +1.9952% +2.4523%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 16 outliers among 100 measurements (16.00%)
+  5 (5.00%) high mild
+  11 (11.00%) high severe
+
+ce_insert_precision_7_bits_6_hasher_WyHash
+                        time:   [43.620 µs 43.641 µs 43.666 µs]
+                        change: [-0.0277% +0.2530% +0.4921%] (p = 0.06 > 0.05)
+                        No change in performance detected.
+Found 11 outliers among 100 measurements (11.00%)
+  5 (5.00%) high mild
+  6 (6.00%) high severe
+
+ce_insert_precision_8_bits_6_hasher_WyHash
+                        time:   [43.682 µs 43.870 µs 44.081 µs]
+                        change: [-1.9738% -1.7866% -1.5526%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 12 outliers among 100 measurements (12.00%)
+  4 (4.00%) high mild
+  8 (8.00%) high severe
+
+ce_insert_precision_9_bits_6_hasher_WyHash
+                        time:   [47.143 µs 47.286 µs 47.455 µs]
+                        change: [-1.6409% -0.6351% +0.1237%] (p = 0.19 > 0.05)
+                        No change in performance detected.
+Found 15 outliers among 100 measurements (15.00%)
+  4 (4.00%) high mild
+  11 (11.00%) high severe
+
+ce_insert_precision_10_bits_6_hasher_WyHash
+                        time:   [48.682 µs 48.841 µs 49.043 µs]
+                        change: [-1.2296% -0.9089% -0.5297%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 16 outliers among 100 measurements (16.00%)
+  9 (9.00%) high mild
+  7 (7.00%) high severe
+
+ce_insert_precision_11_bits_6_hasher_WyHash
+                        time:   [54.270 µs 54.658 µs 55.244 µs]
+                        change: [+0.8621% +1.2837% +1.9466%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
 Found 10 outliers among 100 measurements (10.00%)
   4 (4.00%) high mild
   6 (6.00%) high severe
 
-sa_insert_precision_4_bits_6
-                        time:   [70.448 µs 70.519 µs 70.596 µs]
-Found 9 outliers among 100 measurements (9.00%)
-  1 (1.00%) low mild
-  4 (4.00%) high mild
-  4 (4.00%) high severe
-
-sa_insert_precision_5_bits_6
-                        time:   [70.588 µs 70.689 µs 70.817 µs]
-Found 15 outliers among 100 measurements (15.00%)
-  3 (3.00%) high mild
-  12 (12.00%) high severe
-
-sa_insert_precision_6_bits_6
-                        time:   [71.257 µs 71.297 µs 71.354 µs]
-Found 14 outliers among 100 measurements (14.00%)
-  5 (5.00%) high mild
+ce_insert_precision_12_bits_6_hasher_WyHash
+                        time:   [59.041 µs 59.331 µs 59.662 µs]
+                        change: [+0.1089% +0.3166% +0.5902%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 18 outliers among 100 measurements (18.00%)
+  9 (9.00%) high mild
   9 (9.00%) high severe
 
-sa_insert_precision_7_bits_6
-                        time:   [70.580 µs 70.657 µs 70.752 µs]
-Found 9 outliers among 100 measurements (9.00%)
-  2 (2.00%) high mild
-  7 (7.00%) high severe
-
-sa_insert_precision_8_bits_6
-                        time:   [69.888 µs 69.946 µs 70.009 µs]
-Found 2 outliers among 100 measurements (2.00%)
+ce_insert_precision_13_bits_6_hasher_WyHash
+                        time:   [62.374 µs 62.416 µs 62.471 µs]
+                        change: [-0.0454% -0.0005% +0.0462%] (p = 0.98 > 0.05)
+                        No change in performance detected.
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) low mild
   1 (1.00%) high mild
-  1 (1.00%) high severe
+  10 (10.00%) high severe
 
-sa_insert_precision_9_bits_6
-                        time:   [70.163 µs 70.230 µs 70.308 µs]
-Found 18 outliers among 100 measurements (18.00%)
-  2 (2.00%) low severe
-  5 (5.00%) low mild
-  3 (3.00%) high mild
-  8 (8.00%) high severe
-
-sa_insert_precision_10_bits_6
-                        time:   [70.334 µs 70.513 µs 70.737 µs]
-Found 16 outliers among 100 measurements (16.00%)
-  4 (4.00%) high mild
-  12 (12.00%) high severe
-
-sa_insert_precision_11_bits_6
-                        time:   [70.264 µs 70.353 µs 70.464 µs]
-Found 25 outliers among 100 measurements (25.00%)
-  2 (2.00%) low mild
-  7 (7.00%) high mild
-  16 (16.00%) high severe
-
-sa_insert_precision_12_bits_6
-                        time:   [70.471 µs 70.674 µs 70.935 µs]
-Found 17 outliers among 100 measurements (17.00%)
-  6 (6.00%) high mild
-  11 (11.00%) high severe
-
-sa_insert_precision_13_bits_6
-                        time:   [72.139 µs 72.164 µs 72.190 µs]
-Found 15 outliers among 100 measurements (15.00%)
+ce_insert_precision_14_bits_6_hasher_WyHash
+                        time:   [64.844 µs 64.872 µs 64.906 µs]
+                        change: [-1.7496% -1.5576% -1.3891%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 13 outliers among 100 measurements (13.00%)
   2 (2.00%) low mild
   5 (5.00%) high mild
-  8 (8.00%) high severe
+  6 (6.00%) high severe
 
-sa_insert_precision_14_bits_6
-                        time:   [70.634 µs 70.935 µs 71.365 µs]
-Found 8 outliers among 100 measurements (8.00%)
-  8 (8.00%) high severe
-
-sa_insert_precision_15_bits_6
-                        time:   [70.751 µs 71.101 µs 71.488 µs]
-Found 17 outliers among 100 measurements (17.00%)
-  5 (5.00%) high mild
-  12 (12.00%) high severe
-
-sa_insert_precision_16_bits_6
-                        time:   [71.443 µs 71.784 µs 72.178 µs]
-Found 6 outliers among 100 measurements (6.00%)
-  5 (5.00%) high mild
-  1 (1.00%) high severe
-
-ce_insert_precision_4_bits_6_hasher_WyHash
-                        time:   [40.262 µs 40.374 µs 40.507 µs]
-Found 19 outliers among 100 measurements (19.00%)
-  2 (2.00%) high mild
-  17 (17.00%) high severe
-
-ce_insert_precision_5_bits_6_hasher_WyHash
-                        time:   [41.648 µs 41.694 µs 41.760 µs]
-Found 19 outliers among 100 measurements (19.00%)
-  1 (1.00%) low mild
-  4 (4.00%) high mild
-  14 (14.00%) high severe
-
-ce_insert_precision_6_bits_6_hasher_WyHash
-                        time:   [41.257 µs 41.391 µs 41.617 µs]
-Found 17 outliers among 100 measurements (17.00%)
-  2 (2.00%) high mild
-  15 (15.00%) high severe
-
-ce_insert_precision_7_bits_6_hasher_WyHash
-                        time:   [43.468 µs 43.647 µs 43.852 µs]
-Found 14 outliers among 100 measurements (14.00%)
-  2 (2.00%) high mild
-  12 (12.00%) high severe
-
-ce_insert_precision_8_bits_6_hasher_WyHash
-                        time:   [44.466 µs 44.476 µs 44.486 µs]
+ce_insert_precision_15_bits_6_hasher_WyHash
+                        time:   [67.016 µs 67.047 µs 67.091 µs]
+                        change: [-2.0489% -1.9235% -1.8151%] (p = 0.00 < 0.05)
+                        Performance has improved.
 Found 10 outliers among 100 measurements (10.00%)
   5 (5.00%) high mild
   5 (5.00%) high severe
 
-ce_insert_precision_9_bits_6_hasher_WyHash
-                        time:   [47.186 µs 47.392 µs 47.637 µs]
-Found 12 outliers among 100 measurements (12.00%)
+ce_insert_precision_16_bits_6_hasher_WyHash
+                        time:   [69.278 µs 69.317 µs 69.371 µs]
+                        change: [-1.2825% -1.2438% -1.2035%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 10 outliers among 100 measurements (10.00%)
   2 (2.00%) high mild
-  10 (10.00%) high severe
+  8 (8.00%) high severe
 
-ce_insert_precision_10_bits_6_hasher_WyHash
-                        time:   [49.375 µs 49.386 µs 49.399 µs]
-Found 15 outliers among 100 measurements (15.00%)
-  3 (3.00%) low mild
-  5 (5.00%) high mild
-  7 (7.00%) high severe
+ce_insert_precision_17_bits_6_hasher_WyHash
+                        time:   [70.962 µs 70.985 µs 71.011 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  3 (3.00%) high mild
+  8 (8.00%) high severe
 
-ce_insert_precision_11_bits_6_hasher_WyHash
-                        time:   [53.697 µs 53.714 µs 53.734 µs]
-Found 13 outliers among 100 measurements (13.00%)
-  1 (1.00%) low severe
-  1 (1.00%) high mild
-  11 (11.00%) high severe
-
-ce_insert_precision_12_bits_6_hasher_WyHash
-                        time:   [58.855 µs 58.877 µs 58.905 µs]
-Found 13 outliers among 100 measurements (13.00%)
-  1 (1.00%) low mild
+ce_insert_precision_18_bits_6_hasher_WyHash
+                        time:   [71.570 µs 71.615 µs 71.672 µs]
+Found 12 outliers among 100 measurements (12.00%)
   3 (3.00%) high mild
   9 (9.00%) high severe
 
-ce_insert_precision_13_bits_6_hasher_WyHash
-                        time:   [62.378 µs 62.397 µs 62.421 µs]
-Found 11 outliers among 100 measurements (11.00%)
-  2 (2.00%) low mild
-  2 (2.00%) high mild
-  7 (7.00%) high severe
-
-ce_insert_precision_14_bits_6_hasher_WyHash
-                        time:   [65.751 µs 65.883 µs 66.038 µs]
-Found 20 outliers among 100 measurements (20.00%)
-  7 (7.00%) high mild
-  13 (13.00%) high severe
-
-ce_insert_precision_15_bits_6_hasher_WyHash
-                        time:   [68.355 µs 68.500 µs 68.661 µs]
-Found 12 outliers among 100 measurements (12.00%)
-  5 (5.00%) high mild
-  7 (7.00%) high severe
-
-ce_insert_precision_16_bits_6_hasher_WyHash
-                        time:   [70.145 µs 70.163 µs 70.182 µs]
-Found 10 outliers among 100 measurements (10.00%)
-  1 (1.00%) high mild
-  9 (9.00%) high severe
-
 rhll_insert_precision_4_bits_6
-                        time:   [76.976 µs 77.005 µs 77.051 µs]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) high severe
+                        time:   [77.943 µs 78.056 µs 78.200 µs]
+                        change: [+1.5044% +1.8573% +2.2529%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 18 outliers among 100 measurements (18.00%)
+  3 (3.00%) high mild
+  15 (15.00%) high severe
 
 rhll_insert_precision_5_bits_6
-                        time:   [77.383 µs 77.967 µs 78.614 µs]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) high severe
+                        time:   [78.026 µs 78.128 µs 78.247 µs]
+                        change: [-0.6693% +0.1985% +0.8382%] (p = 0.84 > 0.05)
+                        No change in performance detected.
+Found 11 outliers among 100 measurements (11.00%)
+  7 (7.00%) high mild
+  4 (4.00%) high severe
 
 rhll_insert_precision_6_bits_6
-                        time:   [78.183 µs 78.218 µs 78.249 µs]
+                        time:   [78.243 µs 78.401 µs 78.589 µs]
+                        change: [+0.3960% +0.7728% +1.1227%] (p = 0.12 > 0.05)
+                        No change in performance detected.
+Found 19 outliers among 100 measurements (19.00%)
+  7 (7.00%) high mild
+  12 (12.00%) high severe
 
 rhll_insert_precision_7_bits_6
-                        time:   [78.337 µs 78.481 µs 78.758 µs]
-Found 2 outliers among 10 measurements (20.00%)
-  1 (10.00%) high mild
-  1 (10.00%) high severe
+                        time:   [79.514 µs 80.009 µs 80.549 µs]
+                        change: [+1.4039% +2.0633% +2.8254%] (p = 0.01 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
 
 rhll_insert_precision_8_bits_6
-                        time:   [78.386 µs 78.783 µs 79.068 µs]
+                        time:   [78.294 µs 78.455 µs 78.652 µs]
+                        change: [-1.0040% -0.5997% -0.2155%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 15 outliers among 100 measurements (15.00%)
+  3 (3.00%) high mild
+  12 (12.00%) high severe
 
 rhll_insert_precision_9_bits_6
-                        time:   [78.011 µs 78.301 µs 78.614 µs]
+                        time:   [78.484 µs 78.650 µs 78.828 µs]
+                        change: [+0.1867% +0.5503% +0.8884%] (p = 0.11 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
 
 rhll_insert_precision_10_bits_6
-                        time:   [77.678 µs 77.819 µs 77.951 µs]
+                        time:   [77.795 µs 77.984 µs 78.213 µs]
+                        change: [+0.0266% +0.2839% +0.5654%] (p = 0.31 > 0.05)
+                        No change in performance detected.
+Found 19 outliers among 100 measurements (19.00%)
+  8 (8.00%) high mild
+  11 (11.00%) high severe
 
 rhll_insert_precision_11_bits_6
-                        time:   [77.624 µs 78.416 µs 79.359 µs]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) high severe
+                        time:   [78.732 µs 78.984 µs 79.250 µs]
+                        change: [+0.1785% +0.9756% +1.6152%] (p = 0.09 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  4 (4.00%) high mild
 
 rhll_insert_precision_12_bits_6
-                        time:   [77.645 µs 78.278 µs 79.005 µs]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) high severe
+                        time:   [77.990 µs 78.318 µs 78.777 µs]
+                        change: [-0.2844% +0.3384% +0.8294%] (p = 0.49 > 0.05)
+                        No change in performance detected.
+Found 17 outliers among 100 measurements (17.00%)
+  6 (6.00%) high mild
+  11 (11.00%) high severe
 
 rhll_insert_precision_13_bits_6
-                        time:   [77.889 µs 78.396 µs 79.090 µs]
+                        time:   [78.260 µs 78.570 µs 78.932 µs]
+                        change: [-0.3176% +0.2921% +0.8596%] (p = 0.57 > 0.05)
+                        No change in performance detected.
+Found 10 outliers among 100 measurements (10.00%)
+  4 (4.00%) high mild
+  6 (6.00%) high severe
 
 rhll_insert_precision_14_bits_6
-                        time:   [78.399 µs 79.056 µs 79.652 µs]
-Found 2 outliers among 10 measurements (20.00%)
-  1 (10.00%) high mild
-  1 (10.00%) high severe
+                        time:   [78.847 µs 78.941 µs 79.053 µs]
+                        change: [+0.9742% +1.7195% +2.4433%] (p = 0.08 > 0.05)
+                        No change in performance detected.
+Found 24 outliers among 100 measurements (24.00%)
+  3 (3.00%) high mild
+  21 (21.00%) high severe
 
 rhll_insert_precision_15_bits_6
-                        time:   [78.463 µs 78.781 µs 79.486 µs]
+                        time:   [78.608 µs 78.628 µs 78.654 µs]
+                        change: [-1.2342% -0.5346% +0.0591%] (p = 0.02 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) high mild
+  8 (8.00%) high severe
 
 rhll_insert_precision_16_bits_6
-                        time:   [78.922 µs 78.947 µs 78.966 µs]
+                        time:   [79.960 µs 80.220 µs 80.553 µs]
+                        change: [+1.3369% +1.4823% +1.6709%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 10 outliers among 100 measurements (10.00%)
+  3 (3.00%) high mild
+  7 (7.00%) high severe
+
+rhll_insert_precision_17_bits_6
+                        time:   [80.172 µs 80.201 µs 80.233 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+
+rhll_insert_precision_18_bits_6
+                        time:   [80.832 µs 81.009 µs 81.239 µs]
+Found 15 outliers among 100 measurements (15.00%)
+  1 (1.00%) high mild
+  14 (14.00%) high severe
 

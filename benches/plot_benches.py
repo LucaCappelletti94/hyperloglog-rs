@@ -1,9 +1,12 @@
 """Python script to load and plot the benchmarks results."""
 
 from typing import List, Dict
+import os
 from glob import glob
 import pandas as pd
 import matplotlib.pyplot as plt
+from tqdm.auto import tqdm
+from sanitize_ml_labels import sanitize_ml_labels
 
 
 def unit_to_factor(unit: str) -> float:
@@ -32,8 +35,38 @@ def normalize_name(name: str) -> str:
         "beta6_XxHash64": "Beta6 + Xxhasher",
         "beta6_WyHash": "Beta6 + WyHash",
         "beta6_wyhash": "Beta6 + WyHash",
-        "hll4_xxhash64": "HLL4 + Xxhasher",
-        "hll4_XxHash64": "HLL4 + Xxhasher",
+        "beta6": "Beta6 + WyHash",
+        "beta8": "Beta8 + WyHash",
+        "plusplus4_xxhash64": "HLL4 + Xxhasher",
+        "plusplus4_XxHash64": "HLL4 + Xxhasher",
+        "plusplus4": "HLL4 + Xxhasher",
+        "plusplus5": "HLL5 + Xxhasher",
+        "plusplus6": "HLL6 + WyHash",
+        "hybridplusplus6_XxHash64": "Hybrid++ + Xxhasher",
+        "hybridplusplus6_xxhash64": "Hybrid++ + Xxhasher",
+        "hybridplusplus8_XxHash64": "Hybrid++ + Xxhasher",
+        "hybridplusplus8_xxhash64": "Hybrid++ + Xxhasher",
+        "hybridplusplus6": "Hybrid++ + Xxhasher",
+        "hybridplusplus8": "Hybrid++ + Xxhasher",
+        "hybridplusplus6_WyHash": "Hybrid++ + WyHash",
+        "hybridplusplus6_wyhash": "Hybrid++ + WyHash",
+        "hybridplusplus8_WyHash": "Hybrid++ + WyHash",
+        "hybridplusplus8_wyhash": "Hybrid++ + WyHash",
+        "hybridplusplus": "Hybrid++ + WyHash",
+        "hybridplusplus_xxhash64": "Hybrid++ + Xxhasher",
+        "hybridplusplus_XxHash64": "Hybrid++ + Xxhasher",
+        "hybridbeta6_xxhash64": "HybridBeta6 + Xxhasher",
+        "hybridbeta6_XxHash64": "HybridBeta6 + Xxhasher",
+        "hybridbeta6_WyHash": "HybridBeta6 + WyHash",
+        "hybridbeta6_wyhash": "HybridBeta6 + WyHash",
+        "hybridbeta6": "HybridBeta6 + WyHash",
+        "hybridbeta8": "HybridBeta8 + WyHash",
+        "plusplus6_xxhash64": "HLL6 + Xxhasher",
+        "plusplus6_XxHash64": "HLL6 + Xxhasher",
+        "plusplus6_wyhash": "HLL6 + WyHash",
+        "plusplus6_WyHash": "HLL6 + WyHash",
+        "plusplus8": "HLL8 + Xxhasher",
+        "plusplus_xxhash64": "HLL6 + Xxhasher",
         "hll4": "HLL4 + Xxhasher",
         "hll5": "HLL5 + Xxhasher",
         "hll6_WyHash": "HLL6 + WyHash",
@@ -46,6 +79,8 @@ def normalize_name(name: str) -> str:
         "mle": "Our MLE",
         "mle6": "MLE2 + Xxhasher",
         "mle8": "MLE2 + Xxhasher",
+        "mlepp6": "MLEPP + Xxhasher",
+        "mlepp8": "MLEPP + Xxhasher",
         "multiplicities": "Our Multi",
         "tabacpf6": "Tabac's HLL",
         "tabacpf": "Tabac's HLL",
@@ -60,12 +95,22 @@ def normalize_name(name: str) -> str:
     }[name]
 
 
-def retrieve_memory_usage(approach_name: str, precision: int) -> float:
+def retrieve_feature(
+    approach_name: str, precision: int, bits: int, feature: str
+) -> float:
     """Returns the memory usage for a given approach and precision."""
     assert precision >= 4
-    assert precision <= 16
-    path1 = f"tests/statistical_tests_reports/cardinality_{precision}.csv"
-    path2 = f"tests/statistical_tests_reports/union_{precision}.csv"
+    assert precision <= 18
+
+    if feature == "memory_usage":
+        column = "first_memsize"
+    elif feature == "mean_error":
+        column = "first_mean"
+    else:
+        raise ValueError(f"Unknown feature: {feature}")
+
+    path1 = f"./statistical_comparisons/statistical_tests_reports/cardinality_{precision}.csv"
+    path2 = f"./statistical_comparisons/statistical_tests_reports/union_{precision}.csv"
     df = pd.concat(
         [
             pd.read_csv(path1),
@@ -79,7 +124,17 @@ def retrieve_memory_usage(approach_name: str, precision: int) -> float:
         raise ValueError(
             f"Could not find memory usage for {approach_name} and precision {precision}"
         )
-    return filtered["first_memsize"].iloc[0]
+    return filtered[column].iloc[0]
+
+
+def retrieve_memory_usage(approach_name: str, precision: int, bits: int) -> float:
+    """Returns the memory usage for a given approach and precision."""
+    return retrieve_feature(approach_name, precision, bits, "memory_usage")
+
+
+def retrieve_mean_error(approach_name: str, precision: int, bits: int) -> float:
+    """Returns the memory usage for a given approach and precision."""
+    return retrieve_feature(approach_name, precision, bits, "mean_error")
 
 
 def parse_name_line(line: str) -> Dict:
@@ -87,7 +142,9 @@ def parse_name_line(line: str) -> Dict:
     # We expect the line to be in the format:
     # hll_cardinality_precision_4_bits_5
     if line.count("_") == 7:
-        name, task, _precision, precision, _bits, bits, _hasher, hasher_type = line.split("_")
+        name, task, _precision, precision, _bits, bits, _hasher, hasher_type = (
+            line.split("_")
+        )
         assert _precision == "precision"
         assert _bits == "bits"
         assert _hasher == "hasher"
@@ -107,7 +164,8 @@ def parse_name_line(line: str) -> Dict:
         "task": task,
         "precision": precision,
         "bits": bits,
-        "memory_usage": retrieve_memory_usage(normalize_name(name), precision),
+        "memory_usage": retrieve_memory_usage(normalize_name(name), precision, bits),
+        "mean_error": retrieve_mean_error(normalize_name(name), precision, bits),
     }
 
 
@@ -170,9 +228,9 @@ def parse_time_line(line: str) -> Dict:
     upper_bound = float(parts[4]) * unit_to_factor(parts[5])
 
     return {
-        "lower_bound": lower_bound,
-        "mean": mean,
-        "upper_bound": upper_bound,
+        "time_lower_bound": lower_bound,
+        "time_mean": mean,
+        "time_upper_bound": upper_bound,
     }
 
 
@@ -239,11 +297,6 @@ def load_criterion_log(path: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def get_bits_line_style(bits: int) -> Dict:
-    """Returns the line style for a given number of bits."""
-    return {4: ":", 5: "-.", 6: "-", 8: "--"}[bits]
-
-
 def get_approach_color(approach_name: str) -> str:
     """Returns the color for a given normalized approach name."""
     colors = pd.read_csv("utilities/colors.csv", index_col="approach")
@@ -262,71 +315,111 @@ def get_approach_marker(approach_name: str) -> str:
     return markers.loc[approach_name, "marker"]
 
 
-def plot_benchmarks(path: str) -> None:
+def plot_benchmarks() -> None:
     """Plots the benchmarks.
 
     We plot the memory usage on the abscissa and the time on the ordinate,
     with the lower and upper bounds shown both as error bars and as a shaded
     area.
     """
-    df = load_criterion_log(path)
 
-    # We expect that the 'task' column is the same for all rows
-    assert df["task"].nunique() == 1
-    task = df["task"].iloc[0].capitalize()
+    paths = glob("benches/*.log")
 
-    fig, ax = plt.subplots(
-        ncols=2,  # We plot both in linear and log scale
-        figsize=(14, 6),
-        dpi=300,
+    # We sort the path so that the most recent logs are on top of the list
+    # We extract the age of the file from the path, and we use it as a key
+    # for the sorting.
+    paths.sort(key=lambda path: -os.stat(path).st_mtime)
+
+    print(f"Found {len(paths)} log files")
+
+    cross_task_df = pd.concat([
+        load_criterion_log(path)
+        for path in paths
+    ])
+
+    # We drop duplicates, keeping the first occurrence
+    cross_task_df = cross_task_df.drop_duplicates(
+        subset=["task", "name", "bits", "precision"], keep="first"
     )
 
-    for name in df["name"].unique():
-        for bits in df["bits"].unique():
-            mask = (df["name"] == name) & (df["bits"] == bits)
-            subdf = df[mask]
-            # If the mask is empty, we skip the plot
-            if subdf.empty:
-                continue
-            for scale, axes in zip(["linear", "log"], ax):
-                axes.set_xscale("log")
-                axes.set_yscale(scale)
-                axes.set_xlabel("Memory usage (bytes)")
-                axes.set_ylabel("Time (s)")
-                axes.set_title(f"{task} - {scale} scale")
-                axes.grid(True, which="both", axis="both")
-                axes.fill_between(
-                    subdf["memory_usage"],
-                    subdf["lower_bound"],
-                    subdf["upper_bound"],
-                    color=get_approach_color(name),
-                    alpha=0.5,
-                )
-                axes.plot(
-                    subdf["memory_usage"],
-                    subdf["mean"],
-                    marker=get_approach_marker(name),
-                    linestyle=get_bits_line_style(bits),
-                    color=get_approach_color(name),
-                    label=f"{name} - {bits} bits",
-                )
+    number_of_tasks = cross_task_df["task"].nunique()
+    print(f"Found {len(cross_task_df)} unique benchmarks across {number_of_tasks} tasks")
 
-    # We position the legend outside the plot, on the right
-    # of the second axes. In order to avoid duplicating the
-    # legend, we only show it on the second axes.
-    ax[1].legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    cross_task_df["time_x_error"] = cross_task_df["time_mean"] * cross_task_df["mean_error"]
 
-    fig.tight_layout()
+    for task, df in tqdm(
+        cross_task_df.groupby("task"),
+        total=number_of_tasks,
+        desc="Plotting benchmarks",
+        leave=False,
+    ):
+        for y_feature, x_feature in [("time_mean", "memory_usage"), ("time_x_error", "memory_usage")]:
+            fig, ax = plt.subplots(
+                ncols=2,  # We plot both in linear and log scale, and we also
+                nrows=2,  # show the same plots but without the slowest approaches
+                figsize=(14, 14),
+                dpi=300,
+            )
 
-    figure_path = path.replace(".log", ".png")
+            df = df.sort_values(by=[x_feature])
 
-    plt.savefig(figure_path)
+            # We compute the median of the performance across all approaches
+
+            mean = df[y_feature].mean()
+
+            for name in df["name"].unique():
+                for bits in df["bits"].unique():
+                    for j, threshold in enumerate([None, mean]):
+                        mask = (df["name"] == name) & (df["bits"] == bits)
+                        subdf = df[mask]
+                        if threshold is not None:
+                            if subdf[y_feature].mean() > threshold:
+                                continue
+
+                        # If the mask is empty, we skip the plot
+                        if subdf.empty:
+                            continue
+                        for scale, axes in zip(["linear", "log"], ax[j]):
+                            axes.set_xscale("log")
+                            axes.set_yscale(scale)
+                            axes.set_xlabel(sanitize_ml_labels(x_feature))
+                            axes.set_ylabel(sanitize_ml_labels(y_feature))
+                            if threshold is None:
+                                axes.set_title(f"{task} - {scale} scale")
+                            else:
+                                axes.set_title(
+                                    f"{task} - {scale} scale - threshold {threshold:.2e}"
+                                )
+                            axes.grid(True, which="both", axis="both")
+                            # axes.fill_between(
+                            #     subdf[x_feature],
+                            #     subdf["lower_bound"],
+                            #     subdf["upper_bound"],
+                            #     color=get_approach_color(name),
+                            #     alpha=0.5,
+                            # )
+                            axes.plot(
+                                subdf[x_feature],
+                                subdf[y_feature],
+                                marker=get_approach_marker(name),
+                                markersize=10,
+                                linestyle=get_approach_linestyle(name),
+                                color=get_approach_color(name),
+                                label=f"{name} - {bits} bits",
+                            )
+
+            # We position the legend outside the plot, on the right
+            # of the second axes. In order to avoid duplicating the
+            # legend, we only show it on the second axes.
+            ax[0, 0].legend(loc="center left")
+
+            fig.tight_layout()
+
+            figure_path = f"benches/{task}.{y_feature}.{x_feature}.png"
+
+            plt.savefig(figure_path)
+            plt.close()
 
 
 if __name__ == "__main__":
-    for log_path in glob("benches/*.log"):
-        try:
-            plot_benchmarks(log_path)
-        except Exception as e:
-            print(f"Error while plotting {log_path}: {e}")
-            continue
+    plot_benchmarks()

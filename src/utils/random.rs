@@ -1,7 +1,5 @@
 //! Random number generators.
 
-use core::usize;
-
 /// SplitMix64 is a pseudorandom number generator that is very fast and has a good quality of randomness.
 pub fn splitmix64(mut x: u64) -> u64 {
     x = x.wrapping_add(0x9E3779B97F4A7C15);
@@ -24,16 +22,20 @@ pub fn iter_random_values(
     maximal_value: Option<usize>,
     mut random_state: u64,
 ) -> impl Iterator<Item = u64> {
-    random_state = splitmix64(random_state);
-    let maximal_size = 1 + xorshift64(random_state) as usize % maximal_size;
-    random_state = splitmix64(random_state);
+    debug_assert!(maximal_size > 0);
+    debug_assert!(maximal_value.is_none() || maximal_value.unwrap() > 0);
 
+    random_state = splitmix64(splitmix64(random_state));
+
+    let maximal_size = random_state % (maximal_size as u64);
+
+    random_state = splitmix64(splitmix64(random_state));
     let maximal_value = maximal_value.map_or(u64::MAX, |maximal_value| {
         (1 + xorshift64(random_state) as usize % maximal_value) as u64
     });
     (0..maximal_size).map(move |_| {
-        random_state = splitmix64(random_state);
+        random_state = splitmix64(splitmix64(random_state));
         random_state = xorshift64(random_state);
-        random_state as u64 % maximal_value
+        random_state  % maximal_value
     })
 }

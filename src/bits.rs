@@ -1,6 +1,6 @@
 //! Submodule providing the trait marker Bits.
 
-pub trait Bits: Default + Copy + PartialEq + Eq + Send + Sync{
+pub trait Bits: Default + Copy + PartialEq + Eq + Send + Sync + core::fmt::Debug {
     const NUMBER_OF_BITS: usize;
 }
 

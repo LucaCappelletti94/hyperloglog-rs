@@ -1,0 +1,27 @@
+[package]
+name = "statistical_comparisons"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde_json = "1.0"
+rand = "0.8"
+hyperloglog-rs = {path = "../", features = ["mem_dbg", "all_precisions", "precomputed_beta"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+hyperloglogplus = {git = "https://github.com/LucaCappelletti94/hyperloglog.rs.git", branch = "mem_dbg", features = ["mem_dbg"]}
+streaming_algorithms = {git = "https://github.com/LucaCappelletti94/streaming_algorithms", branch = "mem_dbg", features = ["mem_dbg"]}
+cardinality-estimator = {git = "https://github.com/LucaCappelletti94/cardinality-estimator.git", branch = "mem_dbg", features = ["mem_dbg"]}
+rust-hyperloglog = {git = "https://github.com/LucaCappelletti94/rust-hyperloglog.git", branch = "updated_siphasher", package = "hyperloglog", features = ["mem_dbg"]}
+stattest = {git = "https://github.com/LucaCappelletti94/stattest"}
+csv = "1.3.0"
+wyhash = "0.5.0"
+mem_dbg = "0.2.4"
+paste = "1.0.15"
+twox-hash = "1.6.3"
+indicatif = {version="0.17.8", features=["rayon"]}
+rayon = "1.10.0"
+serde = "1.0.206"
+
+[features]
+default = ["mle"]
+mle = ["hyperloglog-rs/mle"]

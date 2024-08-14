@@ -63,6 +63,11 @@ pub trait Ten {
     const TEN: Self;
 }
 
+pub trait OneHundred {
+    /// The one hundred value for this type.
+    const ONE_HUNDRED: Self;
+}
+
 pub trait OneThousand {
     /// The one thousand value for this type.
     const ONE_THOUSAND: Self;
@@ -103,6 +108,9 @@ macro_rules! impl_constants {
         }
         impl Ten for $t {
             const TEN: Self = 10;
+        }
+        impl OneHundred for $t {
+            const ONE_HUNDRED: Self = 100;
         }
     )*)
 }
@@ -148,6 +156,9 @@ macro_rules! impl_constants_float {
         }
         impl Ten for $t {
             const TEN: Self = 10.0;
+        }
+        impl OneHundred for $t {
+            const ONE_HUNDRED: Self = 100.0;
         }
         impl OneThousand for $t {
             const ONE_THOUSAND: Self = 1_000.0;

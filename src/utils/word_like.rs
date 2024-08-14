@@ -1,11 +1,15 @@
 //! Submodule providing the trait WordLike.
 
+use super::Number;
+
 pub trait WordLike:
     Copy
     + Ord
+    + Number
     + core::ops::Shl<usize, Output = Self>
     + core::ops::Shr<usize, Output = Self>
     + core::ops::BitAnd<Self, Output = Self>
+    + core::ops::BitOr<Self, Output = Self>
 {
 }
 

@@ -1,519 +1,1293 @@
-hll_union_precision_4_bits_6
-                        time:   [14.604 µs 14.615 µs 14.629 µs]
-                        change: [+121.67% +121.94% +122.21%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 9 outliers among 100 measurements (9.00%)
+plusplus_union_precision_4_bits_6
+                        time:   [14.583 µs 14.587 µs 14.591 µs]
+                        change: [-0.2961% -0.1649% -0.0366%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+
+plusplus_union_precision_4_bits_8
+                        time:   [13.840 µs 13.848 µs 13.855 µs]
+                        change: [-0.7151% -0.5028% -0.2894%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
   2 (2.00%) high mild
+
+plusplus_union_precision_5_bits_6
+                        time:   [27.655 µs 27.661 µs 27.668 µs]
+                        change: [-0.4245% -0.3849% -0.3453%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) high mild
+  4 (4.00%) high severe
+
+plusplus_union_precision_5_bits_8
+                        time:   [18.282 µs 18.294 µs 18.307 µs]
+                        change: [-1.4066% -0.5741% -0.0802%] (p = 0.08 > 0.05)
+                        No change in performance detected.
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+
+plusplus_union_precision_6_bits_6
+                        time:   [48.845 µs 48.859 µs 48.875 µs]
+                        change: [+0.8443% +0.8878% +0.9287%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+
+plusplus_union_precision_6_bits_8
+                        time:   [35.625 µs 35.641 µs 35.662 µs]
+                        change: [-0.7222% -0.5662% -0.4229%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  4 (4.00%) high severe
+
+plusplus_union_precision_7_bits_6
+                        time:   [97.399 µs 97.443 µs 97.513 µs]
+                        change: [+0.7741% +0.8792% +0.9711%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 9 outliers among 100 measurements (9.00%)
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  5 (5.00%) high severe
+
+plusplus_union_precision_7_bits_8
+                        time:   [70.406 µs 70.436 µs 70.478 µs]
+                        change: [+2.6168% +2.7532% +2.8791%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+
+plusplus_union_precision_8_bits_6
+                        time:   [192.66 µs 192.71 µs 192.76 µs]
+                        change: [-0.4286% -0.2899% -0.1713%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 11 outliers among 100 measurements (11.00%)
+  6 (6.00%) high mild
+  5 (5.00%) high severe
+
+plusplus_union_precision_8_bits_8
+                        time:   [139.71 µs 139.76 µs 139.82 µs]
+                        change: [-0.1893% -0.0645% +0.0653%] (p = 0.33 > 0.05)
+                        No change in performance detected.
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  9 (9.00%) high severe
+
+plusplus_union_precision_9_bits_6
+                        time:   [370.74 µs 370.82 µs 370.90 µs]
+                        change: [-2.1878% -1.9578% -1.7631%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 14 outliers among 100 measurements (14.00%)
+  7 (7.00%) high mild
   7 (7.00%) high severe
 
-hll_union_precision_5_bits_6
-                        time:   [27.228 µs 27.252 µs 27.278 µs]
-                        change: [+121.18% +121.35% +121.52%] (p = 0.00 < 0.05)
-                        Performance has regressed.
+plusplus_union_precision_9_bits_8
+                        time:   [283.22 µs 283.26 µs 283.32 µs]
+                        change: [+0.1147% +0.1556% +0.2057%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 12 outliers among 100 measurements (12.00%)
+  4 (4.00%) high mild
+  8 (8.00%) high severe
 
-hll_union_precision_6_bits_6
-                        time:   [51.720 µs 51.732 µs 51.746 µs]
-                        change: [+122.56% +122.70% +122.85%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 15 outliers among 100 measurements (15.00%)
-  1 (1.00%) low mild
+plusplus_union_precision_10_bits_6
+                        time:   [748.67 µs 748.78 µs 748.91 µs]
+                        change: [-0.0498% -0.0265% -0.0044%] (p = 0.02 < 0.05)
+                        Change within noise threshold.
+Found 14 outliers among 100 measurements (14.00%)
   4 (4.00%) high mild
   10 (10.00%) high severe
 
-hll_union_precision_7_bits_6
-                        time:   [94.589 µs 94.611 µs 94.635 µs]
-                        change: [+127.26% +127.41% +127.52%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 11 outliers among 100 measurements (11.00%)
+plusplus_union_precision_10_bits_8
+                        time:   [563.47 µs 563.63 µs 563.84 µs]
+                        change: [-0.5616% -0.5128% -0.4678%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 12 outliers among 100 measurements (12.00%)
   1 (1.00%) low mild
-  2 (2.00%) high mild
-  8 (8.00%) high severe
+  4 (4.00%) high mild
+  7 (7.00%) high severe
 
-hll_union_precision_8_bits_6
-                        time:   [185.76 µs 185.84 µs 185.95 µs]
-                        change: [+124.85% +125.01% +125.16%] (p = 0.00 < 0.05)
+plusplus_union_precision_11_bits_6
+                        time:   [1.4894 ms 1.4897 ms 1.4900 ms]
+                        change: [+1.2298% +1.2636% +1.2962%] (p = 0.00 < 0.05)
                         Performance has regressed.
-Found 13 outliers among 100 measurements (13.00%)
+Found 18 outliers among 100 measurements (18.00%)
   1 (1.00%) low mild
-  8 (8.00%) high mild
-  4 (4.00%) high severe
+  3 (3.00%) high mild
+  14 (14.00%) high severe
 
-hll_union_precision_9_bits_6
-                        time:   [401.42 µs 401.51 µs 401.61 µs]
-                        change: [+124.99% +125.06% +125.13%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 14 outliers among 100 measurements (14.00%)
+plusplus_union_precision_11_bits_8
+                        time:   [1.1192 ms 1.1196 ms 1.1202 ms]
+                        change: [-1.6160% -1.5777% -1.5398%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 18 outliers among 100 measurements (18.00%)
+  1 (1.00%) low severe
   6 (6.00%) high mild
-  8 (8.00%) high severe
-
-hll_union_precision_10_bits_6
-                        time:   [804.41 µs 804.61 µs 804.86 µs]
-                        change: [+125.52% +125.61% +125.69%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 16 outliers among 100 measurements (16.00%)
-  5 (5.00%) high mild
   11 (11.00%) high severe
 
-hll_union_precision_11_bits_6
-                        time:   [1.4278 ms 1.4282 ms 1.4287 ms]
-                        change: [+125.40% +125.66% +125.89%] (p = 0.00 < 0.05)
-                        Performance has regressed.
+plusplus_union_precision_12_bits_6
+                        time:   [2.8996 ms 2.9003 ms 2.9010 ms]
+                        change: [-3.0678% -3.0247% -2.9914%] (p = 0.00 < 0.05)
+                        Performance has improved.
 Found 16 outliers among 100 measurements (16.00%)
-  3 (3.00%) high mild
-  13 (13.00%) high severe
+  2 (2.00%) high mild
+  14 (14.00%) high severe
 
-hll_union_precision_12_bits_6
-                        time:   [2.8695 ms 2.8704 ms 2.8717 ms]
-                        change: [+123.02% +123.41% +123.72%] (p = 0.00 < 0.05)
-                        Performance has regressed.
+plusplus_union_precision_12_bits_8
+                        time:   [2.2245 ms 2.2249 ms 2.2254 ms]
+                        change: [-0.8299% -0.6646% -0.5311%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
 Found 8 outliers among 100 measurements (8.00%)
   1 (1.00%) high mild
   7 (7.00%) high severe
 
-hll_union_precision_13_bits_6
-                        time:   [6.3657 ms 6.3672 ms 6.3692 ms]
-                        change: [+128.17% +128.26% +128.35%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 9 outliers among 100 measurements (9.00%)
-  9 (9.00%) high severe
-
-hll_union_precision_14_bits_6
-                        time:   [12.728 ms 12.731 ms 12.734 ms]
-                        change: [+125.09% +125.22% +125.32%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 11 outliers among 100 measurements (11.00%)
-  11 (11.00%) high severe
-
-hll_union_precision_15_bits_6
-                        time:   [22.607 ms 22.610 ms 22.615 ms]
-                        change: [+124.90% +125.00% +125.10%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 15 outliers among 100 measurements (15.00%)
-  6 (6.00%) high mild
-  9 (9.00%) high severe
-
-hll_union_precision_16_bits_6
-                        time:   [49.513 ms 49.521 ms 49.530 ms]
-                        change: [+123.01% +123.16% +123.28%] (p = 0.00 < 0.05)
-                        Performance has regressed.
+plusplus_union_precision_13_bits_6
+                        time:   [5.8143 ms 5.8152 ms 5.8163 ms]
+                        change: [-1.6215% -1.5270% -1.4508%] (p = 0.00 < 0.05)
+                        Performance has improved.
 Found 12 outliers among 100 measurements (12.00%)
   1 (1.00%) high mild
   11 (11.00%) high severe
 
-mle_union_precision_4_bits_6
-                        time:   [204.66 ms 204.71 ms 204.77 ms]
+plusplus_union_precision_13_bits_8
+                        time:   [4.5146 ms 4.5155 ms 4.5164 ms]
+                        change: [-0.0960% -0.0564% -0.0215%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 15 outliers among 100 measurements (15.00%)
+  2 (2.00%) high mild
+  13 (13.00%) high severe
 
-mle_union_precision_5_bits_6
-                        time:   [373.91 ms 374.00 ms 374.08 ms]
+plusplus_union_precision_14_bits_6
+                        time:   [11.841 ms 11.843 ms 11.845 ms]
+                        change: [-0.0210% +0.0154% +0.0483%] (p = 0.39 > 0.05)
+                        No change in performance detected.
+Found 11 outliers among 100 measurements (11.00%)
+  11 (11.00%) high severe
 
-mle_union_precision_6_bits_6
-                        time:   [823.04 ms 823.34 ms 823.68 ms]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) high mild
+plusplus_union_precision_14_bits_8
+                        time:   [9.0209 ms 9.0222 ms 9.0238 ms]
+                        change: [+1.3779% +1.4116% +1.4421%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  3 (3.00%) high mild
+  6 (6.00%) high severe
 
-mle_union_precision_7_bits_6
-                        time:   [1.4909 s 1.4915 s 1.4925 s]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) high severe
+plusplus_union_precision_15_bits_6
+                        time:   [23.334 ms 23.396 ms 23.456 ms]
 
-mle_union_precision_8_bits_6
-                        time:   [2.4321 s 2.4325 s 2.4329 s]
-Found 2 outliers among 10 measurements (20.00%)
-  1 (10.00%) low mild
-  1 (10.00%) high severe
+plusplus_union_precision_15_bits_8
+                        time:   [17.787 ms 17.791 ms 17.795 ms]
+Found 14 outliers among 100 measurements (14.00%)
+  4 (4.00%) high mild
+  10 (10.00%) high severe
 
-mle_union_precision_9_bits_6
-                        time:   [6.0228 s 6.0239 s 6.0257 s]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) high severe
+plusplus_union_precision_16_bits_6
+                        time:   [45.880 ms 45.888 ms 45.898 ms]
+Found 14 outliers among 100 measurements (14.00%)
+  9 (9.00%) high mild
+  5 (5.00%) high severe
 
-mle_union_precision_10_bits_6
-                        time:   [14.095 s 14.096 s 14.098 s]
-Found 2 outliers among 10 measurements (20.00%)
-  1 (10.00%) high mild
-  1 (10.00%) high severe
+plusplus_union_precision_16_bits_8
+                        time:   [35.465 ms 35.473 ms 35.483 ms]
+Found 11 outliers among 100 measurements (11.00%)
+  2 (2.00%) high mild
+  9 (9.00%) high severe
 
-mle_union_precision_11_bits_6
-                        time:   [15.534 s 15.536 s 15.538 s]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) high mild
+plusplus_union_precision_17_bits_6
+                        time:   [94.638 ms 94.650 ms 94.663 ms]
+Found 16 outliers among 100 measurements (16.00%)
+  3 (3.00%) high mild
+  13 (13.00%) high severe
 
-mle_union_precision_12_bits_6
-                        time:   [15.681 s 15.693 s 15.712 s]
-Found 2 outliers among 10 measurements (20.00%)
-  2 (20.00%) high severe
-
-mle_union_precision_13_bits_6
-                        time:   [15.950 s 15.953 s 15.955 s]
-
-mle_union_precision_14_bits_6
-                        time:   [15.464 s 15.467 s 15.469 s]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) low mild
-
-mle_union_precision_15_bits_6
-                        time:   [15.834 s 15.837 s 15.840 s]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) low severe
-
-mle_union_precision_16_bits_6
-                        time:   [15.485 s 15.488 s 15.490 s]
-
-tabacpf_union_precision_4_bits_6
-                        time:   [53.581 µs 53.645 µs 53.734 µs]
-Found 2 outliers among 20 measurements (10.00%)
-  2 (10.00%) high mild
-
-tabacpf_union_precision_5_bits_6
-                        time:   [123.36 µs 123.41 µs 123.45 µs]
-
-tabacpf_union_precision_6_bits_6
-                        time:   [255.58 µs 255.68 µs 255.80 µs]
-Found 1 outliers among 20 measurements (5.00%)
-  1 (5.00%) high mild
-
-tabacpf_union_precision_7_bits_6
-                        time:   [524.29 µs 524.39 µs 524.50 µs]
-Found 2 outliers among 20 measurements (10.00%)
-  1 (5.00%) high mild
-  1 (5.00%) high severe
-
-tabacpf_union_precision_8_bits_6
-                        time:   [1.0560 ms 1.0562 ms 1.0564 ms]
-Found 2 outliers among 20 measurements (10.00%)
-  1 (5.00%) low mild
-  1 (5.00%) high severe
-
-tabacpf_union_precision_9_bits_6
-                        time:   [2.1645 ms 2.1651 ms 2.1661 ms]
-Found 2 outliers among 20 measurements (10.00%)
-  2 (10.00%) high severe
-
-tabacpf_union_precision_10_bits_6
-                        time:   [4.5136 ms 4.5150 ms 4.5165 ms]
-
-tabacpf_union_precision_11_bits_6
-                        time:   [9.3477 ms 9.3509 ms 9.3550 ms]
-Found 1 outliers among 20 measurements (5.00%)
-  1 (5.00%) high severe
-
-tabacpf_union_precision_12_bits_6
-                        time:   [18.278 ms 18.281 ms 18.285 ms]
-
-tabacpf_union_precision_13_bits_6
-                        time:   [33.075 ms 33.085 ms 33.100 ms]
-Found 1 outliers among 20 measurements (5.00%)
-  1 (5.00%) high severe
-
-tabacpf_union_precision_14_bits_6
-                        time:   [54.669 ms 54.683 ms 54.700 ms]
-Found 1 outliers among 20 measurements (5.00%)
-  1 (5.00%) high mild
-
-tabacpf_union_precision_15_bits_6
-                        time:   [91.144 ms 91.163 ms 91.185 ms]
-Found 1 outliers among 20 measurements (5.00%)
-  1 (5.00%) high mild
-
-tabacpf_union_precision_16_bits_6
-                        time:   [160.18 ms 160.22 ms 160.28 ms]
-Found 2 outliers among 20 measurements (10.00%)
-  1 (5.00%) high mild
-  1 (5.00%) high severe
-
-tabacplusplus_union_precision_4_bits_6
-                        time:   [73.378 µs 73.465 µs 73.534 µs]
-
-tabacplusplus_union_precision_5_bits_6
-                        time:   [141.28 µs 141.37 µs 141.47 µs]
-
-tabacplusplus_union_precision_6_bits_6
-                        time:   [277.72 µs 277.83 µs 278.03 µs]
-Found 3 outliers among 20 measurements (15.00%)
-  2 (10.00%) high mild
-  1 (5.00%) high severe
-
-tabacplusplus_union_precision_7_bits_6
-                        time:   [539.09 µs 539.20 µs 539.31 µs]
-
-tabacplusplus_union_precision_8_bits_6
-                        time:   [1.0553 ms 1.0555 ms 1.0557 ms]
-Found 3 outliers among 20 measurements (15.00%)
-  1 (5.00%) low severe
-  1 (5.00%) high mild
-  1 (5.00%) high severe
-
-tabacplusplus_union_precision_9_bits_6
-                        time:   [2.1729 ms 2.1751 ms 2.1787 ms]
-Found 3 outliers among 20 measurements (15.00%)
-  1 (5.00%) high mild
-  2 (10.00%) high severe
-
-tabacplusplus_union_precision_10_bits_6
-                        time:   [4.4734 ms 4.4774 ms 4.4830 ms]
-
-tabacplusplus_union_precision_11_bits_6
-                        time:   [9.4049 ms 9.4076 ms 9.4116 ms]
-Found 1 outliers among 20 measurements (5.00%)
-  1 (5.00%) high severe
-
-tabacplusplus_union_precision_12_bits_6
-                        time:   [19.985 ms 19.993 ms 20.003 ms]
-Found 3 outliers among 20 measurements (15.00%)
-  1 (5.00%) high mild
-  2 (10.00%) high severe
-
-tabacplusplus_union_precision_13_bits_6
-                        time:   [46.210 ms 46.223 ms 46.236 ms]
-Found 2 outliers among 20 measurements (10.00%)
-  1 (5.00%) high mild
-  1 (5.00%) high severe
-
-tabacplusplus_union_precision_14_bits_6
-                        time:   [115.72 ms 115.76 ms 115.83 ms]
-Found 1 outliers among 20 measurements (5.00%)
-  1 (5.00%) high severe
-
-tabacplusplus_union_precision_15_bits_6
-                        time:   [275.45 ms 275.54 ms 275.67 ms]
-Found 1 outliers among 20 measurements (5.00%)
-  1 (5.00%) high severe
-
-tabacplusplus_union_precision_16_bits_6
-                        time:   [272.33 ms 272.40 ms 272.50 ms]
-Found 1 outliers among 20 measurements (5.00%)
-  1 (5.00%) high severe
-
-sa_union_precision_4_bits_6
-                        time:   [26.326 µs 26.343 µs 26.364 µs]
+plusplus_union_precision_17_bits_8
+                        time:   [67.796 ms 67.808 ms 67.821 ms]
 Found 7 outliers among 100 measurements (7.00%)
   4 (4.00%) high mild
   3 (3.00%) high severe
 
+plusplus_union_precision_18_bits_6
+                        time:   [189.25 ms 189.28 ms 189.31 ms]
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+
+plusplus_union_precision_18_bits_8
+                        time:   [135.54 ms 135.56 ms 135.59 ms]
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+
+beta_union_precision_4_bits_6
+                        time:   [15.268 µs 15.358 µs 15.456 µs]
+                        change: [+2.2888% +2.7061% +3.0433%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 27 outliers among 100 measurements (27.00%)
+  18 (18.00%) low severe
+  3 (3.00%) high mild
+  6 (6.00%) high severe
+
+beta_union_precision_4_bits_8
+                        time:   [14.170 µs 14.187 µs 14.206 µs]
+                        change: [+0.6098% +0.8007% +1.0014%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) low mild
+  1 (1.00%) high severe
+
+beta_union_precision_5_bits_6
+                        time:   [29.134 µs 29.142 µs 29.151 µs]
+                        change: [+0.0559% +0.1156% +0.1733%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 13 outliers among 100 measurements (13.00%)
+  4 (4.00%) high mild
+  9 (9.00%) high severe
+
+beta_union_precision_5_bits_8
+                        time:   [18.496 µs 18.504 µs 18.513 µs]
+                        change: [-0.4577% -0.3241% -0.2096%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+
+beta_union_precision_6_bits_6
+                        time:   [49.815 µs 49.825 µs 49.836 µs]
+                        change: [-2.1938% -2.1269% -2.0654%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 9 outliers among 100 measurements (9.00%)
+  4 (4.00%) high mild
+  5 (5.00%) high severe
+
+beta_union_precision_6_bits_8
+                        time:   [35.278 µs 35.285 µs 35.292 µs]
+                        change: [+0.5978% +0.6252% +0.6520%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+  4 (4.00%) high severe
+
+beta_union_precision_7_bits_6
+                        time:   [97.854 µs 97.876 µs 97.900 µs]
+                        change: [+1.6362% +1.7223% +1.7986%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+
+beta_union_precision_7_bits_8
+                        time:   [71.104 µs 71.472 µs 71.841 µs]
+                        change: [-2.2456% -1.8202% -1.3917%] (p = 0.00 < 0.05)
+                        Performance has improved.
+
+beta_union_precision_8_bits_6
+                        time:   [190.69 µs 190.75 µs 190.83 µs]
+                        change: [-0.9200% -0.7040% -0.5276%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+
+beta_union_precision_8_bits_8
+                        time:   [132.80 µs 132.83 µs 132.87 µs]
+                        change: [-0.2627% -0.1701% -0.0859%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+
+beta_union_precision_9_bits_6
+                        time:   [371.01 µs 371.16 µs 371.39 µs]
+                        change: [-0.9175% -0.7435% -0.5223%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+
+beta_union_precision_9_bits_8
+                        time:   [268.02 µs 268.07 µs 268.12 µs]
+                        change: [+0.3380% +0.4310% +0.5081%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) low mild
+  7 (7.00%) high mild
+  2 (2.00%) high severe
+
+beta_union_precision_10_bits_6
+                        time:   [732.72 µs 732.83 µs 732.96 µs]
+                        change: [+0.1086% +0.2370% +0.3433%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 14 outliers among 100 measurements (14.00%)
+  3 (3.00%) high mild
+  11 (11.00%) high severe
+
+beta_union_precision_10_bits_8
+                        time:   [531.46 µs 531.59 µs 531.73 µs]
+                        change: [-0.8525% -0.8154% -0.7770%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 15 outliers among 100 measurements (15.00%)
+  1 (1.00%) low severe
+  4 (4.00%) high mild
+  10 (10.00%) high severe
+
+beta_union_precision_11_bits_6
+                        time:   [1.4311 ms 1.4315 ms 1.4319 ms]
+                        change: [-3.3238% -3.2682% -3.2173%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 15 outliers among 100 measurements (15.00%)
+  7 (7.00%) high mild
+  8 (8.00%) high severe
+
+beta_union_precision_11_bits_8
+                        time:   [1.0602 ms 1.0605 ms 1.0608 ms]
+                        change: [-1.9846% -1.9050% -1.8373%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 17 outliers among 100 measurements (17.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  13 (13.00%) high severe
+
+beta_union_precision_12_bits_6
+                        time:   [2.9790 ms 2.9796 ms 2.9803 ms]
+                        change: [+2.3175% +2.3936% +2.4526%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) high mild
+  8 (8.00%) high severe
+
+beta_union_precision_12_bits_8
+                        time:   [2.1625 ms 2.1634 ms 2.1645 ms]
+                        change: [-0.4333% -0.2913% -0.1655%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) high mild
+  11 (11.00%) high severe
+
+beta_union_precision_13_bits_6
+                        time:   [5.8065 ms 5.8081 ms 5.8100 ms]
+                        change: [-2.1173% -2.0207% -1.9340%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 11 outliers among 100 measurements (11.00%)
+  11 (11.00%) high severe
+
+beta_union_precision_13_bits_8
+                        time:   [4.2941 ms 4.2957 ms 4.2976 ms]
+                        change: [+1.2731% +1.3207% +1.3729%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) high mild
+  11 (11.00%) high severe
+
+beta_union_precision_14_bits_6
+                        time:   [11.728 ms 11.751 ms 11.775 ms]
+                        change: [-0.7403% -0.3744% +0.0243%] (p = 0.06 > 0.05)
+                        No change in performance detected.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+
+beta_union_precision_14_bits_8
+                        time:   [8.5435 ms 8.5448 ms 8.5464 ms]
+                        change: [-3.0664% -3.0390% -3.0135%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 9 outliers among 100 measurements (9.00%)
+  9 (9.00%) high severe
+
+beta_union_precision_15_bits_6
+                        time:   [22.915 ms 22.919 ms 22.923 ms]
+                        change: [-2.9383% -2.9150% -2.8924%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) high mild
+  5 (5.00%) high severe
+
+beta_union_precision_15_bits_8
+                        time:   [17.619 ms 17.625 ms 17.634 ms]
+                        change: [+1.4166% +1.4632% +1.5204%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 11 outliers among 100 measurements (11.00%)
+  3 (3.00%) high mild
+  8 (8.00%) high severe
+
+beta_union_precision_16_bits_6
+                        time:   [47.614 ms 47.621 ms 47.628 ms]
+                        change: [+0.3639% +0.4764% +0.5603%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 14 outliers among 100 measurements (14.00%)
+  4 (4.00%) high mild
+  10 (10.00%) high severe
+
+beta_union_precision_16_bits_8
+                        time:   [34.370 ms 34.375 ms 34.380 ms]
+                        change: [+1.6714% +1.6944% +1.7166%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  1 (1.00%) high mild
+  8 (8.00%) high severe
+
+beta_union_precision_17_bits_6
+                        time:   [92.681 ms 92.703 ms 92.732 ms]
+Found 15 outliers among 100 measurements (15.00%)
+  1 (1.00%) high mild
+  14 (14.00%) high severe
+
+beta_union_precision_17_bits_8
+                        time:   [68.352 ms 68.363 ms 68.375 ms]
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) high mild
+  10 (10.00%) high severe
+
+beta_union_precision_18_bits_6
+                        time:   [189.28 ms 189.30 ms 189.32 ms]
+Found 19 outliers among 100 measurements (19.00%)
+  13 (13.00%) high mild
+  6 (6.00%) high severe
+
+beta_union_precision_18_bits_8
+                        time:   [137.44 ms 137.46 ms 137.49 ms]
+Found 14 outliers among 100 measurements (14.00%)
+  10 (10.00%) high mild
+  4 (4.00%) high severe
+
+mlepp_union_precision_4_bits_6
+                        time:   [105.87 ms 105.93 ms 105.98 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+
+mlepp_union_precision_5_bits_6
+                        time:   [193.21 ms 193.41 ms 193.58 ms]
+
+mlepp_union_precision_6_bits_6
+                        time:   [418.17 ms 418.27 ms 418.37 ms]
+
+mlepp_union_precision_7_bits_6
+                        time:   [751.55 ms 751.79 ms 752.01 ms]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low mild
+  1 (10.00%) high mild
+
+mlepp_union_precision_8_bits_6
+                        time:   [1.2227 s 1.2233 s 1.2238 s]
+
+mlepp_union_precision_9_bits_6
+                        time:   [2.9860 s 2.9868 s 2.9878 s]
+
+mlepp_union_precision_10_bits_6
+                        time:   [6.9374 s 6.9383 s 6.9392 s]
+
+mlepp_union_precision_11_bits_6
+                        time:   [7.6189 s 7.6207 s 7.6226 s]
+
+mlepp_union_precision_12_bits_6
+                        time:   [7.6980 s 7.7009 s 7.7043 s]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high mild
+
+mlepp_union_precision_13_bits_6
+                        time:   [7.8298 s 7.8337 s 7.8379 s]
+
+mlepp_union_precision_14_bits_6
+                        time:   [7.6109 s 7.6145 s 7.6184 s]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+mlepp_union_precision_15_bits_6
+                        time:   [7.8117 s 7.8130 s 7.8143 s]
+
+mlepp_union_precision_16_bits_6
+                        time:   [7.6949 s 7.6970 s 7.6992 s]
+
+mlepp_union_precision_17_bits_6
+                        time:   [7.5910 s 7.5945 s 7.5989 s]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+
+mlepp_union_precision_18_bits_6
+                        time:   [7.8541 s 7.8560 s 7.8583 s]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+beta_union_precision_4_bits_6
+                        time:   [14.964 µs 14.998 µs 15.040 µs]
+                        change: [-3.7981% -3.4571% -3.0950%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 16 outliers among 100 measurements (16.00%)
+  1 (1.00%) high mild
+  15 (15.00%) high severe
+
+beta_union_precision_4_bits_8
+                        time:   [14.164 µs 14.181 µs 14.197 µs]
+                        change: [-0.3819% -0.0762% +0.3837%] (p = 0.74 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+
+beta_union_precision_5_bits_6
+                        time:   [29.135 µs 29.141 µs 29.147 µs]
+                        change: [-0.0767% -0.0279% +0.0162%] (p = 0.25 > 0.05)
+                        No change in performance detected.
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) low severe
+  5 (5.00%) high mild
+  7 (7.00%) high severe
+
+beta_union_precision_5_bits_8
+                        time:   [18.502 µs 18.507 µs 18.512 µs]
+                        change: [-0.0308% +0.0035% +0.0369%] (p = 0.85 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+
+beta_union_precision_6_bits_6
+                        time:   [50.263 µs 50.272 µs 50.282 µs]
+                        change: [+0.8769% +0.9068% +0.9363%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 15 outliers among 100 measurements (15.00%)
+  3 (3.00%) low severe
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  10 (10.00%) high severe
+
+beta_union_precision_6_bits_8
+                        time:   [35.265 µs 35.273 µs 35.283 µs]
+                        change: [-0.0391% +0.0140% +0.0739%] (p = 0.65 > 0.05)
+                        No change in performance detected.
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+
+beta_union_precision_7_bits_6
+                        time:   [96.140 µs 96.189 µs 96.241 µs]
+                        change: [-1.7188% -1.6442% -1.5625%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
+beta_union_precision_7_bits_8
+                        time:   [71.091 µs 71.441 µs 71.761 µs]
+                        change: [-0.5164% +0.0766% +0.6314%] (p = 0.79 > 0.05)
+                        No change in performance detected.
+
+beta_union_precision_8_bits_6
+                        time:   [193.24 µs 193.27 µs 193.31 µs]
+                        change: [+1.3306% +1.3659% +1.4006%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+
+beta_union_precision_8_bits_8
+                        time:   [132.88 µs 132.93 µs 132.99 µs]
+                        change: [-0.0563% +0.0046% +0.0563%] (p = 0.88 > 0.05)
+                        No change in performance detected.
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
+beta_union_precision_9_bits_6
+                        time:   [371.06 µs 371.13 µs 371.21 µs]
+                        change: [-0.5912% -0.3784% -0.2194%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 11 outliers among 100 measurements (11.00%)
+  4 (4.00%) high mild
+  7 (7.00%) high severe
+
+beta_union_precision_9_bits_8
+                        time:   [268.04 µs 268.20 µs 268.41 µs]
+                        change: [-0.0438% -0.0049% +0.0396%] (p = 0.83 > 0.05)
+                        No change in performance detected.
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+
+beta_union_precision_10_bits_6
+                        time:   [743.60 µs 743.70 µs 743.82 µs]
+                        change: [+1.4258% +1.4648% +1.4980%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 17 outliers among 100 measurements (17.00%)
+  1 (1.00%) low severe
+  5 (5.00%) high mild
+  11 (11.00%) high severe
+
+beta_union_precision_10_bits_8
+                        time:   [531.54 µs 531.62 µs 531.73 µs]
+                        change: [-0.0222% +0.0073% +0.0365%] (p = 0.64 > 0.05)
+                        No change in performance detected.
+Found 16 outliers among 100 measurements (16.00%)
+  1 (1.00%) low severe
+  5 (5.00%) high mild
+  10 (10.00%) high severe
+
+beta_union_precision_11_bits_6
+                        time:   [1.4312 ms 1.4315 ms 1.4319 ms]
+                        change: [-0.0301% +0.0078% +0.0453%] (p = 0.69 > 0.05)
+                        No change in performance detected.
+Found 14 outliers among 100 measurements (14.00%)
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  8 (8.00%) high severe
+
+beta_union_precision_11_bits_8
+                        time:   [1.0597 ms 1.0599 ms 1.0603 ms]
+                        change: [-0.0915% -0.0534% -0.0073%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  10 (10.00%) high severe
+
+beta_union_precision_12_bits_6
+                        time:   [2.8787 ms 2.8791 ms 2.8797 ms]
+                        change: [-3.3998% -3.3721% -3.3435%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 10 outliers among 100 measurements (10.00%)
+  3 (3.00%) high mild
+  7 (7.00%) high severe
+
+beta_union_precision_12_bits_8
+                        time:   [2.1614 ms 2.1618 ms 2.1622 ms]
+                        change: [-0.1292% -0.0754% -0.0329%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) high mild
+  7 (7.00%) high severe
+
+beta_union_precision_13_bits_6
+                        time:   [5.9142 ms 5.9150 ms 5.9159 ms]
+                        change: [+1.8033% +1.8400% +1.8718%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) high mild
+  7 (7.00%) high severe
+
+beta_union_precision_13_bits_8
+                        time:   [4.2933 ms 4.2950 ms 4.2972 ms]
+                        change: [-0.0749% -0.0164% +0.0464%] (p = 0.62 > 0.05)
+                        No change in performance detected.
+Found 14 outliers among 100 measurements (14.00%)
+  4 (4.00%) high mild
+  10 (10.00%) high severe
+
+beta_union_precision_14_bits_6
+                        time:   [11.611 ms 11.615 ms 11.620 ms]
+                        change: [-1.3611% -1.1575% -0.9618%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 17 outliers among 100 measurements (17.00%)
+  4 (4.00%) high mild
+  13 (13.00%) high severe
+
+beta_union_precision_14_bits_8
+                        time:   [8.5583 ms 8.5606 ms 8.5634 ms]
+                        change: [+0.1515% +0.1845% +0.2207%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 15 outliers among 100 measurements (15.00%)
+  6 (6.00%) high mild
+  9 (9.00%) high severe
+
+beta_union_precision_15_bits_6
+                        time:   [23.614 ms 23.642 ms 23.682 ms]
+                        change: [+3.0276% +3.1540% +3.3353%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 16 outliers among 100 measurements (16.00%)
+  1 (1.00%) high mild
+  15 (15.00%) high severe
+
+beta_union_precision_15_bits_8
+                        time:   [17.605 ms 17.609 ms 17.613 ms]
+                        change: [-0.1478% -0.0932% -0.0513%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  3 (3.00%) high mild
+  7 (7.00%) high severe
+
+beta_union_precision_16_bits_6
+                        time:   [47.618 ms 47.624 ms 47.632 ms]
+                        change: [-0.0136% +0.0075% +0.0282%] (p = 0.47 > 0.05)
+                        No change in performance detected.
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) high mild
+  13 (13.00%) high severe
+
+beta_union_precision_16_bits_8
+                        time:   [34.374 ms 34.382 ms 34.392 ms]
+                        change: [-0.0089% +0.0205% +0.0559%] (p = 0.19 > 0.05)
+                        No change in performance detected.
+Found 14 outliers among 100 measurements (14.00%)
+  5 (5.00%) high mild
+  9 (9.00%) high severe
+
+beta_union_precision_17_bits_6
+                        time:   [94.623 ms 94.636 ms 94.650 ms]
+                        change: [+2.0499% +2.0846% +2.1131%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 14 outliers among 100 measurements (14.00%)
+  14 (14.00%) high severe
+
+beta_union_precision_17_bits_8
+                        time:   [68.403 ms 68.435 ms 68.477 ms]
+                        change: [+0.0519% +0.1053% +0.1687%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 14 outliers among 100 measurements (14.00%)
+  3 (3.00%) high mild
+  11 (11.00%) high severe
+
+beta_union_precision_18_bits_6
+                        time:   [185.39 ms 185.42 ms 185.45 ms]
+                        change: [-2.0708% -2.0523% -2.0305%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+
+beta_union_precision_18_bits_8
+                        time:   [137.53 ms 137.57 ms 137.62 ms]
+                        change: [+0.0446% +0.0763% +0.1139%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+
+tabacpf_union_precision_4_bits_6
+                        time:   [52.492 µs 52.573 µs 52.677 µs]
+                        change: [-10.171% -9.9991% -9.8377%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) low mild
+
+tabacpf_union_precision_5_bits_6
+                        time:   [121.86 µs 121.92 µs 121.96 µs]
+                        change: [-4.8635% -4.7664% -4.6598%] (p = 0.00 < 0.05)
+                        Performance has improved.
+
+tabacpf_union_precision_6_bits_6
+                        time:   [248.03 µs 248.12 µs 248.24 µs]
+                        change: [-5.0157% -4.9358% -4.8694%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high mild
+
+tabacpf_union_precision_7_bits_6
+                        time:   [505.57 µs 505.65 µs 505.73 µs]
+                        change: [-3.7257% -3.6190% -3.5266%] (p = 0.00 < 0.05)
+                        Performance has improved.
+
+tabacpf_union_precision_8_bits_6
+                        time:   [1.0230 ms 1.0233 ms 1.0235 ms]
+                        change: [-2.4271% -2.2491% -2.1278%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+tabacpf_union_precision_9_bits_6
+                        time:   [2.1059 ms 2.1064 ms 2.1069 ms]
+                        change: [-2.3151% -2.0579% -1.8646%] (p = 0.00 < 0.05)
+                        Performance has improved.
+
+tabacpf_union_precision_10_bits_6
+                        time:   [4.3818 ms 4.3825 ms 4.3837 ms]
+                        change: [-1.2623% -1.1944% -1.1157%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) high mild
+  2 (10.00%) high severe
+
+tabacpf_union_precision_11_bits_6
+                        time:   [9.1088 ms 9.1106 ms 9.1125 ms]
+                        change: [-0.4918% -0.4498% -0.4064%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+tabacpf_union_precision_12_bits_6
+                        time:   [17.793 ms 17.797 ms 17.803 ms]
+                        change: [-0.0892% -0.0273% +0.0581%] (p = 0.51 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+tabacpf_union_precision_13_bits_6
+                        time:   [32.096 ms 32.101 ms 32.105 ms]
+                        change: [-0.0472% +0.0073% +0.0482%] (p = 0.80 > 0.05)
+                        No change in performance detected.
+
+tabacpf_union_precision_14_bits_6
+                        time:   [52.745 ms 52.753 ms 52.761 ms]
+                        change: [-1.4463% -1.4045% -1.3685%] (p = 0.00 < 0.05)
+                        Performance has improved.
+
+tabacpf_union_precision_15_bits_6
+                        time:   [88.262 ms 88.274 ms 88.287 ms]
+                        change: [-2.5818% -2.5373% -2.5001%] (p = 0.00 < 0.05)
+                        Performance has improved.
+
+tabacpf_union_precision_16_bits_6
+                        time:   [157.05 ms 157.07 ms 157.09 ms]
+                        change: [-2.7893% -2.7555% -2.7253%] (p = 0.00 < 0.05)
+                        Performance has improved.
+
+tabacpf_union_precision_17_bits_6
+                        time:   [296.09 ms 296.14 ms 296.18 ms]
+                        change: [-1.6094% -1.5392% -1.4812%] (p = 0.00 < 0.05)
+                        Performance has improved.
+
+tabacpf_union_precision_18_bits_6
+                        time:   [578.95 ms 579.07 ms 579.20 ms]
+                        change: [+0.2953% +0.3348% +0.3726%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+tabacplusplus_union_precision_4_bits_6
+                        time:   [72.057 µs 72.119 µs 72.184 µs]
+                        change: [-0.2416% -0.1465% -0.0563%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+
+tabacplusplus_union_precision_5_bits_6
+                        time:   [136.13 µs 136.17 µs 136.21 µs]
+                        change: [+0.9477% +1.1163% +1.2508%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+
+tabacplusplus_union_precision_6_bits_6
+                        time:   [272.60 µs 272.72 µs 272.83 µs]
+                        change: [+1.2457% +1.3077% +1.3693%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+
+tabacplusplus_union_precision_7_bits_6
+                        time:   [531.69 µs 532.61 µs 534.68 µs]
+                        change: [+1.3537% +1.5161% +1.7806%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+tabacplusplus_union_precision_8_bits_6
+                        time:   [1.0476 ms 1.0478 ms 1.0480 ms]
+                        change: [+0.0027% +0.0329% +0.0662%] (p = 0.05 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
+tabacplusplus_union_precision_9_bits_6
+                        time:   [2.1269 ms 2.1278 ms 2.1293 ms]
+                        change: [-0.2886% -0.2417% -0.1829%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+tabacplusplus_union_precision_10_bits_6
+                        time:   [4.3973 ms 4.3987 ms 4.4011 ms]
+                        change: [+0.4164% +0.4692% +0.5175%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
+tabacplusplus_union_precision_11_bits_6
+                        time:   [9.2483 ms 9.2499 ms 9.2518 ms]
+                        change: [-0.1421% -0.0831% -0.0345%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+tabacplusplus_union_precision_12_bits_6
+                        time:   [19.608 ms 19.611 ms 19.614 ms]
+                        change: [+0.1837% +0.2298% +0.2665%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+tabacplusplus_union_precision_13_bits_6
+                        time:   [45.502 ms 45.510 ms 45.519 ms]
+                        change: [+0.4788% +0.5885% +0.6674%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
+tabacplusplus_union_precision_14_bits_6
+                        time:   [115.24 ms 115.28 ms 115.32 ms]
+                        change: [+0.2443% +0.5263% +0.7253%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+
+tabacplusplus_union_precision_15_bits_6
+                        time:   [276.80 ms 276.91 ms 277.02 ms]
+                        change: [+0.4367% +0.4969% +0.5528%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+
+tabacplusplus_union_precision_16_bits_6
+                        time:   [273.46 ms 273.54 ms 273.62 ms]
+                        change: [+0.3725% +0.4190% +0.4572%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) low mild
+  1 (5.00%) high mild
+
+tabacplusplus_union_precision_17_bits_6
+                        time:   [268.83 ms 268.91 ms 269.00 ms]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+tabacplusplus_union_precision_18_bits_6
+                        time:   [264.06 ms 264.16 ms 264.31 ms]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+sa_union_precision_4_bits_6
+                        time:   [25.955 µs 25.963 µs 25.972 µs]
+                        change: [-1.4580% -1.4009% -1.3493%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+
 sa_union_precision_5_bits_6
-                        time:   [38.016 µs 38.046 µs 38.078 µs]
+                        time:   [36.491 µs 36.534 µs 36.585 µs]
+                        change: [-3.9981% -3.9066% -3.8179%] (p = 0.00 < 0.05)
+                        Performance has improved.
 Found 2 outliers among 100 measurements (2.00%)
   1 (1.00%) high mild
   1 (1.00%) high severe
 
 sa_union_precision_6_bits_6
-                        time:   [59.767 µs 59.826 µs 59.890 µs]
-Found 3 outliers among 100 measurements (3.00%)
-  2 (2.00%) high mild
-  1 (1.00%) high severe
+                        time:   [57.034 µs 57.076 µs 57.123 µs]
+                        change: [-4.6197% -4.5185% -4.4097%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) high mild
+  4 (4.00%) high severe
 
 sa_union_precision_7_bits_6
-                        time:   [104.05 µs 104.12 µs 104.20 µs]
+                        time:   [98.775 µs 98.845 µs 98.915 µs]
+                        change: [-5.0837% -4.9913% -4.8914%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high severe
+
+sa_union_precision_8_bits_6
+                        time:   [182.91 µs 183.02 µs 183.14 µs]
+                        change: [-5.8039% -5.7306% -5.6642%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 7 outliers among 100 measurements (7.00%)
+  6 (6.00%) high mild
+  1 (1.00%) high severe
+
+sa_union_precision_9_bits_6
+                        time:   [359.06 µs 359.18 µs 359.31 µs]
+                        change: [-5.5800% -5.5300% -5.4807%] (p = 0.00 < 0.05)
+                        Performance has improved.
 Found 3 outliers among 100 measurements (3.00%)
   3 (3.00%) high mild
 
-sa_union_precision_8_bits_6
-                        time:   [193.90 µs 193.99 µs 194.08 µs]
-Found 5 outliers among 100 measurements (5.00%)
-  3 (3.00%) high mild
-  2 (2.00%) high severe
-
-sa_union_precision_9_bits_6
-                        time:   [380.28 µs 380.42 µs 380.59 µs]
-Found 7 outliers among 100 measurements (7.00%)
-  1 (1.00%) low mild
-  3 (3.00%) high mild
-  3 (3.00%) high severe
-
 sa_union_precision_10_bits_6
-                        time:   [751.00 µs 751.16 µs 751.33 µs]
-Found 8 outliers among 100 measurements (8.00%)
+                        time:   [709.49 µs 709.60 µs 709.74 µs]
+                        change: [-5.5601% -5.5340% -5.5090%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 9 outliers among 100 measurements (9.00%)
   5 (5.00%) high mild
-  3 (3.00%) high severe
+  4 (4.00%) high severe
 
 sa_union_precision_11_bits_6
-                        time:   [1.5149 ms 1.5153 ms 1.5157 ms]
+                        time:   [1.4326 ms 1.4329 ms 1.4332 ms]
+                        change: [-5.4750% -5.4432% -5.4126%] (p = 0.00 < 0.05)
+                        Performance has improved.
 Found 14 outliers among 100 measurements (14.00%)
-  8 (8.00%) high mild
-  6 (6.00%) high severe
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  8 (8.00%) high severe
 
 sa_union_precision_12_bits_6
-                        time:   [2.9551 ms 2.9557 ms 2.9563 ms]
-Found 11 outliers among 100 measurements (11.00%)
-  2 (2.00%) high mild
-  9 (9.00%) high severe
+                        time:   [2.7875 ms 2.7880 ms 2.7886 ms]
+                        change: [-5.6983% -5.6727% -5.6480%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 7 outliers among 100 measurements (7.00%)
+  7 (7.00%) high severe
 
 sa_union_precision_13_bits_6
-                        time:   [5.8112 ms 5.8132 ms 5.8159 ms]
+                        time:   [5.5066 ms 5.5078 ms 5.5094 ms]
+                        change: [-5.3022% -5.2531% -5.2104%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 9 outliers among 100 measurements (9.00%)
+  9 (9.00%) high severe
+
+sa_union_precision_14_bits_6
+                        time:   [10.927 ms 10.929 ms 10.931 ms]
+                        change: [-5.8797% -5.8321% -5.7931%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 12 outliers among 100 measurements (12.00%)
+  12 (12.00%) high severe
+
+sa_union_precision_15_bits_6
+                        time:   [21.866 ms 21.870 ms 21.876 ms]
+                        change: [-6.8037% -6.7224% -6.6402%] (p = 0.00 < 0.05)
+                        Performance has improved.
 Found 10 outliers among 100 measurements (10.00%)
   1 (1.00%) high mild
   9 (9.00%) high severe
 
-sa_union_precision_14_bits_6
-                        time:   [11.601 ms 11.606 ms 11.611 ms]
-Found 14 outliers among 100 measurements (14.00%)
-  2 (2.00%) high mild
-  12 (12.00%) high severe
-
-sa_union_precision_15_bits_6
-                        time:   [23.427 ms 23.447 ms 23.466 ms]
-Found 7 outliers among 100 measurements (7.00%)
-  6 (6.00%) low mild
-  1 (1.00%) high severe
-
 sa_union_precision_16_bits_6
-                        time:   [46.955 ms 46.980 ms 47.004 ms]
-Found 14 outliers among 100 measurements (14.00%)
-  5 (5.00%) low severe
-  7 (7.00%) low mild
-  2 (2.00%) high severe
+                        time:   [43.696 ms 43.701 ms 43.707 ms]
+                        change: [-7.0283% -6.9791% -6.9280%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 13 outliers among 100 measurements (13.00%)
+  4 (4.00%) high mild
+  9 (9.00%) high severe
+
+sa_union_precision_17_bits_6
+                        time:   [87.374 ms 87.402 ms 87.433 ms]
+Found 18 outliers among 100 measurements (18.00%)
+  8 (8.00%) high mild
+  10 (10.00%) high severe
+
+sa_union_precision_18_bits_6
+                        time:   [175.58 ms 175.67 ms 175.80 ms]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
 
 ce_union_precision_4_bits_6
-                        time:   [55.314 µs 55.374 µs 55.440 µs]
-Found 5 outliers among 100 measurements (5.00%)
-  3 (3.00%) high mild
-  2 (2.00%) high severe
+                        time:   [53.783 µs 53.804 µs 53.837 µs]
+                        change: [-2.8722% -2.8052% -2.7405%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) high mild
+  5 (5.00%) high severe
 
 ce_union_precision_5_bits_6
-                        time:   [103.53 µs 103.59 µs 103.66 µs]
+                        time:   [104.95 µs 105.24 µs 105.59 µs]
+                        change: [+1.9845% +2.3548% +2.7054%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 12 outliers among 100 measurements (12.00%)
+  9 (9.00%) high mild
+  3 (3.00%) high severe
 
 ce_union_precision_6_bits_6
-                        time:   [251.31 µs 251.41 µs 251.52 µs]
+                        time:   [251.34 µs 251.42 µs 251.50 µs]
+                        change: [-0.0555% -0.0039% +0.0424%] (p = 0.89 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+
+ce_union_precision_7_bits_6
+                        time:   [493.86 µs 493.97 µs 494.09 µs]
+                        change: [+0.0528% +0.1082% +0.1648%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
 Found 5 outliers among 100 measurements (5.00%)
   2 (2.00%) high mild
   3 (3.00%) high severe
 
-ce_union_precision_7_bits_6
-                        time:   [493.31 µs 493.44 µs 493.59 µs]
-Found 7 outliers among 100 measurements (7.00%)
-  2 (2.00%) low mild
-  3 (3.00%) high mild
-  2 (2.00%) high severe
-
 ce_union_precision_8_bits_6
-                        time:   [956.64 µs 956.86 µs 957.11 µs]
-Found 7 outliers among 100 measurements (7.00%)
-  4 (4.00%) high mild
-  3 (3.00%) high severe
+                        time:   [962.94 µs 963.24 µs 963.55 µs]
+                        change: [+0.6123% +0.6619% +0.7123%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
 
 ce_union_precision_9_bits_6
-                        time:   [1.8887 ms 1.8897 ms 1.8912 ms]
-Found 5 outliers among 100 measurements (5.00%)
-  3 (3.00%) high mild
+                        time:   [1.8884 ms 1.8889 ms 1.8895 ms]
+                        change: [-0.2539% -0.1055% -0.0067%] (p = 0.09 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
   2 (2.00%) high severe
 
 ce_union_precision_10_bits_6
-                        time:   [3.8370 ms 3.8382 ms 3.8396 ms]
-Found 6 outliers among 100 measurements (6.00%)
-  3 (3.00%) high mild
-  3 (3.00%) high severe
-
-ce_union_precision_11_bits_6
-                        time:   [7.6398 ms 7.6437 ms 7.6488 ms]
+                        time:   [3.7473 ms 3.7482 ms 3.7492 ms]
+                        change: [-2.3876% -2.3452% -2.3059%] (p = 0.00 < 0.05)
+                        Performance has improved.
 Found 12 outliers among 100 measurements (12.00%)
   2 (2.00%) high mild
   10 (10.00%) high severe
 
-ce_union_precision_12_bits_6
-                        time:   [14.605 ms 14.609 ms 14.613 ms]
-Found 10 outliers among 100 measurements (10.00%)
+ce_union_precision_11_bits_6
+                        time:   [7.6314 ms 7.6334 ms 7.6360 ms]
+                        change: [-0.2062% -0.1347% -0.0738%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 9 outliers among 100 measurements (9.00%)
   2 (2.00%) high mild
-  8 (8.00%) high severe
+  7 (7.00%) high severe
+
+ce_union_precision_12_bits_6
+                        time:   [14.596 ms 14.599 ms 14.602 ms]
+                        change: [-0.0989% -0.0636% -0.0305%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) high mild
+  6 (6.00%) high severe
 
 ce_union_precision_13_bits_6
-                        time:   [26.757 ms 26.770 ms 26.787 ms]
-Found 11 outliers among 100 measurements (11.00%)
+                        time:   [25.758 ms 25.762 ms 25.768 ms]
+                        change: [-3.8279% -3.7644% -3.7127%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
   3 (3.00%) high mild
-  8 (8.00%) high severe
+  5 (5.00%) high severe
 
 ce_union_precision_14_bits_6
-                        time:   [39.661 ms 39.669 ms 39.678 ms]
-Found 12 outliers among 100 measurements (12.00%)
-  4 (4.00%) high mild
+                        time:   [39.650 ms 39.656 ms 39.663 ms]
+                        change: [-0.0606% -0.0328% -0.0055%] (p = 0.02 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) high mild
   8 (8.00%) high severe
 
 ce_union_precision_15_bits_6
-                        time:   [61.672 ms 61.690 ms 61.713 ms]
-Found 10 outliers among 100 measurements (10.00%)
-  1 (1.00%) high mild
-  9 (9.00%) high severe
-
-ce_union_precision_16_bits_6
-                        time:   [95.227 ms 95.246 ms 95.268 ms]
-Found 14 outliers among 100 measurements (14.00%)
-  6 (6.00%) high mild
-  8 (8.00%) high severe
-
-rhll_union_precision_4_bits_6
-                        time:   [144.39 µs 144.49 µs 144.58 µs]
-Found 2 outliers among 100 measurements (2.00%)
-  1 (1.00%) high mild
-  1 (1.00%) high severe
-
-rhll_union_precision_5_bits_6
-                        time:   [295.60 µs 295.76 µs 295.96 µs]
-Found 6 outliers among 100 measurements (6.00%)
-  3 (3.00%) low mild
-  2 (2.00%) high mild
-  1 (1.00%) high severe
-
-rhll_union_precision_6_bits_6
-                        time:   [551.07 µs 551.44 µs 551.80 µs]
-Found 5 outliers among 100 measurements (5.00%)
-  3 (3.00%) low mild
-  2 (2.00%) high mild
-
-rhll_union_precision_7_bits_6
-                        time:   [1.1700 ms 1.1707 ms 1.1715 ms]
-Found 4 outliers among 100 measurements (4.00%)
-  1 (1.00%) low severe
-  2 (2.00%) high mild
-  1 (1.00%) high severe
-
-rhll_union_precision_8_bits_6
-                        time:   [2.3658 ms 2.3671 ms 2.3685 ms]
-Found 2 outliers among 100 measurements (2.00%)
-  2 (2.00%) high mild
-
-rhll_union_precision_9_bits_6
-                        time:   [4.7307 ms 4.7326 ms 4.7346 ms]
-Found 1 outliers among 100 measurements (1.00%)
-  1 (1.00%) high severe
-
-rhll_union_precision_10_bits_6
-                        time:   [9.3404 ms 9.3432 ms 9.3461 ms]
-Found 1 outliers among 100 measurements (1.00%)
-  1 (1.00%) high severe
-
-rhll_union_precision_11_bits_6
-                        time:   [17.996 ms 18.001 ms 18.007 ms]
-Found 11 outliers among 100 measurements (11.00%)
-  1 (1.00%) low mild
-  3 (3.00%) high mild
-  7 (7.00%) high severe
-
-rhll_union_precision_12_bits_6
-                        time:   [33.628 ms 33.639 ms 33.654 ms]
+                        time:   [63.427 ms 63.437 ms 63.449 ms]
+                        change: [+2.7892% +2.8327% +2.8678%] (p = 0.00 < 0.05)
+                        Performance has regressed.
 Found 9 outliers among 100 measurements (9.00%)
   3 (3.00%) high mild
   6 (6.00%) high severe
 
-rhll_union_precision_13_bits_6
-                        time:   [51.468 ms 51.477 ms 51.488 ms]
-Found 5 outliers among 100 measurements (5.00%)
+ce_union_precision_16_bits_6
+                        time:   [101.32 ms 101.33 ms 101.34 ms]
+                        change: [+6.3603% +6.3885% +6.4128%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 10 outliers among 100 measurements (10.00%)
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+
+ce_union_precision_17_bits_6
+                        time:   [171.16 ms 171.18 ms 171.20 ms]
+Found 17 outliers among 100 measurements (17.00%)
+  5 (5.00%) high mild
+  12 (12.00%) high severe
+
+ce_union_precision_18_bits_6
+                        time:   [312.62 ms 312.66 ms 312.71 ms]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+
+rhll_union_precision_4_bits_6
+                        time:   [145.23 µs 145.29 µs 145.36 µs]
+                        change: [+0.3974% +0.4969% +0.5951%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+
+rhll_union_precision_5_bits_6
+                        time:   [284.20 µs 284.86 µs 285.48 µs]
+                        change: [-3.7697% -3.6694% -3.5632%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) low severe
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+
+rhll_union_precision_6_bits_6
+                        time:   [557.53 µs 558.13 µs 558.78 µs]
+                        change: [+1.0126% +1.1227% +1.2399%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+
+rhll_union_precision_7_bits_6
+                        time:   [1.1803 ms 1.1813 ms 1.1822 ms]
+                        change: [+0.7442% +0.8510% +0.9698%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+
+rhll_union_precision_8_bits_6
+                        time:   [2.3802 ms 2.3815 ms 2.3829 ms]
+                        change: [+0.5283% +0.6073% +0.6895%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 2 outliers among 100 measurements (2.00%)
   2 (2.00%) high mild
-  3 (3.00%) high severe
+
+rhll_union_precision_9_bits_6
+                        time:   [4.7829 ms 4.7847 ms 4.7867 ms]
+                        change: [+1.0417% +1.1024% +1.1586%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) high mild
+  1 (1.00%) high severe
+
+rhll_union_precision_10_bits_6
+                        time:   [9.4326 ms 9.4370 ms 9.4415 ms]
+                        change: [+0.9475% +1.0036% +1.0586%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+
+rhll_union_precision_11_bits_6
+                        time:   [18.066 ms 18.076 ms 18.087 ms]
+                        change: [+0.3513% +0.4137% +0.4855%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 11 outliers among 100 measurements (11.00%)
+  4 (4.00%) high mild
+  7 (7.00%) high severe
+
+rhll_union_precision_12_bits_6
+                        time:   [33.813 ms 33.822 ms 33.831 ms]
+                        change: [+0.4923% +0.5430% +0.5862%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+
+rhll_union_precision_13_bits_6
+                        time:   [52.166 ms 52.178 ms 52.193 ms]
+                        change: [+1.3307% +1.3609% +1.3948%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) high mild
+  4 (4.00%) high severe
 
 rhll_union_precision_14_bits_6
-                        time:   [51.863 ms 51.910 ms 51.969 ms]
+                        time:   [52.255 ms 52.266 ms 52.277 ms]
+                        change: [+0.5673% +0.6863% +0.7789%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  7 (7.00%) high severe
+
+rhll_union_precision_15_bits_6
+                        time:   [40.389 ms 40.399 ms 40.414 ms]
+                        change: [-0.2363% -0.2006% -0.1583%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
 Found 11 outliers among 100 measurements (11.00%)
   6 (6.00%) high mild
   5 (5.00%) high severe
 
-rhll_union_precision_15_bits_6
-                        time:   [40.473 ms 40.481 ms 40.489 ms]
+rhll_union_precision_16_bits_6
+                        time:   [57.051 ms 57.060 ms 57.070 ms]
+                        change: [-0.1807% -0.1504% -0.1227%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) high mild
+  6 (6.00%) high severe
+
+rhll_union_precision_17_bits_6
+                        time:   [83.918 ms 83.929 ms 83.942 ms]
 Found 11 outliers among 100 measurements (11.00%)
   1 (1.00%) high mild
   10 (10.00%) high severe
 
-rhll_union_precision_16_bits_6
-                        time:   [57.134 ms 57.146 ms 57.161 ms]
-Found 12 outliers among 100 measurements (12.00%)
-  1 (1.00%) high mild
+rhll_union_precision_18_bits_6
+                        time:   [133.48 ms 133.50 ms 133.52 ms]
+Found 16 outliers among 100 measurements (16.00%)
+  5 (5.00%) high mild
   11 (11.00%) high severe
 

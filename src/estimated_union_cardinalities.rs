@@ -89,7 +89,7 @@ impl<F: Number> EstimatedUnionCardinalities<F> {
     /// # Examples
     ///
     /// ```
-    /// use hyperloglog_rs::EstimatedUnionCardinalities;
+    /// use hyperloglog_rs::prelude::*;
     ///
     /// let estimated_union_cardinalities = EstimatedUnionCardinalities::from((2.0, 3.0, 4.0));
     ///
@@ -107,7 +107,7 @@ impl<F: Number> EstimatedUnionCardinalities<F> {
     /// # Examples
     ///
     /// ```
-    /// use hyperloglog_rs::EstimatedUnionCardinalities;
+    /// use hyperloglog_rs::prelude::*;
     ///
     /// let estimated_union_cardinalities = EstimatedUnionCardinalities::from((2.0, 3.0, 4.0));
     ///
@@ -125,7 +125,7 @@ impl<F: Number> EstimatedUnionCardinalities<F> {
     /// # Examples
     ///
     /// ```
-    /// use hyperloglog_rs::EstimatedUnionCardinalities;
+    /// use hyperloglog_rs::prelude::*;
     ///
     /// let estimated_union_cardinalities = EstimatedUnionCardinalities::from((2.0, 3.0, 4.0));
     ///
@@ -143,7 +143,7 @@ impl<F: Number> EstimatedUnionCardinalities<F> {
     /// # Examples
     ///
     /// ```
-    /// use hyperloglog_rs::EstimatedUnionCardinalities;
+    /// use hyperloglog_rs::prelude::*;
     ///
     /// let estimated_union_cardinalities = EstimatedUnionCardinalities::from((2.0, 3.0, 4.0));
     ///
@@ -161,7 +161,7 @@ impl<F: Number> EstimatedUnionCardinalities<F> {
     /// # Examples
     ///
     /// ```
-    /// use hyperloglog_rs::EstimatedUnionCardinalities;
+    /// use hyperloglog_rs::prelude::*;
     ///
     /// let estimated_union_cardinalities = EstimatedUnionCardinalities::from((2.0, 3.0, 4.0));
     ///
@@ -180,7 +180,7 @@ impl<F: Number> EstimatedUnionCardinalities<F> {
     /// # Examples
     ///
     /// ```
-    /// use hyperloglog_rs::EstimatedUnionCardinalities;
+    /// use hyperloglog_rs::prelude::*;
     ///
     /// let estimated_union_cardinalities = EstimatedUnionCardinalities::from((2.0, 3.0, 4.0));
     ///
@@ -199,7 +199,7 @@ impl<F: Number> EstimatedUnionCardinalities<F> {
     /// # Examples
     ///
     /// ```
-    /// use hyperloglog_rs::EstimatedUnionCardinalities;
+    /// use hyperloglog_rs::prelude::*;
     ///
     /// let estimated_union_cardinalities = EstimatedUnionCardinalities::from((2.0, 3.0, 4.0));
     ///
@@ -220,7 +220,7 @@ impl<F: Number> EstimatedUnionCardinalities<F> {
     /// # Examples
     ///
     /// ```
-    /// use hyperloglog_rs::EstimatedUnionCardinalities;
+    /// use hyperloglog_rs::prelude::*;
     ///
     /// let estimated_union_cardinalities = EstimatedUnionCardinalities::from((2.0, 3.0, 4.0));
     ///

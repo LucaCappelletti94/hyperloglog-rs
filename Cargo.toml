@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [".", "./bias_estimator"]
+members = [".", "statistical_comparisons"]
 
 [package]
 name = "hyperloglog-rs"
@@ -39,7 +39,6 @@ serde_json = "1.0"
 
 [dev-dependencies]
 serde_json = "1.0"
-rand = "0.8"
 criterion = { version = "0.5", features = ["html_reports"] }
 hyperloglogplus = {git = "https://github.com/LucaCappelletti94/hyperloglog.rs.git", branch = "mem_dbg"}
 streaming_algorithms = {git = "https://github.com/LucaCappelletti94/streaming_algorithms", branch = "mem_dbg"}
@@ -49,17 +48,65 @@ stattest = {git = "https://github.com/LucaCappelletti94/stattest"}
 csv = "1.3.0"
 wyhash = "0.5.0"
 
+
+
 [features]
-default = ["serde", "std", "mem_dbg"]
+default = ["serde", "mem_dbg", "low_precisions", "mle", "beta", "plusplus"]
+beta = []
+precomputed_beta = ["beta"]
+plusplus = []
+# Whether to use local interpolation or kmeans in plus plus bias correction.
+plusplus_kmeans = ["plusplus"]
+# Whether to use integer or floating point biases and estimates.
+integer_plusplus = ["plusplus"]
 std = [
     "twox-hash/std",
 ]
 mem_dbg = [
     "dep:mem_dbg",
-    "streaming_algorithms/mem_dbg",
-    "hyperloglogplus/mem_dbg",
-    "cardinality-estimator/mem_dbg",
-    "rust-hyperloglog/mem_dbg",
+    "std"
+]
+mle = ["std"]
+precision_4 = []
+precision_5 = []
+precision_6 = []
+precision_7 = []
+precision_8 = []
+precision_9 = []
+precision_10 = []
+precision_11 = []
+precision_12 = []
+precision_13 = []
+precision_14 = []
+precision_15 = []
+precision_16 = []
+precision_17 = []
+precision_18 = []
+low_precisions = [
+    "precision_4",
+    "precision_5",
+    "precision_6",
+    "precision_7",
+    "precision_8",
+    "precision_9",
+    "precision_10",
+]
+medium_precisions = [
+    "precision_11",
+    "precision_12",
+    "precision_13",
+    "precision_14",
+    "precision_15",
+    "precision_16",
+]
+high_precisions = [
+    "precision_17",
+    "precision_18",
+]
+all_precisions = [
+    "low_precisions",
+    "medium_precisions",
+    "high_precisions",
 ]
 alloc = []
 
@@ -75,28 +122,20 @@ debug = false            # Include debug info.
 debug-assertions = false  # Enables debug assertions.
 opt-level = 3
 
-[[bench]]
-name = "insert"
-harness = false
-
+#[[bench]]
+#name = "insert"
+#harness = false
+#
 [[bench]]
 name = "cardinality"
 harness = false
-
-[[bench]]
-name = "union"
-harness = false
-
-[[bench]]
-name = "hash_functions"
-harness = false
-
-[[bench]]
-name = "exp2"
-harness = false
-
-[[bench]]
-name = "binary_search"
-harness = false
+#
+#[[bench]]
+#name = "union"
+#harness = false
+#
+#[[bench]]
+#name = "hash_functions"
+#harness = false
 
 

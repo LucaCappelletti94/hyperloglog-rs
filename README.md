@@ -25,11 +25,11 @@ hyperloglog = "0.1"
 ```rust
 use hyperloglog_rs::prelude::*;
 
-let mut hll = HyperLogLog::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister>::default();
+let mut hll = PlusPlus::<Precision6, Bits5, <Precision6 as ArrayRegister<Bits5>>::ArrayRegister, twox_hash::XxHash>::default();
 hll.insert(&1);
 hll.insert(&2);
 
-let mut hll2 = HyperLogLog::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister>::default();
+let mut hll2 = PlusPlus::<Precision6, Bits5, <Precision6 as ArrayRegister<Bits5>>::ArrayRegister, twox_hash::XxHash>::default();
 hll2.insert(&2);
 hll2.insert(&3);
 
@@ -57,17 +57,17 @@ assert!(
 The [MLE estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github.io/hyperloglog-sketch-estimation-paper/paper/paper.pdf) provides a more accurate estimation of the cardinality of a set, but it is slower than the standard HyperLogLog algorithm. Here is an example of how to use it:
 
 ```rust
-#[cfg(feature = "std")]
+#[cfg(feature = "mle")]
 {
         use hyperloglog_rs::prelude::*;
 
-        let mut hll1: MLE<HyperLogLog::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister>> = MLE::default();
+        let mut hll1: MLE<PlusPlus::<Precision6, Bits5, <Precision6 as ArrayRegister<Bits5>>::ArrayRegister, twox_hash::XxHash>> = MLE::default();
         
         hll1.insert(&1);
         hll1.insert(&2);
         hll1.insert(&3);
 
-        let mut hll2: MLE<HyperLogLog::<Precision14, Bits5, <Precision14 as ArrayRegister<Bits5>>::ArrayRegister>> = MLE::default();
+        let mut hll2: MLE<PlusPlus::<Precision6, Bits5, <Precision6 as ArrayRegister<Bits5>>::ArrayRegister, twox_hash::XxHash>> = MLE::default();
 
         hll2.insert(&2);
         hll2.insert(&3);
