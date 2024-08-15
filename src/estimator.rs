@@ -3,6 +3,7 @@ use core::hash::Hash;
 use crate::prelude::*;
 
 
+/// Trait for properties of a set.
 pub trait SetProperties {
     /// Returns whether the set is empty.
     fn is_empty(&self) -> bool;
@@ -11,17 +12,19 @@ pub trait SetProperties {
     fn is_full(&self) -> bool;
 }
 
-
+/// Trait for an approximated set.
 pub trait ApproximatedSet<T: Hash>: SetProperties {
     /// Returns whether the set contains the element.
     fn may_contain(&self, element: &T) -> bool;
 }
 
+/// Trait for a mutable set.
 pub trait MutableSet: SetProperties {
     /// Empties the set.
     fn clear(&mut self);
 }
 
+/// Trait for an extendable approximated set.
 pub trait ExtendableApproximatedSet<T: Hash>: MutableSet + ApproximatedSet<T> {
     /// Insert an element into the set and return whether the element has been inserted.
     fn insert(&mut self, element: &T) -> bool;
@@ -34,7 +37,8 @@ pub trait ExtendableApproximatedSet<T: Hash>: MutableSet + ApproximatedSet<T> {
     }
 }
 
-pub trait Estimator<F: Number>: Sized + Default + Eq + PartialEq + Send + Sync {
+/// Trait for a cardinality estimator.
+pub trait Estimator<F: Number>: Sized + Default + Send + Sync + Named {
     /// Estimates the cardinality.
     fn estimate_cardinality(&self) -> F;
 

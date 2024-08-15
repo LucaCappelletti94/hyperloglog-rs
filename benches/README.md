@@ -3,7 +3,7 @@
 ## Insert
 
 ```bash
-RUSTFLAGS='-C target-cpu=native' cargo bench --bench insert > benches/insert.log
+RUSTFLAGS='-C target-cpu=native' cargo bench --bench insert --features all_precisions > benches/insert.log
 ```
 
 ## Binary Search
@@ -15,13 +15,13 @@ RUSTFLAGS='-C target-cpu=native' cargo bench --bench binary_search
 ## Cardinality
 
 ```bash
-RUSTFLAGS='-C target-cpu=native' cargo bench --bench cardinality > benches/cardinality.log
+RUSTFLAGS='-C target-cpu=native' cargo bench --bench cardinality --features all_precisions,integer_plusplus,precomputed_beta > benches/cardinality.log
 ```
 
 ## Union
 
 ```bash
-RUSTFLAGS='-C target-cpu=native' cargo bench --bench union > benches/union.log
+RUSTFLAGS='-C target-cpu=native' cargo bench --bench union --features all_precisions,integer_plusplus,precomputed_beta > benches/union.log
 ```
 
 ## Hash functions

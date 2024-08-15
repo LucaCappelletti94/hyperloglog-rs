@@ -2,6 +2,7 @@
 
 use super::Number;
 
+/// Trait marker for types that can be used as words.
 pub trait WordLike:
     Copy
     + Ord

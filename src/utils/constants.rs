@@ -1,21 +1,6 @@
-//! This module provides a trait to define the ONE const for all unsigned
-//! types and the method is_one(). This is not a trait in the core library,
-//! but we are aware that it is available in other crates - we do not intend
-//! to use them as dependencies, as we want to keep the dependencies to the
-//! very bare minimum.
+//! Constants for common values.
 
-pub trait Half {
-    /// The half value for this type.
-    const HALF: Self;
-}
-
-pub trait One {
-    /// The one value for this type.
-    const ONE: Self;
-    /// Whether the value is one.
-    fn is_one(&self) -> bool;
-}
-
+/// The zero value for this type.
 pub trait Zero {
     /// The zero value for this type.
     const ZERO: Self;
@@ -23,51 +8,75 @@ pub trait Zero {
     fn is_zero(&self) -> bool;
 }
 
+/// The half value for this type.
+pub trait Half {
+    /// The half value for this type.
+    const HALF: Self;
+}
+
+/// The one value for this type.
+pub trait One {
+    /// The one value for this type.
+    const ONE: Self;
+    /// Whether the value is one.
+    fn is_one(&self) -> bool;
+}
+
+/// The two value for this type.
 pub trait Two {
     /// The two value for this type.
     const TWO: Self;
 }
 
+/// The three value for this type.
 pub trait Three {
     /// The three value for this type.
     const THREE: Self;
 }
 
+/// The five value for this type.
 pub trait Five {
     /// The five value for this type.
     const FIVE: Self;
 }
 
+/// The six value for this type.
 pub trait Six {
     /// The six value for this type.
     const SIX: Self;
 }
 
+/// The seven value for this type.
 pub trait Seven {
     /// The seven value for this type.
     const SEVEN: Self;
 }
 
+/// The eight value for this type.
 pub trait Eight {
     /// The eight value for this type.
     const EIGHT: Self;
 }
 
+/// The nine value for this type.
 pub trait Nine {
     /// The nine value for this type.
     const NINE: Self;
 }
 
+/// The ten value for this type.
 pub trait Ten {
     /// The ten value for this type.
     const TEN: Self;
 }
 
+/// The one hundred value for this type.
 pub trait OneHundred {
     /// The one hundred value for this type.
     const ONE_HUNDRED: Self;
 }
 
+/// The one thousand value for this type.
 pub trait OneThousand {
     /// The one thousand value for this type.
     const ONE_THOUSAND: Self;

@@ -1,4 +1,5 @@
 #[macro_export]
+/// Implements the HyperLogLog trait for a given counter.
 macro_rules! hll_impl {
     ($counter:ty) => {
         impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Default for $counter {
@@ -162,7 +163,6 @@ macro_rules! hll_impl {
         impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B> + Words<Word = u64>>
             Hybridazable for $counter
         {
-            type Words = R;
             type IterSortedHashes<'a> = core::iter::Take<R::WordIter<'a>> where Self: 'a;
 
             fn is_hybrid(&self) -> bool {

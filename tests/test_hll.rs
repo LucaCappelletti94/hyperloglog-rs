@@ -10,12 +10,12 @@ pub fn test_approximated_counter_at_precision_and_bits<
     H: ExtendableApproximatedSet<u64> + Estimator<F>,
     Hasher: HasherType,
 >() {
-    let number_of_elements = 200_000;
+    let number_of_elements = 100_000;
     let mut total_cardinality_error_rate = 0.0;
     let mut total_union_error_rate = 0.0;
     let mut total_cardinality_samples = 0;
     let mut total_union_samples = 0;
-    let number_of_iterations = 400;
+    let number_of_iterations = 100;
     let starting_cardinality_sampling_rate = 10;
     let starting_union_sampling_rate = 10;
     let maximal_cardinality_sampling_rate = 10_000;

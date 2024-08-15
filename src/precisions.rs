@@ -6,7 +6,7 @@
 
 use core::fmt::Debug;
 
-use crate::utils::*;
+use crate::{prelude::Named, utils::*};
 
 include!(concat!(env!("OUT_DIR"), "/alpha_values.rs"));
 include!(concat!(env!("OUT_DIR"), "/number_of_zeros.rs"));
@@ -94,7 +94,8 @@ fn bias<const N: usize, V: PartialOrd + Number, W: Number, F: FloatNumber>(
     return F::from_f32(interpolated_bias(estimates, biases, estimate));
 }
 
-pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
+/// The precision of the HyperLogLog counter.
+pub trait Precision: Default + Copy + Eq + Debug + Send + Sync + Named {
     /// The data type to use for the number of zeros registers counter.
     /// This should be the smallest possinle data type that allows us to count
     /// all the registers without overflowing. We can tollerate a one-off error
@@ -107,45 +108,51 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     /// The number of registers that will be used.
     const NUMBER_OF_REGISTERS: usize = 1 << Self::EXPONENT;
 
+    /// The theoretical error rate of the precision.
     fn error_rate() -> f64 {
         let exponent = (Self::EXPONENT as f64) / 2.0;
         1.04 / 2f64.powf(exponent)
     }
 }
 
+/// The precision constants for the HyperLogLog counter.
 pub trait PrecisionConstants<F: FloatNumber>: Precision {
-    const NUMBER_OF_REGISTERS_FLOAT: F;
+    /// The alpha constant for the precision, used in the estimation of the cardinality.
     const ALPHA: F;
 
     #[cfg(feature = "plusplus")]
+    /// The number of zero registers over which the counter should switch to the linear counting.
     const LINEAR_COUNT_ZEROS: Self::NumberOfZeros;
 
+    #[cfg(feature = "beta")]
     /// Computes LogLog-Beta estimate bias correction using Horner's method.
     ///
     /// Paper: https://arxiv.org/pdf/1612.02284.pdf
     /// Wikipedia: https://en.wikipedia.org/wiki/Horner%27s_method
-    #[cfg(feature = "beta")]
     fn beta_estimate(harmonic_sum: F, number_of_zero_registers: Self::NumberOfZeros) -> F;
 
     #[cfg(feature = "plusplus")]
+    /// Computes the small correction factor for the estimate.
     fn small_correction(number_of_zero_registers: Self::NumberOfZeros) -> F;
 
+    /// Computes the bias correction factor for the estimate.
     fn bias(estimate: F) -> F;
 
     #[inline(always)]
     #[cfg(feature = "plusplus")]
+    /// Computes the estimate of the cardinality using the LogLog++ algorithm.
     fn plusplus_estimate(harmonic_sum: F, number_of_zeros: Self::NumberOfZeros) -> F {
         if number_of_zeros >= Self::LINEAR_COUNT_ZEROS {
             return Self::small_correction(number_of_zeros);
         }
 
         let estimate =
-            Self::ALPHA * Self::NUMBER_OF_REGISTERS_FLOAT * Self::NUMBER_OF_REGISTERS_FLOAT
+            Self::ALPHA * F::from_usize(Self::NUMBER_OF_REGISTERS) * F::from_usize(Self::NUMBER_OF_REGISTERS)
                 / harmonic_sum;
 
         // Apply the small range correction factor if the raw estimate is below the threshold
         // and there are zero registers in the counter.
-        if estimate <= F::FIVE * Self::NUMBER_OF_REGISTERS_FLOAT {
+        if estimate <= F::FIVE * F::from_usize(Self::NUMBER_OF_REGISTERS) {
             estimate - Self::bias(estimate)
         } else {
             estimate
@@ -160,11 +167,18 @@ macro_rules! impl_precision {
             #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
             #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
+            /// The precision of the HyperLogLog counter.
             pub struct [<Precision $exponent>];
 
             #[cfg(feature = "precision_" $exponent)]
+            impl Named for [<Precision $exponent>] {
+                fn name(&self) -> String {
+                    format!("P{}", $exponent)
+                }
+            }
+
+            #[cfg(feature = "precision_" $exponent)]
             impl PrecisionConstants<f32> for [<Precision $exponent>] {
-                const NUMBER_OF_REGISTERS_FLOAT: f32 = Self::NUMBER_OF_REGISTERS as f32;
                 const ALPHA: f32 = [<ALPHA_ $exponent>] as f32;
 
                 #[cfg(feature = "plusplus")]
@@ -207,7 +221,6 @@ macro_rules! impl_precision {
 
             #[cfg(all(feature = "precision_" $exponent))]
             impl PrecisionConstants<f64> for [<Precision $exponent>] {
-                const NUMBER_OF_REGISTERS_FLOAT: f64 = (1 << $exponent) as f64;
                 const ALPHA: f64 = [<ALPHA_ $exponent>];
 
                 #[cfg(feature = "plusplus")]

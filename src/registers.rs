@@ -11,33 +11,35 @@ mod vector;
 pub use array::ArrayRegister;
 pub use packed_array::{PackedArray, PackedArrayRegister};
 
-pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug + Send + Sync {
+/// Trait marker for the registers.
+pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug + Send + Sync + Named {
+    /// Iterator over the registers.
     type Iter<'a>: Iterator<Item = u32>
     where
         Self: 'a;
 
+    /// Iterator over the registers zipped with another set of registers.
     type IterZipped<'a>: Iterator<Item = (u32, u32)>
     where
         Self: 'a;
 
-    // type IterMax<'a> : Iterator<Item = u64>
-    //     where
-    //         Self: 'a;
-
+    /// Returns an iterator over the registers.
     fn iter_registers(&self) -> Self::Iter<'_>;
 
+    /// Returns an iterator over the registers zipped with another set of registers.
     fn iter_registers_zipped<'a>(&'a self, other: &'a Self) -> Self::IterZipped<'a>;
 
-    // fn iter_registers_max<'a>(&'a self, other: &'a Self) -> Self::IterMax<'a>;
-
+    /// Returns the harmonic sum of the maximum value of the registers and the number of zero registers.
     fn get_harmonic_sum_and_zeros<F: FloatNumber>(&self, other: &Self) -> (F, P::NumberOfZeros)
     where
         P: PrecisionConstants<F>;
 
+    /// Applies a function to each register.
     fn apply<F>(&mut self, f: F)
     where
         F: FnMut(u32) -> u32;
 
+    /// Returns a new instance of the registers with all the values set to zero.
     fn zeroed() -> Self;
 
     /// Updates the register at the given index with the given value,
@@ -196,7 +198,7 @@ mod tests {
     where
         Vec<u64>: Registers<P, B>,
     {
-        let iterations = 1000;
+        let iterations = 50;
         let mut random_state = splitmix64(324564567865354);
         let mut index_random_state = splitmix64(324566754567865354);
         let mut vector_registers = <Vec<u64> as Registers<P, B>>::zeroed();

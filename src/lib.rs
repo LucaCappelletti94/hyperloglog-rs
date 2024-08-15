@@ -1,9 +1,10 @@
 #![doc = include_str!("../README.md")]
+#![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod basicloglog;
 mod bits;
-pub mod estimated_union_cardinalities;
+mod estimated_union_cardinalities;
 mod estimator;
 mod hybrid;
 pub mod hyper_spheres_sketch;
@@ -25,9 +26,9 @@ pub mod serde;
 #[cfg(feature = "std")]
 mod exact_hyper_spheres_sketch;
 
+/// Re-exports of the most important traits and structs.
 pub mod prelude {
     pub use crate::bits::*;
-    pub use crate::estimated_union_cardinalities::*;
     pub use crate::estimator::*;
     pub use crate::hybrid::*;
     pub use crate::hyper_spheres_sketch::*;

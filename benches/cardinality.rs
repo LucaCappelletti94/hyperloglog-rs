@@ -1,117 +1,108 @@
 #![feature(test)]
 extern crate test;
 
-use cardinality_estimator::CardinalityEstimator;
 use criterion::{criterion_group, criterion_main, Criterion};
 use hyperloglog_rs::prelude::*;
-use hyperloglogplus::HyperLogLog as TabacHyperLogLog;
-use hyperloglogplus::HyperLogLogPF as TabacHyperLogLogPF;
-use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
-use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
-use std::hash::RandomState;
 use std::hint::black_box;
-use streaming_algorithms::HyperLogLog as SAHyperLogLog;
 use wyhash::WyHash;
 
+mod utils;
+
+use utils::*;
+
 const RANDOM_STATE: u64 = 87561346897134_u64;
-const NUMBER_OF_ELEMENTS: usize = 10_000;
+const NUMBER_OF_COUNTERS: usize = 1_000;
+const NUMBER_OF_ELEMENTS: usize = 50_000;
+
+fn cardinality_bencher<
+    H: Estimator<f64> + ExtendableApproximatedSet<u64>,
+>(
+    b: &mut Criterion,
+) {
+    let mut random_state = splitmix64(RANDOM_STATE);
+    let counters: Vec<H> = (0..NUMBER_OF_COUNTERS).map(|_|{
+        let mut counter = H::default();
+        random_state = splitmix64(random_state);
+        for value in iter_random_values(NUMBER_OF_ELEMENTS, None, random_state) {
+            counter.insert(&value);
+        }
+        counter
+    }).collect();
+
+    b.bench_function(
+        format!("Cardinality {}", H::default().name()).as_str(),
+        |b| {
+            b.iter(||{
+                let mut total_cardinality = 0.0_f64;
+                for counter in counters.iter() {
+                    total_cardinality += black_box(counter).estimate_cardinality();
+                }
+                total_cardinality
+            })
+    });
+}
 
 macro_rules! bench_cardinality {
-    ($precision:ty, $bits:ty, $($hasher:ty),*) => {
-        $(
-            paste::item! {
-                fn [<bench_plusplus_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                    b.bench_function(
-                        format!("plusplus_cardinality_precision_{}_bits_{}_hasher_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS, stringify!($hasher)).as_str(),
-                        |b| {
-                            b.iter(||{
-                                let mut hll: PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher> = PlusPlus::default();
-                                let mut total_cardinality = 0.0_f64;
-                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
-                                    hll.insert(black_box(&i));
-                                    let cardinality: f64 = hll.estimate_cardinality();
-                                    total_cardinality += cardinality;
-                                }
-                                total_cardinality
-                            })
-                    });
-                }
-
-                fn [<bench_beta_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                    b.bench_function(
-                        format!("beta_cardinality_precision_{}_bits_{}_hasher_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS, stringify!($hasher)).as_str(),
-                        |b| {
-                            b.iter(||{
-                                let mut hll: LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher> = LogLogBeta::default();
-                                let mut total_cardinality = 0.0_f64;
-                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
-                                    hll.insert(black_box(&i));
-                                    let cardinality: f64 = hll.estimate_cardinality();
-                                    total_cardinality += cardinality;
-                                }
-                                total_cardinality
-                            })
-                    });
-                }
-
-                fn [<bench_hybridplusplus_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                    b.bench_function(
-                        format!("hybridplusplus_cardinality_precision_{}_bits_{}_hasher_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS, stringify!($hasher)).as_str(),
-                        |b| {
-                            b.iter(||{
-                                let mut hll: Hybrid<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>> = Default::default();
-                                let mut total_cardinality = 0.0_f64;
-                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
-                                    hll.insert(black_box(&i));
-                                    let cardinality: f64 = hll.estimate_cardinality();
-                                    total_cardinality += cardinality;
-                                }
-                                total_cardinality
-                            })
-                    });
-                }
-
-                fn [<bench_hybridbeta_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                    b.bench_function(
-                        format!("hybridbeta_cardinality_precision_{}_bits_{}_hasher_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS, stringify!($hasher)).as_str(),
-                        |b| {
-                            b.iter(||{
-                                let mut hll: Hybrid<LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>> = Default::default();
-                                let mut total_cardinality = 0.0_f64;
-                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
-                                    hll.insert(black_box(&i));
-                                    let cardinality: f64 = hll.estimate_cardinality();
-                                    total_cardinality += cardinality;
-                                }
-                                total_cardinality
-                            })
-                    });
-                }
+    ($precision:ty, $bits:ty, $hasher:ty) => {
+        paste::item! {
+            fn [<bench_plusplusvec_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                cardinality_bencher::<PlusPlus<$precision, $bits, Vec<u64>, $hasher>>(b);
             }
-        )*
+
+            fn [<bench_plusplusarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                cardinality_bencher::<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>(b);
+            }
+
+            fn [<bench_pluspluspackedarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                cardinality_bencher::<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>(b);
+            }
+
+            fn [<bench_betavec_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                cardinality_bencher::<LogLogBeta<$precision, $bits, Vec<u64>, $hasher>>(b);
+            }
+
+            fn [<bench_betaarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                cardinality_bencher::<LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>(b);
+            }
+
+            fn [<bench_betapackedarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                cardinality_bencher::<LogLogBeta<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>(b);
+            }
+
+            fn [<bench_hybridplusplusvec_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                cardinality_bencher::<Hybrid<PlusPlus<$precision, $bits, Vec<u64>, $hasher>>>(b);
+            }
+
+            fn [<bench_hybridplusplusarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                cardinality_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>>(b);
+            }
+
+            fn [<bench_hybridpluspluspackedarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                cardinality_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
+            }
+
+            fn [<bench_hybridbetavec_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                cardinality_bencher::<Hybrid<LogLogBeta<$precision, $bits, Vec<u64>, $hasher>>>(b);
+            }
+
+            fn [<bench_hybridbetaarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                cardinality_bencher::<Hybrid<LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>>(b);
+            }
+
+            fn [<bench_hybridbetapackedarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                cardinality_bencher::<Hybrid<LogLogBeta<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
+            }
+        }
     };
 }
 
-macro_rules! bench_ce_cardinality {
+macro_rules! bench_cludflare_cardinality {
     ($precision:ty, $bits:ty, $($hasher:ty),*) => {
         $(
             paste::item! {
-                fn [<bench_ce_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                    b.bench_function(
-                        format!("ce_cardinality_precision_{}_bits_{}_hasher_{}", $precision::EXPONENT, $bits::NUMBER_OF_BITS, stringify!($hasher)).as_str(),
-                        |b| {
-                            b.iter(||{
-                                let mut hll: CardinalityEstimator<u64, $hasher, {$precision::EXPONENT}, {$bits::NUMBER_OF_BITS}> = CardinalityEstimator::default();
-                                let mut total_cardinality = 0;
-                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
-                                    hll.insert(black_box(&i));
-                                    total_cardinality += hll.estimate();
-                                }
-                                total_cardinality
-                            })
-                    });
+                fn [<bench_cludflare_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+                    cardinality_bencher::<CloudFlareHLL<{$precision::EXPONENT}, {$bits::NUMBER_OF_BITS}, $hasher>>(b);
                 }
-
             }
         )*
     };
@@ -123,7 +114,38 @@ type XxHash64 = twox_hash::XxHash64;
 macro_rules! bench_cardinality_bits {
     ($precision:ty, $($bits:ty),*) => {
         $(
-            bench_cardinality!($precision, $bits, WyHash, XxHash64);
+            bench_cardinality!($precision, $bits, WyHash);
+            bench_cardinality!($precision, $bits, XxHash64);
+        )*
+    };
+}
+
+/// Macro to generate criterion groups.
+macro_rules! bench_cardinality_registers {
+    ($precision:ty, $sample_size:expr, $($register:expr),*) => {
+        $(
+            paste::paste! {
+                criterion_group! {
+                    name=[<cardinality_plusplus $register _ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size);
+                    targets=[<bench_plusplus $register _cardinality_ $precision:lower _bits6_xxhash64>], [<bench_plusplus $register _cardinality_ $precision:lower _bits6_wyhash>], [<bench_plusplus $register _cardinality_ $precision:lower _bits8_xxhash64>], [<bench_plusplus $register _cardinality_ $precision:lower _bits8_wyhash>],
+                }
+                criterion_group! {
+                    name=[<cardinality_hybridplusplus $register _ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size);
+                    targets=[<bench_hybridplusplus $register _cardinality_ $precision:lower _bits6_xxhash64>], [<bench_hybridplusplus $register _cardinality_ $precision:lower _bits6_wyhash>], [<bench_hybridplusplus $register _cardinality_ $precision:lower _bits8_xxhash64>], [<bench_hybridplusplus $register _cardinality_ $precision:lower _bits8_wyhash>]
+                }
+                criterion_group! {
+                    name=[<cardinality_beta $register _ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size);
+                    targets=[<bench_beta $register _cardinality_ $precision:lower _bits6_xxhash64>], [<bench_beta $register _cardinality_ $precision:lower _bits6_wyhash>], [<bench_beta $register _cardinality_ $precision:lower _bits8_xxhash64>], [<bench_beta $register _cardinality_ $precision:lower _bits8_wyhash>]
+                }
+                criterion_group! {
+                    name=[<cardinality_hybridbeta $register _ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size);
+                    targets=[<bench_hybridbeta $register _cardinality_ $precision:lower _bits6_xxhash64>], [<bench_hybridbeta $register _cardinality_ $precision:lower _bits6_wyhash>], [<bench_hybridbeta $register _cardinality_ $precision:lower _bits8_xxhash64>], [<bench_hybridbeta $register _cardinality_ $precision:lower _bits8_wyhash>]
+                }
+            }
         )*
     };
 }
@@ -132,73 +154,25 @@ macro_rules! bench_cardinality_bits {
 macro_rules! bench_cardinalities {
     ($(($precision:ty, $sample_size:expr)),*) => {
         $(
-            bench_ce_cardinality!($precision, Bits6, WyHash);
+            bench_cludflare_cardinality!($precision, Bits6, WyHash, XxHash64);
             bench_cardinality_bits!($precision, Bits6);
             bench_cardinality_bits!($precision, Bits8);
 
             paste::item! {
                 fn [<bench_tabacpf_cardinality_ $precision:lower>] (b: &mut Criterion) {
-                    b.bench_function(
-                        format!("tabacpf_cardinality_precision_{}_bits_6", $precision::EXPONENT).as_str(),
-                        |b| {
-                            b.iter(||{
-                                let mut hll: TabacHyperLogLogPF<u64, RandomState> = TabacHyperLogLogPF::new($precision::EXPONENT as u8, RandomState::new()).unwrap();
-                                let mut total_cardinality = 0.0;
-                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
-                                    TabacHyperLogLog::insert(&mut hll, black_box(&i));
-                                    total_cardinality += hll.count();
-                                }
-                                total_cardinality
-                            })
-                    });
+                    cardinality_bencher::<TabacHLL<$precision>>(b);
                 }
 
                 fn [<bench_tabacplusplus_cardinality_ $precision:lower>] (b: &mut Criterion) {
-                    b.bench_function(
-                        format!("tabacplusplus_cardinality_precision_{}_bits_6", $precision::EXPONENT).as_str(),
-                        |b| {
-                            b.iter(||{
-                                let mut hll: TabacHyperLogLogPlus<u64, RandomState> = TabacHyperLogLogPlus::new($precision::EXPONENT as u8, RandomState::new()).unwrap();
-                                let mut total_cardinality = 0.0;
-                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
-                                    TabacHyperLogLog::insert(&mut hll, black_box(&i));
-                                    total_cardinality += hll.count();
-                                }
-                                total_cardinality
-                            })
-                    });
+                    cardinality_bencher::<TabacHLLPlusPlus<$precision>>(b);
                 }
 
                 fn [<bench_rhll_cardinality_ $precision:lower _bits6>] (b: &mut Criterion) {
-                    b.bench_function(
-                        format!("rhll_cardinality_precision_{}_bits_6", $precision::EXPONENT).as_str(),
-                        |b| {
-                            b.iter(||{
-                                let mut hll: RustHyperLogLog = RustHyperLogLog::new_deterministic($precision::error_rate(), 6785467548654986_128);
-                                let mut total_cardinality = 0;
-                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
-                                    hll.insert(black_box(&i));
-                                    total_cardinality ^= black_box(hll.len()) as usize;
-                                }
-                                total_cardinality
-                            })
-                    });
+                    cardinality_bencher::<RustHLL<$precision>>(b);
                 }
 
                 fn [<bench_sa_cardinality_ $precision:lower>] (b: &mut Criterion) {
-                    b.bench_function(
-                        format!("sa_cardinality_precision_{}_bits_6", $precision::EXPONENT).as_str(),
-                        |b| {
-                            b.iter(||{
-                                let mut hll: SAHyperLogLog<u64> = SAHyperLogLog::new($precision::error_rate());
-                                let mut total_cardinality = 0.0;
-                                for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
-                                    hll.push(black_box(&i));
-                                    total_cardinality += hll.len();
-                                }
-                                total_cardinality
-                            })
-                    });
+                    cardinality_bencher::<SAHLL<$precision>>(b);
                 }
 
                 criterion_group! {
@@ -217,35 +191,17 @@ macro_rules! bench_cardinalities {
                     targets=[<bench_sa_cardinality_ $precision:lower>]
                 }
                 criterion_group! {
-                    name=[<cardinality_plusplus_ $precision:lower>];
+                    name=[<cardinality_cludflare_ $precision:lower>];
                     config = Criterion::default().sample_size($sample_size);
-                    targets=[<bench_plusplus_cardinality_ $precision:lower _bits6_xxhash64>], [<bench_plusplus_cardinality_ $precision:lower _bits6_wyhash>], [<bench_plusplus_cardinality_ $precision:lower _bits8_xxhash64>], [<bench_plusplus_cardinality_ $precision:lower _bits8_wyhash>],
-                }
-                criterion_group! {
-                    name=[<cardinality_hybridplusplus_ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
-                    targets=[<bench_hybridplusplus_cardinality_ $precision:lower _bits6_xxhash64>], [<bench_hybridplusplus_cardinality_ $precision:lower _bits6_wyhash>], [<bench_hybridplusplus_cardinality_ $precision:lower _bits8_xxhash64>], [<bench_hybridplusplus_cardinality_ $precision:lower _bits8_wyhash>]
-                }
-                criterion_group! {
-                    name=[<cardinality_beta_ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
-                    targets=[<bench_beta_cardinality_ $precision:lower _bits6_xxhash64>], [<bench_beta_cardinality_ $precision:lower _bits6_wyhash>], [<bench_beta_cardinality_ $precision:lower _bits8_xxhash64>], [<bench_beta_cardinality_ $precision:lower _bits8_wyhash>]
-                }
-                criterion_group! {
-                    name=[<cardinality_hybridbeta_ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
-                    targets=[<bench_hybridbeta_cardinality_ $precision:lower _bits6_xxhash64>], [<bench_hybridbeta_cardinality_ $precision:lower _bits6_wyhash>], [<bench_hybridbeta_cardinality_ $precision:lower _bits8_xxhash64>], [<bench_hybridbeta_cardinality_ $precision:lower _bits8_wyhash>]
+                    targets=[<bench_cludflare_cardinality_ $precision:lower _bits6_wyhash>], [<bench_cludflare_cardinality_ $precision:lower _bits6_xxhash64>]
                 }
                 criterion_group! {
                     name=[<cardinality_rhll_ $precision:lower>];
                     config = Criterion::default().sample_size($sample_size / 5);
                     targets=[<bench_rhll_cardinality_ $precision:lower _bits6>]
                 }
-                criterion_group! {
-                    name=[<cardinality_ce_ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
-                    targets=[<bench_ce_cardinality_ $precision:lower _bits6_wyhash>]
-                }
+
+                bench_cardinality_registers!($precision, $sample_size, "vec", "array", "packedarray");
             }
         )*
     };
@@ -275,140 +231,49 @@ bench_cardinalities!(
 #[cfg(feature = "high_precisions")]
 bench_cardinalities!((Precision17, 50), (Precision18, 50));
 
-criterion_main!(
-    // cardinality_plusplus_precision4,
-    // cardinality_plusplus_precision5,
-    // cardinality_plusplus_precision6,
-    // cardinality_plusplus_precision7,
-    // cardinality_plusplus_precision8,
-    // cardinality_plusplus_precision9,
-    // cardinality_plusplus_precision10,
-    // cardinality_plusplus_precision11,
-    // cardinality_plusplus_precision12,
-    // cardinality_plusplus_precision13,
-    // cardinality_plusplus_precision14,
-    // cardinality_plusplus_precision15,
-    // cardinality_plusplus_precision16,
-    // cardinality_plusplus_precision17,
-    // cardinality_plusplus_precision18,
-    // cardinality_beta_precision4,
-    // cardinality_beta_precision5,
-    // cardinality_beta_precision6,
-    // cardinality_beta_precision7,
-    // cardinality_beta_precision8,
-    // cardinality_beta_precision9,
-    // cardinality_beta_precision10,
-    // cardinality_beta_precision11,
-    // cardinality_beta_precision12,
-    // cardinality_beta_precision13,
-    // cardinality_beta_precision14,
-    // cardinality_beta_precision15,
-    // cardinality_beta_precision16,
-    // cardinality_beta_precision17,
-    // cardinality_beta_precision18,
-    cardinality_hybridplusplus_precision4,
-    cardinality_hybridplusplus_precision5,
-    cardinality_hybridplusplus_precision6,
-    cardinality_hybridplusplus_precision7,
-    cardinality_hybridplusplus_precision8,
-    cardinality_hybridplusplus_precision9,
-    cardinality_hybridplusplus_precision10,
-    cardinality_hybridplusplus_precision11,
-    cardinality_hybridplusplus_precision12,
-    cardinality_hybridplusplus_precision13,
-    cardinality_hybridplusplus_precision14,
-    cardinality_hybridplusplus_precision15,
-    cardinality_hybridplusplus_precision16,
-    cardinality_hybridplusplus_precision17,
-    cardinality_hybridplusplus_precision18,
-    cardinality_hybridbeta_precision4,
-    cardinality_hybridbeta_precision5,
-    cardinality_hybridbeta_precision6,
-    cardinality_hybridbeta_precision7,
-    cardinality_hybridbeta_precision8,
-    cardinality_hybridbeta_precision9,
-    cardinality_hybridbeta_precision10,
-    cardinality_hybridbeta_precision11,
-    cardinality_hybridbeta_precision12,
-    cardinality_hybridbeta_precision13,
-    cardinality_hybridbeta_precision14,
-    cardinality_hybridbeta_precision15,
-    cardinality_hybridbeta_precision16,
-    cardinality_hybridbeta_precision17,
-    cardinality_hybridbeta_precision18,
-    // cardinality_tabacpf_precision4,
-    // cardinality_tabacpf_precision5,
-    // cardinality_tabacpf_precision6,
-    // cardinality_tabacpf_precision7,
-    // cardinality_tabacpf_precision8,
-    // cardinality_tabacpf_precision9,
-    // cardinality_tabacpf_precision10,
-    // cardinality_tabacpf_precision11,
-    // cardinality_tabacpf_precision12,
-    // cardinality_tabacpf_precision13,
-    // cardinality_tabacpf_precision14,
-    // cardinality_tabacpf_precision15,
-    // cardinality_tabacpf_precision16,
-    // cardinality_tabacpf_precision17,
-    // cardinality_tabacpf_precision18,
-    // cardinality_tabacplusplus_precision4,
-    // cardinality_tabacplusplus_precision5,
-    // cardinality_tabacplusplus_precision6,
-    // cardinality_tabacplusplus_precision7,
-    // cardinality_tabacplusplus_precision8,
-    // cardinality_tabacplusplus_precision9,
-    // cardinality_tabacplusplus_precision10,
-    // cardinality_tabacplusplus_precision11,
-    // cardinality_tabacplusplus_precision12,
-    // cardinality_tabacplusplus_precision13,
-    // cardinality_tabacplusplus_precision14,
-    // cardinality_tabacplusplus_precision15,
-    // cardinality_tabacplusplus_precision16,
-    // cardinality_tabacplusplus_precision17,
-    // cardinality_tabacplusplus_precision18,
-    // cardinality_sa_precision4,
-    // cardinality_sa_precision5,
-    // cardinality_sa_precision6,
-    // cardinality_sa_precision7,
-    // cardinality_sa_precision8,
-    // cardinality_sa_precision9,
-    // cardinality_sa_precision10,
-    // cardinality_sa_precision11,
-    // cardinality_sa_precision12,
-    // cardinality_sa_precision13,
-    // cardinality_sa_precision14,
-    // cardinality_sa_precision15,
-    // cardinality_sa_precision16,
-    // cardinality_sa_precision17,
-    // cardinality_sa_precision18,
-    // cardinality_ce_precision4,
-    // cardinality_ce_precision5,
-    // cardinality_ce_precision6,
-    // cardinality_ce_precision7,
-    // cardinality_ce_precision8,
-    // cardinality_ce_precision9,
-    // cardinality_ce_precision10,
-    // cardinality_ce_precision11,
-    // cardinality_ce_precision12,
-    // cardinality_ce_precision13,
-    // cardinality_ce_precision14,
-    // cardinality_ce_precision15,
-    // cardinality_ce_precision16,
-    // cardinality_ce_precision17,
-    // cardinality_ce_precision18,
-    // cardinality_rhll_precision4,
-    // cardinality_rhll_precision5,
-    // cardinality_rhll_precision6,
-    // cardinality_rhll_precision7,
-    // cardinality_rhll_precision8,
-    // cardinality_rhll_precision9,
-    // cardinality_rhll_precision10,
-    // cardinality_rhll_precision11,
-    // cardinality_rhll_precision12,
-    // cardinality_rhll_precision13,
-    // cardinality_rhll_precision14,
-    // cardinality_rhll_precision15,
-    // cardinality_rhll_precision16,
-    // cardinality_rhll_precision17,
-    // cardinality_rhll_precision18,
+/// Macro to generate the criterion main for all precisions
+macro_rules! bench_cardinality_main {
+    ($($precision:ty),*) => {
+        paste::paste!{
+            criterion_main!(
+                $(
+                    [<cardinality_betavec_ $precision:lower>],
+                    [<cardinality_betaarray_ $precision:lower>],
+                    [<cardinality_betapackedarray_ $precision:lower>],
+                    [<cardinality_plusplusvec_ $precision:lower>],
+                    [<cardinality_plusplusarray_ $precision:lower>],
+                    [<cardinality_pluspluspackedarray_ $precision:lower>],
+                    [<cardinality_hybridbetavec_ $precision:lower>],
+                    [<cardinality_hybridbetaarray_ $precision:lower>],
+                    [<cardinality_hybridbetapackedarray_ $precision:lower>],
+                    [<cardinality_hybridplusplusvec_ $precision:lower>],
+                    [<cardinality_hybridplusplusarray_ $precision:lower>],
+                    [<cardinality_hybridpluspluspackedarray_ $precision:lower>],
+                    [<cardinality_tabacpf_ $precision:lower>],
+                    [<cardinality_tabacplusplus_ $precision:lower>],
+                    [<cardinality_sa_ $precision:lower>],
+                    [<cardinality_cludflare_ $precision:lower>],
+                    [<cardinality_rhll_ $precision:lower>],
+                )*
+            );
+        }
+    };
+}
+
+bench_cardinality_main!(
+    Precision4,
+    Precision5,
+    Precision6,
+    Precision7,
+    Precision8,
+    Precision9,
+    Precision10,
+    Precision11,
+    Precision12,
+    Precision13,
+    Precision14,
+    Precision15,
+    Precision16,
+    Precision17,
+    Precision18
 );

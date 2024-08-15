@@ -1,8 +1,11 @@
+//! The `hyperloglog` module contains the `HyperLogLog` trait that defines the interface for HyperLogLog counters.
 use crate::prelude::*;
 
-pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Default + Default>:
+/// Trait for HyperLogLog counters.
+pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Default>:
     Sized + Default + Eq + PartialEq + BitOrAssign<Self> + BitOr<Self, Output = Self> + Send + Sync + SetProperties + MutableSet
 {
+    /// The type of the registers of the HyperLogLog counter.
     type Registers: Registers<P, B>;
 
     /// Returns a reference to the registers of the HyperLogLog counter.
@@ -82,10 +85,8 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
     }
 
     #[inline(always)]
+    /// Slits the hash into two parts: the register value and the index of the register.
     fn split_hash(hash: u64) -> (u32, usize) {
-        // Calculate the register's index using the highest bits of the hash.
-        // The index of the register has to vary from 0 to 2^p - 1, where p is the precision,
-        // so we use the highest p bits of the hash.
         let index: usize = hash as usize & (P::NUMBER_OF_REGISTERS - 1);
 
         // And we delete the used bits from the hash.
@@ -106,14 +107,13 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
             hash |= 1 << (64 - ((1 << B::NUMBER_OF_BITS) - 1));
         }
 
-        // let register_value = 1 + hash.leading_zeros();
-
         let register_value = hash.leading_zeros() + 1 - P::EXPONENT as u32;
 
         (register_value, index)
     }
 
     #[inline(always)]
+    /// Hashes the element and returns the register value and the index of the register.
     fn hash_and_index<T: core::hash::Hash>(element: &T) -> (u32, usize) {
         let mut hasher = Hasher::default();
         element.hash(&mut hasher);

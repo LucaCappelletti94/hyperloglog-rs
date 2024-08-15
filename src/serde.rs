@@ -1,3 +1,5 @@
+//! Module to handle serialization and deserialization of the registers
+
 /// Struct to deserialize a vector of T
 pub(crate) struct RegisterVisitor<T> {
     expected_length: usize,

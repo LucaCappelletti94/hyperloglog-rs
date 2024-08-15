@@ -205,7 +205,6 @@ impl<
         S: FloatNumber,
     > Hybridazable for BasicLogLog<P, B, R, Hasher, S>
 {
-    type Words = R;
     type IterSortedHashes<'a> = core::iter::Take<R::WordIter<'a>> where Self: 'a;
 
     fn is_hybrid(&self) -> bool {

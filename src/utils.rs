@@ -28,6 +28,12 @@ pub use words::Words;
 
 use crate::{bits::Bits, prelude::Precision};
 
+/// Trait for an object with a name.
+pub trait Named {
+    /// Returns the name of the object.
+    fn name(&self) -> String;
+}
+
 #[inline]
 /// Calculates the integer ceil of the division of `numerator` by `denominator`.
 pub(crate) const fn ceil(numerator: usize, denominator: usize) -> usize {
@@ -35,6 +41,7 @@ pub(crate) const fn ceil(numerator: usize, denominator: usize) -> usize {
 }
 
 #[inline]
+/// Returns the maximal multiplicity of the registers given the precision and the number of bits.
 pub(crate) const fn maximal_multeplicity(precision: usize, bits: usize) -> usize {
     debug_assert!(
         precision >= 4,
@@ -53,6 +60,7 @@ pub(crate) const fn maximal_multeplicity(precision: usize, bits: usize) -> usize
 }
 
 #[inline]
+/// Returns the lowest possible value for the harmonic sum given the precision and the number of bits.
 pub(crate) fn miminal_harmonic_sum<F: FloatNumber, P: Precision, B: Bits>() -> F {
     F::inverse_register(
         maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS) as i32 - P::EXPONENT as i32 - 1,

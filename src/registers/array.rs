@@ -119,9 +119,15 @@ where
 ///
 /// Meant to be associated with a specific Precision.
 pub trait ArrayRegister<B: Bits>: Precision {
+    /// The type of the array register associated with the precision and bits.
     type ArrayRegister: Registers<Self, B>;
+}
 
-    fn initialize_with(word: u64) -> Self::ArrayRegister;
+impl<const N: usize, W> Named for [W; N]
+{
+    fn name(&self) -> String {
+        "Array".to_string()
+    }
 }
 
 macro_rules! impl_register_for_precision_and_bits {
@@ -131,10 +137,6 @@ macro_rules! impl_register_for_precision_and_bits {
                 #[cfg(feature = "precision_" $exponent)]
                 impl ArrayRegister<[<Bits $bits>]> for [<Precision $exponent>] {
                     type ArrayRegister = [u64; crate::utils::ceil(usize::pow(2, $exponent), 64 / $bits)];
-
-                    fn initialize_with(word: u64) -> Self::ArrayRegister {
-                        [word; crate::utils::ceil(usize::pow(2, $exponent), 64 / $bits)]
-                    }
                 }
 
                 #[cfg(feature = "precision_" $exponent)]
@@ -269,4 +271,3 @@ macro_rules! impl_registers_for_precisions {
 }
 
 impl_registers_for_precisions!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-

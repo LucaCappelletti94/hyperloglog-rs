@@ -3,6 +3,15 @@ use crate::{prelude::*, utils::Number};
 use core::hash::Hash;
 use std::collections::HashSet;
 
+impl<I> Named for HashSet<I>
+where
+    I: Eq + Hash,
+{
+    fn name(&self) -> String {
+        "HashSet".to_string()
+    }
+}
+
 impl<I, C> Estimator<C> for HashSet<I>
 where
     C: Number + TryFrom<usize>,

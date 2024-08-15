@@ -1,725 +1,2903 @@
-hll_insert_precision_4_bits_6_hasher_XxHash64
-                        time:   [63.618 µs 63.658 µs 63.707 µs]
-                        change: [+0.2106% +0.3302% +0.4474%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 9 outliers among 100 measurements (9.00%)
-  3 (3.00%) high mild
-  6 (6.00%) high severe
+Insert PP<P4, B6, Vec> + XxHash64
+                        time:   [64.138 µs 64.187 µs 64.250 µs]
+                        change: [-2.3197% -2.1884% -2.0523%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 7 outliers among 100 measurements (7.00%)
+  4 (4.00%) high mild
+  3 (3.00%) high severe
 
-hll_insert_precision_4_bits_6_hasher_WyHash
-                        time:   [33.085 µs 33.095 µs 33.106 µs]
-                        change: [-0.2826% -0.1821% -0.1074%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 19 outliers among 100 measurements (19.00%)
-  1 (1.00%) low severe
+Insert PP<P4, B6, Vec> + WyHash
+                        time:   [49.215 µs 49.234 µs 49.264 µs]
+                        change: [-0.0989% -0.0319% +0.0267%] (p = 0.34 > 0.05)
+                        No change in performance detected.
+Found 18 outliers among 100 measurements (18.00%)
   1 (1.00%) low mild
+  2 (2.00%) high mild
+  15 (15.00%) high severe
+
+Insert PP<P4, B8, Vec> + XxHash64
+                        time:   [62.574 µs 62.625 µs 62.702 µs]
+                        change: [-0.0511% +0.0555% +0.1572%] (p = 0.29 > 0.05)
+                        No change in performance detected.
+Found 21 outliers among 100 measurements (21.00%)
+  3 (3.00%) high mild
+  18 (18.00%) high severe
+
+Insert PP<P4, B8, Vec> + WyHash
+                        time:   [47.787 µs 47.809 µs 47.842 µs]
+                        change: [-0.0821% -0.0365% +0.0130%] (p = 0.13 > 0.05)
+                        No change in performance detected.
+Found 18 outliers among 100 measurements (18.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  13 (13.00%) high severe
+
+Insert PP<P4, B6, Array> + XxHash64
+                        time:   [63.140 µs 63.174 µs 63.220 µs]
+                        change: [-2.8202% -2.7415% -2.6477%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 17 outliers among 100 measurements (17.00%)
   6 (6.00%) high mild
   11 (11.00%) high severe
 
-hll_insert_precision_5_bits_6_hasher_XxHash64
-                        time:   [68.095 µs 68.167 µs 68.250 µs]
-                        change: [-5.1372% -4.9874% -4.8238%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 5 outliers among 100 measurements (5.00%)
+Insert PP<P4, B6, Array> + WyHash
+                        time:   [51.221 µs 51.245 µs 51.279 µs]
+                        change: [-0.1785% -0.1130% -0.0542%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 18 outliers among 100 measurements (18.00%)
+  1 (1.00%) low severe
   2 (2.00%) low mild
-  3 (3.00%) high mild
-
-hll_insert_precision_5_bits_6_hasher_WyHash
-                        time:   [34.654 µs 34.664 µs 34.678 µs]
-                        change: [+0.0524% +0.0810% +0.1105%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 15 outliers among 100 measurements (15.00%)
-  1 (1.00%) low mild
-  4 (4.00%) high mild
-  10 (10.00%) high severe
-
-hll_insert_precision_6_bits_6_hasher_XxHash64
-                        time:   [68.958 µs 69.028 µs 69.107 µs]
-                        change: [-0.3166% -0.1978% -0.0715%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 4 outliers among 100 measurements (4.00%)
   1 (1.00%) high mild
-  3 (3.00%) high severe
+  14 (14.00%) high severe
 
-hll_insert_precision_6_bits_6_hasher_WyHash
-                        time:   [38.074 µs 38.086 µs 38.100 µs]
-                        change: [+0.8242% +0.9187% +1.0013%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 22 outliers among 100 measurements (22.00%)
-  1 (1.00%) low severe
-  7 (7.00%) low mild
-  9 (9.00%) high mild
-  5 (5.00%) high severe
-
-hll_insert_precision_7_bits_6_hasher_XxHash64
-                        time:   [77.657 µs 77.699 µs 77.745 µs]
-                        change: [-0.0845% +0.0473% +0.1734%] (p = 0.48 > 0.05)
-                        No change in performance detected.
-Found 5 outliers among 100 measurements (5.00%)
-  4 (4.00%) high mild
-  1 (1.00%) high severe
-
-hll_insert_precision_7_bits_6_hasher_WyHash
-                        time:   [43.318 µs 43.333 µs 43.352 µs]
-                        change: [+0.0071% +0.0546% +0.1143%] (p = 0.05 > 0.05)
-                        No change in performance detected.
-Found 3 outliers among 100 measurements (3.00%)
-  3 (3.00%) high severe
-
-hll_insert_precision_8_bits_6_hasher_XxHash64
-                        time:   [70.686 µs 70.708 µs 70.730 µs]
-                        change: [-1.2621% -1.1065% -0.9523%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 7 outliers among 100 measurements (7.00%)
-  2 (2.00%) low mild
-  4 (4.00%) high mild
-  1 (1.00%) high severe
-
-hll_insert_precision_8_bits_6_hasher_WyHash
-                        time:   [35.162 µs 35.184 µs 35.213 µs]
-                        change: [-0.0572% +0.0137% +0.0891%] (p = 0.72 > 0.05)
-                        No change in performance detected.
-Found 10 outliers among 100 measurements (10.00%)
-  2 (2.00%) low mild
-  2 (2.00%) high mild
-  6 (6.00%) high severe
-
-hll_insert_precision_9_bits_6_hasher_XxHash64
-                        time:   [128.76 µs 128.81 µs 128.88 µs]
-                        change: [+58.278% +58.376% +58.482%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 5 outliers among 100 measurements (5.00%)
-  2 (2.00%) high mild
-  3 (3.00%) high severe
-
-hll_insert_precision_9_bits_6_hasher_WyHash
-                        time:   [37.668 µs 37.682 µs 37.700 µs]
-                        change: [+2.9538% +3.0544% +3.1572%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 11 outliers among 100 measurements (11.00%)
-  3 (3.00%) high mild
-  8 (8.00%) high severe
-
-hll_insert_precision_10_bits_6_hasher_XxHash64
-                        time:   [87.741 µs 87.778 µs 87.815 µs]
-                        change: [+0.4840% +0.5903% +0.6989%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 8 outliers among 100 measurements (8.00%)
-  1 (1.00%) low severe
-  4 (4.00%) low mild
-  3 (3.00%) high mild
-
-hll_insert_precision_10_bits_6_hasher_WyHash
-                        time:   [37.207 µs 37.221 µs 37.237 µs]
-                        change: [-0.1374% -0.0200% +0.0743%] (p = 0.75 > 0.05)
+Insert PP<P4, B8, Array> + XxHash64
+                        time:   [62.054 µs 62.070 µs 62.090 µs]
+                        change: [-0.0474% +0.0067% +0.0535%] (p = 0.80 > 0.05)
                         No change in performance detected.
 Found 14 outliers among 100 measurements (14.00%)
   1 (1.00%) low mild
-  5 (5.00%) high mild
-  8 (8.00%) high severe
+  6 (6.00%) high mild
+  7 (7.00%) high severe
 
-hll_insert_precision_11_bits_6_hasher_XxHash64
-                        time:   [102.54 µs 102.57 µs 102.60 µs]
-                        change: [+0.2954% +0.3531% +0.4120%] (p = 0.00 < 0.05)
+Insert PP<P4, B8, Array> + WyHash
+                        time:   [48.723 µs 48.761 µs 48.815 µs]
+                        change: [+0.7768% +0.8468% +0.9130%] (p = 0.00 < 0.05)
                         Change within noise threshold.
 Found 12 outliers among 100 measurements (12.00%)
-  2 (2.00%) low severe
-  1 (1.00%) low mild
-  3 (3.00%) high mild
-  6 (6.00%) high severe
+  8 (8.00%) high mild
+  4 (4.00%) high severe
 
-hll_insert_precision_11_bits_6_hasher_WyHash
-                        time:   [42.971 µs 42.994 µs 43.027 µs]
-                        change: [-2.6260% -2.5622% -2.4853%] (p = 0.00 < 0.05)
-                        Performance has improved.
+Insert PP<P4, B6, PackedArray> + XxHash64
+                        time:   [78.783 µs 78.836 µs 78.902 µs]
+                        change: [+0.0554% +0.1509% +0.2402%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+
+Insert PP<P4, B6, PackedArray> + WyHash
+                        time:   [57.487 µs 57.526 µs 57.581 µs]
+                        change: [-1.0781% -0.9426% -0.8382%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
 Found 6 outliers among 100 measurements (6.00%)
-  1 (1.00%) low mild
   3 (3.00%) high mild
-  2 (2.00%) high severe
+  3 (3.00%) high severe
 
-hll_insert_precision_12_bits_6_hasher_XxHash64
-                        time:   [103.65 µs 103.68 µs 103.73 µs]
-                        change: [+0.0552% +0.1168% +0.1870%] (p = 0.00 < 0.05)
+Insert PP<P4, B8, PackedArray> + XxHash64
+                        time:   [75.687 µs 75.755 µs 75.835 µs]
+                        change: [-0.7220% -0.6411% -0.5532%] (p = 0.00 < 0.05)
                         Change within noise threshold.
 Found 1 outliers among 100 measurements (1.00%)
-  1 (1.00%) high mild
+  1 (1.00%) high severe
 
-hll_insert_precision_12_bits_6_hasher_WyHash
-                        time:   [44.323 µs 44.339 µs 44.356 µs]
-                        change: [-0.0599% +0.0575% +0.1703%] (p = 0.35 > 0.05)
-                        No change in performance detected.
+Insert PP<P4, B8, PackedArray> + WyHash
+                        time:   [53.069 µs 53.095 µs 53.135 µs]
+                        change: [+0.2614% +0.3350% +0.4242%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 15 outliers among 100 measurements (15.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  12 (12.00%) high severe
+
+Insert HybridPP<P4, B6, Vec> + XxHash64
+                        time:   [74.163 µs 74.247 µs 74.349 µs]
+                        change: [-1.3197% -1.1640% -0.9958%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 22 outliers among 100 measurements (22.00%)
+  4 (4.00%) high mild
+  18 (18.00%) high severe
+
+Insert HybridPP<P4, B6, Vec> + WyHash
+                        time:   [54.095 µs 54.113 µs 54.136 µs]
+                        change: [-0.1296% -0.0849% -0.0235%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 20 outliers among 100 measurements (20.00%)
+  1 (1.00%) low severe
+  3 (3.00%) high mild
+  16 (16.00%) high severe
+
+Insert HybridPP<P4, B8, Vec> + XxHash64
+                        time:   [72.354 µs 72.381 µs 72.412 µs]
+                        change: [-2.2002% -2.1433% -2.0717%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
+Insert HybridPP<P4, B8, Vec> + WyHash
+                        time:   [53.319 µs 53.338 µs 53.364 µs]
+                        change: [-7.2963% -7.2412% -7.1869%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) low mild
+  12 (12.00%) high severe
+
+Insert HybridPP<P4, B6, Array> + XxHash64
+                        time:   [73.058 µs 73.099 µs 73.144 µs]
+                        change: [-1.4259% -1.3081% -1.1919%] (p = 0.00 < 0.05)
+                        Performance has improved.
 Found 2 outliers among 100 measurements (2.00%)
   2 (2.00%) high severe
 
-hll_insert_precision_13_bits_6_hasher_XxHash64
-                        time:   [89.863 µs 89.924 µs 89.989 µs]
-                        change: [-1.4119% -1.3015% -1.1923%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 5 outliers among 100 measurements (5.00%)
-  3 (3.00%) low mild
-  2 (2.00%) high severe
-
-hll_insert_precision_13_bits_6_hasher_WyHash
-                        time:   [37.615 µs 37.639 µs 37.670 µs]
-                        change: [-5.9483% -5.8674% -5.7927%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 8 outliers among 100 measurements (8.00%)
-  3 (3.00%) high mild
-  5 (5.00%) high severe
-
-hll_insert_precision_14_bits_6_hasher_XxHash64
-                        time:   [82.691 µs 82.746 µs 82.818 µs]
-                        change: [+0.4572% +0.5506% +0.6473%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 4 outliers among 100 measurements (4.00%)
-  1 (1.00%) high mild
-  3 (3.00%) high severe
-
-hll_insert_precision_14_bits_6_hasher_WyHash
-                        time:   [38.161 µs 38.219 µs 38.306 µs]
-                        change: [-0.6434% -0.4861% -0.2956%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 10 outliers among 100 measurements (10.00%)
-  1 (1.00%) high mild
-  9 (9.00%) high severe
-
-hll_insert_precision_15_bits_6_hasher_XxHash64
-                        time:   [82.920 µs 82.952 µs 82.990 µs]
-                        change: [+0.0888% +0.1489% +0.2071%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 9 outliers among 100 measurements (9.00%)
-  1 (1.00%) low mild
-  5 (5.00%) high mild
-  3 (3.00%) high severe
-
-hll_insert_precision_15_bits_6_hasher_WyHash
-                        time:   [44.973 µs 44.991 µs 45.009 µs]
-                        change: [-0.1306% -0.0669% +0.0076%] (p = 0.06 > 0.05)
+Insert HybridPP<P4, B6, Array> + WyHash
+                        time:   [52.449 µs 52.481 µs 52.533 µs]
+                        change: [-0.0304% +0.0285% +0.1027%] (p = 0.43 > 0.05)
                         No change in performance detected.
-Found 3 outliers among 100 measurements (3.00%)
-  1 (1.00%) high mild
-  2 (2.00%) high severe
+Found 12 outliers among 100 measurements (12.00%)
+  6 (6.00%) high mild
+  6 (6.00%) high severe
 
-hll_insert_precision_16_bits_6_hasher_XxHash64
-                        time:   [70.463 µs 70.487 µs 70.517 µs]
-                        change: [-0.2273% -0.1596% -0.0773%] (p = 0.00 < 0.05)
+Insert HybridPP<P4, B8, Array> + XxHash64
+                        time:   [71.766 µs 71.792 µs 71.827 µs]
+                        change: [+0.9144% +0.9932% +1.0696%] (p = 0.00 < 0.05)
                         Change within noise threshold.
-Found 15 outliers among 100 measurements (15.00%)
-  8 (8.00%) high mild
+Found 12 outliers among 100 measurements (12.00%)
+  5 (5.00%) high mild
   7 (7.00%) high severe
 
-hll_insert_precision_16_bits_6_hasher_WyHash
-                        time:   [38.887 µs 38.906 µs 38.933 µs]
-                        change: [-0.0527% +0.0204% +0.0880%] (p = 0.59 > 0.05)
-                        No change in performance detected.
-Found 9 outliers among 100 measurements (9.00%)
-  1 (1.00%) low mild
-  3 (3.00%) high mild
-  5 (5.00%) high severe
-
-hll_insert_precision_17_bits_6_hasher_XxHash64
-                        time:   [75.506 µs 75.544 µs 75.608 µs]
-                        change: [-0.1183% -0.0463% +0.0429%] (p = 0.30 > 0.05)
-                        No change in performance detected.
-Found 16 outliers among 100 measurements (16.00%)
-  2 (2.00%) low mild
-  3 (3.00%) high mild
-  11 (11.00%) high severe
-
-hll_insert_precision_17_bits_6_hasher_WyHash
-                        time:   [40.259 µs 40.273 µs 40.289 µs]
-                        change: [-0.5346% -0.4671% -0.4093%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
+Insert HybridPP<P4, B8, Array> + WyHash
+                        time:   [50.640 µs 50.655 µs 50.674 µs]
+                        change: [-3.1250% -3.0449% -2.9834%] (p = 0.00 < 0.05)
+                        Performance has improved.
 Found 12 outliers among 100 measurements (12.00%)
-  2 (2.00%) high mild
-  10 (10.00%) high severe
-
-hll_insert_precision_18_bits_6_hasher_XxHash64
-                        time:   [75.467 µs 75.491 µs 75.520 µs]
-                        change: [-0.0506% +0.0155% +0.0729%] (p = 0.64 > 0.05)
-                        No change in performance detected.
-Found 13 outliers among 100 measurements (13.00%)
-  5 (5.00%) high mild
-  8 (8.00%) high severe
-
-hll_insert_precision_18_bits_6_hasher_WyHash
-                        time:   [40.846 µs 40.901 µs 40.988 µs]
-                        change: [+0.2919% +0.3757% +0.4980%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 5 outliers among 100 measurements (5.00%)
-  2 (2.00%) high mild
-  3 (3.00%) high severe
-
-tabacplusplus_insert_precision_4_bits_6
-                        time:   [78.566 µs 78.581 µs 78.600 µs]
-                        change: [-0.0575% -0.0267% +0.0015%] (p = 0.08 > 0.05)
-                        No change in performance detected.
-Found 12 outliers among 100 measurements (12.00%)
-  1 (1.00%) low mild
-  6 (6.00%) high mild
-  5 (5.00%) high severe
-
-tabacplusplus_insert_precision_5_bits_6
-                        time:   [79.495 µs 79.518 µs 79.553 µs]
-                        change: [+9.1827% +9.3991% +9.5937%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 13 outliers among 100 measurements (13.00%)
-  1 (1.00%) low severe
   3 (3.00%) high mild
   9 (9.00%) high severe
 
-tabacplusplus_insert_precision_6_bits_6
-                        time:   [81.938 µs 81.977 µs 82.039 µs]
-                        change: [-0.1408% -0.0966% -0.0434%] (p = 0.00 < 0.05)
+Insert HybridPP<P4, B6, PackedArray> + XxHash64
+                        time:   [81.732 µs 81.784 µs 81.839 µs]
+                        change: [-1.1419% -1.0752% -1.0050%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+
+Insert HybridPP<P4, B6, PackedArray> + WyHash
+                        time:   [56.561 µs 56.583 µs 56.612 µs]
+                        change: [+1.1739% +1.2341% +1.2846%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) high mild
+  7 (7.00%) high severe
+
+Insert HybridPP<P4, B8, PackedArray> + XxHash64
+                        time:   [78.317 µs 78.365 µs 78.427 µs]
+                        change: [+0.8306% +0.9566% +1.0708%] (p = 0.00 < 0.05)
                         Change within noise threshold.
 Found 13 outliers among 100 measurements (13.00%)
-  1 (1.00%) high mild
-  12 (12.00%) high severe
-
-tabacplusplus_insert_precision_7_bits_6
-                        time:   [85.739 µs 85.766 µs 85.801 µs]
-                        change: [-0.4237% -0.3371% -0.2721%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 17 outliers among 100 measurements (17.00%)
-  2 (2.00%) low mild
-  3 (3.00%) high mild
-  12 (12.00%) high severe
-
-tabacplusplus_insert_precision_8_bits_6
-                        time:   [94.398 µs 94.434 µs 94.480 µs]
-                        change: [+0.1949% +0.3115% +0.4457%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 20 outliers among 100 measurements (20.00%)
-  3 (3.00%) high mild
-  17 (17.00%) high severe
-
-tabacplusplus_insert_precision_9_bits_6
-                        time:   [104.26 µs 104.34 µs 104.42 µs]
-                        change: [-0.0842% +0.0483% +0.1826%] (p = 0.50 > 0.05)
-                        No change in performance detected.
-Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) low severe
+  3 (3.00%) low mild
   4 (4.00%) high mild
   4 (4.00%) high severe
 
-tabacplusplus_insert_precision_10_bits_6
-                        time:   [131.65 µs 131.69 µs 131.74 µs]
-                        change: [-2.2543% -2.1485% -2.0537%] (p = 0.00 < 0.05)
+Insert HybridPP<P4, B8, PackedArray> + WyHash
+                        time:   [53.719 µs 53.734 µs 53.750 µs]
+                        change: [-2.0303% -1.9090% -1.8143%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 16 outliers among 100 measurements (16.00%)
+  1 (1.00%) low mild
+  6 (6.00%) high mild
+  9 (9.00%) high severe
+
+Insert Tabac<P4, B6, Vec> + XxHash64
+                        time:   [73.494 µs 73.529 µs 73.576 µs]
+                        change: [-0.1523% -0.0425% +0.0424%] (p = 0.46 > 0.05)
+                        No change in performance detected.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
+Insert TabacPP<P4, B6, Vec> + XxHash64
+                        time:   [79.708 µs 79.824 µs 79.968 µs]
+                        change: [-1.4891% -1.2337% -1.0329%] (p = 0.00 < 0.05)
+                        Performance has improved.
+
+Insert SA<P4, B6, Vec> + XxHash64
+                        time:   [65.057 µs 65.110 µs 65.166 µs]
+                        change: [-2.9804% -2.8448% -2.7067%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+
+Insert CF<P4, B6, Mix> + WyHash
+                        time:   [54.036 µs 54.065 µs 54.104 µs]
+                        change: [-3.7042% -3.5977% -3.4843%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 17 outliers among 100 measurements (17.00%)
+  5 (5.00%) high mild
+  12 (12.00%) high severe
+
+Insert CF<P4, B6, Mix> + XxHash64
+                        time:   [82.432 µs 82.474 µs 82.523 µs]
+                        change: [-0.8524% -0.5681% -0.3232%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 15 outliers among 100 measurements (15.00%)
+  3 (3.00%) high mild
+  12 (12.00%) high severe
+
+Insert FrankPP<P4, B8, Vec> + SipHasher13
+                        time:   [87.041 µs 87.080 µs 87.139 µs]
+                        change: [-0.0215% +0.0153% +0.0585%] (p = 0.50 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+
+Insert PP<P5, B6, Vec> + XxHash64
+                        time:   [64.949 µs 64.981 µs 65.026 µs]
+                        change: [-11.904% -11.788% -11.678%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 17 outliers among 100 measurements (17.00%)
+  1 (1.00%) low mild
+  6 (6.00%) high mild
+  10 (10.00%) high severe
+
+Insert PP<P5, B6, Vec> + WyHash
+                        time:   [51.521 µs 51.538 µs 51.559 µs]
+                        change: [+6.4886% +6.5721% +6.6444%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) high mild
+  12 (12.00%) high severe
+
+Insert PP<P5, B8, Vec> + XxHash64
+                        time:   [61.670 µs 61.697 µs 61.737 µs]
+                        change: [-11.847% -11.758% -11.658%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 11 outliers among 100 measurements (11.00%)
+  6 (6.00%) high mild
+  5 (5.00%) high severe
+
+Insert PP<P5, B8, Vec> + WyHash
+                        time:   [51.998 µs 52.015 µs 52.040 µs]
+                        change: [+2.5586% +2.6543% +2.7581%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 16 outliers among 100 measurements (16.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  12 (12.00%) high severe
+
+Insert PP<P5, B6, Array> + XxHash64
+                        time:   [64.768 µs 64.806 µs 64.849 µs]
+                        change: [-12.778% -12.699% -12.614%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 27 outliers among 100 measurements (27.00%)
+  6 (6.00%) low severe
+  8 (8.00%) low mild
+  4 (4.00%) high mild
+  9 (9.00%) high severe
+
+Insert PP<P5, B6, Array> + WyHash
+                        time:   [52.022 µs 52.037 µs 52.056 µs]
+                        change: [-2.7384% -2.7013% -2.6660%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  11 (11.00%) high severe
+
+Insert PP<P5, B8, Array> + XxHash64
+                        time:   [61.440 µs 61.472 µs 61.515 µs]
+                        change: [-12.070% -12.021% -11.972%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 8 outliers among 100 measurements (8.00%)
   1 (1.00%) low mild
-  3 (3.00%) high mild
+  5 (5.00%) high mild
+  2 (2.00%) high severe
+
+Insert PP<P5, B8, Array> + WyHash
+                        time:   [48.969 µs 48.991 µs 49.018 µs]
+                        change: [-0.3398% -0.1681% -0.0389%] (p = 0.01 < 0.05)
+                        Change within noise threshold.
+Found 11 outliers among 100 measurements (11.00%)
+  6 (6.00%) high mild
+  5 (5.00%) high severe
+
+Insert PP<P5, B6, PackedArray> + XxHash64
+                        time:   [81.855 µs 81.891 µs 81.932 µs]
+                        change: [-7.6888% -7.6271% -7.5693%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 27 outliers among 100 measurements (27.00%)
+  6 (6.00%) low severe
+  7 (7.00%) low mild
+  10 (10.00%) high mild
   4 (4.00%) high severe
 
-tabacplusplus_insert_precision_11_bits_6
-                        time:   [185.23 µs 185.37 µs 185.59 µs]
-                        change: [+0.7365% +0.8798% +1.0160%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 26 outliers among 100 measurements (26.00%)
-  5 (5.00%) low severe
-  3 (3.00%) low mild
+Insert PP<P5, B6, PackedArray> + WyHash
+                        time:   [57.513 µs 57.541 µs 57.574 µs]
+                        change: [-2.3128% -2.2644% -2.2175%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
+Insert PP<P5, B8, PackedArray> + XxHash64
+                        time:   [77.689 µs 77.724 µs 77.769 µs]
+                        change: [-8.8856% -8.8351% -8.7787%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 10 outliers among 100 measurements (10.00%)
+  4 (4.00%) high mild
+  6 (6.00%) high severe
+
+Insert PP<P5, B8, PackedArray> + WyHash
+                        time:   [55.326 µs 55.355 µs 55.393 µs]
+                        change: [-2.2903% -2.1885% -2.0661%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 18 outliers among 100 measurements (18.00%)
   4 (4.00%) high mild
   14 (14.00%) high severe
 
-tabacplusplus_insert_precision_12_bits_6
-                        time:   [299.04 µs 299.18 µs 299.36 µs]
-                        change: [+1.1924% +1.3141% +1.4279%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 4 outliers among 100 measurements (4.00%)
-  2 (2.00%) high mild
-  2 (2.00%) high severe
+Insert HybridPP<P5, B6, Vec> + XxHash64
+                        time:   [75.688 µs 75.760 µs 75.842 µs]
+                        change: [-10.672% -10.615% -10.551%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 11 outliers among 100 measurements (11.00%)
+  6 (6.00%) high mild
+  5 (5.00%) high severe
 
-tabacplusplus_insert_precision_13_bits_6
-                        time:   [598.15 µs 598.37 µs 598.68 µs]
-                        change: [+3.2201% +3.3054% +3.3956%] (p = 0.00 < 0.05)
+Insert HybridPP<P5, B6, Vec> + WyHash
+                        time:   [52.523 µs 52.545 µs 52.577 µs]
+                        change: [+2.2018% +2.2472% +2.2964%] (p = 0.00 < 0.05)
                         Performance has regressed.
 Found 11 outliers among 100 measurements (11.00%)
+  3 (3.00%) high mild
+  8 (8.00%) high severe
+
+Insert HybridPP<P5, B8, Vec> + XxHash64
+                        time:   [73.083 µs 73.110 µs 73.143 µs]
+                        change: [-9.7210% -9.6657% -9.6024%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 15 outliers among 100 measurements (15.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  12 (12.00%) high severe
+
+Insert HybridPP<P5, B8, Vec> + WyHash
+                        time:   [57.696 µs 57.712 µs 57.734 µs]
+                        change: [+1.1695% +1.2220% +1.2837%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+  8 (8.00%) high severe
+
+Insert HybridPP<P5, B6, Array> + XxHash64
+                        time:   [75.178 µs 75.232 µs 75.292 µs]
+                        change: [-11.177% -11.078% -10.974%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 17 outliers among 100 measurements (17.00%)
+  8 (8.00%) high mild
+  9 (9.00%) high severe
+
+Insert HybridPP<P5, B6, Array> + WyHash
+                        time:   [53.368 µs 53.383 µs 53.403 µs]
+                        change: [-3.2098% -3.1640% -3.1128%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 12 outliers among 100 measurements (12.00%)
+  12 (12.00%) high severe
+
+Insert HybridPP<P5, B8, Array> + XxHash64
+                        time:   [71.136 µs 71.184 µs 71.245 µs]
+                        change: [-11.080% -10.972% -10.849%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 13 outliers among 100 measurements (13.00%)
+  6 (6.00%) high mild
+  7 (7.00%) high severe
+
+Insert HybridPP<P5, B8, Array> + WyHash
+                        time:   [52.414 µs 52.435 µs 52.465 µs]
+                        change: [-11.480% -11.407% -11.344%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 15 outliers among 100 measurements (15.00%)
   1 (1.00%) low mild
   6 (6.00%) high mild
+  8 (8.00%) high severe
+
+Insert HybridPP<P5, B6, PackedArray> + XxHash64
+                        time:   [82.998 µs 83.125 µs 83.301 µs]
+                        change: [-7.9470% -7.8667% -7.7747%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 11 outliers among 100 measurements (11.00%)
+  4 (4.00%) high mild
+  7 (7.00%) high severe
+
+Insert HybridPP<P5, B6, PackedArray> + WyHash
+                        time:   [57.826 µs 57.859 µs 57.904 µs]
+                        change: [-2.8033% -2.6378% -2.4959%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) high mild
   4 (4.00%) high severe
 
-tabacplusplus_insert_precision_14_bits_6
-                        time:   [1.2442 ms 1.2446 ms 1.2450 ms]
-                        change: [-1.8742% -1.6215% -1.3609%] (p = 0.00 < 0.05)
+Insert HybridPP<P5, B8, PackedArray> + XxHash64
+                        time:   [78.168 µs 78.201 µs 78.240 µs]
+                        change: [-9.1129% -9.0607% -9.0038%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 20 outliers among 100 measurements (20.00%)
+  1 (1.00%) low mild
+  7 (7.00%) high mild
+  12 (12.00%) high severe
+
+Insert HybridPP<P5, B8, PackedArray> + WyHash
+                        time:   [55.568 µs 55.591 µs 55.623 µs]
+                        change: [-2.6391% -2.4864% -2.3722%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 15 outliers among 100 measurements (15.00%)
+  2 (2.00%) low mild
+  3 (3.00%) high mild
+  10 (10.00%) high severe
+
+Insert Tabac<P5, B6, Vec> + XxHash64
+                        time:   [72.159 µs 72.205 µs 72.271 µs]
+                        change: [-23.134% -23.056% -22.988%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+Insert TabacPP<P5, B6, Vec> + XxHash64
+                        time:   [81.029 µs 81.070 µs 81.107 µs]
+Found 4 outliers among 20 measurements (20.00%)
+  1 (5.00%) low severe
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+
+Insert SA<P5, B6, Vec> + XxHash64
+                        time:   [64.937 µs 64.961 µs 64.989 µs]
+                        change: [-9.2982% -9.2530% -9.2080%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+
+Insert CF<P5, B6, Mix> + WyHash
+                        time:   [56.477 µs 56.500 µs 56.528 µs]
+                        change: [-1.4743% -1.3895% -1.3243%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 15 outliers among 100 measurements (15.00%)
+  5 (5.00%) high mild
+  10 (10.00%) high severe
+
+Insert CF<P5, B6, Mix> + XxHash64
+                        time:   [83.201 µs 83.242 µs 83.288 µs]
+                        change: [-5.1744% -5.0604% -4.9698%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 12 outliers among 100 measurements (12.00%)
+  6 (6.00%) high mild
+  6 (6.00%) high severe
+
+Insert FrankPP<P5, B8, Vec> + SipHasher13
+                        time:   [90.046 µs 90.161 µs 90.311 µs]
+Found 4 outliers among 20 measurements (20.00%)
+  1 (5.00%) high mild
+  3 (15.00%) high severe
+
+Insert PP<P6, B6, Vec> + XxHash64
+                        time:   [66.452 µs 66.488 µs 66.534 µs]
+                        change: [-10.782% -10.712% -10.648%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 12 outliers among 100 measurements (12.00%)
+  7 (7.00%) high mild
+  5 (5.00%) high severe
+
+Insert PP<P6, B6, Vec> + WyHash
+                        time:   [52.788 µs 52.809 µs 52.838 µs]
+                        change: [-1.7977% -1.7368% -1.6815%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 11 outliers among 100 measurements (11.00%)
+  5 (5.00%) high mild
+  6 (6.00%) high severe
+
+Insert PP<P6, B8, Vec> + XxHash64
+                        time:   [62.601 µs 62.662 µs 62.747 µs]
+                        change: [-11.266% -11.186% -11.111%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) high mild
+  6 (6.00%) high severe
+
+Insert PP<P6, B8, Vec> + WyHash
+                        time:   [48.443 µs 48.456 µs 48.471 µs]
+                        change: [-5.4745% -5.3948% -5.3220%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  11 (11.00%) high severe
+
+Insert PP<P6, B6, Array> + XxHash64
+                        time:   [75.680 µs 75.710 µs 75.742 µs]
+                        change: [-10.600% -10.525% -10.452%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 18 outliers among 100 measurements (18.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  15 (15.00%) high severe
+
+Insert PP<P6, B6, Array> + WyHash
+                        time:   [54.281 µs 54.299 µs 54.321 µs]
+                        change: [-9.0220% -8.9416% -8.8554%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  9 (9.00%) high severe
+
+Insert PP<P6, B8, Array> + XxHash64
+                        time:   [63.757 µs 63.778 µs 63.808 µs]
+                        change: [-12.223% -12.149% -12.085%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 11 outliers among 100 measurements (11.00%)
+  3 (3.00%) high mild
+  8 (8.00%) high severe
+
+Insert PP<P6, B8, Array> + WyHash
+                        time:   [49.365 µs 49.397 µs 49.438 µs]
+                        change: [-0.5944% -0.5075% -0.4216%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  9 (9.00%) high severe
+
+Insert PP<P6, B6, PackedArray> + XxHash64
+                        time:   [82.433 µs 82.467 µs 82.506 µs]
+                        change: [-7.4465% -7.3618% -7.2849%] (p = 0.00 < 0.05)
+                        Performance has improved.
+
+Insert PP<P6, B6, PackedArray> + WyHash
+                        time:   [56.552 µs 56.576 µs 56.601 µs]
+                        change: [-3.9959% -3.9374% -3.8869%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 10 outliers among 100 measurements (10.00%)
-  1 (1.00%) low severe
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+
+Insert PP<P6, B8, PackedArray> + XxHash64
+                        time:   [79.059 µs 79.085 µs 79.117 µs]
+                        change: [-6.8604% -6.8120% -6.7682%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) high mild
+  5 (5.00%) high severe
+
+Insert PP<P6, B8, PackedArray> + WyHash
+                        time:   [55.543 µs 55.564 µs 55.589 µs]
+                        change: [-2.6398% -2.5617% -2.4966%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  7 (7.00%) high severe
+
+Insert HybridPP<P6, B6, Vec> + XxHash64
+                        time:   [76.449 µs 76.515 µs 76.605 µs]
+                        change: [-10.751% -10.652% -10.512%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 10 outliers among 100 measurements (10.00%)
+  3 (3.00%) high mild
+  7 (7.00%) high severe
+
+Insert HybridPP<P6, B6, Vec> + WyHash
+                        time:   [57.148 µs 57.176 µs 57.212 µs]
+                        change: [+3.8959% +3.9714% +4.0429%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 14 outliers among 100 measurements (14.00%)
+  7 (7.00%) high mild
+  7 (7.00%) high severe
+
+Insert HybridPP<P6, B8, Vec> + XxHash64
+                        time:   [74.431 µs 74.479 µs 74.536 µs]
+                        change: [-9.0494% -8.9475% -8.8571%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 27 outliers among 100 measurements (27.00%)
+  11 (11.00%) low severe
+  5 (5.00%) low mild
+  3 (3.00%) high mild
+  8 (8.00%) high severe
+
+Insert HybridPP<P6, B8, Vec> + WyHash
+                        time:   [53.248 µs 53.273 µs 53.306 µs]
+                        change: [-4.5358% -4.4351% -4.3051%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 9 outliers among 100 measurements (9.00%)
   3 (3.00%) high mild
   6 (6.00%) high severe
 
-tabacplusplus_insert_precision_15_bits_6
-                        time:   [905.22 µs 905.37 µs 905.53 µs]
-                        change: [-0.6123% -0.5696% -0.5259%] (p = 0.00 < 0.05)
+Insert HybridPP<P6, B6, Array> + XxHash64
+                        time:   [76.949 µs 76.981 µs 77.016 µs]
+                        change: [-9.5491% -9.4814% -9.4207%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 9 outliers among 100 measurements (9.00%)
+  3 (3.00%) low mild
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+
+Insert HybridPP<P6, B6, Array> + WyHash
+                        time:   [56.038 µs 56.054 µs 56.073 µs]
+                        change: [-3.5783% -3.5174% -3.4453%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 13 outliers among 100 measurements (13.00%)
+  3 (3.00%) high mild
+  10 (10.00%) high severe
+
+Insert HybridPP<P6, B8, Array> + XxHash64
+                        time:   [71.697 µs 71.727 µs 71.762 µs]
+                        change: [-11.614% -11.554% -11.492%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 18 outliers among 100 measurements (18.00%)
+  2 (2.00%) high mild
+  16 (16.00%) high severe
+
+Insert HybridPP<P6, B8, Array> + WyHash
+                        time:   [53.003 µs 53.018 µs 53.038 µs]
+                        change: [-2.5188% -2.4712% -2.4233%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 11 outliers among 100 measurements (11.00%)
+  3 (3.00%) high mild
+  8 (8.00%) high severe
+
+Insert HybridPP<P6, B6, PackedArray> + XxHash64
+                        time:   [82.580 µs 82.619 µs 82.661 µs]
+                        change: [-8.3209% -8.2522% -8.1869%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) high mild
+
+Insert HybridPP<P6, B6, PackedArray> + WyHash
+                        time:   [57.553 µs 57.719 µs 57.989 µs]
+                        change: [-0.7262% -0.5589% -0.3209%] (p = 0.00 < 0.05)
                         Change within noise threshold.
+Found 30 outliers among 100 measurements (30.00%)
+  18 (18.00%) low severe
+  4 (4.00%) low mild
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+
+Insert HybridPP<P6, B8, PackedArray> + XxHash64
+                        time:   [79.335 µs 79.370 µs 79.411 µs]
+                        change: [-8.3320% -8.2138% -8.0684%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 14 outliers among 100 measurements (14.00%)
+  4 (4.00%) high mild
+  10 (10.00%) high severe
+
+Insert HybridPP<P6, B8, PackedArray> + WyHash
+                        time:   [55.980 µs 55.997 µs 56.019 µs]
+                        change: [-3.7098% -3.6499% -3.5989%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 16 outliers among 100 measurements (16.00%)
+  1 (1.00%) low mild
+  6 (6.00%) high mild
+  9 (9.00%) high severe
+
+Insert Tabac<P6, B6, Vec> + XxHash64
+                        time:   [73.524 µs 73.568 µs 73.623 µs]
+                        change: [-21.479% -21.354% -21.245%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+Insert TabacPP<P6, B6, Vec> + XxHash64
+                        time:   [83.588 µs 83.739 µs 83.938 µs]
+Found 4 outliers among 20 measurements (20.00%)
+  1 (5.00%) low mild
+  1 (5.00%) high mild
+  2 (10.00%) high severe
+
+Insert SA<P6, B6, Vec> + XxHash64
+                        time:   [64.744 µs 64.798 µs 64.861 µs]
+                        change: [-9.5668% -9.4398% -9.3002%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 10 outliers among 100 measurements (10.00%)
+  6 (6.00%) high mild
+  4 (4.00%) high severe
+
+Insert CF<P6, B6, Mix> + WyHash
+                        time:   [54.225 µs 54.242 µs 54.261 µs]
+                        change: [-6.4957% -6.4604% -6.4241%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 15 outliers among 100 measurements (15.00%)
+  5 (5.00%) high mild
+  10 (10.00%) high severe
+
+Insert CF<P6, B6, Mix> + XxHash64
+                        time:   [83.587 µs 83.656 µs 83.738 µs]
+                        change: [-5.7307% -5.6458% -5.5562%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 12 outliers among 100 measurements (12.00%)
+  4 (4.00%) low mild
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+
+Insert FrankPP<P6, B8, Vec> + SipHasher13
+                        time:   [88.281 µs 88.335 µs 88.411 µs]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+Insert PP<P7, B6, Vec> + XxHash64
+                        time:   [68.219 µs 68.238 µs 68.258 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+
+Insert PP<P7, B6, Vec> + WyHash
+                        time:   [51.607 µs 51.622 µs 51.639 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  7 (7.00%) high mild
+  6 (6.00%) high severe
+
+Insert PP<P7, B8, Vec> + XxHash64
+                        time:   [65.150 µs 65.182 µs 65.221 µs]
+Found 16 outliers among 100 measurements (16.00%)
+  3 (3.00%) low mild
+  5 (5.00%) high mild
+  8 (8.00%) high severe
+
+Insert PP<P7, B8, Vec> + WyHash
+                        time:   [48.953 µs 48.969 µs 48.988 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  6 (6.00%) high mild
+  2 (2.00%) high severe
+
+Insert PP<P7, B6, Array> + XxHash64
+                        time:   [76.930 µs 76.997 µs 77.071 µs]
+Found 15 outliers among 100 measurements (15.00%)
+  4 (4.00%) low severe
+  3 (3.00%) low mild
+  2 (2.00%) high mild
+  6 (6.00%) high severe
+
+Insert PP<P7, B6, Array> + WyHash
+                        time:   [55.673 µs 55.696 µs 55.731 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+
+Insert PP<P7, B8, Array> + XxHash64
+                        time:   [64.737 µs 64.781 µs 64.834 µs]
+Found 18 outliers among 100 measurements (18.00%)
+  5 (5.00%) low mild
+  4 (4.00%) high mild
+  9 (9.00%) high severe
+
+Insert PP<P7, B8, Array> + WyHash
+                        time:   [49.824 µs 49.844 µs 49.871 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) high mild
+  9 (9.00%) high severe
+
+Insert PP<P7, B6, PackedArray> + XxHash64
+                        time:   [83.956 µs 83.993 µs 84.037 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  3 (3.00%) high mild
+  6 (6.00%) high severe
+
+Insert PP<P7, B6, PackedArray> + WyHash
+                        time:   [56.251 µs 56.288 µs 56.334 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) high mild
+  7 (7.00%) high severe
+
+Insert PP<P7, B8, PackedArray> + XxHash64
+                        time:   [81.388 µs 81.439 µs 81.517 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  7 (7.00%) high severe
+
+Insert PP<P7, B8, PackedArray> + WyHash
+                        time:   [55.330 µs 55.353 µs 55.386 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  4 (4.00%) high mild
+  6 (6.00%) high severe
+
+Insert HybridPP<P7, B6, Vec> + XxHash64
+                        time:   [77.801 µs 77.821 µs 77.845 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  6 (6.00%) high mild
+  7 (7.00%) high severe
+
+Insert HybridPP<P7, B6, Vec> + WyHash
+                        time:   [57.460 µs 57.481 µs 57.509 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+
+Insert HybridPP<P7, B8, Vec> + XxHash64
+                        time:   [76.145 µs 76.181 µs 76.222 µs]
+Found 19 outliers among 100 measurements (19.00%)
+  8 (8.00%) low severe
+  2 (2.00%) low mild
+  5 (5.00%) high mild
+  4 (4.00%) high severe
+
+Insert HybridPP<P7, B8, Vec> + WyHash
+                        time:   [53.819 µs 53.847 µs 53.887 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  3 (3.00%) high mild
+  7 (7.00%) high severe
+
+Insert HybridPP<P7, B6, Array> + XxHash64
+                        time:   [78.001 µs 78.059 µs 78.135 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  6 (6.00%) low mild
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+
+Insert HybridPP<P7, B6, Array> + WyHash
+                        time:   [56.228 µs 56.290 µs 56.364 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  3 (3.00%) high mild
+  10 (10.00%) high severe
+
+Insert HybridPP<P7, B8, Array> + XxHash64
+                        time:   [74.613 µs 74.674 µs 74.754 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  3 (3.00%) low mild
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+
+Insert HybridPP<P7, B8, Array> + WyHash
+                        time:   [53.595 µs 53.638 µs 53.693 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  12 (12.00%) high severe
+
+Insert HybridPP<P7, B6, PackedArray> + XxHash64
+                        time:   [88.169 µs 88.225 µs 88.305 µs]
 Found 7 outliers among 100 measurements (7.00%)
   3 (3.00%) high mild
   4 (4.00%) high severe
 
-tabacplusplus_insert_precision_16_bits_6
-                        time:   [612.99 µs 613.42 µs 613.80 µs]
-                        change: [+1.7097% +1.8586% +2.0158%] (p = 0.00 < 0.05)
-                        Performance has regressed.
+Insert HybridPP<P7, B6, PackedArray> + WyHash
+                        time:   [55.948 µs 55.968 µs 55.989 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  3 (3.00%) high severe
 
-tabacplusplus_insert_precision_17_bits_6
-                        time:   [423.37 µs 423.47 µs 423.61 µs]
-                        change: [+0.4054% +0.4579% +0.5077%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 16 outliers among 100 measurements (16.00%)
-  9 (9.00%) high mild
+Insert HybridPP<P7, B8, PackedArray> + XxHash64
+                        time:   [80.975 µs 81.043 µs 81.143 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  8 (8.00%) high severe
+
+Insert HybridPP<P7, B8, PackedArray> + WyHash
+                        time:   [57.261 µs 57.288 µs 57.323 µs]
+Found 15 outliers among 100 measurements (15.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  10 (10.00%) high severe
+
+Insert Tabac<P7, B6, Vec> + XxHash64
+                        time:   [77.447 µs 77.500 µs 77.564 µs]
+Found 4 outliers among 20 measurements (20.00%)
+  1 (5.00%) high mild
+  3 (15.00%) high severe
+
+Insert TabacPP<P7, B6, Vec> + XxHash64
+                        time:   [87.544 µs 87.583 µs 87.650 µs]
+Found 4 outliers among 20 measurements (20.00%)
+  2 (10.00%) high mild
+  2 (10.00%) high severe
+
+Insert SA<P7, B6, Vec> + XxHash64
+                        time:   [65.992 µs 66.025 µs 66.060 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  6 (6.00%) high mild
+
+Insert CF<P7, B6, Mix> + WyHash
+                        time:   [55.679 µs 55.699 µs 55.723 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+
+Insert CF<P7, B6, Mix> + XxHash64
+                        time:   [87.106 µs 87.141 µs 87.180 µs]
+Found 19 outliers among 100 measurements (19.00%)
+  11 (11.00%) low mild
+  5 (5.00%) high mild
+  3 (3.00%) high severe
+
+Insert FrankPP<P7, B8, Vec> + SipHasher13
+                        time:   [91.892 µs 91.903 µs 91.916 µs]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high severe
+
+Insert PP<P8, B6, Vec> + XxHash64
+                        time:   [71.817 µs 71.836 µs 71.857 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
   7 (7.00%) high severe
 
-tabacplusplus_insert_precision_18_bits_6
-                        time:   [366.90 µs 367.15 µs 367.47 µs]
-                        change: [+1.3908% +1.4973% +1.5972%] (p = 0.00 < 0.05)
-                        Performance has regressed.
+Insert PP<P8, B6, Vec> + WyHash
+                        time:   [52.056 µs 52.073 µs 52.095 µs]
 Found 6 outliers among 100 measurements (6.00%)
   2 (2.00%) high mild
   4 (4.00%) high severe
 
-sa_insert_precision_4_bits_6
-                        time:   [70.771 µs 70.845 µs 70.919 µs]
-                        change: [+0.1768% +0.3245% +0.4634%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-
-sa_insert_precision_5_bits_6
-                        time:   [71.552 µs 71.627 µs 71.707 µs]
-                        change: [-1.1215% -0.7567% -0.4129%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 3 outliers among 100 measurements (3.00%)
-  1 (1.00%) low mild
-  1 (1.00%) high mild
-  1 (1.00%) high severe
-
-sa_insert_precision_6_bits_6
-                        time:   [70.761 µs 70.828 µs 70.890 µs]
-                        change: [+0.2093% +0.3115% +0.4099%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 1 outliers among 100 measurements (1.00%)
-  1 (1.00%) high mild
-
-sa_insert_precision_7_bits_6
-                        time:   [70.042 µs 70.258 µs 70.487 µs]
-                        change: [-3.0768% -2.6540% -2.2657%] (p = 0.00 < 0.05)
-                        Performance has improved.
-
-sa_insert_precision_8_bits_6
-                        time:   [69.764 µs 69.904 µs 70.052 µs]
-                        change: [-2.1444% -1.9756% -1.7868%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 3 outliers among 100 measurements (3.00%)
-  3 (3.00%) high mild
-
-sa_insert_precision_9_bits_6
-                        time:   [71.185 µs 71.215 µs 71.250 µs]
-                        change: [-2.6657% -2.5735% -2.4819%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 14 outliers among 100 measurements (14.00%)
-  4 (4.00%) high mild
-  10 (10.00%) high severe
-
-sa_insert_precision_10_bits_6
-                        time:   [71.282 µs 71.315 µs 71.359 µs]
-                        change: [+1.2986% +1.3791% +1.4713%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 14 outliers among 100 measurements (14.00%)
-  1 (1.00%) low mild
-  5 (5.00%) high mild
-  8 (8.00%) high severe
-
-sa_insert_precision_11_bits_6
-                        time:   [69.823 µs 69.863 µs 69.910 µs]
-                        change: [-0.9080% -0.8374% -0.7715%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 10 outliers among 100 measurements (10.00%)
-  2 (2.00%) low mild
-  4 (4.00%) high mild
-  4 (4.00%) high severe
-
-sa_insert_precision_12_bits_6
-                        time:   [70.396 µs 70.422 µs 70.455 µs]
-                        change: [+0.3644% +0.5633% +0.7377%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 11 outliers among 100 measurements (11.00%)
-  5 (5.00%) high mild
-  6 (6.00%) high severe
-
-sa_insert_precision_13_bits_6
-                        time:   [70.427 µs 70.451 µs 70.483 µs]
-                        change: [-0.1662% -0.0357% +0.0905%] (p = 0.61 > 0.05)
-                        No change in performance detected.
-Found 10 outliers among 100 measurements (10.00%)
-  1 (1.00%) low mild
-  2 (2.00%) high mild
-  7 (7.00%) high severe
-
-sa_insert_precision_14_bits_6
-                        time:   [71.441 µs 71.472 µs 71.519 µs]
-                        change: [+1.9881% +2.0762% +2.1577%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 16 outliers among 100 measurements (16.00%)
-  1 (1.00%) low severe
-  4 (4.00%) low mild
-  4 (4.00%) high mild
-  7 (7.00%) high severe
-
-sa_insert_precision_15_bits_6
-                        time:   [71.569 µs 71.587 µs 71.611 µs]
-                        change: [+1.4806% +1.5595% +1.6381%] (p = 0.00 < 0.05)
-                        Performance has regressed.
+Insert PP<P8, B8, Vec> + XxHash64
+                        time:   [69.560 µs 69.583 µs 69.609 µs]
 Found 15 outliers among 100 measurements (15.00%)
-  1 (1.00%) low severe
-  2 (2.00%) high mild
-  12 (12.00%) high severe
-
-sa_insert_precision_16_bits_6
-                        time:   [70.790 µs 70.816 µs 70.856 µs]
-                        change: [-2.5194% -2.4125% -2.3292%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 13 outliers among 100 measurements (13.00%)
-  2 (2.00%) high mild
-  11 (11.00%) high severe
-
-sa_insert_precision_17_bits_6
-                        time:   [70.839 µs 70.862 µs 70.888 µs]
-Found 19 outliers among 100 measurements (19.00%)
-  1 (1.00%) low severe
-  7 (7.00%) high mild
-  11 (11.00%) high severe
-
-sa_insert_precision_18_bits_6
-                        time:   [74.196 µs 74.218 µs 74.247 µs]
-Found 10 outliers among 100 measurements (10.00%)
-  3 (3.00%) high mild
-  7 (7.00%) high severe
-
-ce_insert_precision_4_bits_6_hasher_WyHash
-                        time:   [41.180 µs 41.192 µs 41.207 µs]
-                        change: [+1.4589% +1.8327% +2.1618%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 17 outliers among 100 measurements (17.00%)
-  1 (1.00%) low severe
-  1 (1.00%) high mild
-  15 (15.00%) high severe
-
-ce_insert_precision_5_bits_6_hasher_WyHash
-                        time:   [41.716 µs 41.762 µs 41.822 µs]
-                        change: [-0.2350% +0.0495% +0.3239%] (p = 0.74 > 0.05)
-                        No change in performance detected.
-Found 15 outliers among 100 measurements (15.00%)
-  4 (4.00%) high mild
-  11 (11.00%) high severe
-
-ce_insert_precision_6_bits_6_hasher_WyHash
-                        time:   [42.366 µs 42.381 µs 42.398 µs]
-                        change: [+1.4920% +1.9952% +2.4523%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 16 outliers among 100 measurements (16.00%)
-  5 (5.00%) high mild
-  11 (11.00%) high severe
-
-ce_insert_precision_7_bits_6_hasher_WyHash
-                        time:   [43.620 µs 43.641 µs 43.666 µs]
-                        change: [-0.0277% +0.2530% +0.4921%] (p = 0.06 > 0.05)
-                        No change in performance detected.
-Found 11 outliers among 100 measurements (11.00%)
-  5 (5.00%) high mild
-  6 (6.00%) high severe
-
-ce_insert_precision_8_bits_6_hasher_WyHash
-                        time:   [43.682 µs 43.870 µs 44.081 µs]
-                        change: [-1.9738% -1.7866% -1.5526%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 12 outliers among 100 measurements (12.00%)
-  4 (4.00%) high mild
-  8 (8.00%) high severe
-
-ce_insert_precision_9_bits_6_hasher_WyHash
-                        time:   [47.143 µs 47.286 µs 47.455 µs]
-                        change: [-1.6409% -0.6351% +0.1237%] (p = 0.19 > 0.05)
-                        No change in performance detected.
-Found 15 outliers among 100 measurements (15.00%)
-  4 (4.00%) high mild
-  11 (11.00%) high severe
-
-ce_insert_precision_10_bits_6_hasher_WyHash
-                        time:   [48.682 µs 48.841 µs 49.043 µs]
-                        change: [-1.2296% -0.9089% -0.5297%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 16 outliers among 100 measurements (16.00%)
-  9 (9.00%) high mild
-  7 (7.00%) high severe
-
-ce_insert_precision_11_bits_6_hasher_WyHash
-                        time:   [54.270 µs 54.658 µs 55.244 µs]
-                        change: [+0.8621% +1.2837% +1.9466%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 10 outliers among 100 measurements (10.00%)
-  4 (4.00%) high mild
-  6 (6.00%) high severe
-
-ce_insert_precision_12_bits_6_hasher_WyHash
-                        time:   [59.041 µs 59.331 µs 59.662 µs]
-                        change: [+0.1089% +0.3166% +0.5902%] (p = 0.01 < 0.05)
-                        Change within noise threshold.
-Found 18 outliers among 100 measurements (18.00%)
-  9 (9.00%) high mild
+  6 (6.00%) high mild
   9 (9.00%) high severe
 
-ce_insert_precision_13_bits_6_hasher_WyHash
-                        time:   [62.374 µs 62.416 µs 62.471 µs]
-                        change: [-0.0454% -0.0005% +0.0462%] (p = 0.98 > 0.05)
-                        No change in performance detected.
-Found 13 outliers among 100 measurements (13.00%)
+Insert PP<P8, B8, Vec> + WyHash
+                        time:   [50.987 µs 51.011 µs 51.043 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+
+Insert PP<P8, B6, Array> + XxHash64
+                        time:   [71.328 µs 71.366 µs 71.420 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  6 (6.00%) high mild
+  8 (8.00%) high severe
+
+Insert PP<P8, B6, Array> + WyHash
+                        time:   [51.667 µs 51.703 µs 51.749 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  3 (3.00%) high mild
+  8 (8.00%) high severe
+
+Insert PP<P8, B8, Array> + XxHash64
+                        time:   [67.755 µs 67.800 µs 67.852 µs]
+Found 17 outliers among 100 measurements (17.00%)
+  1 (1.00%) low mild
+  7 (7.00%) high mild
+  9 (9.00%) high severe
+
+Insert PP<P8, B8, Array> + WyHash
+                        time:   [49.483 µs 49.500 µs 49.521 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  7 (7.00%) high severe
+
+Insert PP<P8, B6, PackedArray> + XxHash64
+                        time:   [85.961 µs 86.055 µs 86.158 µs]
+Found 20 outliers among 100 measurements (20.00%)
+  15 (15.00%) low severe
   2 (2.00%) low mild
   1 (1.00%) high mild
+  2 (2.00%) high severe
+
+Insert PP<P8, B6, PackedArray> + WyHash
+                        time:   [55.563 µs 55.603 µs 55.666 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+
+Insert PP<P8, B8, PackedArray> + XxHash64
+                        time:   [84.271 µs 84.438 µs 84.660 µs]
+Found 15 outliers among 100 measurements (15.00%)
+  2 (2.00%) low severe
+  4 (4.00%) low mild
+  5 (5.00%) high mild
+  4 (4.00%) high severe
+
+Insert PP<P8, B8, PackedArray> + WyHash
+                        time:   [54.929 µs 54.946 µs 54.965 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  5 (5.00%) high mild
+  4 (4.00%) high severe
+
+Insert HybridPP<P8, B6, Vec> + XxHash64
+                        time:   [81.025 µs 81.054 µs 81.088 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  4 (4.00%) high mild
   10 (10.00%) high severe
 
-ce_insert_precision_14_bits_6_hasher_WyHash
-                        time:   [64.844 µs 64.872 µs 64.906 µs]
-                        change: [-1.7496% -1.5576% -1.3891%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 13 outliers among 100 measurements (13.00%)
-  2 (2.00%) low mild
-  5 (5.00%) high mild
+Insert HybridPP<P8, B6, Vec> + WyHash
+                        time:   [57.795 µs 57.831 µs 57.883 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  3 (3.00%) high mild
   6 (6.00%) high severe
 
-ce_insert_precision_15_bits_6_hasher_WyHash
-                        time:   [67.016 µs 67.047 µs 67.091 µs]
-                        change: [-2.0489% -1.9235% -1.8151%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 10 outliers among 100 measurements (10.00%)
-  5 (5.00%) high mild
+Insert HybridPP<P8, B8, Vec> + XxHash64
+                        time:   [77.663 µs 77.691 µs 77.726 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  9 (9.00%) high severe
+
+Insert HybridPP<P8, B8, Vec> + WyHash
+                        time:   [57.157 µs 57.180 µs 57.211 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
   5 (5.00%) high severe
 
-ce_insert_precision_16_bits_6_hasher_WyHash
-                        time:   [69.278 µs 69.317 µs 69.371 µs]
-                        change: [-1.2825% -1.2438% -1.2035%] (p = 0.00 < 0.05)
-                        Performance has improved.
-Found 10 outliers among 100 measurements (10.00%)
-  2 (2.00%) high mild
-  8 (8.00%) high severe
-
-ce_insert_precision_17_bits_6_hasher_WyHash
-                        time:   [70.962 µs 70.985 µs 71.011 µs]
-Found 11 outliers among 100 measurements (11.00%)
-  3 (3.00%) high mild
-  8 (8.00%) high severe
-
-ce_insert_precision_18_bits_6_hasher_WyHash
-                        time:   [71.570 µs 71.615 µs 71.672 µs]
-Found 12 outliers among 100 measurements (12.00%)
-  3 (3.00%) high mild
-  9 (9.00%) high severe
-
-rhll_insert_precision_4_bits_6
-                        time:   [77.943 µs 78.056 µs 78.200 µs]
-                        change: [+1.5044% +1.8573% +2.2529%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-Found 18 outliers among 100 measurements (18.00%)
-  3 (3.00%) high mild
-  15 (15.00%) high severe
-
-rhll_insert_precision_5_bits_6
-                        time:   [78.026 µs 78.128 µs 78.247 µs]
-                        change: [-0.6693% +0.1985% +0.8382%] (p = 0.84 > 0.05)
-                        No change in performance detected.
-Found 11 outliers among 100 measurements (11.00%)
-  7 (7.00%) high mild
-  4 (4.00%) high severe
-
-rhll_insert_precision_6_bits_6
-                        time:   [78.243 µs 78.401 µs 78.589 µs]
-                        change: [+0.3960% +0.7728% +1.1227%] (p = 0.12 > 0.05)
-                        No change in performance detected.
-Found 19 outliers among 100 measurements (19.00%)
-  7 (7.00%) high mild
-  12 (12.00%) high severe
-
-rhll_insert_precision_7_bits_6
-                        time:   [79.514 µs 80.009 µs 80.549 µs]
-                        change: [+1.4039% +2.0633% +2.8254%] (p = 0.01 < 0.05)
-                        Performance has regressed.
+Insert HybridPP<P8, B6, Array> + XxHash64
+                        time:   [79.676 µs 79.722 µs 79.771 µs]
 Found 1 outliers among 100 measurements (1.00%)
-  1 (1.00%) high severe
+  1 (1.00%) high mild
 
-rhll_insert_precision_8_bits_6
-                        time:   [78.294 µs 78.455 µs 78.652 µs]
-                        change: [-1.0040% -0.5997% -0.2155%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-Found 15 outliers among 100 measurements (15.00%)
-  3 (3.00%) high mild
-  12 (12.00%) high severe
-
-rhll_insert_precision_9_bits_6
-                        time:   [78.484 µs 78.650 µs 78.828 µs]
-                        change: [+0.1867% +0.5503% +0.8884%] (p = 0.11 > 0.05)
-                        No change in performance detected.
-Found 4 outliers among 100 measurements (4.00%)
+Insert HybridPP<P8, B6, Array> + WyHash
+                        time:   [56.956 µs 56.979 µs 57.010 µs]
+Found 9 outliers among 100 measurements (9.00%)
   4 (4.00%) high mild
+  5 (5.00%) high severe
 
-rhll_insert_precision_10_bits_6
-                        time:   [77.795 µs 77.984 µs 78.213 µs]
-                        change: [+0.0266% +0.2839% +0.5654%] (p = 0.31 > 0.05)
-                        No change in performance detected.
-Found 19 outliers among 100 measurements (19.00%)
-  8 (8.00%) high mild
-  11 (11.00%) high severe
-
-rhll_insert_precision_11_bits_6
-                        time:   [78.732 µs 78.984 µs 79.250 µs]
-                        change: [+0.1785% +0.9756% +1.6152%] (p = 0.09 > 0.05)
-                        No change in performance detected.
-Found 4 outliers among 100 measurements (4.00%)
-  4 (4.00%) high mild
-
-rhll_insert_precision_12_bits_6
-                        time:   [77.990 µs 78.318 µs 78.777 µs]
-                        change: [-0.2844% +0.3384% +0.8294%] (p = 0.49 > 0.05)
-                        No change in performance detected.
-Found 17 outliers among 100 measurements (17.00%)
-  6 (6.00%) high mild
-  11 (11.00%) high severe
-
-rhll_insert_precision_13_bits_6
-                        time:   [78.260 µs 78.570 µs 78.932 µs]
-                        change: [-0.3176% +0.2921% +0.8596%] (p = 0.57 > 0.05)
-                        No change in performance detected.
-Found 10 outliers among 100 measurements (10.00%)
-  4 (4.00%) high mild
+Insert HybridPP<P8, B8, Array> + XxHash64
+                        time:   [77.382 µs 77.409 µs 77.442 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
   6 (6.00%) high severe
 
-rhll_insert_precision_14_bits_6
-                        time:   [78.847 µs 78.941 µs 79.053 µs]
-                        change: [+0.9742% +1.7195% +2.4433%] (p = 0.08 > 0.05)
-                        No change in performance detected.
-Found 24 outliers among 100 measurements (24.00%)
+Insert HybridPP<P8, B8, Array> + WyHash
+                        time:   [54.291 µs 54.313 µs 54.342 µs]
+Found 9 outliers among 100 measurements (9.00%)
   3 (3.00%) high mild
-  21 (21.00%) high severe
+  6 (6.00%) high severe
 
-rhll_insert_precision_15_bits_6
-                        time:   [78.608 µs 78.628 µs 78.654 µs]
-                        change: [-1.2342% -0.5346% +0.0591%] (p = 0.02 < 0.05)
-                        Change within noise threshold.
+Insert HybridPP<P8, B6, PackedArray> + XxHash64
+                        time:   [86.144 µs 86.189 µs 86.241 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  6 (6.00%) high mild
+  5 (5.00%) high severe
+
+Insert HybridPP<P8, B6, PackedArray> + WyHash
+                        time:   [56.409 µs 56.429 µs 56.454 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+
+Insert HybridPP<P8, B8, PackedArray> + XxHash64
+                        time:   [83.183 µs 83.224 µs 83.275 µs]
 Found 10 outliers among 100 measurements (10.00%)
-  2 (2.00%) high mild
-  8 (8.00%) high severe
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  6 (6.00%) high severe
 
-rhll_insert_precision_16_bits_6
-                        time:   [79.960 µs 80.220 µs 80.553 µs]
-                        change: [+1.3369% +1.4823% +1.6709%] (p = 0.00 < 0.05)
-                        Performance has regressed.
+Insert HybridPP<P8, B8, PackedArray> + WyHash
+                        time:   [58.407 µs 58.433 µs 58.467 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  10 (10.00%) high severe
+
+Insert Tabac<P8, B6, Vec> + XxHash64
+                        time:   [79.297 µs 79.336 µs 79.394 µs]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+Insert TabacPP<P8, B6, Vec> + XxHash64
+                        time:   [97.231 µs 97.347 µs 97.481 µs]
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) low mild
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+Insert SA<P8, B6, Vec> + XxHash64
+                        time:   [66.082 µs 66.115 µs 66.151 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) high mild
+  6 (6.00%) high severe
+
+Insert CF<P8, B6, Mix> + WyHash
+                        time:   [58.211 µs 58.229 µs 58.252 µs]
 Found 10 outliers among 100 measurements (10.00%)
   3 (3.00%) high mild
   7 (7.00%) high severe
 
-rhll_insert_precision_17_bits_6
-                        time:   [80.172 µs 80.201 µs 80.233 µs]
+Insert CF<P8, B6, Mix> + XxHash64
+                        time:   [90.360 µs 90.416 µs 90.488 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  5 (5.00%) high mild
+  7 (7.00%) high severe
+
+Insert FrankPP<P8, B8, Vec> + SipHasher13
+                        time:   [91.637 µs 91.677 µs 91.747 µs]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high severe
+
+Insert PP<P9, B6, Vec> + XxHash64
+                        time:   [76.889 µs 76.939 µs 77.001 µs]
+Found 23 outliers among 100 measurements (23.00%)
+  1 (1.00%) low severe
+  4 (4.00%) low mild
+  6 (6.00%) high mild
+  12 (12.00%) high severe
+
+Insert PP<P9, B6, Vec> + WyHash
+                        time:   [51.310 µs 51.334 µs 51.366 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+
+Insert PP<P9, B8, Vec> + XxHash64
+                        time:   [74.449 µs 74.481 µs 74.518 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  10 (10.00%) high severe
+
+Insert PP<P9, B8, Vec> + WyHash
+                        time:   [48.791 µs 48.828 µs 48.877 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  3 (3.00%) high mild
+  6 (6.00%) high severe
+
+Insert PP<P9, B6, Array> + XxHash64
+                        time:   [85.481 µs 85.523 µs 85.573 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  5 (5.00%) high mild
+  3 (3.00%) high severe
+
+Insert PP<P9, B6, Array> + WyHash
+                        time:   [55.060 µs 55.093 µs 55.135 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) high mild
+  5 (5.00%) high severe
+
+Insert PP<P9, B8, Array> + XxHash64
+                        time:   [72.760 µs 72.828 µs 72.912 µs]
+Found 16 outliers among 100 measurements (16.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  11 (11.00%) high severe
+
+Insert PP<P9, B8, Array> + WyHash
+                        time:   [49.178 µs 49.193 µs 49.210 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+
+Insert PP<P9, B6, PackedArray> + XxHash64
+                        time:   [89.690 µs 89.728 µs 89.768 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  5 (5.00%) low mild
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+
+Insert PP<P9, B6, PackedArray> + WyHash
+                        time:   [55.362 µs 55.399 µs 55.456 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  8 (8.00%) high severe
+
+Insert PP<P9, B8, PackedArray> + XxHash64
+                        time:   [89.888 µs 89.944 µs 90.022 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) low mild
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
+Insert PP<P9, B8, PackedArray> + WyHash
+                        time:   [55.000 µs 55.031 µs 55.071 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  4 (4.00%) high mild
+  9 (9.00%) high severe
+
+Insert HybridPP<P9, B6, Vec> + XxHash64
+                        time:   [84.947 µs 84.984 µs 85.027 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high severe
+
+Insert HybridPP<P9, B6, Vec> + WyHash
+                        time:   [57.490 µs 57.527 µs 57.587 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  4 (4.00%) high mild
+  10 (10.00%) high severe
+
+Insert HybridPP<P9, B8, Vec> + XxHash64
+                        time:   [82.036 µs 82.093 µs 82.183 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+
+Insert HybridPP<P9, B8, Vec> + WyHash
+                        time:   [56.696 µs 56.715 µs 56.734 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+
+Insert HybridPP<P9, B6, Array> + XxHash64
+                        time:   [85.447 µs 85.483 µs 85.525 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) high mild
+  4 (4.00%) high severe
+
+Insert HybridPP<P9, B6, Array> + WyHash
+                        time:   [56.858 µs 56.889 µs 56.933 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+
+Insert HybridPP<P9, B8, Array> + XxHash64
+                        time:   [81.527 µs 81.561 µs 81.614 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  7 (7.00%) high severe
+
+Insert HybridPP<P9, B8, Array> + WyHash
+                        time:   [53.325 µs 53.361 µs 53.409 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  5 (5.00%) high mild
+  4 (4.00%) high severe
+
+Insert HybridPP<P9, B6, PackedArray> + XxHash64
+                        time:   [90.917 µs 90.951 µs 90.994 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  6 (6.00%) high severe
+
+Insert HybridPP<P9, B6, PackedArray> + WyHash
+                        time:   [56.164 µs 56.197 µs 56.235 µs]
 Found 5 outliers among 100 measurements (5.00%)
   2 (2.00%) high mild
   3 (3.00%) high severe
 
-rhll_insert_precision_18_bits_6
-                        time:   [80.832 µs 81.009 µs 81.239 µs]
-Found 15 outliers among 100 measurements (15.00%)
+Insert HybridPP<P9, B8, PackedArray> + XxHash64
+                        time:   [87.772 µs 87.809 µs 87.853 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
+Insert HybridPP<P9, B8, PackedArray> + WyHash
+                        time:   [58.438 µs 58.461 µs 58.486 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+
+Insert Tabac<P9, B6, Vec> + XxHash64
+                        time:   [85.001 µs 85.039 µs 85.103 µs]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
+Insert TabacPP<P9, B6, Vec> + XxHash64
+                        time:   [112.24 µs 112.27 µs 112.31 µs]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
+Insert SA<P9, B6, Vec> + XxHash64
+                        time:   [64.945 µs 65.007 µs 65.080 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  3 (3.00%) high mild
+  7 (7.00%) high severe
+
+Insert CF<P9, B6, Mix> + WyHash
+                        time:   [61.687 µs 61.717 µs 61.760 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
+Insert CF<P9, B6, Mix> + XxHash64
+                        time:   [96.969 µs 97.022 µs 97.081 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  6 (6.00%) high mild
+  5 (5.00%) high severe
+
+Insert FrankPP<P9, B8, Vec> + SipHasher13
+                        time:   [94.693 µs 94.732 µs 94.790 µs]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+
+Insert PP<P10, B6, Vec> + XxHash64
+                        time:   [81.707 µs 81.827 µs 81.982 µs]
+
+Insert PP<P10, B6, Vec> + WyHash
+                        time:   [51.310 µs 51.336 µs 51.380 µs]
+Found 20 outliers among 100 measurements (20.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  17 (17.00%) high severe
+
+Insert PP<P10, B8, Vec> + XxHash64
+                        time:   [81.020 µs 81.075 µs 81.145 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  5 (5.00%) high severe
+
+Insert PP<P10, B8, Vec> + WyHash
+                        time:   [49.131 µs 49.165 µs 49.213 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+
+Insert PP<P10, B6, Array> + XxHash64
+                        time:   [94.282 µs 94.332 µs 94.396 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+
+Insert PP<P10, B6, Array> + WyHash
+                        time:   [54.608 µs 54.625 µs 54.648 µs]
+Found 18 outliers among 100 measurements (18.00%)
+  6 (6.00%) high mild
+  12 (12.00%) high severe
+
+Insert PP<P10, B8, Array> + XxHash64
+                        time:   [80.796 µs 80.841 µs 80.879 µs]
+Found 1 outliers among 100 measurements (1.00%)
   1 (1.00%) high mild
-  14 (14.00%) high severe
+
+Insert PP<P10, B8, Array> + WyHash
+                        time:   [49.551 µs 49.567 µs 49.584 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+
+Insert PP<P10, B6, PackedArray> + XxHash64
+                        time:   [96.589 µs 96.627 µs 96.671 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) high mild
+  6 (6.00%) high severe
+
+Insert PP<P10, B6, PackedArray> + WyHash
+                        time:   [54.712 µs 54.739 µs 54.781 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) low mild
+  5 (5.00%) high mild
+  7 (7.00%) high severe
+
+Insert PP<P10, B8, PackedArray> + XxHash64
+                        time:   [96.978 µs 97.005 µs 97.034 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) low mild
+  5 (5.00%) high mild
+  6 (6.00%) high severe
+
+Insert PP<P10, B8, PackedArray> + WyHash
+                        time:   [54.875 µs 54.895 µs 54.926 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  3 (3.00%) high mild
+  10 (10.00%) high severe
+
+Insert HybridPP<P10, B6, Vec> + XxHash64
+                        time:   [93.088 µs 93.133 µs 93.186 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) high mild
+  5 (5.00%) high severe
+
+Insert HybridPP<P10, B6, Vec> + WyHash
+                        time:   [57.174 µs 57.192 µs 57.217 µs]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+
+Insert HybridPP<P10, B8, Vec> + XxHash64
+                        time:   [90.725 µs 90.778 µs 90.866 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+
+Insert HybridPP<P10, B8, Vec> + WyHash
+                        time:   [55.453 µs 55.477 µs 55.504 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) low mild
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+
+Insert HybridPP<P10, B6, Array> + XxHash64
+                        time:   [93.649 µs 93.689 µs 93.735 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  5 (5.00%) high mild
+  8 (8.00%) high severe
+
+Insert HybridPP<P10, B6, Array> + WyHash
+                        time:   [56.546 µs 56.570 µs 56.601 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  5 (5.00%) high mild
+  3 (3.00%) high severe
+
+Insert HybridPP<P10, B8, Array> + XxHash64
+                        time:   [88.811 µs 88.843 µs 88.880 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) low mild
+  3 (3.00%) high severe
+
+Insert HybridPP<P10, B8, Array> + WyHash
+                        time:   [54.530 µs 54.552 µs 54.580 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+
+Insert HybridPP<P10, B6, PackedArray> + XxHash64
+                        time:   [99.510 µs 99.576 µs 99.676 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+
+Insert HybridPP<P10, B6, PackedArray> + WyHash
+                        time:   [56.573 µs 56.597 µs 56.625 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+
+Insert HybridPP<P10, B8, PackedArray> + XxHash64
+                        time:   [96.506 µs 96.537 µs 96.572 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  3 (3.00%) high mild
+  2 (2.00%) high severe
+
+Insert HybridPP<P10, B8, PackedArray> + WyHash
+                        time:   [56.946 µs 56.971 µs 57.002 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high severe
+
+Insert Tabac<P10, B6, Vec> + XxHash64
+                        time:   [92.969 µs 93.075 µs 93.209 µs]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+Insert TabacPP<P10, B6, Vec> + XxHash64
+                        time:   [139.71 µs 139.83 µs 139.98 µs]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+Insert SA<P10, B6, Vec> + XxHash64
+                        time:   [65.974 µs 66.055 µs 66.161 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  4 (4.00%) high mild
+  6 (6.00%) high severe
+
+Insert CF<P10, B6, Mix> + WyHash
+                        time:   [63.284 µs 63.323 µs 63.371 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  2 (2.00%) low mild
+  7 (7.00%) high mild
+  3 (3.00%) high severe
+
+Insert CF<P10, B6, Mix> + XxHash64
+                        time:   [105.74 µs 105.82 µs 105.92 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) high mild
+  10 (10.00%) high severe
+
+Insert FrankPP<P10, B8, Vec> + SipHasher13
+                        time:   [100.50 µs 100.54 µs 100.62 µs]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+
+Insert PP<P11, B6, Vec> + XxHash64
+                        time:   [92.942 µs 93.016 µs 93.109 µs]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+
+Insert PP<P11, B6, Vec> + WyHash
+                        time:   [51.716 µs 51.747 µs 51.795 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  9 (9.00%) high severe
+
+Insert PP<P11, B8, Vec> + XxHash64
+                        time:   [88.240 µs 88.287 µs 88.347 µs]
+Found 15 outliers among 100 measurements (15.00%)
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  9 (9.00%) high severe
+
+Insert PP<P11, B8, Vec> + WyHash
+                        time:   [52.030 µs 52.077 µs 52.135 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+
+Insert PP<P11, B6, Array> + XxHash64
+                        time:   [101.17 µs 101.20 µs 101.23 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+
+Insert PP<P11, B6, Array> + WyHash
+                        time:   [54.020 µs 54.037 µs 54.060 µs]
+Found 15 outliers among 100 measurements (15.00%)
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  9 (9.00%) high severe
+
+Insert PP<P11, B8, Array> + XxHash64
+                        time:   [88.301 µs 88.362 µs 88.468 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+
+Insert PP<P11, B8, Array> + WyHash
+                        time:   [50.274 µs 50.344 µs 50.409 µs]
+Found 19 outliers among 100 measurements (19.00%)
+  3 (3.00%) high mild
+  16 (16.00%) high severe
+
+Insert PP<P11, B6, PackedArray> + XxHash64
+                        time:   [98.912 µs 98.995 µs 99.122 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+
+Insert PP<P11, B6, PackedArray> + WyHash
+                        time:   [54.900 µs 54.930 µs 54.968 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  4 (4.00%) high mild
+  7 (7.00%) high severe
+
+Insert PP<P11, B8, PackedArray> + XxHash64
+                        time:   [104.29 µs 104.32 µs 104.36 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  2 (2.00%) low mild
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+
+Insert PP<P11, B8, PackedArray> + WyHash
+                        time:   [55.329 µs 55.344 µs 55.364 µs]
+Found 16 outliers among 100 measurements (16.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  13 (13.00%) high severe
+
+Insert HybridPP<P11, B6, Vec> + XxHash64
+                        time:   [102.58 µs 102.64 µs 102.71 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  3 (3.00%) high mild
+  4 (4.00%) high severe
+
+Insert HybridPP<P11, B6, Vec> + WyHash
+                        time:   [58.783 µs 58.853 µs 58.919 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  9 (9.00%) high mild
+  3 (3.00%) high severe
+
+Insert HybridPP<P11, B8, Vec> + XxHash64
+                        time:   [100.47 µs 100.52 µs 100.59 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+
+Insert HybridPP<P11, B8, Vec> + WyHash
+                        time:   [60.311 µs 60.329 µs 60.350 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) high mild
+  3 (3.00%) high severe
+
+Insert HybridPP<P11, B6, Array> + XxHash64
+                        time:   [102.40 µs 102.44 µs 102.50 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+
+Insert HybridPP<P11, B6, Array> + WyHash
+                        time:   [58.945 µs 58.985 µs 59.039 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+
+Insert HybridPP<P11, B8, Array> + XxHash64
+                        time:   [99.092 µs 99.160 µs 99.265 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  6 (6.00%) high mild
+  3 (3.00%) high severe
+
+Insert HybridPP<P11, B8, Array> + WyHash
+                        time:   [57.611 µs 57.638 µs 57.674 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  2 (2.00%) high mild
+  4 (4.00%) high severe
+
+Insert HybridPP<P11, B6, PackedArray> + XxHash64
+                        time:   [108.83 µs 112.32 µs 116.62 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  11 (11.00%) high severe
+
+Insert HybridPP<P11, B6, PackedArray> + WyHash
+                        time:   [57.501 µs 57.523 µs 57.549 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+
+Insert HybridPP<P11, B8, PackedArray> + XxHash64
+                        time:   [107.19 µs 107.26 µs 107.36 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  1 (1.00%) low severe
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  5 (5.00%) high severe
+
+Insert HybridPP<P11, B8, PackedArray> + WyHash
+                        time:   [61.205 µs 61.256 µs 61.327 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+
+Insert Tabac<P11, B6, Vec> + XxHash64
+                        time:   [103.30 µs 103.37 µs 103.48 µs]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high severe
+
+Insert TabacPP<P11, B6, Vec> + XxHash64
+                        time:   [192.50 µs 192.56 µs 192.67 µs]
+Found 4 outliers among 20 measurements (20.00%)
+  2 (10.00%) high mild
+  2 (10.00%) high severe
+
+Insert SA<P11, B6, Vec> + XxHash64
+                        time:   [66.059 µs 66.099 µs 66.153 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  4 (4.00%) high mild
+  6 (6.00%) high severe
+
+Insert CF<P11, B6, Mix> + WyHash
+                        time:   [63.413 µs 63.457 µs 63.512 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) low mild
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+
+Insert CF<P11, B6, Mix> + XxHash64
+                        time:   [114.81 µs 114.90 µs 115.00 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  10 (10.00%) high severe
+
+Insert FrankPP<P11, B8, Vec> + SipHasher13
+                        time:   [104.20 µs 104.22 µs 104.25 µs]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+
+Insert PP<P12, B6, Vec> + XxHash64
+                        time:   [92.755 µs 92.804 µs 92.871 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  2 (2.00%) low mild
+  6 (6.00%) high mild
+  6 (6.00%) high severe
+
+Insert PP<P12, B6, Vec> + WyHash
+                        time:   [51.940 µs 51.959 µs 51.984 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  9 (9.00%) high severe
+
+Insert PP<P12, B8, Vec> + XxHash64
+                        time:   [88.867 µs 88.920 µs 88.985 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  5 (5.00%) high mild
+  9 (9.00%) high severe
+
+Insert PP<P12, B8, Vec> + WyHash
+                        time:   [51.241 µs 51.265 µs 51.292 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+
+Insert PP<P12, B6, Array> + XxHash64
+                        time:   [102.30 µs 102.37 µs 102.44 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+
+Insert PP<P12, B6, Array> + WyHash
+                        time:   [54.614 µs 54.635 µs 54.662 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  4 (4.00%) high mild
+  7 (7.00%) high severe
+
+Insert PP<P12, B8, Array> + XxHash64
+                        time:   [88.359 µs 88.390 µs 88.425 µs]
+Found 17 outliers among 100 measurements (17.00%)
+  1 (1.00%) low severe
+  5 (5.00%) low mild
+  5 (5.00%) high mild
+  6 (6.00%) high severe
+
+Insert PP<P12, B8, Array> + WyHash
+                        time:   [50.841 µs 50.944 µs 51.083 µs]
+Found 17 outliers among 100 measurements (17.00%)
+  5 (5.00%) high mild
+  12 (12.00%) high severe
+
+Insert PP<P12, B6, PackedArray> + XxHash64
+                        time:   [102.56 µs 102.61 µs 102.67 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  5 (5.00%) high mild
+  4 (4.00%) high severe
+
+Insert PP<P12, B6, PackedArray> + WyHash
+                        time:   [55.105 µs 55.122 µs 55.143 µs]
+Found 11 outliers among 100 measurements (11.00%)
+  2 (2.00%) high mild
+  9 (9.00%) high severe
+
+Insert PP<P12, B8, PackedArray> + XxHash64
+                        time:   [105.42 µs 105.48 µs 105.56 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+
+Insert PP<P12, B8, PackedArray> + WyHash
+                        time:   [55.051 µs 55.070 µs 55.096 µs]
+Found 14 outliers among 100 measurements (14.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  10 (10.00%) high severe
+
+Insert HybridPP<P12, B6, Vec> + XxHash64
+                        time:   [109.15 µs 109.20 µs 109.26 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  2 (2.00%) high mild
+  6 (6.00%) high severe
+
+Insert HybridPP<P12, B6, Vec> + WyHash
+                        time:   [65.091 µs 65.114 µs 65.141 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+
+Insert HybridPP<P12, B8, Vec> + XxHash64
+                        time:   [109.43 µs 109.49 µs 109.58 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  3 (3.00%) high mild
+  7 (7.00%) high severe
+
+Insert HybridPP<P12, B8, Vec> + WyHash
+                        time:   [68.690 µs 68.737 µs 68.800 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+
+Insert HybridPP<P12, B6, Array> + XxHash64
+                        time:   [108.47 µs 108.75 µs 109.05 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  3 (3.00%) high mild
+  10 (10.00%) high severe
+
+Insert HybridPP<P12, B6, Array> + WyHash
+                        time:   [66.303 µs 66.349 µs 66.391 µs]
+Found 19 outliers among 100 measurements (19.00%)
+  13 (13.00%) high mild
+  6 (6.00%) high severe
+
+Insert HybridPP<P12, B8, Array> + XxHash64
+                        time:   [107.48 µs 107.55 µs 107.65 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  4 (4.00%) high mild
+  3 (3.00%) high severe
+
+Insert HybridPP<P12, B8, Array> + WyHash
+                        time:   [66.657 µs 66.726 µs 66.818 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  3 (3.00%) high mild
+  5 (5.00%) high severe
+
+Insert HybridPP<P12, B6, PackedArray> + XxHash64
+                        time:   [115.53 µs 115.59 µs 115.67 µs]
+Found 12 outliers among 100 measurements (12.00%)
+  4 (4.00%) low mild
+  2 (2.00%) high mild
+  6 (6.00%) high severe
+
+Insert HybridPP<P12, B6, PackedArray> + WyHash
+                        time:   [63.942 µs 63.985 µs 64.036 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  2 (2.00%) high mild
+  2 (2.00%) high severe
+
+Insert HybridPP<P12, B8, PackedArray> + XxHash64
+                        time:   [115.67 µs 115.72 µs 115.80 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) high mild
+  6 (6.00%) high severe
+
+Insert HybridPP<P12, B8, PackedArray> + WyHash
+                        time:   [68.937 µs 68.977 µs 69.031 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  3 (3.00%) high mild
+  6 (6.00%) high severe
+
+Insert Tabac<P12, B6, Vec> + XxHash64
+                        time:   [105.17 µs 105.24 µs 105.34 µs]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+
+Insert TabacPP<P12, B6, Vec> + XxHash64
+                        time:   [302.05 µs 302.29 µs 302.65 µs]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+
+Insert SA<P12, B6, Vec> + XxHash64
+                        time:   [67.048 µs 67.074 µs 67.101 µs]
+Found 7 outliers among 100 measurements (7.00%)
+  7 (7.00%) high mild
+
+Insert CF<P12, B6, Mix> + WyHash
+                        time:   [68.065 µs 68.090 µs 68.119 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+
+Insert CF<P12, B6, Mix> + XxHash64
+                        time:   [118.97 µs 119.01 µs 119.05 µs]
+Found 9 outliers among 100 measurements (9.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+
+Insert FrankPP<P12, B8, Vec> + SipHasher13
+                        time:   [104.12 µs 104.15 µs 104.18 µs]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+Insert PP<P13, B6, Vec> + XxHash64
+                        time:   [83.778 µs 83.820 µs 83.870 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  1 (2.00%) low mild
+  1 (2.00%) high mild
+  1 (2.00%) high severe
+
+Insert PP<P13, B6, Vec> + WyHash
+                        time:   [52.131 µs 52.147 µs 52.166 µs]
+Found 10 outliers among 50 measurements (20.00%)
+  3 (6.00%) high mild
+  7 (14.00%) high severe
+
+Insert PP<P13, B8, Vec> + XxHash64
+                        time:   [81.483 µs 81.530 µs 81.585 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  1 (2.00%) high mild
+  2 (4.00%) high severe
+
+Insert PP<P13, B8, Vec> + WyHash
+                        time:   [51.093 µs 51.110 µs 51.133 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  1 (2.00%) high mild
+  4 (8.00%) high severe
+
+Insert PP<P13, B6, Array> + XxHash64
+                        time:   [93.564 µs 93.641 µs 93.744 µs]
+Found 2 outliers among 50 measurements (4.00%)
+  1 (2.00%) high mild
+  1 (2.00%) high severe
+
+Insert PP<P13, B6, Array> + WyHash
+                        time:   [54.717 µs 54.751 µs 54.798 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  3 (6.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P13, B8, Array> + XxHash64
+                        time:   [80.264 µs 80.299 µs 80.342 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  5 (10.00%) high mild
+  1 (2.00%) high severe
+
+Insert PP<P13, B8, Array> + WyHash
+                        time:   [51.433 µs 51.451 µs 51.472 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  4 (8.00%) high mild
+  2 (4.00%) high severe
+
+Insert PP<P13, B6, PackedArray> + XxHash64
+                        time:   [95.726 µs 95.814 µs 95.904 µs]
+Found 2 outliers among 50 measurements (4.00%)
+  2 (4.00%) high mild
+
+Insert PP<P13, B6, PackedArray> + WyHash
+                        time:   [54.748 µs 54.768 µs 54.792 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  3 (6.00%) high mild
+  2 (4.00%) high severe
+
+Insert PP<P13, B8, PackedArray> + XxHash64
+                        time:   [97.771 µs 97.838 µs 97.937 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  2 (4.00%) low mild
+  1 (2.00%) high mild
+  1 (2.00%) high severe
+
+Insert PP<P13, B8, PackedArray> + WyHash
+                        time:   [55.560 µs 55.581 µs 55.613 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  2 (4.00%) high mild
+  4 (8.00%) high severe
+
+Insert HybridPP<P13, B6, Vec> + XxHash64
+                        time:   [120.35 µs 120.40 µs 120.47 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  2 (4.00%) high mild
+  2 (4.00%) high severe
+
+Insert HybridPP<P13, B6, Vec> + WyHash
+                        time:   [83.083 µs 83.115 µs 83.160 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P13, B8, Vec> + XxHash64
+                        time:   [127.67 µs 127.74 µs 127.84 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P13, B8, Vec> + WyHash
+                        time:   [93.658 µs 93.741 µs 93.852 µs]
+Found 2 outliers among 50 measurements (4.00%)
+  2 (4.00%) high severe
+
+Insert HybridPP<P13, B6, Array> + XxHash64
+                        time:   [119.62 µs 119.69 µs 119.78 µs]
+Found 2 outliers among 50 measurements (4.00%)
+  1 (2.00%) high mild
+  1 (2.00%) high severe
+
+Insert HybridPP<P13, B6, Array> + WyHash
+                        time:   [84.246 µs 84.338 µs 84.459 µs]
+Found 2 outliers among 50 measurements (4.00%)
+  1 (2.00%) high mild
+  1 (2.00%) high severe
+
+Insert HybridPP<P13, B8, Array> + XxHash64
+                        time:   [126.54 µs 126.64 µs 126.75 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P13, B8, Array> + WyHash
+                        time:   [92.445 µs 92.523 µs 92.635 µs]
+Found 8 outliers among 50 measurements (16.00%)
+  2 (4.00%) high mild
+  6 (12.00%) high severe
+
+Insert HybridPP<P13, B6, PackedArray> + XxHash64
+                        time:   [122.47 µs 122.51 µs 122.55 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  1 (2.00%) high mild
+  2 (4.00%) high severe
+
+Insert HybridPP<P13, B6, PackedArray> + WyHash
+                        time:   [81.235 µs 81.272 µs 81.318 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  2 (4.00%) high mild
+  4 (8.00%) high severe
+
+Insert HybridPP<P13, B8, PackedArray> + XxHash64
+                        time:   [135.00 µs 135.06 µs 135.14 µs]
+Found 2 outliers among 50 measurements (4.00%)
+  1 (2.00%) high mild
+  1 (2.00%) high severe
+
+Insert HybridPP<P13, B8, PackedArray> + WyHash
+                        time:   [95.476 µs 95.525 µs 95.588 µs]
+Found 2 outliers among 50 measurements (4.00%)
+  2 (4.00%) high severe
+
+Insert Tabac<P13, B6, Vec> + XxHash64
+                        time:   [95.739 µs 95.789 µs 95.825 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+Insert TabacPP<P13, B6, Vec> + XxHash64
+                        time:   [593.84 µs 594.07 µs 594.23 µs]
+
+Insert SA<P13, B6, Vec> + XxHash64
+                        time:   [66.800 µs 66.839 µs 66.899 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  1 (2.00%) high mild
+  4 (8.00%) high severe
+
+Insert CF<P13, B6, Mix> + WyHash
+                        time:   [70.415 µs 70.482 µs 70.565 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  2 (4.00%) low mild
+  3 (6.00%) high mild
+  2 (4.00%) high severe
+
+Insert CF<P13, B6, Mix> + XxHash64
+                        time:   [112.92 µs 112.96 µs 113.03 µs]
+Found 2 outliers among 50 measurements (4.00%)
+  1 (2.00%) high mild
+  1 (2.00%) high severe
+
+Insert FrankPP<P13, B8, Vec> + SipHasher13
+                        time:   [96.842 µs 96.897 µs 96.965 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high mild
+
+Insert PP<P14, B6, Vec> + XxHash64
+                        time:   [75.419 µs 75.451 µs 75.494 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P14, B6, Vec> + WyHash
+                        time:   [52.268 µs 52.303 µs 52.347 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P14, B8, Vec> + XxHash64
+                        time:   [74.203 µs 74.263 µs 74.365 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P14, B8, Vec> + WyHash
+                        time:   [52.541 µs 52.577 µs 52.633 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P14, B6, Array> + XxHash64
+                        time:   [85.302 µs 85.389 µs 85.509 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  3 (6.00%) high mild
+  1 (2.00%) high severe
+
+Insert PP<P14, B6, Array> + WyHash
+                        time:   [54.973 µs 54.991 µs 55.015 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  2 (4.00%) high mild
+  4 (8.00%) high severe
+
+Insert PP<P14, B8, Array> + XxHash64
+                        time:   [72.503 µs 72.531 µs 72.564 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  3 (6.00%) high severe
+
+Insert PP<P14, B8, Array> + WyHash
+                        time:   [51.852 µs 51.880 µs 51.919 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  2 (4.00%) high mild
+  2 (4.00%) high severe
+
+Insert PP<P14, B6, PackedArray> + XxHash64
+                        time:   [90.987 µs 91.089 µs 91.208 µs]
+Found 2 outliers among 50 measurements (4.00%)
+  2 (4.00%) high mild
+
+Insert PP<P14, B6, PackedArray> + WyHash
+                        time:   [55.857 µs 55.890 µs 55.927 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  3 (6.00%) high mild
+  2 (4.00%) high severe
+
+Insert PP<P14, B8, PackedArray> + XxHash64
+                        time:   [89.279 µs 89.342 µs 89.411 µs]
+Found 1 outliers among 50 measurements (2.00%)
+  1 (2.00%) high mild
+
+Insert PP<P14, B8, PackedArray> + WyHash
+                        time:   [57.113 µs 57.131 µs 57.151 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  3 (6.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P14, B6, Vec> + XxHash64
+                        time:   [165.60 µs 165.66 µs 165.74 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  3 (6.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P14, B6, Vec> + WyHash
+                        time:   [137.69 µs 137.75 µs 137.82 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  5 (10.00%) high mild
+  2 (4.00%) high severe
+
+Insert HybridPP<P14, B8, Vec> + XxHash64
+                        time:   [195.44 µs 195.50 µs 195.57 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  1 (2.00%) high mild
+  5 (10.00%) high severe
+
+Insert HybridPP<P14, B8, Vec> + WyHash
+                        time:   [169.35 µs 169.43 µs 169.53 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  3 (6.00%) high mild
+  4 (8.00%) high severe
+
+Insert HybridPP<P14, B6, Array> + XxHash64
+                        time:   [165.81 µs 165.99 µs 166.23 µs]
+Found 9 outliers among 50 measurements (18.00%)
+  1 (2.00%) high mild
+  8 (16.00%) high severe
+
+Insert HybridPP<P14, B6, Array> + WyHash
+                        time:   [137.14 µs 137.21 µs 137.32 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  3 (6.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P14, B8, Array> + XxHash64
+                        time:   [194.68 µs 194.86 µs 195.13 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P14, B8, Array> + WyHash
+                        time:   [168.38 µs 168.42 µs 168.47 µs]
+Found 8 outliers among 50 measurements (16.00%)
+  4 (8.00%) high mild
+  4 (8.00%) high severe
+
+Insert HybridPP<P14, B6, PackedArray> + XxHash64
+                        time:   [164.55 µs 164.58 µs 164.63 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  1 (2.00%) high mild
+  4 (8.00%) high severe
+
+Insert HybridPP<P14, B6, PackedArray> + WyHash
+                        time:   [129.06 µs 129.13 µs 129.22 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P14, B8, PackedArray> + XxHash64
+                        time:   [203.24 µs 203.31 µs 203.40 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  3 (6.00%) high severe
+
+Insert HybridPP<P14, B8, PackedArray> + WyHash
+                        time:   [172.89 µs 172.94 µs 172.99 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  1 (2.00%) high mild
+  2 (4.00%) high severe
+
+Insert Tabac<P14, B6, Vec> + XxHash64
+                        time:   [85.056 µs 85.103 µs 85.154 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high mild
+
+Insert TabacPP<P14, B6, Vec> + XxHash64
+                        time:   [1.2551 ms 1.2557 ms 1.2565 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+
+Insert SA<P14, B6, Vec> + XxHash64
+                        time:   [65.381 µs 65.394 µs 65.407 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  2 (4.00%) high mild
+  1 (2.00%) high severe
+
+Insert CF<P14, B6, Mix> + WyHash
+                        time:   [75.005 µs 75.051 µs 75.100 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  1 (2.00%) high mild
+  2 (4.00%) high severe
+
+Insert CF<P14, B6, Mix> + XxHash64
+                        time:   [108.40 µs 108.43 µs 108.46 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  1 (2.00%) high mild
+  2 (4.00%) high severe
+
+Insert FrankPP<P14, B8, Vec> + SipHasher13
+                        time:   [92.183 µs 92.219 µs 92.261 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+Insert PP<P15, B6, Vec> + XxHash64
+                        time:   [70.856 µs 70.887 µs 70.921 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  6 (12.00%) high mild
+
+Insert PP<P15, B6, Vec> + WyHash
+                        time:   [52.937 µs 52.963 µs 52.997 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P15, B8, Vec> + XxHash64
+                        time:   [70.168 µs 70.182 µs 70.197 µs]
+Found 9 outliers among 50 measurements (18.00%)
+  3 (6.00%) high mild
+  6 (12.00%) high severe
+
+Insert PP<P15, B8, Vec> + WyHash
+                        time:   [53.301 µs 53.313 µs 53.327 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  2 (4.00%) high mild
+  4 (8.00%) high severe
+
+Insert PP<P15, B6, Array> + XxHash64
+                        time:   [80.866 µs 80.942 µs 81.027 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  2 (4.00%) low mild
+  3 (6.00%) high mild
+  1 (2.00%) high severe
+
+Insert PP<P15, B6, Array> + WyHash
+                        time:   [55.672 µs 55.751 µs 55.900 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  2 (4.00%) high mild
+  4 (8.00%) high severe
+
+Insert PP<P15, B8, Array> + XxHash64
+                        time:   [68.996 µs 69.082 µs 69.271 µs]
+Found 8 outliers among 50 measurements (16.00%)
+  4 (8.00%) high mild
+  4 (8.00%) high severe
+
+Insert PP<P15, B8, Array> + WyHash
+                        time:   [52.428 µs 52.463 µs 52.504 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  2 (4.00%) high mild
+  1 (2.00%) high severe
+
+Insert PP<P15, B6, PackedArray> + XxHash64
+                        time:   [87.258 µs 87.322 µs 87.395 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  1 (2.00%) low mild
+  2 (4.00%) high mild
+
+Insert PP<P15, B6, PackedArray> + WyHash
+                        time:   [56.545 µs 56.573 µs 56.612 µs]
+Found 1 outliers among 50 measurements (2.00%)
+  1 (2.00%) high mild
+
+Insert PP<P15, B8, PackedArray> + XxHash64
+                        time:   [86.349 µs 86.383 µs 86.427 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  5 (10.00%) high mild
+  2 (4.00%) high severe
+
+Insert PP<P15, B8, PackedArray> + WyHash
+                        time:   [57.379 µs 57.407 µs 57.443 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P15, B6, Vec> + XxHash64
+                        time:   [324.95 µs 325.11 µs 325.34 µs]
+Found 13 outliers among 50 measurements (26.00%)
+  5 (10.00%) low mild
+  3 (6.00%) high mild
+  5 (10.00%) high severe
+
+Insert HybridPP<P15, B6, Vec> + WyHash
+                        time:   [295.88 µs 296.18 µs 296.61 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P15, B8, Vec> + XxHash64
+                        time:   [431.83 µs 432.00 µs 432.27 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  3 (6.00%) high mild
+  2 (4.00%) high severe
+
+Insert HybridPP<P15, B8, Vec> + WyHash
+                        time:   [403.10 µs 403.20 µs 403.32 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  4 (8.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P15, B6, Array> + XxHash64
+                        time:   [329.33 µs 329.48 µs 329.72 µs]
+Found 8 outliers among 50 measurements (16.00%)
+  1 (2.00%) low mild
+  3 (6.00%) high mild
+  4 (8.00%) high severe
+
+Insert HybridPP<P15, B6, Array> + WyHash
+                        time:   [299.73 µs 299.88 µs 300.07 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  1 (2.00%) high mild
+  5 (10.00%) high severe
+
+Insert HybridPP<P15, B8, Array> + XxHash64
+                        time:   [448.27 µs 448.48 µs 448.83 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P15, B8, Array> + WyHash
+                        time:   [408.06 µs 408.18 µs 408.34 µs]
+Found 10 outliers among 50 measurements (20.00%)
+  3 (6.00%) high mild
+  7 (14.00%) high severe
+
+Insert HybridPP<P15, B6, PackedArray> + XxHash64
+                        time:   [314.09 µs 314.19 µs 314.31 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  3 (6.00%) high mild
+  4 (8.00%) high severe
+
+Insert HybridPP<P15, B6, PackedArray> + WyHash
+                        time:   [275.78 µs 276.03 µs 276.34 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  1 (2.00%) high mild
+  6 (12.00%) high severe
+
+Insert HybridPP<P15, B8, PackedArray> + XxHash64
+                        time:   [463.42 µs 464.16 µs 465.01 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  1 (2.00%) high mild
+  2 (4.00%) high severe
+
+Insert HybridPP<P15, B8, PackedArray> + WyHash
+                        time:   [413.81 µs 414.07 µs 414.50 µs]
+Found 8 outliers among 50 measurements (16.00%)
+  5 (10.00%) high mild
+  3 (6.00%) high severe
+
+Insert Tabac<P15, B6, Vec> + XxHash64
+                        time:   [80.883 µs 80.926 µs 81.017 µs]
+Found 3 outliers among 10 measurements (30.00%)
+  1 (10.00%) low severe
+  2 (20.00%) high severe
+
+Insert TabacPP<P15, B6, Vec> + XxHash64
+                        time:   [813.22 µs 814.04 µs 815.16 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+
+Insert SA<P15, B6, Vec> + XxHash64
+                        time:   [64.905 µs 64.959 µs 65.046 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  2 (4.00%) high mild
+  5 (10.00%) high severe
+
+Insert CF<P15, B6, Mix> + WyHash
+                        time:   [78.686 µs 78.717 µs 78.754 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  1 (2.00%) high mild
+  4 (8.00%) high severe
+
+Insert CF<P15, B6, Mix> + XxHash64
+                        time:   [107.59 µs 107.64 µs 107.69 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  3 (6.00%) high severe
+
+Insert FrankPP<P15, B8, Vec> + SipHasher13
+                        time:   [92.070 µs 92.105 µs 92.185 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+
+Insert PP<P16, B6, Vec> + XxHash64
+                        time:   [70.060 µs 70.079 µs 70.104 µs]
+Found 11 outliers among 50 measurements (22.00%)
+  5 (10.00%) high mild
+  6 (12.00%) high severe
+
+Insert PP<P16, B6, Vec> + WyHash
+                        time:   [52.830 µs 52.867 µs 52.909 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  3 (6.00%) high mild
+
+Insert PP<P16, B8, Vec> + XxHash64
+                        time:   [69.189 µs 69.224 µs 69.268 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  4 (8.00%) high mild
+  2 (4.00%) high severe
+
+Insert PP<P16, B8, Vec> + WyHash
+                        time:   [51.996 µs 52.022 µs 52.059 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P16, B6, Array> + XxHash64
+                        time:   [69.565 µs 69.588 µs 69.613 µs]
+Found 10 outliers among 50 measurements (20.00%)
+  5 (10.00%) high mild
+  5 (10.00%) high severe
+
+Insert PP<P16, B6, Array> + WyHash
+                        time:   [53.930 µs 53.948 µs 53.970 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  3 (6.00%) high mild
+  4 (8.00%) high severe
+
+Insert PP<P16, B8, Array> + XxHash64
+                        time:   [68.620 µs 68.643 µs 68.677 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  1 (2.00%) high mild
+  4 (8.00%) high severe
+
+Insert PP<P16, B8, Array> + WyHash
+                        time:   [52.262 µs 52.283 µs 52.311 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  3 (6.00%) high mild
+  1 (2.00%) high severe
+
+Insert PP<P16, B6, PackedArray> + XxHash64
+                        time:   [92.198 µs 92.267 µs 92.345 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P16, B6, PackedArray> + WyHash
+                        time:   [57.379 µs 57.398 µs 57.424 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P16, B8, PackedArray> + XxHash64
+                        time:   [84.751 µs 84.809 µs 84.899 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P16, B8, PackedArray> + WyHash
+                        time:   [57.917 µs 57.932 µs 57.949 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P16, B6, Vec> + XxHash64
+                        time:   [857.20 µs 857.40 µs 857.69 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P16, B6, Vec> + WyHash
+                        time:   [834.65 µs 835.10 µs 835.69 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  1 (2.00%) high mild
+  4 (8.00%) high severe
+
+Insert HybridPP<P16, B8, Vec> + XxHash64
+                        time:   [856.15 µs 856.68 µs 857.41 µs]
+Found 9 outliers among 50 measurements (18.00%)
+  4 (8.00%) high mild
+  5 (10.00%) high severe
+
+Insert HybridPP<P16, B8, Vec> + WyHash
+                        time:   [834.45 µs 834.86 µs 835.39 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P16, B6, Array> + XxHash64
+                        time:   [887.03 µs 887.57 µs 888.16 µs]
+Found 8 outliers among 50 measurements (16.00%)
+  3 (6.00%) high mild
+  5 (10.00%) high severe
+
+Insert HybridPP<P16, B6, Array> + WyHash
+                        time:   [858.79 µs 859.05 µs 859.36 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  3 (6.00%) high mild
+  4 (8.00%) high severe
+
+Insert HybridPP<P16, B8, Array> + XxHash64
+                        time:   [1.0824 ms 1.0829 ms 1.0837 ms]
+Found 5 outliers among 50 measurements (10.00%)
+  5 (10.00%) high severe
+
+Insert HybridPP<P16, B8, Array> + WyHash
+                        time:   [883.20 µs 883.44 µs 883.74 µs]
+Found 2 outliers among 50 measurements (4.00%)
+  2 (4.00%) high severe
+
+Insert HybridPP<P16, B6, PackedArray> + XxHash64
+                        time:   [956.88 µs 957.16 µs 957.51 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  3 (6.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P16, B6, PackedArray> + WyHash
+                        time:   [830.74 µs 831.21 µs 831.92 µs]
+Found 11 outliers among 50 measurements (22.00%)
+  1 (2.00%) low mild
+  2 (4.00%) high mild
+  8 (16.00%) high severe
+
+Insert HybridPP<P16, B8, PackedArray> + XxHash64
+                        time:   [1.0931 ms 1.0937 ms 1.0945 ms]
+Found 9 outliers among 50 measurements (18.00%)
+  2 (4.00%) high mild
+  7 (14.00%) high severe
+
+Insert HybridPP<P16, B8, PackedArray> + WyHash
+                        time:   [882.25 µs 882.83 µs 883.58 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  1 (2.00%) high mild
+  4 (8.00%) high severe
+
+Insert Tabac<P16, B6, Vec> + XxHash64
+                        time:   [77.766 µs 77.806 µs 77.855 µs]
+
+Insert TabacPP<P16, B6, Vec> + XxHash64
+                        time:   [550.53 µs 550.82 µs 551.08 µs]
+
+Insert SA<P16, B6, Vec> + XxHash64
+                        time:   [67.671 µs 67.712 µs 67.784 µs]
+Found 9 outliers among 50 measurements (18.00%)
+  3 (6.00%) high mild
+  6 (12.00%) high severe
+
+Insert CF<P16, B6, Mix> + WyHash
+                        time:   [73.744 µs 73.783 µs 73.832 µs]
+Found 9 outliers among 50 measurements (18.00%)
+  2 (4.00%) high mild
+  7 (14.00%) high severe
+
+Insert CF<P16, B6, Mix> + XxHash64
+                        time:   [103.43 µs 103.45 µs 103.47 µs]
+Found 9 outliers among 50 measurements (18.00%)
+  4 (8.00%) high mild
+  5 (10.00%) high severe
+
+Insert FrankPP<P16, B8, Vec> + SipHasher13
+                        time:   [88.740 µs 88.781 µs 88.806 µs]
+
+Insert PP<P17, B6, Vec> + XxHash64
+                        time:   [69.927 µs 69.957 µs 69.992 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  2 (4.00%) high mild
+  4 (8.00%) high severe
+
+Insert PP<P17, B6, Vec> + WyHash
+                        time:   [52.488 µs 52.502 µs 52.520 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  3 (6.00%) high mild
+  2 (4.00%) high severe
+
+Insert PP<P17, B8, Vec> + XxHash64
+                        time:   [67.722 µs 67.737 µs 67.760 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  4 (8.00%) high mild
+  2 (4.00%) high severe
+
+Insert PP<P17, B8, Vec> + WyHash
+                        time:   [52.979 µs 53.002 µs 53.031 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P17, B6, Array> + XxHash64
+                        time:   [79.501 µs 79.525 µs 79.559 µs]
+Found 10 outliers among 50 measurements (20.00%)
+  2 (4.00%) high mild
+  8 (16.00%) high severe
+
+Insert PP<P17, B6, Array> + WyHash
+                        time:   [54.336 µs 54.376 µs 54.429 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P17, B8, Array> + XxHash64
+                        time:   [67.341 µs 67.368 µs 67.408 µs]
+Found 1 outliers among 50 measurements (2.00%)
+  1 (2.00%) high severe
+
+Insert PP<P17, B8, Array> + WyHash
+                        time:   [53.583 µs 53.603 µs 53.632 µs]
+Found 3 outliers among 50 measurements (6.00%)
+  3 (6.00%) high severe
+
+Insert PP<P17, B6, PackedArray> + XxHash64
+                        time:   [86.630 µs 86.756 µs 86.964 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P17, B6, PackedArray> + WyHash
+                        time:   [58.408 µs 58.435 µs 58.468 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  1 (2.00%) high mild
+  4 (8.00%) high severe
+
+Insert PP<P17, B8, PackedArray> + XxHash64
+                        time:   [84.815 µs 84.880 µs 84.967 µs]
+Found 9 outliers among 50 measurements (18.00%)
+  1 (2.00%) high mild
+  8 (16.00%) high severe
+
+Insert PP<P17, B8, PackedArray> + WyHash
+                        time:   [57.332 µs 57.355 µs 57.383 µs]
+Found 8 outliers among 50 measurements (16.00%)
+  1 (2.00%) high mild
+  7 (14.00%) high severe
+
+Insert HybridPP<P17, B6, Vec> + XxHash64
+                        time:   [857.19 µs 857.38 µs 857.64 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  2 (4.00%) high mild
+  4 (8.00%) high severe
+
+Insert HybridPP<P17, B6, Vec> + WyHash
+                        time:   [835.05 µs 835.35 µs 835.76 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  4 (8.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P17, B8, Vec> + XxHash64
+                        time:   [857.92 µs 858.25 µs 858.74 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  3 (6.00%) high mild
+  2 (4.00%) high severe
+
+Insert HybridPP<P17, B8, Vec> + WyHash
+                        time:   [835.13 µs 835.66 µs 836.54 µs]
+Found 2 outliers among 50 measurements (4.00%)
+  1 (2.00%) high mild
+  1 (2.00%) high severe
+
+Insert HybridPP<P17, B6, Array> + XxHash64
+                        time:   [1.0881 ms 1.0887 ms 1.0897 ms]
+Found 7 outliers among 50 measurements (14.00%)
+  4 (8.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P17, B6, Array> + WyHash
+                        time:   [1.0562 ms 1.0570 ms 1.0584 ms]
+Found 7 outliers among 50 measurements (14.00%)
+  4 (8.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P17, B8, Array> + XxHash64
+                        time:   [1.6378 ms 1.6383 ms 1.6389 ms]
+Found 6 outliers among 50 measurements (12.00%)
+  4 (8.00%) high mild
+  2 (4.00%) high severe
+
+Insert HybridPP<P17, B8, Array> + WyHash
+                        time:   [1.2490 ms 1.2496 ms 1.2505 ms]
+Found 8 outliers among 50 measurements (16.00%)
+  3 (6.00%) high mild
+  5 (10.00%) high severe
+
+Insert HybridPP<P17, B6, PackedArray> + XxHash64
+                        time:   [1.4013 ms 1.4018 ms 1.4027 ms]
+Found 9 outliers among 50 measurements (18.00%)
+  2 (4.00%) high mild
+  7 (14.00%) high severe
+
+Insert HybridPP<P17, B6, PackedArray> + WyHash
+                        time:   [1.0339 ms 1.0348 ms 1.0361 ms]
+Found 9 outliers among 50 measurements (18.00%)
+  3 (6.00%) high mild
+  6 (12.00%) high severe
+
+Insert HybridPP<P17, B8, PackedArray> + XxHash64
+                        time:   [1.6372 ms 1.6380 ms 1.6391 ms]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P17, B8, PackedArray> + WyHash
+                        time:   [1.2659 ms 1.2663 ms 1.2669 ms]
+Found 6 outliers among 50 measurements (12.00%)
+  1 (2.00%) high mild
+  5 (10.00%) high severe
+
+Insert Tabac<P17, B6, Vec> + XxHash64
+                        time:   [78.876 µs 78.904 µs 78.960 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+Insert TabacPP<P17, B6, Vec> + XxHash64
+                        time:   [421.72 µs 421.96 µs 422.29 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+
+Insert SA<P17, B6, Vec> + XxHash64
+                        time:   [68.485 µs 68.524 µs 68.572 µs]
+Found 8 outliers among 50 measurements (16.00%)
+  3 (6.00%) high mild
+  5 (10.00%) high severe
+
+Insert CF<P17, B6, Mix> + WyHash
+                        time:   [74.203 µs 74.266 µs 74.356 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  4 (8.00%) high mild
+  3 (6.00%) high severe
+
+Insert CF<P17, B6, Mix> + XxHash64
+                        time:   [103.44 µs 103.55 µs 103.69 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  2 (4.00%) high mild
+  4 (8.00%) high severe
+
+Insert FrankPP<P17, B8, Vec> + SipHasher13
+                        time:   [91.295 µs 91.347 µs 91.464 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+
+Insert PP<P18, B6, Vec> + XxHash64
+                        time:   [70.242 µs 70.272 µs 70.308 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P18, B6, Vec> + WyHash
+                        time:   [52.577 µs 52.593 µs 52.615 µs]
+Found 8 outliers among 50 measurements (16.00%)
+  5 (10.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P18, B8, Vec> + XxHash64
+                        time:   [68.650 µs 68.664 µs 68.680 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P18, B8, Vec> + WyHash
+                        time:   [53.694 µs 53.708 µs 53.724 µs]
+Found 8 outliers among 50 measurements (16.00%)
+  3 (6.00%) high mild
+  5 (10.00%) high severe
+
+Insert PP<P18, B6, Array> + XxHash64
+                        time:   [81.468 µs 81.496 µs 81.538 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  4 (8.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P18, B6, Array> + WyHash
+                        time:   [54.596 µs 54.619 µs 54.650 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  4 (8.00%) high severe
+
+Insert PP<P18, B8, Array> + XxHash64
+                        time:   [71.861 µs 71.882 µs 71.909 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  2 (4.00%) high mild
+  5 (10.00%) high severe
+
+Insert PP<P18, B8, Array> + WyHash
+                        time:   [54.526 µs 54.541 µs 54.559 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  2 (4.00%) high mild
+  2 (4.00%) high severe
+
+Insert PP<P18, B6, PackedArray> + XxHash64
+                        time:   [88.758 µs 88.779 µs 88.803 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert PP<P18, B6, PackedArray> + WyHash
+                        time:   [59.424 µs 59.514 µs 59.659 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  6 (12.00%) high severe
+
+Insert PP<P18, B8, PackedArray> + XxHash64
+                        time:   [87.249 µs 87.292 µs 87.353 µs]
+Found 6 outliers among 50 measurements (12.00%)
+  2 (4.00%) high mild
+  4 (8.00%) high severe
+
+Insert PP<P18, B8, PackedArray> + WyHash
+                        time:   [58.341 µs 58.360 µs 58.390 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  3 (6.00%) high mild
+  4 (8.00%) high severe
+
+Insert HybridPP<P18, B6, Vec> + XxHash64
+                        time:   [858.74 µs 859.15 µs 859.81 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P18, B6, Vec> + WyHash
+                        time:   [835.44 µs 835.72 µs 836.10 µs]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P18, B8, Vec> + XxHash64
+                        time:   [857.41 µs 858.03 µs 858.73 µs]
+Found 7 outliers among 50 measurements (14.00%)
+  2 (4.00%) high mild
+  5 (10.00%) high severe
+
+Insert HybridPP<P18, B8, Vec> + WyHash
+                        time:   [835.41 µs 835.91 µs 836.71 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  2 (4.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P18, B6, Array> + XxHash64
+                        time:   [1.7991 ms 1.7999 ms 1.8010 ms]
+Found 6 outliers among 50 measurements (12.00%)
+  3 (6.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P18, B6, Array> + WyHash
+                        time:   [1.7318 ms 1.7327 ms 1.7339 ms]
+Found 5 outliers among 50 measurements (10.00%)
+  3 (6.00%) high mild
+  2 (4.00%) high severe
+
+Insert HybridPP<P18, B8, Array> + XxHash64
+                        time:   [2.3081 ms 2.3097 ms 2.3116 ms]
+Found 7 outliers among 50 measurements (14.00%)
+  1 (2.00%) high mild
+  6 (12.00%) high severe
+
+Insert HybridPP<P18, B8, Array> + WyHash
+                        time:   [2.0030 ms 2.0037 ms 2.0044 ms]
+Found 7 outliers among 50 measurements (14.00%)
+  1 (2.00%) low mild
+  1 (2.00%) high mild
+  5 (10.00%) high severe
+
+Insert HybridPP<P18, B6, PackedArray> + XxHash64
+                        time:   [2.0124 ms 2.0131 ms 2.0139 ms]
+Found 5 outliers among 50 measurements (10.00%)
+  1 (2.00%) low mild
+  2 (4.00%) high mild
+  2 (4.00%) high severe
+
+Insert HybridPP<P18, B6, PackedArray> + WyHash
+                        time:   [1.6631 ms 1.6638 ms 1.6648 ms]
+Found 4 outliers among 50 measurements (8.00%)
+  1 (2.00%) high mild
+  3 (6.00%) high severe
+
+Insert HybridPP<P18, B8, PackedArray> + XxHash64
+                        time:   [2.3281 ms 2.3291 ms 2.3303 ms]
+Found 8 outliers among 50 measurements (16.00%)
+  3 (6.00%) high mild
+  5 (10.00%) high severe
+
+Insert HybridPP<P18, B8, PackedArray> + WyHash
+                        time:   [2.0438 ms 2.0446 ms 2.0457 ms]
+Found 4 outliers among 50 measurements (8.00%)
+  3 (6.00%) high mild
+  1 (2.00%) high severe
+
+Insert Tabac<P18, B6, Vec> + XxHash64
+                        time:   [77.620 µs 77.641 µs 77.669 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+Insert TabacPP<P18, B6, Vec> + XxHash64
+                        time:   [362.50 µs 362.65 µs 362.91 µs]
+
+Insert SA<P18, B6, Vec> + XxHash64
+                        time:   [69.769 µs 69.796 µs 69.831 µs]
+Found 2 outliers among 50 measurements (4.00%)
+  2 (4.00%) high severe
+
+Insert CF<P18, B6, Mix> + WyHash
+                        time:   [75.632 µs 75.649 µs 75.669 µs]
+Found 5 outliers among 50 measurements (10.00%)
+  3 (6.00%) high mild
+  2 (4.00%) high severe
+
+Insert CF<P18, B6, Mix> + XxHash64
+                        time:   [105.47 µs 105.50 µs 105.55 µs]
+Found 10 outliers among 50 measurements (20.00%)
+  4 (8.00%) low mild
+  2 (4.00%) high mild
+  4 (8.00%) high severe
+
+Insert FrankPP<P18, B8, Vec> + SipHasher13
+                        time:   [91.732 µs 91.754 µs 91.780 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
 

@@ -1,6 +1,7 @@
 //! Traits regarding numbers.
 use crate::utils::*;
 
+/// A trait for numbers.
 pub trait Number:
     Copy
     + Default
@@ -29,13 +30,18 @@ pub trait Number:
     + Send
     + Sync
 {
+    /// A method to subtract the second number from the first number, returning zero if the result is negative.
     fn saturating_zero_sub(self, other: Self) -> Self;
 
+    /// Converts the number to a 32-bit float.
     fn to_f32(self) -> f32;
 
+    /// Converts the number to a 64-bit float.
     fn to_f64(self) -> f64;
 
     #[inline(always)]
+    #[must_use]
+    /// Converts a boolean value to a number.
     fn from_bool(value: bool) -> Self {
         if value {
             Self::ONE
@@ -45,18 +51,27 @@ pub trait Number:
     }
 }
 
+/// A trait for positive integer numbers.
 pub trait PositiveIntegerNumber: Number + Eq + Ord + TryInto<usize> + TryFrom<usize> {}
 
+/// A trait for floating point numbers.
 pub trait FloatNumber:
     Number + Half + crate::utils::OneThousand + core::ops::Neg<Output = Self>
 {
+    /// The value of positive infinity.
     const INFINITY: Self;
+    /// The value of negative infinity.
     const NEG_INFINITY: Self;
+    /// The value of epsilon.
     const EPSILON: Self;
 
+    /// Returns the value of 2^(-register).
     fn inverse_register(register: i32) -> Self;
 
     #[inline(always)]
+    #[must_use]
+    /// Computes the saturating division of two numbers that are expected to be positive.
+    /// and at most equal to one.
     fn saturating_one_div(self, other: Self) -> Self {
         debug_assert!(self >= Self::ZERO);
         debug_assert!(other >= Self::ZERO);
@@ -67,45 +82,61 @@ pub trait FloatNumber:
         }
     }
 
+    /// Converts an `i32` to a floating point number.
     fn from_i32(value: i32) -> Self;
 
+    /// Converts a `usize` to a floating point number.
     fn from_usize(value: usize) -> Self;
 
+    /// Converts a `f64` to a floating point number.
     fn from_f64(value: f64) -> Self;
 
+    /// Converts a `f32` to a floating point number.
     fn from_f32(value: f32) -> Self;
 
+    /// Converts the floating point number to a `usize`.
     fn to_u32(self) -> u32;
 
+    /// Converts the floating point number to a `usize`.
     fn to_usize(self) -> usize;
 
+    /// Checks if the floating point number is finite.
     fn is_finite(self) -> bool;
 
     #[cfg(feature = "std")]
+    /// Returns the absolute value of the floating point number.
     fn abs(self) -> Self;
 
     #[cfg(feature = "std")]
+    /// Returns the natural logarithm of the floating point number.
     fn ln(self) -> Self;
 
     #[cfg(feature = "std")]
+    /// Returns the natural logarithm of 1 plus the floating point number.
     fn ln_1p(self) -> Self;
 
     #[cfg(feature = "std")]
+    /// Returns the base 2 logarithm of the floating point number.
     fn log2(self) -> Self;
 
     #[cfg(feature = "std")]
+    /// Returns the exponential of the floating point number.
     fn exp(self) -> Self;
 
     #[cfg(feature = "std")]
+    /// Returns the square root of the floating point number.
     fn sqrt(self) -> Self;
 
     #[cfg(feature = "std")]
+    /// Returns the floating point number raised to the power of an integer.
     fn powi(self, n: i32) -> Self;
 
     #[cfg(feature = "std")]
+    /// Returns the floor of the floating point number.
     fn floor(self) -> Self;
 
     #[cfg(feature = "std")]
+    /// Returns the exponential of the floating point number minus one.
     fn exp_m1(self) -> Self;
 }
 

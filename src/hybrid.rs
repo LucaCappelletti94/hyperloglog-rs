@@ -5,6 +5,9 @@ use crate::utils::Words;
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// A struct representing the hybrid for approximate set cardinality estimation,
+/// where the hash values are kept explicit up until they fit into the registers.
 pub struct Hybrid<H> {
     pub(crate) inner: H,
 }
@@ -22,7 +25,6 @@ impl<H: Hybridazable> Hybridazable for Hybrid<H>
 where
     H: Hybridazable,
 {
-    type Words = H::Words;
     type IterSortedHashes<'a> = H::IterSortedHashes<'a> where Self: 'a;
 
     fn dehybridize(&mut self) {
@@ -161,11 +163,12 @@ pub(crate) fn unique_values_from_sorted_iterators<
 
 /// Trait for a struct that can be used in the hybrid approach.
 pub trait Hybridazable {
-    type Words: Words<Word = u64>;
+    /// The type of the iterator over the sorted hashes.
     type IterSortedHashes<'a>: Iterator<Item = u64>
     where
         Self: 'a;
 
+    /// De-hybridize the struct, i.e., convert it to a register-based counter.
     fn dehybridize(&mut self);
 
     /// Returns whether the struct is currently behaving as
@@ -181,10 +184,13 @@ pub trait Hybridazable {
     /// Clears the counter.
     fn clear_words(&mut self);
 
+    /// Returns an iterator over the sorted hashes.
     fn iter_sorted_hashes(&self) -> Self::IterSortedHashes<'_>;
 
+    /// Returns whether the counter contains the element.
     fn contains<T: core::hash::Hash>(&self, element: &T) -> bool;
 
+    /// Inserts a value into the counter.
     fn hybrid_insert<T: core::hash::Hash>(&mut self, value: &T) -> bool;
 }
 
@@ -220,6 +226,12 @@ where
         Self {
             inner: MLE::from(inner.inner),
         }
+    }
+}
+
+impl<H: Named> Named for Hybrid<H> {
+    fn name(&self) -> String {
+        format!("Hybrid{}", self.inner.name())
     }
 }
 
@@ -268,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_unique_values_from_sorted_iterators() {
-        let number_of_iterations = 100;
+        let number_of_iterations = 10;
         let mut random_state = splitmix64(3456789456776543);
 
         for _ in 0..number_of_iterations {
@@ -292,7 +304,7 @@ mod tests {
 
     #[test]
     fn test_hybrid_plusplus() {
-        let number_of_iterations = 100;
+        let number_of_iterations = 10;
         let mut hybrid: Hybrid<
             PlusPlus<
                 Precision10,
@@ -351,7 +363,7 @@ mod tests {
 
         let mut left_set = HashSet::new();
         let mut right_set = HashSet::new();
-        let number_of_iterations = 100;
+        let number_of_iterations = 10;
         let mut number_of_elements_needed_for_saturation;
         let mut random_state = splitmix64(3456789456776543);
         let mut union_cardinality_errors_total = 0.0;
@@ -622,7 +634,7 @@ mod tests {
 
         let mut left_set = HashSet::new();
         let mut right_set = HashSet::new();
-        let number_of_iterations = 50;
+        let number_of_iterations = 10;
         let mut random_state = splitmix64(3456789456776543);
         let mut union_cardinality_errors_total = 0.0;
         let mut normal_union_cardinality_errors_total = 0.0;

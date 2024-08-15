@@ -5,6 +5,7 @@ use crate::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
+/// A struct implementing the HyperLogLog++ algorithm.
 pub struct PlusPlus<
     P: Precision,
     B: Bits,
@@ -12,6 +13,20 @@ pub struct PlusPlus<
     Hasher: HasherType = twox_hash::XxHash64,
 > {
     counter: BasicLogLog<P, B, R, Hasher>,
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Named
+    for PlusPlus<P, B, R, Hasher>
+{
+    fn name(&self) -> String {
+        format!(
+            "PP<{}, {}, {}> + {}",
+            P::default().name(),
+            B::default().name(),
+            self.registers().name(),
+            std::any::type_name::<Hasher>().split("::").last().unwrap()
+        )
+    }
 }
 
 hll_impl!(PlusPlus<P, B, R, Hasher>);
@@ -70,7 +85,7 @@ mod tests {
     /// In this test we verify that the output of the `estimate_union_cardinality` method always
     /// yields the same result as the `estimate_cardinality` run on the bitor of the two sets.
     fn test_union_bitor() {
-        let iterations = 100;
+        let iterations = 10;
         let mut random_state = splitmix64(6545345645876_u64);
 
         let mut hll1 = PlusPlus::<

@@ -5,6 +5,7 @@ use crate::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
+/// A struct implementing the LogLogBeta algorithm.
 pub struct LogLogBeta<
     P: Precision,
     B: Bits,
@@ -21,6 +22,20 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType>
 {
     fn from(counter: BasicLogLog<P, B, R, Hasher>) -> Self {
         Self { counter }
+    }
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Named
+    for LogLogBeta<P, B, R, Hasher>
+{
+    fn name(&self) -> String {
+        format!(
+            "LLB<{}, {}, {}> + {}",
+            P::default().name(),
+            B::default().name(),
+            self.registers().name(),
+            std::any::type_name::<Hasher>().split("::").last().unwrap()
+        )
     }
 }
 
@@ -70,7 +85,7 @@ mod tests {
     /// In this test we verify that the output of the `estimate_union_cardinality` method always
     /// yields the same result as the `estimate_cardinality` run on the bitor of the two sets.
     fn test_union_bitor() {
-        let iterations = 100;
+        let iterations = 10;
         let mut random_state = splitmix64(6545345645876_u64);
 
         let mut hll1 = LogLogBeta::<

@@ -16,7 +16,9 @@
 //! [HyperLogLog.estimated_overlap_and_differences_cardinality_matrices] method.
 use crate::prelude::*;
 use crate::utils::*;
+use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
 
+/// Trait for sketching algorithms that provide the overlap and differences cardinality matrices.
 pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
     #[inline(always)]
     /// Returns the overlap and differences cardinality matrices of two lists of sets.
@@ -108,104 +110,9 @@ pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
             right_difference_cardinality_vector,
         )
     }
-
-    #[cfg(feature = "std")]
-    #[inline(always)]
-    /// Returns the overlap and differences cardinality matrices of two lists of sets.
-    ///
-    /// # Arguments
-    /// * `left` - The first list of sets.
-    /// * `right` - The second list of sets.
-    ///
-    /// # Returns
-    /// * `overlap_cardinality_matrix` - Matrix of estimated overlapping cardinalities between the elements of the left and right arrays.
-    /// * `left_difference_cardinality_vector` - Vector of estimated difference cardinalities between the elements of the left array and the last element of the right array.
-    /// * `right_difference_cardinality_vector` - Vector of estimated difference cardinalities between the elements of the right array and the last element of the left array.
-    ///
-    /// # Implementative details
-    /// We expect the elements of the left and right arrays to be increasingly contained in the next one.
-    ///
-    /// # Examples
-    /// In the following illustration, we show that for two vectors left and right of three elements,
-    /// we expect to compute the exclusively overlap matrix $A_{ij}$ and the exclusively differences vectors $B_i$.    
-    ///
-    /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/triple_overlap.png?raw=true)
-    ///
-    /// Very similarly, for the case of vectors of two elements:
-    ///
-    /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/tuple_overlap.png?raw=true)
-    fn overlap_and_differences_cardinality_matrices_vec<I: Number>(
-        left: &[Self],
-        right: &[Self],
-    ) -> (Vec<Vec<N>>, Vec<N>, Vec<N>) {
-        // Initialize overlap and differences cardinality matrices/vectors.
-        let mut last_row = vec![N::default(); right.len()];
-        let mut differential_overlap_cardinality_matrix =
-            vec![vec![N::default(); right.len()]; left.len()];
-        let mut left_difference_cardinality_vector = vec![N::default(); left.len()];
-        let mut right_cardinalities = vec![N::default(); right.len()];
-
-        right
-            .iter()
-            .zip(right_cardinalities.iter_mut())
-            .for_each(|(right, right_cardinality)| {
-                *right_cardinality = right.estimate_cardinality();
-            });
-
-        let mut right_difference_cardinality_vector = vec![N::default(); right.len()];
-        let mut euc: EstimatedUnionCardinalities<N> = EstimatedUnionCardinalities::default();
-        let mut last_left_difference = N::default();
-
-        // Populate the overlap cardinality matrix.
-        for (i, left) in left.iter().enumerate() {
-            let mut last_right_difference = N::default();
-            let left_cardinality = left.estimate_cardinality();
-            let mut comulative_row = N::default();
-            for (j, (right, right_cardinality)) in right
-                .iter()
-                .zip(right_cardinalities.iter().copied())
-                .enumerate()
-            {
-                let union_cardinality = left.estimate_union_cardinality(right);
-                euc = EstimatedUnionCardinalities::with_correction(
-                    left_cardinality,
-                    right_cardinality,
-                    union_cardinality,
-                );
-                let delta = last_row[j] + comulative_row;
-                differential_overlap_cardinality_matrix[i][j] = euc
-                    .get_intersection_cardinality()
-                    .saturating_zero_sub(delta);
-                last_row[j] = if euc.get_intersection_cardinality() > delta {
-                    euc.get_intersection_cardinality()
-                } else {
-                    delta
-                };
-                comulative_row += differential_overlap_cardinality_matrix[i][j];
-
-                // We always set the value of the right difference so that the
-                // last time we write this will necessarily be with the last
-                // and largest left set.
-                right_difference_cardinality_vector[j] = euc
-                    .get_right_difference_cardinality()
-                    .saturating_zero_sub(last_right_difference);
-
-                last_right_difference = euc.get_right_difference_cardinality();
-            }
-            left_difference_cardinality_vector[i] = euc
-                .get_left_difference_cardinality()
-                .saturating_zero_sub(last_left_difference);
-            last_left_difference = euc.get_left_difference_cardinality();
-        }
-
-        (
-            differential_overlap_cardinality_matrix,
-            left_difference_cardinality_vector,
-            right_difference_cardinality_vector,
-        )
-    }
 }
 
+/// Trait for sketching algorithms that provide the normalized overlap and differences cardinality matrices.
 pub trait NormalizedHyperSpheresSketch<F: FloatNumber>: HyperSpheresSketch<F> {
     #[inline(always)]
     /// Returns the normalized overlap and differences cardinality matrices of two lists of sets.
@@ -308,129 +215,6 @@ pub trait NormalizedHyperSpheresSketch<F: FloatNumber>: HyperSpheresSketch<F> {
                     .saturating_zero_sub(last_right_difference);
 
                 right_difference_cardinality_vector[j] = differential_right_difference
-                    .saturating_one_div(
-                        right_cardinality.saturating_zero_sub(last_right_cardinality),
-                    );
-                last_right_difference = euc.get_right_difference_cardinality();
-                last_right_cardinality = right_cardinality;
-            }
-            left_difference_cardinality_vector[i] = euc
-                .get_left_difference_cardinality()
-                .saturating_zero_sub(last_left_difference)
-                .saturating_one_div(left_cardinality.saturating_zero_sub(last_left_cardinality));
-            last_left_cardinality = left_cardinality;
-            last_left_difference = euc.get_left_difference_cardinality();
-        }
-
-        (
-            differential_overlap_cardinality_matrix,
-            left_difference_cardinality_vector,
-            right_difference_cardinality_vector,
-        )
-    }
-
-    #[cfg(feature = "std")]
-    #[inline(always)]
-    /// Returns the normalized overlap and differences cardinality matrices of two vectors of sets.
-    ///
-    /// # Arguments
-    /// * `left` - The first list of sets.
-    /// * `right` - The second list of sets.
-    ///
-    /// # Returns
-    /// * `overlap_cardinality_matrix` - Matrix of normalized estimated overlapping cardinalities between the elements of the left and right arrays.
-    /// * `left_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the left array and the last element of the right array.
-    /// * `right_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the right array and the last element of the left array.
-    fn normalized_overlap_and_differences_cardinality_matrices_vec(
-        left: &[Self],
-        right: &[Self],
-    ) -> (Vec<Vec<F>>, Vec<F>, Vec<F>) {
-        // Initialize overlap and differences cardinality matrices/vectors.
-        let mut last_row = vec![F::default(); right.len()];
-        let mut differential_overlap_cardinality_matrix =
-            vec![vec![F::default(); right.len()]; left.len()];
-        let mut left_difference_cardinality_vector = vec![F::default(); left.len()];
-        let mut right_cardinalities = vec![F::default(); right.len()];
-
-        right
-            .iter()
-            .zip(right_cardinalities.iter_mut())
-            .for_each(|(right, right_cardinality)| {
-                *right_cardinality = right.estimate_cardinality();
-            });
-
-        // We run a debug assert where we check that each right cardinality is
-        // larger than the previous one.
-        debug_assert!(right_cardinalities
-            .iter()
-            .zip(right_cardinalities.iter().skip(1))
-            .all(|(left, right)| left <= right));
-
-        let mut right_difference_cardinality_vector = vec![F::default(); right.len()];
-        let mut euc: EstimatedUnionCardinalities<F> = EstimatedUnionCardinalities::default();
-        let mut last_left_difference: F = F::default();
-        let mut last_left_cardinality: F = F::default();
-        let mut last_inner_left_differences = vec![F::default(); right.len()];
-
-        // Populate the overlap cardinality matrix.
-        for (i, left) in left.iter().enumerate() {
-            let mut last_right_difference: F = F::default();
-            let left_cardinality = left.estimate_cardinality();
-            let mut comulative_row = F::default();
-            let mut last_right_cardinality = F::default();
-            for (j, (right, (right_cardinality, last_inner_left_difference))) in right
-                .iter()
-                .zip(
-                    right_cardinalities
-                        .iter()
-                        .copied()
-                        .zip(last_inner_left_differences.iter_mut()),
-                )
-                .enumerate()
-            {
-                let union_cardinality = left.estimate_union_cardinality(right);
-                euc = EstimatedUnionCardinalities::with_correction(
-                    left_cardinality,
-                    right_cardinality,
-                    union_cardinality,
-                );
-                let delta = last_row[j] + comulative_row;
-                let differential_intersection = euc
-                    .get_intersection_cardinality()
-                    .saturating_zero_sub(delta);
-
-                debug_assert!(
-                    differential_intersection >= F::default(),
-                    concat!(
-                        "Expected differential_intersection to be larger than zero, but it is not. ",
-                        "Got: differential_intersection: {:?}, delta: {:?}",
-                    ),
-                    differential_intersection,
-                    delta,
-                );
-
-                differential_overlap_cardinality_matrix[i][j] = differential_intersection
-                    .saturating_one_div(
-                        (euc.get_left_difference_cardinality() + right_cardinality)
-                            .saturating_zero_sub(
-                                *last_inner_left_difference + last_right_cardinality,
-                            ),
-                    );
-                last_row[j] = if euc.get_intersection_cardinality() > delta {
-                    euc.get_intersection_cardinality()
-                } else {
-                    delta
-                };
-                comulative_row += differential_intersection;
-                *last_inner_left_difference = euc.get_left_difference_cardinality();
-
-                // We always set the value of the right difference so that the
-                // last time we write this will necessarily be with the last
-                // and largest left set.
-
-                right_difference_cardinality_vector[j] = euc
-                    .get_right_difference_cardinality()
-                    .saturating_zero_sub(last_right_difference)
                     .saturating_one_div(
                         right_cardinality.saturating_zero_sub(last_right_cardinality),
                     );

@@ -2,6 +2,12 @@
 use super::array::*;
 use crate::prelude::*;
 
+impl<W> Named for Vec<W> {
+    fn name(&self) -> String {
+        "Vec".to_string()
+    }
+}
+
 impl<P: Precision, B: Bits> Registers<P, B> for Vec<u64> {
     type Iter<'a> = ArrayRegisterIter<'a, P, B, Self>;
     type IterZipped<'a> = ArrayRegisterTupleIter<'a, P, B, Self>

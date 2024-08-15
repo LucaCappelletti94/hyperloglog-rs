@@ -5,6 +5,7 @@ use crate::prelude::*;
 
 #[derive(Debug, Clone, Copy, Hash)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
+/// A struct representing the Maximum Likelihood Estimation.
 pub struct MLE<H, const ERROR: i32 = 2> {
     counter: H,
 }
@@ -17,6 +18,12 @@ hll_impl!(MLE<PlusPlus<P, B, R, Hasher>, 3>);
 impl<H, const ERROR: i32> From<H> for MLE<H, ERROR> {
     fn from(counter: H) -> Self {
         Self { counter }
+    }
+}
+
+impl<const ERROR: i32, H: Named> Named for MLE<H, ERROR> {
+    fn name(&self) -> String {
+        format!("MLE{}{}", ERROR, self.counter.name())
     }
 }
 
@@ -64,7 +71,7 @@ fn mle_union_cardinality_from_multiplicities<
         return F::EPSILON;
     }
 
-    let relative_error_limit = F::TEN.powi(-ERROR) / P::NUMBER_OF_REGISTERS_FLOAT.sqrt();
+    let relative_error_limit = F::TEN.powi(-ERROR) / F::from_usize(P::NUMBER_OF_REGISTERS).sqrt();
     debug_assert!(intersection >= F::ZERO);
     debug_assert!(left_difference >= F::ZERO);
     debug_assert!(right_difference >= F::ZERO);
@@ -83,7 +90,11 @@ fn mle_union_cardinality_from_multiplicities<
     let q: i32 = q_plus_one as i32 - 1;
 
     // We initialize the vectors for the Adam optimizer.
-    let mut phis = [left_difference.ln(), right_difference.ln(), intersection.ln()];
+    let mut phis = [
+        left_difference.ln(),
+        right_difference.ln(),
+        intersection.ln(),
+    ];
     let mut gradients: [F; 3] = [F::ZERO, F::ZERO, F::ZERO];
 
     let mut optimizer: Adam<F, 3> = Default::default();
@@ -432,7 +443,7 @@ where
     }
 }
 
-pub trait Optimizer<F, const N: usize> {
+trait Optimizer<F, const N: usize> {
     fn apply(&mut self, gradients: &mut [F; N], phis: &mut [F; N]);
 }
 

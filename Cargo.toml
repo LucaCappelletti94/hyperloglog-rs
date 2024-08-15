@@ -64,7 +64,11 @@ std = [
 ]
 mem_dbg = [
     "dep:mem_dbg",
-    "std"
+    "std",
+    "hyperloglogplus/mem_dbg",
+    "streaming_algorithms/mem_dbg",
+    "cardinality-estimator/mem_dbg",
+    "rust-hyperloglog/mem_dbg",
 ]
 mle = ["std"]
 precision_4 = []
@@ -122,20 +126,17 @@ debug = false            # Include debug info.
 debug-assertions = false  # Enables debug assertions.
 opt-level = 3
 
-#[[bench]]
-#name = "insert"
-#harness = false
-#
+[[bench]]
+name = "insert"
+harness = false
+
 [[bench]]
 name = "cardinality"
 harness = false
-#
-#[[bench]]
-#name = "union"
-#harness = false
-#
-#[[bench]]
-#name = "hash_functions"
-#harness = false
+
+[[bench]]
+name = "union"
+harness = false
+
 
 

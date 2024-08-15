@@ -220,6 +220,13 @@ pub struct PackedArray<W, const N: usize> {
     words: [W; N],
 }
 
+impl<const N: usize, W> Named for PackedArray<W, N>
+{
+    fn name(&self) -> String {
+        "PackedArray".to_string()
+    }
+}
+
 impl<const N: usize, W: WordLike> Words for PackedArray<W, N> {
     type Word = W;
     type WordIter<'a> = core::iter::Copied<core::slice::Iter<'a, Self::Word>> where Self: 'a;
@@ -251,6 +258,7 @@ impl<W, const N: usize> From<[W; N]> for PackedArray<W, N> {
 ///
 /// Meant to be associated with a specific Precision.
 pub trait PackedArrayRegister<B: Bits>: Precision {
+    /// The type of the packed array register.
     type PackedArrayRegister: Registers<Self, B>;
 }
 
