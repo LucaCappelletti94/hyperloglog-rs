@@ -353,7 +353,7 @@ mod tests {
             + core::fmt::Debug,
     >()
     where
-        Hybrid<H>: Default + Estimator<f64>,
+        Hybrid<H>: Default + Estimator<f64> + ApproximatedSet<u64>,
     {
         use std::collections::HashSet;
         let mut hybrid_to_saturate = Hybrid::<H>::default();

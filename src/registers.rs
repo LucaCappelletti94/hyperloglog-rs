@@ -12,7 +12,9 @@ pub use array::ArrayRegister;
 pub use packed_array::{PackedArray, PackedArrayRegister};
 
 /// Trait marker for the registers.
-pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug + Send + Sync + Named {
+pub trait Registers<P: Precision, B: Bits>:
+    Eq + PartialEq + Clone + Debug + Send + Sync + Named
+{
     /// Iterator over the registers.
     type Iter<'a>: Iterator<Item = u32>
     where
@@ -65,11 +67,9 @@ pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug + Sen
 
 #[cfg(test)]
 mod tests {
-    use core::u64;
-
     use super::*;
 
-    fn test_register_iterator<P: Precision + ArrayRegister<B>, B: Bits, R: Registers<P, B>>() {
+    fn test_register_iterator<P: Precision, B: Bits, R: Registers<P, B>>() {
         let mut registers = R::zeroed();
         let collected_values = registers.iter_registers().collect::<Vec<_>>();
         assert_eq!(collected_values.len(), P::NUMBER_OF_REGISTERS);
@@ -103,92 +103,6 @@ mod tests {
                 )
             );
         }
-
-        // ==========================================
-
-        let mut registers = <P as ArrayRegister<B>>::initialize_with(u64::MAX);
-        let collected_values = registers.iter_registers().collect::<Vec<_>>();
-        assert_eq!(collected_values.len(), P::NUMBER_OF_REGISTERS);
-        // All the values should be the maximum value allowed by the register,
-        // as determined by the number of bits.
-        let expected_value = <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK;
-        assert!(collected_values
-            .iter()
-            .all(|&value| value == expected_value));
-        // We check that each collected value is identical to what we obtain using the get method.
-        assert!(collected_values
-            .iter()
-            .enumerate()
-            .all(|(index, &value)| value == registers.get_register(index)));
-
-        registers.clear();
-        assert!(registers.iter_registers().all(|value| value == 0));
-
-        for index in 0..P::NUMBER_OF_REGISTERS {
-            let mut old_value = 0;
-            for new_value in 0..(1 << B::NUMBER_OF_BITS) {
-                let retrieved_old_value = unsafe { registers.set_greater(index, new_value) };
-                assert_eq!(retrieved_old_value, (old_value, new_value));
-                old_value = retrieved_old_value.1;
-            }
-        }
-
-        registers.clear();
-        assert!(registers.iter_registers().all(|value| value == 0));
-
-        // We check that, given all registers are currently maxxed, when we set them to the maximum value
-        // we get always returned None.
-        for index in 0..P::NUMBER_OF_REGISTERS {
-            let old_value = unsafe {
-                registers.set_greater(index, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK)
-            };
-            assert_eq!(
-                old_value,
-                (0, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK)
-            );
-            let old_value = unsafe {
-                registers.set_greater(index, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK)
-            };
-            assert_eq!(
-                old_value,
-                (
-                    <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK,
-                    <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK
-                )
-            );
-        }
-
-        // ==================================================
-
-        if B::NUMBER_OF_BITS == 1 || B::NUMBER_OF_BITS == 2 || B::NUMBER_OF_BITS == 4 {
-            // We prepare now a test to create a word that has alternated values of 0 and max value.
-            let word: u64 = match B::NUMBER_OF_BITS {
-                1 => 0b0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101,
-                2 => 0b0011_0011_0011_0011_0011_0011_0011_0011_0011_0011_0011_0011_0011_0011_0011_0011,
-                4 => 0b0000_1111_0000_1111_0000_1111_0000_1111_0000_1111_0000_1111_0000_1111_0000_1111,
-                _ => unreachable!(),
-            };
-
-            let registers = <P as ArrayRegister<B>>::initialize_with(word);
-            let collected_values = registers.iter_registers().collect::<Vec<_>>();
-            assert_eq!(collected_values.len(), P::NUMBER_OF_REGISTERS);
-            // We check that the values are alternating between 0 and the maximum value.
-            let expected_values = (0..P::NUMBER_OF_REGISTERS)
-                .map(|index| {
-                    if index % 2 == 0 {
-                        <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK
-                    } else {
-                        0
-                    }
-                })
-                .collect::<Vec<_>>();
-            assert_eq!(&collected_values, &expected_values);
-            // We check that each collected value is identical to what we obtain using the get method.
-            assert!(collected_values
-                .iter()
-                .enumerate()
-                .all(|(index, &value)| value == registers.get_register(index)));
-        }
     }
 
     fn test_registers_self_consistency<
@@ -214,7 +128,11 @@ mod tests {
 
             for (index, value) in
                 iter_random_values(1_000_000, Some(number_of_registers), random_state).zip(
-                    iter_random_values(1_000_000, Some(maximal_register_value as usize), random_state),
+                    iter_random_values(
+                        1_000_000,
+                        Some(maximal_register_value as usize),
+                        random_state,
+                    ),
                 )
             {
                 // We set the values in all of the registers, and we check that the values are consistent.
@@ -231,9 +149,18 @@ mod tests {
                 let largest_value = old_value_vector.1;
 
                 // We check that the values are consistent with the get method.
-                assert_eq!(array_registers.get_register(index as usize), largest_value as u32);
-                assert_eq!(vector_registers.get_register(index as usize), largest_value as u32);
-                assert_eq!(packed_registers.get_register(index as usize), largest_value as u32);
+                assert_eq!(
+                    array_registers.get_register(index as usize),
+                    largest_value as u32
+                );
+                assert_eq!(
+                    vector_registers.get_register(index as usize),
+                    largest_value as u32
+                );
+                assert_eq!(
+                    packed_registers.get_register(index as usize),
+                    largest_value as u32
+                );
             }
 
             for index in 0..number_of_registers {

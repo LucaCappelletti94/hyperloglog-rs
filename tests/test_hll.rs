@@ -7,7 +7,7 @@ pub fn test_approximated_counter_at_precision_and_bits<
     F: FloatNumber,
     P: Precision + PrecisionConstants<F>,
     B: Bits,
-    H: ExtendableApproximatedSet<u64> + Estimator<F>,
+    H: ExtendableApproximatedSet<u64> + Estimator<F> + ApproximatedSet<u64> + MutableSet + SetProperties,
     Hasher: HasherType,
 >() {
     let number_of_elements = 100_000;

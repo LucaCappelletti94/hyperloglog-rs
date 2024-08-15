@@ -1,5 +1,5 @@
 //! Submodule providing the implementation of HyperSphere sketches for HashSets.
-use crate::{prelude::*, utils::Number};
+use crate::prelude::*;
 use core::hash::Hash;
 use std::collections::HashSet;
 
@@ -12,23 +12,31 @@ where
     }
 }
 
-impl<I, C> Estimator<C> for HashSet<I>
-where
-    C: Number + TryFrom<usize>,
-    I: Eq + Hash + Send + Sync,
-    <C as TryFrom<usize>>::Error: core::fmt::Debug,
-{
-    fn estimate_union_cardinality(&self, other: &Self) -> C {
-        self.union(other).count().try_into().unwrap()
-    }
+macro_rules! impl_estimator_for_hashset {
+    ($($typ:ty)*,) => {
+        $(
+            impl<I> Estimator<$typ> for HashSet<I>
+                where
+                    I: Eq + Hash + Send + Sync,
+                {
+                    fn estimate_union_cardinality(&self, other: &Self) -> $typ {
+                        self.union(other).count() as $typ
+                    }
 
-    fn estimate_cardinality(&self) -> C {
-        self.len().try_into().unwrap()
-    }
+                    fn estimate_cardinality(&self) -> $typ {
+                        self.len() as $typ
+                    }
 
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
+                    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
+                        false
+                    }
+                }
+        )*
     }
+}
+
+impl_estimator_for_hashset! {
+    u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize f32 f64,
 }
 
 impl<T> SetProperties for HashSet<T> {

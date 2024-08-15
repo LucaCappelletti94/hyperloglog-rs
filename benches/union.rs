@@ -12,7 +12,7 @@ use utils::*;
 
 const RANDOM_STATE: u64 = 87561346897134_u64;
 const NUMBER_OF_ELEMENTS: usize = 50_000;
-const NUMBER_OF_COUNTERS: usize = 1_000;
+const NUMBER_OF_COUNTERS: usize = 2_000;
 
 fn union_bencher<
     H: Estimator<f64> + ExtendableApproximatedSet<u64>,
@@ -197,6 +197,26 @@ macro_rules! bench_union_registers {
                     name=[<union_hybridbeta $register _ $precision:lower>];
                     config = Criterion::default().sample_size($sample_size);
                     targets=[<bench_hybridbeta $register _union_ $precision:lower _bits6_xxhash64>], [<bench_hybridbeta $register _union_ $precision:lower _bits6_wyhash>], [<bench_hybridbeta $register _union_ $precision:lower _bits8_xxhash64>], [<bench_hybridbeta $register _union_ $precision:lower _bits8_wyhash>]
+                }
+                criterion_group! {
+                    name=[<union_ mleplusplus $register _ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size);
+                    targets=[<bench_mleplusplus $register _union_ $precision:lower _bits6_xxhash64>], [<bench_mleplusplus $register _union_ $precision:lower _bits6_wyhash>], [<bench_mleplusplus $register _union_ $precision:lower _bits8_xxhash64>], [<bench_mleplusplus $register _union_ $precision:lower _bits8_wyhash>],
+                }
+                criterion_group! {
+                    name=[<union_ mlehybridplusplus $register _ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size);
+                    targets=[<bench_mlehybridplusplus $register _union_ $precision:lower _bits6_xxhash64>], [<bench_mlehybridplusplus $register _union_ $precision:lower _bits6_wyhash>], [<bench_mlehybridplusplus $register _union_ $precision:lower _bits8_xxhash64>], [<bench_mlehybridplusplus $register _union_ $precision:lower _bits8_wyhash>]
+                }
+                criterion_group! {
+                    name=[<union_ mlebeta $register _ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size);
+                    targets=[<bench_mlebeta $register _union_ $precision:lower _bits6_xxhash64>], [<bench_mlebeta $register _union_ $precision:lower _bits6_wyhash>], [<bench_mlebeta $register _union_ $precision:lower _bits8_xxhash64>], [<bench_mlebeta $register _union_ $precision:lower _bits8_wyhash>]
+                }
+                criterion_group! {
+                    name=[<union_ mlehybridbeta $register _ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size);
+                    targets=[<bench_mlehybridbeta $register _union_ $precision:lower _bits6_xxhash64>], [<bench_mlehybridbeta $register _union_ $precision:lower _bits6_wyhash>], [<bench_mlehybridbeta $register _union_ $precision:lower _bits8_xxhash64>], [<bench_mlehybridbeta $register _union_ $precision:lower _bits8_wyhash>]
                 }
             }
         )*

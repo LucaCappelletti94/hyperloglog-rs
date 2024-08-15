@@ -11,7 +11,7 @@ mod utils;
 use utils::*;
 
 const RANDOM_STATE: u64 = 87561346897134_u64;
-const NUMBER_OF_COUNTERS: usize = 1_000;
+const NUMBER_OF_COUNTERS: usize = 2_000;
 const NUMBER_OF_ELEMENTS: usize = 50_000;
 
 fn cardinality_bencher<

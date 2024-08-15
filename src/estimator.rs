@@ -25,7 +25,7 @@ pub trait MutableSet: SetProperties {
 }
 
 /// Trait for an extendable approximated set.
-pub trait ExtendableApproximatedSet<T: Hash>: MutableSet + ApproximatedSet<T> {
+pub trait ExtendableApproximatedSet<T: Hash> {
     /// Insert an element into the set and return whether the element has been inserted.
     fn insert(&mut self, element: &T) -> bool;
 
