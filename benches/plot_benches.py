@@ -27,74 +27,6 @@ def is_name_line(line: str) -> bool:
     """Checks if a line is a name line."""
     return " " not in line and "precision" in line and "bits" in line
 
-
-def normalize_name(name: str) -> str:
-    """Normalizes a name."""
-    return {
-        "beta6_xxhash64": "Beta6 + Xxhasher",
-        "beta6_XxHash64": "Beta6 + Xxhasher",
-        "beta6_WyHash": "Beta6 + WyHash",
-        "beta6_wyhash": "Beta6 + WyHash",
-        "beta6": "Beta6 + WyHash",
-        "beta8": "Beta8 + WyHash",
-        "plusplus4_xxhash64": "HLL4 + Xxhasher",
-        "plusplus4_XxHash64": "HLL4 + Xxhasher",
-        "plusplus4": "HLL4 + Xxhasher",
-        "plusplus5": "HLL5 + Xxhasher",
-        "plusplus6": "HLL6 + WyHash",
-        "hybridplusplus6_XxHash64": "Hybrid++ + Xxhasher",
-        "hybridplusplus6_xxhash64": "Hybrid++ + Xxhasher",
-        "hybridplusplus8_XxHash64": "Hybrid++ + Xxhasher",
-        "hybridplusplus8_xxhash64": "Hybrid++ + Xxhasher",
-        "hybridplusplus6": "Hybrid++ + Xxhasher",
-        "hybridplusplus8": "Hybrid++ + Xxhasher",
-        "hybridplusplus6_WyHash": "Hybrid++ + WyHash",
-        "hybridplusplus6_wyhash": "Hybrid++ + WyHash",
-        "hybridplusplus8_WyHash": "Hybrid++ + WyHash",
-        "hybridplusplus8_wyhash": "Hybrid++ + WyHash",
-        "hybridplusplus": "Hybrid++ + WyHash",
-        "hybridplusplus_xxhash64": "Hybrid++ + Xxhasher",
-        "hybridplusplus_XxHash64": "Hybrid++ + Xxhasher",
-        "hybridbeta6_xxhash64": "HybridBeta6 + Xxhasher",
-        "hybridbeta6_XxHash64": "HybridBeta6 + Xxhasher",
-        "hybridbeta6_WyHash": "HybridBeta6 + WyHash",
-        "hybridbeta6_wyhash": "HybridBeta6 + WyHash",
-        "hybridbeta6": "HybridBeta6 + WyHash",
-        "hybridbeta8": "HybridBeta8 + WyHash",
-        "plusplus6_xxhash64": "HLL6 + Xxhasher",
-        "plusplus6_XxHash64": "HLL6 + Xxhasher",
-        "plusplus6_wyhash": "HLL6 + WyHash",
-        "plusplus6_WyHash": "HLL6 + WyHash",
-        "plusplus8": "HLL8 + Xxhasher",
-        "plusplus_xxhash64": "HLL6 + Xxhasher",
-        "hll4": "HLL4 + Xxhasher",
-        "hll5": "HLL5 + Xxhasher",
-        "hll6_WyHash": "HLL6 + WyHash",
-        "hll6_wyhash": "HLL6 + WyHash",
-        "hll6_xxhash64": "HLL6 + Xxhasher",
-        "hll6_XxHash64": "HLL6 + Xxhasher",
-        "hll6": "HLL6 + Xxhasher",
-        "hll8": "HLL8 + Xxhasher",
-        "hll_xxhash64": "HLL6 + Xxhasher",
-        "mle": "Our MLE",
-        "mle6": "MLE2 + Xxhasher",
-        "mle8": "MLE2 + Xxhasher",
-        "mlepp6": "MLEPP + Xxhasher",
-        "mlepp8": "MLEPP + Xxhasher",
-        "multiplicities": "Our Multi",
-        "tabacpf6": "Tabac's HLL",
-        "tabacpf": "Tabac's HLL",
-        "tabacplusplus6": "Tabac's HLL++",
-        "sa6": "Streaming Algorithms",
-        "ce4_wyhash": "Cardinality Estimator",
-        "ce4_WyHash": "Cardinality Estimator",
-        "ce6_wyhash": "Cardinality Estimator",
-        "ce6_WyHash": "Cardinality Estimator",
-        "ce6": "Cardinality Estimator",
-        "rhll6": "Rust-HLL",
-    }[name]
-
-
 def retrieve_feature(
     approach_name: str, precision: int, bits: int, feature: str
 ) -> float:
@@ -330,17 +262,12 @@ def plot_benchmarks() -> None:
     # for the sorting.
     paths.sort(key=lambda path: -os.stat(path).st_mtime)
 
-    print(f"Found {len(paths)} log files")
-
     cross_task_df = pd.concat([
         load_criterion_log(path)
         for path in paths
     ])
 
-    # We drop duplicates, keeping the first occurrence
-    cross_task_df = cross_task_df.drop_duplicates(
-        subset=["task", "name", "bits", "precision"], keep="first"
-    )
+    cross_task_df.to_csv("benches/benchmarks.csv", index=False)
 
     number_of_tasks = cross_task_df["task"].nunique()
     print(f"Found {len(cross_task_df)} unique benchmarks across {number_of_tasks} tasks")

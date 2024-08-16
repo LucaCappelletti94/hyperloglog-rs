@@ -47,13 +47,12 @@ rust-hyperloglog = {git = "https://github.com/LucaCappelletti94/rust-hyperloglog
 stattest = {git = "https://github.com/LucaCappelletti94/stattest"}
 sourmash = {git="https://github.com/LucaCappelletti94/sourmash.git", features = ["mem_dbg"], branch = "latest_merged"}
 hypertwobits = {git="https://github.com/LucaCappelletti94/hypertwobits.git", features = ["mem_dbg"], branch="merge_all"}
+simple_hll = {git="https://github.com/LucaCappelletti94/simple_hll.git", features = ["mem_dbg"], branch="mem_dbg"}
 csv = "1.3.0"
 wyhash = "0.5.0"
 
-
-
 [features]
-default = ["serde", "mem_dbg", "low_precisions", "mle", "beta", "plusplus"]
+default = ["serde", "mem_dbg", "mle", "beta", "plusplus"]
 beta = []
 precomputed_beta = ["beta"]
 plusplus = []

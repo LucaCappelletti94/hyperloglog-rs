@@ -5,13 +5,13 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use hyperloglog_rs::prelude::*;
 use std::hint::black_box;
 use wyhash::WyHash;
-
+use std::collections::HashSet;
 mod utils;
 
 use utils::*;
 
 const RANDOM_STATE: u64 = 87561346897134_u64;
-const NUMBER_OF_COUNTERS: usize = 2_000;
+const NUMBER_OF_COUNTERS: usize = 10_000;
 const NUMBER_OF_ELEMENTS: usize = 50_000;
 
 fn cardinality_bencher<
@@ -127,22 +127,22 @@ macro_rules! bench_cardinality_registers {
             paste::paste! {
                 criterion_group! {
                     name=[<cardinality_plusplus $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size($sample_size).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
                     targets=[<bench_plusplus $register _cardinality_ $precision:lower _bits6_xxhash64>], [<bench_plusplus $register _cardinality_ $precision:lower _bits6_wyhash>], [<bench_plusplus $register _cardinality_ $precision:lower _bits8_xxhash64>], [<bench_plusplus $register _cardinality_ $precision:lower _bits8_wyhash>],
                 }
                 criterion_group! {
                     name=[<cardinality_hybridplusplus $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size($sample_size).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
                     targets=[<bench_hybridplusplus $register _cardinality_ $precision:lower _bits6_xxhash64>], [<bench_hybridplusplus $register _cardinality_ $precision:lower _bits6_wyhash>], [<bench_hybridplusplus $register _cardinality_ $precision:lower _bits8_xxhash64>], [<bench_hybridplusplus $register _cardinality_ $precision:lower _bits8_wyhash>]
                 }
                 criterion_group! {
                     name=[<cardinality_beta $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size($sample_size).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
                     targets=[<bench_beta $register _cardinality_ $precision:lower _bits6_xxhash64>], [<bench_beta $register _cardinality_ $precision:lower _bits6_wyhash>], [<bench_beta $register _cardinality_ $precision:lower _bits8_xxhash64>], [<bench_beta $register _cardinality_ $precision:lower _bits8_wyhash>]
                 }
                 criterion_group! {
                     name=[<cardinality_hybridbeta $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size($sample_size).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
                     targets=[<bench_hybridbeta $register _cardinality_ $precision:lower _bits6_xxhash64>], [<bench_hybridbeta $register _cardinality_ $precision:lower _bits6_wyhash>], [<bench_hybridbeta $register _cardinality_ $precision:lower _bits8_xxhash64>], [<bench_hybridbeta $register _cardinality_ $precision:lower _bits8_wyhash>]
                 }
             }
@@ -171,34 +171,54 @@ macro_rules! bench_cardinalities {
                     cardinality_bencher::<RustHLL<$precision>>(b);
                 }
 
+                fn [<bench_shll_cardinality_ $precision:lower _bits6>] (b: &mut Criterion) {
+                    cardinality_bencher::<SimpleHLL<{$precision::EXPONENT}>>(b);
+                }
+
+                fn [<bench_sm_cardinality_ $precision:lower _bits6>] (b: &mut Criterion) {
+                    cardinality_bencher::<SourMash<$precision>>(b);
+                }
+
                 fn [<bench_sa_cardinality_ $precision:lower>] (b: &mut Criterion) {
                     cardinality_bencher::<SAHLL<$precision>>(b);
                 }
 
                 criterion_group! {
                     name=[<cardinality_tabacpf_ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size / 5);
+                    config = Criterion::default().sample_size($sample_size / 5).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
                     targets=[<bench_tabacpf_cardinality_ $precision:lower>]
                 }
                 criterion_group! {
                     name=[<cardinality_tabacplusplus_ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size / 5);
+                    config = Criterion::default().sample_size($sample_size / 5).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
                     targets=[<bench_tabacplusplus_cardinality_ $precision:lower>]
                 }
                 criterion_group! {
                     name=[<cardinality_sa_ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size($sample_size).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
                     targets=[<bench_sa_cardinality_ $precision:lower>]
                 }
                 criterion_group! {
                     name=[<cardinality_cludflare_ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size($sample_size).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
                     targets=[<bench_cludflare_cardinality_ $precision:lower _bits6_wyhash>], [<bench_cludflare_cardinality_ $precision:lower _bits6_xxhash64>]
                 }
                 criterion_group! {
                     name=[<cardinality_rhll_ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size / 5);
+                    config = Criterion::default().sample_size($sample_size / 5).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
                     targets=[<bench_rhll_cardinality_ $precision:lower _bits6>]
+                }
+                
+                criterion_group! {
+                    name=[<cardinality_shll_ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size / 5).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
+                    targets=[<bench_shll_cardinality_ $precision:lower _bits6>]
+                }
+                
+                criterion_group! {
+                    name=[<cardinality_sm_ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size / 5).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3)).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
+                    targets=[<bench_sm_cardinality_ $precision:lower _bits6>]
                 }
 
                 bench_cardinality_registers!($precision, $sample_size, "vec", "array", "packedarray");
@@ -206,6 +226,64 @@ macro_rules! bench_cardinalities {
         )*
     };
 }
+
+macro_rules! bench_hyper_two_bits {
+    ($($sketch:ty),*) => {
+        $(
+            paste::paste!{
+                fn [<bench_hypertwobits_ $sketch:lower  _cardinality>](b: &mut Criterion) {
+                    cardinality_bencher::<HyperTwoBits<$sketch>>(b);
+                }
+            }
+        )*
+    };
+}
+
+macro_rules! bench_hyper_three_bits {
+    ($($sketch:ty),*) => {
+        $(
+            paste::paste!{
+                fn [<bench_hyperthreebits_ $sketch:lower _cardinality>](b: &mut Criterion) {
+                    cardinality_bencher::<HyperThreeBits<$sketch>>(b);
+                }
+            }
+        )*
+    };
+}
+
+use hypertwobits::h2b::{
+    M64 as M64H2B, M128 as M128H2B, M256 as M256H2B, M512 as M512H2B, M1024 as M1024H2B,
+    M2048 as M2048H2B, M4096 as M4096H2B,
+};
+bench_hyper_two_bits!(M64H2B, M128H2B, M256H2B, M512H2B, M1024H2B, M2048H2B, M4096H2B);
+
+use hypertwobits::h3b::{
+    M64 as M64H3B, M128 as M128H3B, M256 as M256H3B, M512 as M512H3B, M1024 as M1024H3B,
+    M2048 as M2048H3B, M4096 as M4096H3B,
+};
+bench_hyper_three_bits!(M64H3B, M128H3B, M256H3B, M512H3B, M1024H3B, M2048H3B, M4096H3B);
+
+fn bench_hashset_cardinality(b: &mut Criterion) {
+    cardinality_bencher::<HashSet<u64>>(b);
+}
+
+criterion_group!(
+    name = cardinality_hyper_two_bits;
+    config = Criterion::default().sample_size(100).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3)).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
+    targets = bench_hypertwobits_m64h2b_cardinality, bench_hypertwobits_m128h2b_cardinality, bench_hypertwobits_m256h2b_cardinality, bench_hypertwobits_m512h2b_cardinality, bench_hypertwobits_m1024h2b_cardinality, bench_hypertwobits_m2048h2b_cardinality, bench_hypertwobits_m4096h2b_cardinality
+);
+
+criterion_group!(
+    name = cardinality_hyper_three_bits;
+    config = Criterion::default().sample_size(100).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3)).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
+    targets = bench_hyperthreebits_m64h3b_cardinality, bench_hyperthreebits_m128h3b_cardinality, bench_hyperthreebits_m256h3b_cardinality, bench_hyperthreebits_m512h3b_cardinality, bench_hyperthreebits_m1024h3b_cardinality, bench_hyperthreebits_m2048h3b_cardinality, bench_hyperthreebits_m4096h3b_cardinality
+);
+
+criterion_group!(
+    name = cardinality_hashset;
+    config = Criterion::default().sample_size(100).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3)).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
+    targets = bench_hashset_cardinality
+);
 
 #[cfg(feature = "low_precisions")]
 bench_cardinalities!(
@@ -254,7 +332,12 @@ macro_rules! bench_cardinality_main {
                     [<cardinality_sa_ $precision:lower>],
                     [<cardinality_cludflare_ $precision:lower>],
                     [<cardinality_rhll_ $precision:lower>],
+                    [<cardinality_sm_ $precision:lower>],
+                    [<cardinality_shll_ $precision:lower>],
                 )*
+                cardinality_hyper_two_bits,
+                cardinality_hyper_three_bits,
+                cardinality_hashset
             );
         }
     };

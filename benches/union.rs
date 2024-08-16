@@ -4,6 +4,7 @@ extern crate test;
 use criterion::{criterion_group, criterion_main, Criterion};
 use hyperloglog_rs::prelude::*;
 use std::hint::black_box;
+use std::collections::HashSet;
 use wyhash::WyHash;
 
 mod utils;
@@ -180,42 +181,42 @@ macro_rules! bench_union_registers {
             paste::paste! {
                 criterion_group! {
                     name=[<union_plusplus $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size($sample_size).warm_up_time(std::time::Duration::from_secs(1)).warm_up_time(std::time::Duration::from_secs(1));
                     targets=[<bench_plusplus $register _union_ $precision:lower _bits6_xxhash64>], [<bench_plusplus $register _union_ $precision:lower _bits6_wyhash>], [<bench_plusplus $register _union_ $precision:lower _bits8_xxhash64>], [<bench_plusplus $register _union_ $precision:lower _bits8_wyhash>],
                 }
                 criterion_group! {
                     name=[<union_hybridplusplus $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size($sample_size).warm_up_time(std::time::Duration::from_secs(1)).warm_up_time(std::time::Duration::from_secs(1));
                     targets=[<bench_hybridplusplus $register _union_ $precision:lower _bits6_xxhash64>], [<bench_hybridplusplus $register _union_ $precision:lower _bits6_wyhash>], [<bench_hybridplusplus $register _union_ $precision:lower _bits8_xxhash64>], [<bench_hybridplusplus $register _union_ $precision:lower _bits8_wyhash>]
                 }
                 criterion_group! {
                     name=[<union_beta $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size($sample_size).warm_up_time(std::time::Duration::from_secs(1)).warm_up_time(std::time::Duration::from_secs(1));
                     targets=[<bench_beta $register _union_ $precision:lower _bits6_xxhash64>], [<bench_beta $register _union_ $precision:lower _bits6_wyhash>], [<bench_beta $register _union_ $precision:lower _bits8_xxhash64>], [<bench_beta $register _union_ $precision:lower _bits8_wyhash>]
                 }
                 criterion_group! {
                     name=[<union_hybridbeta $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size($sample_size).warm_up_time(std::time::Duration::from_secs(1)).warm_up_time(std::time::Duration::from_secs(1));
                     targets=[<bench_hybridbeta $register _union_ $precision:lower _bits6_xxhash64>], [<bench_hybridbeta $register _union_ $precision:lower _bits6_wyhash>], [<bench_hybridbeta $register _union_ $precision:lower _bits8_xxhash64>], [<bench_hybridbeta $register _union_ $precision:lower _bits8_wyhash>]
                 }
                 criterion_group! {
                     name=[<union_ mleplusplus $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size(10).warm_up_time(std::time::Duration::from_secs(1)).warm_up_time(std::time::Duration::from_secs(1));
                     targets=[<bench_mleplusplus $register _union_ $precision:lower _bits6_xxhash64>], [<bench_mleplusplus $register _union_ $precision:lower _bits6_wyhash>], [<bench_mleplusplus $register _union_ $precision:lower _bits8_xxhash64>], [<bench_mleplusplus $register _union_ $precision:lower _bits8_wyhash>],
                 }
                 criterion_group! {
                     name=[<union_ mlehybridplusplus $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size(10).warm_up_time(std::time::Duration::from_secs(1)).warm_up_time(std::time::Duration::from_secs(1));
                     targets=[<bench_mlehybridplusplus $register _union_ $precision:lower _bits6_xxhash64>], [<bench_mlehybridplusplus $register _union_ $precision:lower _bits6_wyhash>], [<bench_mlehybridplusplus $register _union_ $precision:lower _bits8_xxhash64>], [<bench_mlehybridplusplus $register _union_ $precision:lower _bits8_wyhash>]
                 }
                 criterion_group! {
                     name=[<union_ mlebeta $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size(10).warm_up_time(std::time::Duration::from_secs(1)).warm_up_time(std::time::Duration::from_secs(1));
                     targets=[<bench_mlebeta $register _union_ $precision:lower _bits6_xxhash64>], [<bench_mlebeta $register _union_ $precision:lower _bits6_wyhash>], [<bench_mlebeta $register _union_ $precision:lower _bits8_xxhash64>], [<bench_mlebeta $register _union_ $precision:lower _bits8_wyhash>]
                 }
                 criterion_group! {
                     name=[<union_ mlehybridbeta $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size);
+                    config = Criterion::default().sample_size(10).warm_up_time(std::time::Duration::from_secs(1)).warm_up_time(std::time::Duration::from_secs(1));
                     targets=[<bench_mlehybridbeta $register _union_ $precision:lower _bits6_xxhash64>], [<bench_mlehybridbeta $register _union_ $precision:lower _bits6_wyhash>], [<bench_mlehybridbeta $register _union_ $precision:lower _bits8_xxhash64>], [<bench_mlehybridbeta $register _union_ $precision:lower _bits8_wyhash>]
                 }
             }
@@ -242,6 +243,14 @@ macro_rules! bench_cardinalities {
 
                 fn [<bench_rhll_union_ $precision:lower _bits6>] (b: &mut Criterion) {
                     union_bencher::<RustHLL<$precision>>(b);
+                }
+
+                fn [<bench_shll_union_ $precision:lower _bits6>] (b: &mut Criterion) {
+                    union_bencher::<SimpleHLL<{$precision::EXPONENT}>>(b);
+                }
+
+                fn [<bench_sm_union_ $precision:lower _bits6>] (b: &mut Criterion) {
+                    union_bencher::<SourMash<$precision>>(b);
                 }
 
                 fn [<bench_sa_union_ $precision:lower>] (b: &mut Criterion) {
@@ -273,12 +282,80 @@ macro_rules! bench_cardinalities {
                     config = Criterion::default().sample_size($sample_size / 5);
                     targets=[<bench_rhll_union_ $precision:lower _bits6>]
                 }
+                criterion_group! {
+                    name=[<union_shll_ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size / 5);
+                    targets=[<bench_shll_union_ $precision:lower _bits6>]
+                }
+                criterion_group! {
+                    name=[<union_sm_ $precision:lower>];
+                    config = Criterion::default().sample_size(10).warm_up_time(std::time::Duration::from_secs(1)).warm_up_time(std::time::Duration::from_secs(1));
+                    targets=[<bench_sm_union_ $precision:lower _bits6>]
+                }
 
                 bench_union_registers!($precision, $sample_size, "vec", "array", "packedarray");
             }
         )*
     };
 }
+
+macro_rules! bench_hyper_two_bits {
+    ($($sketch:ty),*) => {
+        $(
+            paste::paste!{
+                fn [<bench_hypertwobits_ $sketch:lower  _union>](b: &mut Criterion) {
+                    union_bencher::<HyperTwoBits<$sketch>>(b);
+                }
+            }
+        )*
+    };
+}
+
+macro_rules! bench_hyper_three_bits {
+    ($($sketch:ty),*) => {
+        $(
+            paste::paste!{
+                fn [<bench_hyperthreebits_ $sketch:lower _union>](b: &mut Criterion) {
+                    union_bencher::<HyperThreeBits<$sketch>>(b);
+                }
+            }
+        )*
+    };
+}
+
+use hypertwobits::h2b::{
+    M64 as M64H2B, M128 as M128H2B, M256 as M256H2B, M512 as M512H2B, M1024 as M1024H2B,
+    M2048 as M2048H2B, M4096 as M4096H2B,
+};
+bench_hyper_two_bits!(M64H2B, M128H2B, M256H2B, M512H2B, M1024H2B, M2048H2B, M4096H2B);
+
+use hypertwobits::h3b::{
+    M64 as M64H3B, M128 as M128H3B, M256 as M256H3B, M512 as M512H3B, M1024 as M1024H3B,
+    M2048 as M2048H3B, M4096 as M4096H3B,
+};
+bench_hyper_three_bits!(M64H3B, M128H3B, M256H3B, M512H3B, M1024H3B, M2048H3B, M4096H3B);
+
+fn bench_hashset_union(b: &mut Criterion) {
+    union_bencher::<HashSet<u64>>(b);
+}
+
+criterion_group!(
+    name = union_hyper_two_bits;
+    config = Criterion::default().sample_size(100).warm_up_time(std::time::Duration::from_secs(1));
+    targets = bench_hypertwobits_m64h2b_union, bench_hypertwobits_m128h2b_union, bench_hypertwobits_m256h2b_union, bench_hypertwobits_m512h2b_union, bench_hypertwobits_m1024h2b_union, bench_hypertwobits_m2048h2b_union, bench_hypertwobits_m4096h2b_union
+);
+
+criterion_group!(
+    name = union_hyper_three_bits;
+    config = Criterion::default().sample_size(100).warm_up_time(std::time::Duration::from_secs(1));
+    targets = bench_hyperthreebits_m64h3b_union, bench_hyperthreebits_m128h3b_union, bench_hyperthreebits_m256h3b_union, bench_hyperthreebits_m512h3b_union, bench_hyperthreebits_m1024h3b_union, bench_hyperthreebits_m2048h3b_union, bench_hyperthreebits_m4096h3b_union
+);
+
+criterion_group!(
+    name = union_hashset;
+    config = Criterion::default().sample_size(100).warm_up_time(std::time::Duration::from_secs(1));
+    targets = bench_hashset_union
+);
 
 #[cfg(feature = "low_precisions")]
 bench_cardinalities!(
@@ -339,7 +416,12 @@ macro_rules! bench_union_main {
                     [<union_sa_ $precision:lower>],
                     [<union_cludflare_ $precision:lower>],
                     [<union_rhll_ $precision:lower>],
+                    [<union_sm_ $precision:lower>],
+                    [<union_shll_ $precision:lower>],
                 )*
+                union_hyper_two_bits,
+                union_hyper_three_bits,
+                union_hashset
             );
         }
     };

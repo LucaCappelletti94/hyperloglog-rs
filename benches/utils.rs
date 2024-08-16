@@ -12,6 +12,13 @@ use std::marker::PhantomData;
 use std::usize;
 use streaming_algorithms::HyperLogLog as SAHyperLogLog;
 use twox_hash::RandomXxHashBuilder64;
+use simple_hll::HyperLogLog as SimpleHyperLogLog;
+
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
+pub struct SimpleHLL<const P: usize> {
+    estimator: SimpleHyperLogLog<P>,
+}
 
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
@@ -118,6 +125,12 @@ impl<P: Precision> Default for SAHLL<P> {
     }
 }
 
+impl<const P: usize> Named for SimpleHLL<P> {
+    fn name(&self) -> String {
+        format!("SHLL<P{}, B8, Vec>", P)
+    }
+}
+
 impl<S: hypertwobits::h2b::Sketch> Named for HyperTwoBits<S> {
     fn name(&self) -> String {
         format!(
@@ -179,6 +192,13 @@ impl<P: Precision> Named for SAHLL<P> {
     }
 }
 
+impl<const P: usize> ExtendableApproximatedSet<u64> for SimpleHLL<P> {
+    fn insert(&mut self, item: &u64) -> bool {
+        self.estimator.add_object(item);
+        true
+    }
+}
+
 impl<S: hypertwobits::h2b::Sketch> ExtendableApproximatedSet<u64> for HyperTwoBits<S> {
     fn insert(&mut self, item: &u64) -> bool {
         self.estimator.insert(item);
@@ -236,6 +256,22 @@ impl<P: Precision> ExtendableApproximatedSet<u64> for SAHLL<P> {
     fn insert(&mut self, item: &u64) -> bool {
         self.estimator.push(item);
         true
+    }
+}
+
+impl<const P: usize> Estimator<f64> for SimpleHLL<P> {
+    fn estimate_cardinality(&self) -> f64 {
+        self.estimator.count() as f64
+    }
+
+    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+        let mut copy = self.clone();
+        copy.estimator.merge(&other.estimator);
+        copy.estimator.count() as f64
+    }
+
+    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
+        false
     }
 }
 

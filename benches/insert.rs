@@ -119,6 +119,10 @@ macro_rules! bench_cardinalities {
                     insert_bencher::<RustHLL<$precision>>(b);
                 }
 
+                fn [<bench_shll_insert_ $precision:lower _bits6>] (b: &mut Criterion) {
+                    insert_bencher::<SimpleHLL<{$precision::EXPONENT}>>(b);
+                }
+
                 fn [<bench_sm_insert_ $precision:lower _bits6>] (b: &mut Criterion) {
                     insert_bencher::<SourMash<$precision>>(b);
                 }
@@ -151,6 +155,11 @@ macro_rules! bench_cardinalities {
                     name=[<insert_rhll_ $precision:lower>];
                     config = Criterion::default().sample_size($sample_size / 5).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
                     targets=[<bench_rhll_insert_ $precision:lower _bits6>]
+                }
+                criterion_group! {
+                    name=[<insert_shll_ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size / 5).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
+                    targets=[<bench_shll_insert_ $precision:lower _bits6>]
                 }
                 criterion_group! {
                     name=[<insert_sm_ $precision:lower>];
@@ -252,21 +261,23 @@ macro_rules! bench_insert_main {
         paste::paste!{
             criterion_main!(
                 $(
-                    [<insert_plusplusvec_ $precision:lower>],
-                    [<insert_plusplusarray_ $precision:lower>],
-                    [<insert_pluspluspackedarray_ $precision:lower>],
-                    [<insert_hybridplusplusvec_ $precision:lower>],
-                    [<insert_hybridplusplusarray_ $precision:lower>],
-                    [<insert_hybridpluspluspackedarray_ $precision:lower>],
-                    [<insert_tabacpf_ $precision:lower>],
-                    [<insert_tabacplusplus_ $precision:lower>],
-                    [<insert_sa_ $precision:lower>],
-                    [<insert_cludflare_ $precision:lower>],
-                    [<insert_rhll_ $precision:lower>],
-                    [<insert_sm_ $precision:lower>],
+                    // [<insert_plusplusvec_ $precision:lower>],
+                    // [<insert_plusplusarray_ $precision:lower>],
+                    // [<insert_pluspluspackedarray_ $precision:lower>],
+                    // [<insert_hybridplusplusvec_ $precision:lower>],
+                    // [<insert_hybridplusplusarray_ $precision:lower>],
+                    // [<insert_hybridpluspluspackedarray_ $precision:lower>],
+                    // [<insert_tabacpf_ $precision:lower>],
+                    // [<insert_tabacplusplus_ $precision:lower>],
+                    // [<insert_sa_ $precision:lower>],
+                    // [<insert_cludflare_ $precision:lower>],
+                    // [<insert_rhll_ $precision:lower>],
+                    // [<insert_sm_ $precision:lower>],
+                    [<insert_shll_ $precision:lower>],
                 )*
-                insert_hyper_two_bits,
-                insert_hyper_three_bits,
+                // insert_hyper_two_bits,
+                // insert_hyper_three_bits,
+                insert_hashset
             );
         }
     };
