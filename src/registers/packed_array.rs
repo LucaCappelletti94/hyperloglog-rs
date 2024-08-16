@@ -235,11 +235,11 @@ impl<const N: usize, W: WordLike> Words for PackedArray<W, N> {
         N
     }
 
-    unsafe fn find_sorted_with_len(&self, value: Self::Word, len: usize) -> bool {
+    fn find_sorted_with_len(&self, value: Self::Word, len: usize) -> bool {
         self.words.find_sorted_with_len(value, len)
     }
 
-    unsafe fn sorted_insert_with_len(&mut self, value: Self::Word, len: usize) -> bool {
+    fn sorted_insert_with_len(&mut self, value: Self::Word, len: usize) -> bool {
         self.words.sorted_insert_with_len(value, len)
     }
 
@@ -365,7 +365,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                     }
 
                     #[inline(always)]
-                    unsafe fn set_greater(&mut self, index: usize, new_register: u32) -> (u32, u32) {
+                    fn set_greater(&mut self, index: usize, new_register: u32) -> (u32, u32) {
                         debug_assert!(index < [<Precision $exponent>]::NUMBER_OF_REGISTERS);
                         debug_assert!(new_register < 1 << [<Bits $bits>]::NUMBER_OF_BITS);
 

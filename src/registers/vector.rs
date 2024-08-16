@@ -58,10 +58,8 @@ impl<P: Precision, B: Bits> Registers<P, B> for Vec<u64> {
         let number_of_padding_registers = self.len() * <u64 as RegisterWord<B>>::NUMBER_OF_REGISTERS
             - P::NUMBER_OF_REGISTERS;
 
-        union_zeros -= unsafe {
-            <P as Precision>::NumberOfZeros::try_from(number_of_padding_registers)
-                .unwrap_unchecked()
-        };
+        union_zeros -= 
+            <P as Precision>::NumberOfZeros::from_usize(number_of_padding_registers);
         harmonic_sum -= F::from_usize(number_of_padding_registers);
 
         (harmonic_sum, union_zeros)
@@ -91,7 +89,7 @@ impl<P: Precision, B: Bits> Registers<P, B> for Vec<u64> {
     }
 
     #[inline(always)]
-    unsafe fn set_greater(&mut self, index: usize, new_register: u32) -> (u32, u32) {
+    fn set_greater(&mut self, index: usize, new_register: u32) -> (u32, u32) {
         debug_assert!(index < P::NUMBER_OF_REGISTERS);
         debug_assert!(new_register < 1 << B::NUMBER_OF_BITS);
 

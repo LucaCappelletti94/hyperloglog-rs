@@ -70,7 +70,7 @@ impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> ArrayRegisterTupleIt
         let mut right = right.words();
         let current_word = left
             .next()
-            .map(|left_word| unsafe { (left_word, right.next().unwrap_unchecked()) });
+            .and_then(|left_word| right.next().map(|right_word| (left_word, right_word)));
         Self {
             current_register: 0,
             left,
@@ -108,7 +108,7 @@ where
                 self.current_word = self
                     .left
                     .next()
-                    .map(|left_word| unsafe { (left_word, self.right.next().unwrap_unchecked()) });
+                    .and_then(|left_word| self.right.next().map(|right_word| (left_word, right_word)));
             }
             (left_register as u32, right_register as u32)
         })
@@ -119,7 +119,7 @@ where
 ///
 /// Meant to be associated with a specific Precision.
 pub trait ArrayRegister<B: Bits>: Precision {
-    /// The type of the array register associated with the precision and bits.
+    /// The type of the array register.
     type ArrayRegister: Registers<Self, B>;
 }
 
@@ -190,7 +190,7 @@ macro_rules! impl_register_for_precision_and_bits {
                         * <u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS
                         - <[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS;
 
-                        union_zeros -= unsafe{<[<Precision $exponent>] as Precision>::NumberOfZeros::try_from(NUMBER_OF_PADDING_REGISTERS).unwrap_unchecked()};
+                        union_zeros -= <[<Precision $exponent>] as Precision>::NumberOfZeros::from_usize(NUMBER_OF_PADDING_REGISTERS);
                         harmonic_sum -= F::from_usize(NUMBER_OF_PADDING_REGISTERS);
 
                         (harmonic_sum, union_zeros)
@@ -219,7 +219,7 @@ macro_rules! impl_register_for_precision_and_bits {
                     }
 
                     #[inline(always)]
-                    unsafe fn set_greater(&mut self, index: usize, new_register: u32) -> (u32, u32) {
+                    fn set_greater(&mut self, index: usize, new_register: u32) -> (u32, u32) {
                         debug_assert!(index < [<Precision $exponent>]::NUMBER_OF_REGISTERS);
                         debug_assert!(new_register < 1 << [<Bits $bits>]::NUMBER_OF_BITS);
 

@@ -39,6 +39,12 @@ pub trait Number:
     /// Converts the number to a 64-bit float.
     fn to_f64(self) -> f64;
 
+    /// Converts a `usize` to a floating point number.
+    fn from_usize(value: usize) -> Self;
+
+    /// Converts the number to a `usize`.
+    fn to_usize(self) -> usize;
+
     #[inline(always)]
     #[must_use]
     /// Converts a boolean value to a number.
@@ -85,9 +91,6 @@ pub trait FloatNumber:
     /// Converts an `i32` to a floating point number.
     fn from_i32(value: i32) -> Self;
 
-    /// Converts a `usize` to a floating point number.
-    fn from_usize(value: usize) -> Self;
-
     /// Converts a `f64` to a floating point number.
     fn from_f64(value: f64) -> Self;
 
@@ -96,9 +99,6 @@ pub trait FloatNumber:
 
     /// Converts the floating point number to a `usize`.
     fn to_u32(self) -> u32;
-
-    /// Converts the floating point number to a `usize`.
-    fn to_usize(self) -> usize;
 
     /// Checks if the floating point number is finite.
     fn is_finite(self) -> bool;
@@ -156,13 +156,27 @@ macro_rules! impl_number {
                 }
 
                 #[inline(always)]
+                #[must_use]
                 fn to_f32(self) -> f32 {
                     self as f32
                 }
 
                 #[inline(always)]
+                #[must_use]
                 fn to_f64(self) -> f64 {
                     self as f64
+                }
+
+                #[inline(always)]
+                #[must_use]
+                fn from_usize(value: usize) -> Self {
+                    value as Self
+                }
+
+                #[inline(always)]
+                #[must_use]
+                fn to_usize(self) -> usize {
+                    self as usize
                 }
             }
         )*
@@ -214,12 +228,6 @@ impl FloatNumber for f32 {
 
     #[inline(always)]
     #[must_use]
-    fn from_usize(value: usize) -> Self {
-        value as Self
-    }
-
-    #[inline(always)]
-    #[must_use]
     fn from_f64(value: f64) -> Self {
         value as Self
     }
@@ -228,12 +236,6 @@ impl FloatNumber for f32 {
     #[must_use]
     fn from_f32(value: f32) -> Self {
         value as Self
-    }
-
-    #[inline(always)]
-    #[must_use]
-    fn to_usize(self) -> usize {
-        self as usize
     }
 
     #[cfg(feature = "std")]
@@ -311,11 +313,6 @@ impl FloatNumber for f64 {
     }
 
     #[inline(always)]
-    fn from_usize(value: usize) -> Self {
-        value as Self
-    }
-
-    #[inline(always)]
     fn is_finite(self) -> bool {
         self.is_finite()
     }
@@ -328,11 +325,6 @@ impl FloatNumber for f64 {
     #[inline(always)]
     fn from_f32(value: f32) -> Self {
         value as Self
-    }
-
-    #[inline(always)]
-    fn to_usize(self) -> usize {
-        self as usize
     }
 
     #[inline(always)]

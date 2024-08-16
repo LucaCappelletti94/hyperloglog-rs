@@ -18,14 +18,14 @@ pub trait Words {
     /// # Safety
     /// This method is unsafe because it does not check if the array is sorted in release
     /// mode, but only in debug mode.
-    unsafe fn find_sorted_with_len(&self, value: Self::Word, len: usize) -> bool;
+    fn find_sorted_with_len(&self, value: Self::Word, len: usize) -> bool;
 
     /// Inserts a value into the array searching for the correct position within a given length.
     ///
     /// # Safety
     /// This method is unsafe because it does not check if the array is sorted in release
     /// mode, but only in debug mode.
-    unsafe fn sorted_insert_with_len(&mut self, value: Self::Word, len: usize) -> bool;
+    fn sorted_insert_with_len(&mut self, value: Self::Word, len: usize) -> bool;
 
     /// Returns an iterator over the words.
     fn words(&self) -> Self::WordIter<'_>;
@@ -41,13 +41,14 @@ impl<T: WordLike, const N: usize> Words for [T; N] {
     }
 
     #[must_use]
-    unsafe fn find_sorted_with_len(&self, value: Self::Word, len: usize) -> bool {
+    fn find_sorted_with_len(&self, value: Self::Word, len: usize) -> bool {
         debug_assert!(len <= N);
+        debug_assert!(self[..len].windows(2).all(|w| w[0] <= w[1]));
         self[..len].binary_search(&value).is_ok()
     }
 
     #[must_use]
-    unsafe fn sorted_insert_with_len(&mut self, value: Self::Word, len: usize) -> bool {
+    fn sorted_insert_with_len(&mut self, value: Self::Word, len: usize) -> bool {
         debug_assert!(len <= N);
 
         // We check that the array is sorted within a debug assertion.
@@ -79,13 +80,14 @@ impl<T: WordLike> Words for Vec<T> {
     }
 
     #[must_use]
-    unsafe fn find_sorted_with_len(&self, value: Self::Word, len: usize) -> bool {
+    fn find_sorted_with_len(&self, value: Self::Word, len: usize) -> bool {
         debug_assert!(len <= self.len());
+        debug_assert!(self[..len].windows(2).all(|w| w[0] <= w[1]));
         self[..len].binary_search(&value).is_ok()
     }
 
     #[must_use]
-    unsafe fn sorted_insert_with_len(&mut self, value: Self::Word, len: usize) -> bool {
+    fn sorted_insert_with_len(&mut self, value: Self::Word, len: usize) -> bool {
         debug_assert!(len <= self.len());
 
         // We check that the array is sorted within a debug assertion.

@@ -54,9 +54,7 @@ pub trait Registers<P: Precision, B: Bits>:
     /// # Returns
     /// The previous value of the register, and the larger of the two values.
     ///
-    /// # Safety
-    /// The caller must ensure that the index is within the bounds of the data structure.
-    unsafe fn set_greater(&mut self, index: usize, value: u32) -> (u32, u32);
+    fn set_greater(&mut self, index: usize, value: u32) -> (u32, u32);
 
     /// Returns the value of the register at the given index.
     fn get_register(&self, index: usize) -> u32;
@@ -84,17 +82,14 @@ mod tests {
         // We check that, given all registers are currently zeroed, when we set them to the maximum value
         // we get always returned a value and that value is equal to zero.
         for index in 0..P::NUMBER_OF_REGISTERS {
-            let old_value = unsafe {
-                registers.set_greater(index, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK)
-            };
+            let old_value = 
+                registers.set_greater(index, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK);
             assert_eq!(
                 old_value,
                 (0, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK)
             );
             // If we try to do it again, we should receive the new value
-            let old_value = unsafe {
-                registers.set_greater(index, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK)
-            };
+            let old_value = registers.set_greater(index, <u32 as RegisterWord<B>>::LOWER_REGISTER_MASK);
             assert_eq!(
                 old_value,
                 (
@@ -137,11 +132,11 @@ mod tests {
             {
                 // We set the values in all of the registers, and we check that the values are consistent.
                 let old_value_vector =
-                    unsafe { vector_registers.set_greater(index as usize, value as u32) };
+                    vector_registers.set_greater(index as usize, value as u32);
                 let old_value_packed =
-                    unsafe { packed_registers.set_greater(index as usize, value as u32) };
+                    packed_registers.set_greater(index as usize, value as u32);
                 let old_value_array =
-                    unsafe { array_registers.set_greater(index as usize, value as u32) };
+                    array_registers.set_greater(index as usize, value as u32);
                 assert_eq!(old_value_vector, old_value_packed);
                 assert_eq!(old_value_vector, old_value_array);
                 assert_eq!(old_value_packed, old_value_array);

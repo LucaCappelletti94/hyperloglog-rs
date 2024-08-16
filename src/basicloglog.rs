@@ -54,9 +54,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumb
     fn new() -> Self {
         Self {
             registers: R::zeroed(),
-            number_of_zero_registers: unsafe {
-                P::NumberOfZeros::try_from(P::NUMBER_OF_REGISTERS).unwrap_unchecked()
-            },
+            number_of_zero_registers: P::NumberOfZeros::from_usize(P::NUMBER_OF_REGISTERS),
             harmonic_sum: S::from_usize(P::NUMBER_OF_REGISTERS),
             _phantom: core::marker::PhantomData,
         }
@@ -73,7 +71,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumb
         debug_assert!(new_register_value < 1 << B::NUMBER_OF_BITS);
 
         let (old_register_value, larger_register_value) =
-            unsafe { self.registers.set_greater(index, new_register_value) };
+            self.registers.set_greater(index, new_register_value);
 
         self.number_of_zero_registers -= P::NumberOfZeros::from_bool(old_register_value == 0);
 
@@ -215,9 +213,7 @@ impl<
     fn dehybridize(&mut self) {
         if self.is_hybrid() {
             let number_of_hashes = self.number_of_hashes();
-            self.number_of_zero_registers = unsafe {
-                P::NumberOfZeros::try_from(P::NUMBER_OF_REGISTERS).unwrap_unchecked()
-            };
+            self.number_of_zero_registers = P::NumberOfZeros::from_usize(P::NUMBER_OF_REGISTERS);
             self.harmonic_sum = S::from_usize(P::NUMBER_OF_REGISTERS);
             let registers = self.registers.clone();
             self.registers = R::zeroed();
@@ -229,11 +225,7 @@ impl<
     }
 
     fn number_of_hashes(&self) -> usize {
-        unsafe {
-            self.get_number_of_zero_registers()
-                .try_into()
-                .unwrap_unchecked()
-        }
+        self.get_number_of_zero_registers().to_usize()
     }
 
     fn capacity(&self) -> usize {
@@ -257,10 +249,8 @@ impl<
             self.number_of_hashes(),
             self.registers.number_of_words()
         );
-        unsafe {
-            self.registers
-                .find_sorted_with_len(self.compute_hash(element), self.number_of_hashes())
-        }
+        self.registers
+            .find_sorted_with_len(self.compute_hash(element), self.number_of_hashes())
     }
 
     fn hybrid_insert<T: core::hash::Hash>(&mut self, element: &T) -> bool {
@@ -283,12 +273,12 @@ impl<
                 self.insert(element)
             } else {
                 let hash = self.compute_hash(element);
-                if unsafe {
-                    self.registers
-                        .sorted_insert_with_len(hash, self.number_of_hashes())
-                } {
+                if self
+                    .registers
+                    .sorted_insert_with_len(hash, self.number_of_hashes())
+                {
                     debug_assert!(
-                        self.number_of_zero_registers <= unsafe{P::NumberOfZeros::try_from(P::NUMBER_OF_REGISTERS).unwrap_unchecked()},
+                        self.number_of_zero_registers <= P::NumberOfZeros::from_usize(P::NUMBER_OF_REGISTERS),
                         "Number of zero registers ({}) is greater than the number of registers ({})",
                         self.number_of_zero_registers,
                         P::NUMBER_OF_REGISTERS
@@ -326,8 +316,7 @@ impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, S: FloatNumb
 {
     #[inline(always)]
     fn is_empty(&self) -> bool {
-        self.number_of_zero_registers
-            == unsafe { P::NumberOfZeros::try_from(P::NUMBER_OF_REGISTERS).unwrap_unchecked() }
+        self.number_of_zero_registers == P::NumberOfZeros::from_usize(P::NUMBER_OF_REGISTERS)
     }
 
     #[inline(always)]
@@ -350,13 +339,12 @@ impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, T: Hash, S: 
     }
 }
 
-impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, S: FloatNumber>
-    MutableSet for BasicLogLog<P, B, R, Hasher, S>
+impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, S: FloatNumber> MutableSet
+    for BasicLogLog<P, B, R, Hasher, S>
 {
     fn clear(&mut self) {
         self.registers.clear();
-        self.number_of_zero_registers =
-            unsafe { P::NumberOfZeros::try_from(P::NUMBER_OF_REGISTERS).unwrap_unchecked() };
+        self.number_of_zero_registers = P::NumberOfZeros::from_usize(P::NUMBER_OF_REGISTERS);
         self.harmonic_sum = S::from_usize(P::NUMBER_OF_REGISTERS);
     }
 }

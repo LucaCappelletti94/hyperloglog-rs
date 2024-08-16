@@ -64,7 +64,7 @@ fn format_float_with_underscores(value: f64, precision: usize) -> String {
     // entirety with the known constants
     let constants = [
         ("0.693_147_180_559_945_309_417_232_121_458_176_568", "core::f64::consts::LN_2"),
-        ("2.302_585_092_99", "core::f64::consts::LN_10"),
+        ("2.302_585_092_994", "core::f64::consts::LN_10"),
     ];
 
     for (formatted, constant) in constants.iter() {
@@ -93,54 +93,38 @@ fn format_float_with_underscores(value: f64, precision: usize) -> String {
 
 /// Returns the list of precision to generate the weights for.
 fn get_precisions() -> Vec<usize> {
-    let mut precisions = Vec::new();
-
-    #[cfg(feature = "precision_4")]
-    precisions.push(4);
-
-    #[cfg(feature = "precision_5")]
-    precisions.push(5);
-
-    #[cfg(feature = "precision_6")]
-    precisions.push(6);
-
-    #[cfg(feature = "precision_7")]
-    precisions.push(7);
-
-    #[cfg(feature = "precision_8")]
-    precisions.push(8);
-
-    #[cfg(feature = "precision_9")]
-    precisions.push(9);
-
-    #[cfg(feature = "precision_10")]
-    precisions.push(10);
-
-    #[cfg(feature = "precision_11")]
-    precisions.push(11);
-
-    #[cfg(feature = "precision_12")]
-    precisions.push(12);
-
-    #[cfg(feature = "precision_13")]
-    precisions.push(13);
-
-    #[cfg(feature = "precision_14")]
-    precisions.push(14);
-
-    #[cfg(feature = "precision_15")]
-    precisions.push(15);
-
-    #[cfg(feature = "precision_16")]
-    precisions.push(16);
-
-    #[cfg(feature = "precision_17")]
-    precisions.push(17);
-
-    #[cfg(feature = "precision_18")]
-    precisions.push(18);
-
-    precisions
+    vec![
+        #[cfg(feature = "precision_4")]
+        4,
+        #[cfg(feature = "precision_5")]
+        5,
+        #[cfg(feature = "precision_6")]
+        6,
+        #[cfg(feature = "precision_7")]
+        7,
+        #[cfg(feature = "precision_8")]
+        8,
+        #[cfg(feature = "precision_9")]
+        9,
+        #[cfg(feature = "precision_10")]
+        10,
+        #[cfg(feature = "precision_11")]
+        11,
+        #[cfg(feature = "precision_12")]
+        12,
+        #[cfg(feature = "precision_13")]
+        13,
+        #[cfg(feature = "precision_14")]
+        14,
+        #[cfg(feature = "precision_15")]
+        15,
+        #[cfg(feature = "precision_16")]
+        16,
+        #[cfg(feature = "precision_17")]
+        17,
+        #[cfg(feature = "precision_18")]
+        18,
+    ]
 }
 
 fn get_smallest_data_type(value: usize) -> &'static str {

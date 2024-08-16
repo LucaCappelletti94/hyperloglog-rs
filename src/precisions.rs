@@ -72,11 +72,11 @@ fn interpolated_bias<const N: usize, V: PartialOrd + Number, W: Number>(
         return biases[N - 1].to_f32();
     }
 
-    let x0 = unsafe { estimates.get_unchecked(index - 1).to_f32() };
-    let x1 = unsafe { estimates.get_unchecked(index).to_f32() };
+    let x0 = estimates[index - 1].to_f32();
+    let x1 = estimates[index].to_f32();
 
-    let y0 = unsafe { biases.get_unchecked(index - 1).to_f32() };
-    let y1 = unsafe { biases.get_unchecked(index).to_f32() };
+    let y0 = biases[index - 1].to_f32();
+    let y1 = biases[index].to_f32();
 
     y0 + (y1 - y0) * (estimate.to_f32() - x0) / (x1 - x0)
 }
