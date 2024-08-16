@@ -9,7 +9,7 @@ use core::fmt::Debug;
 use crate::{prelude::Named, utils::*};
 
 include!(concat!(env!("OUT_DIR"), "/alpha_values.rs"));
-include!(concat!(env!("OUT_DIR"), "/number_of_zeros.rs"));
+include!(concat!(env!("OUT_DIR"), "/number_of_registers.rs"));
 
 #[cfg(feature = "plusplus")]
 include!(concat!(env!("OUT_DIR"), "/weights.rs"));
@@ -55,7 +55,6 @@ fn kmeans_bias<const N: usize, V: PartialOrd + Number, W: Number>(
         / 6.0_f32
 }
 
-
 #[cfg(feature = "plusplus")]
 fn bias<const N: usize, V: PartialOrd + Number, W: Number, F: Float>(
     estimates: &'static [V; N],
@@ -84,7 +83,7 @@ fn bias<const N: usize, V: PartialOrd + Number, W: Number, F: Float>(
         let y1 = biases[index].to_f32();
 
         F::from_f32(y0 + (y1 - y0) * (estimate.to_f32() - x0) / (x1 - x0))
-    }
+    };
 }
 
 /// The precision of the HyperLogLog counter.
@@ -94,12 +93,12 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync + Named {
     /// all the registers without overflowing. We can tollerate a one-off error
     /// when counting the number of zeros, as it will be corrected when computing
     /// the cardinality as it is known before hand whether this can happen at all.
-    type NumberOfZeros: PositiveInteger;
+    type NumberOfRegisters: PositiveInteger;
     /// The exponent of the number of registers, meaning the number of registers
     /// that will be used is 2^EXPONENT. This is the p parameter in the HyperLogLog.
-    const EXPONENT: usize;
+    const EXPONENT: u8;
     /// The number of registers that will be used.
-    const NUMBER_OF_REGISTERS: usize = 1 << Self::EXPONENT;
+    const NUMBER_OF_REGISTERS: Self::NumberOfRegisters;
 
     /// The theoretical error rate of the precision.
     fn error_rate() -> f64 {
@@ -115,18 +114,18 @@ pub trait PrecisionConstants<F: Float>: Precision {
 
     #[cfg(feature = "plusplus")]
     /// The number of zero registers over which the counter should switch to the linear counting.
-    const LINEAR_COUNT_ZEROS: Self::NumberOfZeros;
+    const LINEAR_COUNT_ZEROS: Self::NumberOfRegisters;
 
     #[cfg(feature = "beta")]
     /// Computes LogLog-Beta estimate bias correction using Horner's method.
     ///
     /// Paper: https://arxiv.org/pdf/1612.02284.pdf
     /// Wikipedia: https://en.wikipedia.org/wiki/Horner%27s_method
-    fn beta_estimate(harmonic_sum: F, number_of_zero_registers: Self::NumberOfZeros) -> F;
+    fn beta_estimate(harmonic_sum: F, number_of_zero_registers: Self::NumberOfRegisters) -> F;
 
     #[cfg(feature = "plusplus")]
     /// Computes the small correction factor for the estimate.
-    fn small_correction(number_of_zero_registers: Self::NumberOfZeros) -> F;
+    fn small_correction(number_of_zero_registers: Self::NumberOfRegisters) -> F;
 
     /// Computes the bias correction factor for the estimate.
     fn bias(estimate: F) -> F;
@@ -134,19 +133,18 @@ pub trait PrecisionConstants<F: Float>: Precision {
     #[inline(always)]
     #[cfg(feature = "plusplus")]
     /// Computes the estimate of the cardinality using the LogLog++ algorithm.
-    fn plusplus_estimate(harmonic_sum: F, number_of_zeros: Self::NumberOfZeros) -> F {
+    fn plusplus_estimate(harmonic_sum: F, number_of_zeros: Self::NumberOfRegisters) -> F {
         if number_of_zeros >= Self::LINEAR_COUNT_ZEROS {
             return Self::small_correction(number_of_zeros);
         }
 
         let estimate = Self::ALPHA
-            * F::from_usize(Self::NUMBER_OF_REGISTERS)
-            * F::from_usize(Self::NUMBER_OF_REGISTERS)
+            * F::exp2(Self::EXPONENT + Self::EXPONENT)
             / harmonic_sum;
 
         // Apply the small range correction factor if the raw estimate is below the threshold
         // and there are zero registers in the counter.
-        if estimate <= F::FIVE * F::from_usize(Self::NUMBER_OF_REGISTERS) {
+        if estimate <= F::FIVE * F::exp2(Self::EXPONENT) {
             estimate - Self::bias(estimate)
         } else {
             estimate
@@ -176,7 +174,7 @@ macro_rules! impl_precision {
                 const ALPHA: f32 = [<ALPHA_ $exponent>] as f32;
 
                 #[cfg(feature = "plusplus")]
-                const LINEAR_COUNT_ZEROS: Self::NumberOfZeros = [<LINEAR_COUNT_ZEROS_ $exponent>];
+                const LINEAR_COUNT_ZEROS: Self::NumberOfRegisters = [<LINEAR_COUNT_ZEROS_ $exponent>];
 
                 #[inline]
                 #[cfg(feature = "plusplus")]
@@ -201,14 +199,14 @@ macro_rules! impl_precision {
                 /// Wikipedia: https://en.wikipedia.org/wiki/Horner%27s_method
                 #[inline]
                 #[cfg(feature = "beta")]
-                fn beta_estimate(harmonic_sum: f32, number_of_zero_registers: Self::NumberOfZeros) -> f32 {
+                fn beta_estimate(harmonic_sum: f32, number_of_zero_registers: Self::NumberOfRegisters) -> f32 {
                     <Self as PrecisionConstants<f64>>::beta_estimate(harmonic_sum as f64, number_of_zero_registers)
                         as f32
                 }
 
                 #[inline(always)]
                 #[cfg(feature = "plusplus")]
-                fn small_correction(number_of_zero_registers: Self::NumberOfZeros) -> f32 {
+                fn small_correction(number_of_zero_registers: Self::NumberOfRegisters) -> f32 {
                     <Self as PrecisionConstants<f64>>::small_correction(number_of_zero_registers) as f32
                 }
             }
@@ -218,7 +216,7 @@ macro_rules! impl_precision {
                 const ALPHA: f64 = [<ALPHA_ $exponent>];
 
                 #[cfg(feature = "plusplus")]
-                const LINEAR_COUNT_ZEROS: Self::NumberOfZeros = [<LINEAR_COUNT_ZEROS_ $exponent>];
+                const LINEAR_COUNT_ZEROS: Self::NumberOfRegisters = [<LINEAR_COUNT_ZEROS_ $exponent>];
 
                 #[inline]
                 #[cfg(feature = "plusplus")]
@@ -232,7 +230,7 @@ macro_rules! impl_precision {
                 /// Wikipedia: https://en.wikipedia.org/wiki/Horner%27s_method
                 #[inline]
                 #[cfg(feature = "beta")]
-                fn beta_estimate(harmonic_sum: f64, number_of_zero_registers: Self::NumberOfZeros) -> f64 {
+                fn beta_estimate(harmonic_sum: f64, number_of_zero_registers: Self::NumberOfRegisters) -> f64 {
                     if number_of_zero_registers >= [<LINEAR_COUNT_ZEROS_ $exponent>] {
                         return Self::small_correction(number_of_zero_registers);
                     }
@@ -251,14 +249,14 @@ macro_rules! impl_precision {
 
                     [<ALPHA_ $exponent>]
                         * Self::NUMBER_OF_REGISTERS as f64
-                        * (Self::NUMBER_OF_REGISTERS - number_of_zero_registers as usize) as f64
+                        * (Self::NUMBER_OF_REGISTERS - number_of_zero_registers) as f64
                         / (harmonic_sum + beta_horner)
                         + 0.5
                 }
 
                 #[inline(always)]
                 #[cfg(feature = "plusplus")]
-                fn small_correction(number_of_zero_registers: Self::NumberOfZeros) -> f64 {
+                fn small_correction(number_of_zero_registers: Self::NumberOfRegisters) -> f64 {
                     Self::NUMBER_OF_REGISTERS as f64
                         * (Self::EXPONENT as f64 * core::f64::consts::LN_2 - LN_VALUES[number_of_zero_registers as usize])
                 }
@@ -266,8 +264,9 @@ macro_rules! impl_precision {
 
             #[cfg(feature = "precision_" $exponent)]
             impl Precision for [<Precision $exponent>] {
-                type NumberOfZeros = [<NumberOfZeros $exponent>];
-                const EXPONENT: usize = $exponent;
+                type NumberOfRegisters = [<NumberOfRegisters $exponent>];
+                const EXPONENT: u8 = $exponent;
+                const NUMBER_OF_REGISTERS: Self::NumberOfRegisters = [<NumberOfRegisters $exponent>]::ONE << $exponent;
             }
         }
     };
@@ -291,7 +290,7 @@ mod tests {
     fn test_error_rate_simmetry<P: Precision>() {
         let error_rate = P::error_rate();
         let exponent = (f64::log2(1.04 / error_rate) * 2.0).ceil();
-        assert_eq!(exponent as usize, P::EXPONENT);
+        assert_eq!(exponent as u8, P::EXPONENT);
     }
 
     macro_rules! test_error_rate_simmetry {

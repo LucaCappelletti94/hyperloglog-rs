@@ -19,10 +19,12 @@ macro_rules! impl_estimator_for_hashset {
                 where
                     I: Eq + Hash + Send + Sync,
                 {
+                    #[allow(clippy::cast_precision_loss)]
                     fn estimate_union_cardinality(&self, other: &Self) -> $typ {
                         self.union(other).count() as $typ
                     }
 
+                    #[allow(clippy::cast_precision_loss)]
                     fn estimate_cardinality(&self) -> $typ {
                         self.len() as $typ
                     }

@@ -1,5 +1,7 @@
 //! Traits regarding numbers.
-use crate::utils::*;
+use core::ops::{Shl, Shr};
+
+use crate::utils::{Half, Zero};
 
 /// A trait for numbers.
 pub trait Number:
@@ -25,6 +27,7 @@ pub trait Number:
     + crate::utils::Nine
     + crate::utils::Ten
     + crate::utils::OneHundred
+    + From<u8>
     + core::iter::Sum
     + PartialOrd
     + Send
@@ -40,12 +43,6 @@ pub trait Number:
     /// Converts the number to a 64-bit float.
     fn to_f64(self) -> f64;
 
-    /// Converts a `usize` to a floating point number.
-    fn from_usize(value: usize) -> Self;
-
-    /// Converts the number to a `usize`.
-    fn to_usize(self) -> usize;
-
     #[must_use]
     /// Converts a boolean value to a number.
     fn from_bool(value: bool) -> Self {
@@ -58,12 +55,26 @@ pub trait Number:
 }
 
 /// A trait for positive integer numbers.
-pub trait PositiveInteger: Number + Eq + Ord + TryInto<usize> + TryFrom<usize> {}
+pub trait PositiveInteger:
+    Number + Eq + Into<u64> + Ord + Shl<u8, Output = Self> + Shr<u8, Output = Self>
+{
+    /// The error type for the `try_from_u64` method.
+    type TryFromU64Error: core::fmt::Debug;
+    /// The error type for the `try_from_usize` method.
+    type TryFromUsizeError: core::fmt::Debug;
+
+    /// Converts a `u64` to a positive integer number.
+    fn try_from_u64(value: u64) -> Result<Self, Self::TryFromU64Error>;
+
+    /// Converts a `usize` to a positive integer number.
+    fn try_from_usize(value: usize) -> Result<Self, Self::TryFromUsizeError>;
+
+    /// Converts the positive integer number to a `usize`.
+    fn to_usize(self) -> usize;
+}
 
 /// A trait for floating point numbers.
-pub trait Float:
-    Number + Half + crate::utils::OneThousand + core::ops::Neg<Output = Self>
-{
+pub trait Float: Number + Half + crate::utils::OneThousand + core::ops::Neg<Output = Self> {
     /// The value of positive infinity.
     const INFINITY: Self;
     /// The value of negative infinity.
@@ -71,8 +82,14 @@ pub trait Float:
     /// The value of epsilon.
     const EPSILON: Self;
 
-    /// Returns the value of 2^(-register).
-    fn inverse_register(register: i32) -> Self;
+    /// Returns the value of 2^(-register), with strict positivite register.
+    fn exp2_minus(register: u8) -> Self;
+
+    /// Returns the value of 2^(-register), including negative registers.
+    fn exp2_minus_signed(register: i8) -> Self;
+
+    /// Returns the value of 2^(register)
+    fn exp2(register: u8) -> Self;
 
     #[inline(always)]
     #[must_use]
@@ -99,6 +116,10 @@ pub trait Float:
 
     /// Converts the floating point number to a `usize`.
     fn to_u32(self) -> u32;
+
+    /// Converts the provided usize to a floating point number
+    /// with the same value, checking that the conversion is lossless.
+    fn from_usize_checked(value: usize) -> Result<Self, String>;
 
     /// Checks if the floating point number is finite.
     fn is_finite(self) -> bool;
@@ -176,10 +197,30 @@ macro_rules! impl_number {
                     self as f64
                 }
 
+            }
+        )*
+    };
+}
+
+impl_number!(u8, u16, u32, u64, usize);
+impl_number!(i32);
+impl_number!(f32, f64);
+
+macro_rules! impl_positive_integer_number {
+    ($($t:ty),*) => {
+        $(
+            impl PositiveInteger for $t {
+                type TryFromU64Error = <$t as core::convert::TryFrom<u64>>::Error;
+                type TryFromUsizeError = <$t as core::convert::TryFrom<usize>>::Error;
+
                 #[inline(always)]
-                #[must_use]
-                fn from_usize(value: usize) -> Self {
-                    value as Self
+                fn try_from_u64(value: u64) -> Result<Self, Self::TryFromU64Error> {
+                    <$t as core::convert::TryFrom<u64>>::try_from(value)
+                }
+
+                #[inline(always)]
+                fn try_from_usize(value: usize) -> Result<Self, Self::TryFromUsizeError> {
+                    <$t as core::convert::TryFrom<usize>>::try_from(value)
                 }
 
                 #[inline(always)]
@@ -192,18 +233,6 @@ macro_rules! impl_number {
     };
 }
 
-impl_number!(u8, u16, u32, u64, u128, usize);
-impl_number!(i8, i16, i32, i64, i128, isize);
-impl_number!(f32, f64);
-
-macro_rules! impl_positive_integer_number {
-    ($($t:ty),*) => {
-        $(
-            impl PositiveInteger for $t {}
-        )*
-    };
-}
-
 impl_positive_integer_number!(u8, u16, u32);
 
 impl Float for f32 {
@@ -211,37 +240,54 @@ impl Float for f32 {
     const NEG_INFINITY: Self = f32::NEG_INFINITY;
     const EPSILON: Self = f32::EPSILON;
 
-    #[inline(always)]
     #[must_use]
-    fn inverse_register(register: i32) -> Self {
-        f32::from_le_bytes(((127 - register) << 23).to_le_bytes())
+    fn exp2_minus(register: u8) -> Self {
+        f32::from_bits(u32::from(127 - register) << 23)
     }
 
-    #[inline(always)]
+    #[must_use]
+    fn exp2_minus_signed(register: i8) -> Self {
+        f32::from_bits(u32::try_from(127 - register).unwrap() << 23)
+    }
+
+    #[must_use]
+    fn exp2(register: u8) -> Self {
+        f32::from_bits(u32::from(127 + register) << 23)
+    }
+
+    fn from_usize_checked(value: usize) -> Result<Self, String> {
+        let max_lossless_integer = 2_usize.pow(24) - 1;
+
+        if value > max_lossless_integer {
+            Err(format!(
+                "The value {} is too large to be losslessly converted to a f32.",
+                value
+            ))
+        } else {
+            Ok(value as Self)
+        }
+    }
+
     #[must_use]
     fn from_i32(value: i32) -> Self {
         value as Self
     }
 
-    #[inline(always)]
     #[must_use]
     fn to_u32(self) -> u32 {
         self as u32
     }
 
-    #[inline(always)]
     #[must_use]
     fn is_finite(self) -> bool {
         self.is_finite()
     }
 
-    #[inline(always)]
     #[must_use]
     fn from_f64(value: f64) -> Self {
         value as Self
     }
 
-    #[inline(always)]
     #[must_use]
     fn from_f32(value: f32) -> Self {
         value as Self
@@ -307,11 +353,37 @@ impl Float for f64 {
     const EPSILON: Self = f64::EPSILON;
 
     #[must_use]
-    fn inverse_register(register: i32) -> Self {
-        f64::from_le_bytes(((1023 - register as i64) << 52).to_le_bytes())
+    fn exp2_minus(register: u8) -> Self {
+        f64::from_le_bytes((u64::from(1023_u16 - u16::from(register)) << 52).to_le_bytes())
     }
 
-    #[inline(always)]
+    #[must_use]
+    fn exp2_minus_signed(register: i8) -> Self {
+        f64::from_le_bytes(
+            (u64::try_from(1023_i16 - i16::from(register)).unwrap() << 52).to_le_bytes(),
+        )
+    }
+
+    #[must_use]
+    fn exp2(register: u8) -> Self {
+        f64::from_le_bytes((u64::from(1023_u16 + u16::from(register)) << 52).to_le_bytes())
+    }
+
+    #[must_use]
+    fn from_usize_checked(value: usize) -> Result<Self, String> {
+        let max_lossless_integer = 2_usize.pow(53) - 1;
+
+        if value > max_lossless_integer {
+            Err(format!(
+                "The value {} is too large to be losslessly converted to a f64.",
+                value
+            ))
+        } else {
+            Ok(value as Self)
+        }
+    }
+
+    #[must_use]
     fn from_i32(value: i32) -> Self {
         value as Self
     }
@@ -384,7 +456,6 @@ impl Float for f64 {
         self.floor()
     }
 
-    #[inline(always)]
     #[must_use]
     #[cfg(feature = "std")]
     fn exp_m1(self) -> Self {
@@ -393,11 +464,12 @@ impl Float for f64 {
 }
 
 #[cfg(test)]
-mod test_inverse_register {
+mod test_exp2_minus {
     use super::*;
+    use crate::prelude::maximal_multeplicity;
 
     #[test]
-    fn test_inverse_register() {
+    fn test_exp2_minus() {
         // At the most, we create registers with 6 bits, which
         // means that the maximum values is 2^7 - 1 = 127.
         for precision in 4..=16 {
@@ -405,27 +477,27 @@ mod test_inverse_register {
                 for register_value in 0..=maximal_multeplicity(precision, bits) {
                     assert_eq!(
                         2.0_f32.powf(-(register_value as f32)),
-                        f32::inverse_register(register_value as i32),
+                        f32::exp2_minus(register_value as u8),
                         "Expected: 2^(-{}), Got: {}",
                         register_value,
-                        f32::inverse_register(register_value as i32)
+                        f32::exp2_minus(register_value as u8)
                     );
                     assert_eq!(
                         2.0_f64.powf(-(register_value as f64)),
-                        f64::inverse_register(register_value as i32),
+                        f64::exp2_minus(register_value as u8),
                         "Expected: 2^(-{}), Got: {}",
                         register_value,
-                        f64::inverse_register(register_value as i32)
+                        f64::exp2_minus(register_value as u8)
                     );
                     assert_eq!(
                         f64::from_bits(
                             u64::max_value().wrapping_sub(u64::from(register_value as u64)) << 54
                                 >> 2
                         ),
-                        f64::inverse_register(register_value as i32),
+                        f64::exp2_minus(register_value as u8),
                         "Expected: 2^(-{}), Got: {}",
                         register_value,
-                        f64::inverse_register(register_value as i32)
+                        f64::exp2_minus(register_value as u8)
                     );
                 }
             }

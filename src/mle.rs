@@ -37,20 +37,20 @@ fn mle_union_cardinality<
 >(
     left: &H,
     right: &H,
-    estimate: fn(F, P::NumberOfZeros) -> F,
+    estimate: fn(F, P::NumberOfRegisters) -> F,
 ) -> F {
     let mut left_multiplicities_larger =
-        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+        vec![F::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
     let mut left_multiplicities_smaller =
-        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+        vec![F::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
     let mut right_multiplicities_larger =
-        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+        vec![F::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
     let mut right_multiplicities_smaller =
-        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+        vec![F::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
     let mut joint_multiplicities =
-        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+        vec![F::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
     let mut union_harmonic_sum = F::ZERO;
-    let mut union_zeros = P::NumberOfZeros::ZERO;
+    let mut union_zeros = P::NumberOfRegisters::ZERO;
 
     for (left, right) in left.registers().iter_registers_zipped(right.registers()) {
         let larger_register = match left.cmp(&right) {
@@ -71,8 +71,8 @@ fn mle_union_cardinality<
             }
         };
 
-        union_harmonic_sum += F::inverse_register(larger_register as i32);
-        union_zeros += P::NumberOfZeros::from_bool(larger_register.is_zero());
+        union_harmonic_sum += F::exp2_minus(larger_register);
+        union_zeros += P::NumberOfRegisters::from_bool(larger_register.is_zero());
     }
 
     // We get the best estimates from HyperLogLog++
@@ -85,12 +85,7 @@ fn mle_union_cardinality<
     // the first value in the multiplicities vectors, is equal
     // to the number of registers, it means that the intersection
     // is empty.
-
-    let number_of_zeros: usize = (left_multiplicities_smaller[0]
-        + left_multiplicities_smaller[0]
-        + right_multiplicities_smaller[0])
-        .to_usize();
-    if number_of_zeros == P::NUMBER_OF_REGISTERS {
+    if union_zeros == P::NUMBER_OF_REGISTERS {
         return F::ZERO;
     }
 
@@ -110,7 +105,7 @@ fn mle_union_cardinality<
         return F::EPSILON;
     }
 
-    let relative_error_limit = F::TEN.powi(-ERROR) / F::from_usize(P::NUMBER_OF_REGISTERS).sqrt();
+    let relative_error_limit = F::TEN.powi(-ERROR) / F::exp2(P::EXPONENT).sqrt();
     debug_assert!(intersection >= F::ZERO);
     debug_assert!(left_difference >= F::ZERO);
     debug_assert!(right_difference >= F::ZERO);
@@ -125,8 +120,8 @@ fn mle_union_cardinality<
     };
 
     // We precompute q and q+1 for reference.
-    let q_plus_one: usize = maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS) - 1;
-    let q: i32 = q_plus_one as i32 - 1;
+    let q_plus_one: u8 = maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS) - 1;
+    let q: u8 = q_plus_one as u8 - 1;
 
     // We initialize the vectors for the Adam optimizer.
     let mut phis = [
@@ -152,8 +147,8 @@ fn mle_union_cardinality<
     let intersection_number_of_saturated_registers =
         joint_multiplicities[joint_multiplicities.len() - 1];
 
-    let two_to_zero: F = F::inverse_register(P::EXPONENT as i32);
-    let two_to_minus_q: F = F::inverse_register(P::EXPONENT as i32 + q as i32);
+    let two_to_zero: F = F::exp2_minus(P::EXPONENT);
+    let two_to_minus_q: F = F::exp2_minus(P::EXPONENT + q);
 
     for _ in 0..10_000 {
         let x_left_0 = x(phis[0], two_to_zero);
@@ -246,9 +241,9 @@ fn mle_union_cardinality<
 
         debug_assert!(gradients[2].is_finite());
 
-        (1..q_plus_one as i32).for_each(|register_value| {
+        (1..q_plus_one).for_each(|register_value| {
             let two_to_minus_register: F =
-                F::inverse_register(P::EXPONENT as i32 + register_value);
+                F::exp2_minus(P::EXPONENT + register_value);
 
             let x_left = x(phis[0], two_to_minus_register);
             debug_assert!(x_left >= F::ZERO);
@@ -270,8 +265,8 @@ fn mle_union_cardinality<
             let yjright_zleft = yj_zleft * y_right;
             let yj_zright = y_joint * z_right;
             let yjleft_zright = yj_zright * y_left;
-            let yjl = y_joint * y_left;
-            let yjr = y_joint * y_right;
+            let yjleft = y_joint * y_left;
+            let yjright = y_joint * y_right;
             let yj_zlr = yj_zleft * z_right;
             let mut zj_plus_yj_zleft = z_joint + yj_zleft;
             debug_assert!(zj_plus_yj_zleft >= F::ZERO);
@@ -292,8 +287,8 @@ fn mle_union_cardinality<
             }
             let reciprocal_zj_plus_yj_zlr = F::ONE / zj_plus_yj_zlr;
 
-            let left_reciprocal = left_smaller_k * (reciprocal_zj_plus_yj_zleft * yjl - F::ONE);
-            let right_reciprocal = right_smaller_k * (reciprocal_zj_plus_yj_zright * yjr - F::ONE);
+            let left_reciprocal = left_smaller_k * (reciprocal_zj_plus_yj_zleft * yjleft - F::ONE);
+            let right_reciprocal = right_smaller_k * (reciprocal_zj_plus_yj_zright * yjright - F::ONE);
 
             if x_left > F::EPSILON {
                 gradients[0] += x_left
@@ -333,7 +328,7 @@ fn mle_union_cardinality<
                 gradients[2] += x_joint
                     * (left_reciprocal
                         + right_reciprocal
-                        + joint_k * ((yjl + yjright_zleft) * reciprocal_zj_plus_yj_zlr - F::ONE));
+                        + joint_k * ((yjleft + yjright_zleft) * reciprocal_zj_plus_yj_zlr - F::ONE));
             }
 
             debug_assert!(gradients[2].is_finite());
@@ -436,8 +431,8 @@ impl<F: Float, const N: usize> Default for Adam<F, N> {
             second_moments: [F::ZERO; N],
             time: 0,
             learning_rate: F::ONE / F::ONE_THOUSAND,
-            first_order_decay_factor: F::from_usize(9) / F::TEN,
-            second_order_decay_factor: F::from_usize(999) / F::ONE_THOUSAND,
+            first_order_decay_factor: F::NINE / F::TEN,
+            second_order_decay_factor: (F::ONE_HUNDRED - F::ONE) / F::ONE_THOUSAND,
         }
     }
 }

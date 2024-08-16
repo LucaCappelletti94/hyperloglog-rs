@@ -215,7 +215,7 @@ where
     #[inline(always)]
     fn estimate_cardinality(&self) -> F {
         if self.inner.is_hybrid() {
-            F::from_usize(self.inner.number_of_hashes())
+            F::from_usize_checked(self.inner.number_of_hashes()).unwrap()
         } else {
             self.inner.estimate_cardinality()
         }
@@ -234,10 +234,10 @@ where
                 // In the case where both counters are in hybrid mode, we can
                 // simply iterate on the two sorted hash arrays and determine the number
                 // of unique hashes.
-                F::from_usize(unique_values_from_sorted_iterators(
+                F::from_usize_checked(unique_values_from_sorted_iterators(
                     self.iter_sorted_hashes(),
                     other.iter_sorted_hashes(),
-                ))
+                )).unwrap()
             }
             (true, false) => {
                 let mut copy = self.clone();

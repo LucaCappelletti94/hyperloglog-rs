@@ -5,8 +5,8 @@ pub struct ArrayRegisterIter<'a, P: Precision, B: Bits, R: Words + Registers<P, 
 where
     R: 'a,
 {
-    current_register: usize,
-    current_register_in_word: usize,
+    current_register: P::NumberOfRegisters,
+    current_register_in_word: u8,
     words: R::WordIter<'a>,
     current_word: Option<R::Word>,
     _phantom: core::marker::PhantomData<(P, B, R)>,
@@ -17,7 +17,7 @@ impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> ArrayRegisterIter<'a
         let mut words = registers.words();
         let current_word = words.next();
         Self {
-            current_register: 0,
+            current_register: P::NumberOfRegisters::ZERO,
             words,
             current_register_in_word: 0,
             current_word,
@@ -31,7 +31,7 @@ impl<'a, P: Precision, B: Bits, R: Words<Word = u64> + Registers<P, B>> Iterator
 where
     R::Word: RegisterWord<B>,
 {
-    type Item = u32;
+    type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current_register == P::NUMBER_OF_REGISTERS {
@@ -39,15 +39,19 @@ where
         }
 
         self.current_word.map(|word| {
-            let register: R::Word = (word >> (self.current_register_in_word * B::NUMBER_OF_BITS))
-                & R::Word::LOWER_REGISTER_MASK;
+            let [register] = extract_register_from_word(
+                [word],
+                self.current_register_in_word * B::NUMBER_OF_BITS,
+            );
             self.current_register_in_word += 1;
-            self.current_register += 1;
-            if self.current_register_in_word == <u64 as RegisterWord<B>>::NUMBER_OF_REGISTERS {
+            self.current_register += P::NumberOfRegisters::ONE;
+            if self.current_register_in_word
+                == <u64 as RegisterWord<B>>::NUMBER_OF_REGISTERS_IN_WORD
+            {
                 self.current_register_in_word = 0;
                 self.current_word = self.words.next();
             }
-            register as u32
+            register
         })
     }
 }
@@ -56,8 +60,8 @@ pub struct ArrayRegisterTupleIter<'a, P: Precision, B: Bits, R: Words + Register
 where
     R: 'a,
 {
-    current_register: usize,
-    current_register_in_word: usize,
+    current_register: P::NumberOfRegisters,
+    current_register_in_word: u8,
     left: R::WordIter<'a>,
     right: R::WordIter<'a>,
     current_word: Option<(R::Word, R::Word)>,
@@ -72,7 +76,7 @@ impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> ArrayRegisterTupleIt
             .next()
             .and_then(|left_word| right.next().map(|right_word| (left_word, right_word)));
         Self {
-            current_register: 0,
+            current_register: P::NumberOfRegisters::ZERO,
             left,
             right,
             current_register_in_word: 0,
@@ -87,7 +91,7 @@ impl<'a, P: Precision, B: Bits, R: Words<Word = u64> + Registers<P, B>> Iterator
 where
     R::Word: RegisterWord<B>,
 {
-    type Item = (u32, u32);
+    type Item = (u8, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current_register == P::NUMBER_OF_REGISTERS {
@@ -95,22 +99,21 @@ where
         }
 
         self.current_word.map(|(left, right)| {
-            let left_register: R::Word = (left
-                >> (self.current_register_in_word * B::NUMBER_OF_BITS))
-                & R::Word::LOWER_REGISTER_MASK;
-            let right_register: R::Word = (right
-                >> (self.current_register_in_word * B::NUMBER_OF_BITS))
-                & R::Word::LOWER_REGISTER_MASK;
+            let [left_register, right_register] = extract_register_from_word(
+                [left, right],
+                self.current_register_in_word * B::NUMBER_OF_BITS,
+            );
             self.current_register_in_word += 1;
-            self.current_register += 1;
-            if self.current_register_in_word == <u64 as RegisterWord<B>>::NUMBER_OF_REGISTERS {
+            self.current_register += P::NumberOfRegisters::ONE;
+            if self.current_register_in_word
+                == <u64 as RegisterWord<B>>::NUMBER_OF_REGISTERS_IN_WORD
+            {
                 self.current_register_in_word = 0;
-                self.current_word = self
-                    .left
-                    .next()
-                    .and_then(|left_word| self.right.next().map(|right_word| (left_word, right_word)));
+                self.current_word = self.left.next().and_then(|left_word| {
+                    self.right.next().map(|right_word| (left_word, right_word))
+                });
             }
-            (left_register as u32, right_register as u32)
+            (left_register, right_register)
         })
     }
 }
@@ -123,11 +126,20 @@ pub trait ArrayRegister<B: Bits>: Precision {
     type ArrayRegister: Registers<Self, B>;
 }
 
-impl<const N: usize, W> Named for [W; N]
-{
+impl<const N: usize, W> Named for [W; N] {
     fn name(&self) -> String {
         "Array".to_string()
     }
+}
+
+fn split_index<P: Precision, B: Bits>(index: P::NumberOfRegisters) -> (usize, u8)
+where
+    u64: RegisterWord<B>,
+{
+    let mask: u64 = <u64 as RegisterWord<B>>::NUMBER_OF_REGISTERS_IN_WORD.into();
+    let word_position: u64 = index.into() / mask;
+    let register_position: u8 = u8::try_from(index.into() - word_position * mask).unwrap();
+    (usize::try_from(word_position).unwrap(), register_position)
 }
 
 macro_rules! impl_register_for_precision_and_bits {
@@ -161,94 +173,88 @@ macro_rules! impl_register_for_precision_and_bits {
                     fn get_harmonic_sum_and_zeros<F: Float>(
                         &self,
                         other: &Self,
-                    ) -> (F, <[<Precision $exponent>] as Precision>::NumberOfZeros)
+                    ) -> (F, <[<Precision $exponent>] as Precision>::NumberOfRegisters)
                     where
                     [<Precision $exponent>]: PrecisionConstants<F> {
                         let mut harmonic_sum = F::ZERO;
-                        let mut union_zeros = <[<Precision $exponent>] as Precision>::NumberOfZeros::ZERO;
+                        let mut union_zeros = <[<Precision $exponent>] as Precision>::NumberOfRegisters::ZERO;
 
                         for i in 0..self.len() {
-                            let mut left = self[i];
-                            let mut right = other[i];
+                            let left = self[i];
+                            let right = other[i];
                             let mut partial_sum = F::ZERO;
-                            let mut partial_zeros = <[<Precision $exponent>] as Precision>::NumberOfZeros::ZERO;
+                            let mut partial_zeros = <[<Precision $exponent>] as Precision>::NumberOfRegisters::ZERO;
 
-                            for _ in 0..<u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS {
-                                let left_register = left & <u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK;
-                                let right_register = right & <u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK;
-                                left >>= [<Bits $bits>]::NUMBER_OF_BITS;
-                                right >>= [<Bits $bits>]::NUMBER_OF_BITS;
+                            for step in 0..<u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS_IN_WORD {
+                                let [left_register, right_register] = extract_register_from_word::<[<Bits $bits>], 2, u64>([left, right], step * [<Bits $bits>]::NUMBER_OF_BITS);
                                 let max_register = left_register.max(right_register);
-                                partial_sum += F::inverse_register(max_register as i32);
-                                partial_zeros += <[<Precision $exponent>] as Precision>::NumberOfZeros::from_bool(max_register == 0);
+                                partial_sum += F::exp2_minus(max_register);
+                                partial_zeros += <[<Precision $exponent>] as Precision>::NumberOfRegisters::from_bool(max_register == 0);
                             }
                             harmonic_sum += partial_sum;
                             union_zeros += partial_zeros;
                         }
 
-                        const NUMBER_OF_PADDING_REGISTERS: usize = ceil(<[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS, 64 / [<Bits $bits>]::NUMBER_OF_BITS)
-                        * <u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS
-                        - <[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS;
+                        let number_of_padding_registers: u8 = u8::try_from((self.len() as u64)
+                        * u64::from(<u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS_IN_WORD)
+                        - u64::from(<[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS)).unwrap();
 
-                        union_zeros -= <[<Precision $exponent>] as Precision>::NumberOfZeros::from_usize(NUMBER_OF_PADDING_REGISTERS);
-                        harmonic_sum -= F::from_usize(NUMBER_OF_PADDING_REGISTERS);
+                        union_zeros -= <[<Precision $exponent>] as Precision>::NumberOfRegisters::from(number_of_padding_registers);
+                        harmonic_sum -= F::from(number_of_padding_registers);
 
                         (harmonic_sum, union_zeros)
                     }
 
                     fn apply<F>(&mut self, mut f: F)
                     where
-                        F: FnMut(u32) -> u32,
+                        F: FnMut(u8) -> u8,
                     {
-                        let mut number_of_registers = 0;
+                        let mut number_of_registers: <[<Precision $exponent>] as Precision>::NumberOfRegisters = <[<Precision $exponent>] as Precision>::NumberOfRegisters::ZERO;
                         for word in self.iter_mut() {
                             let word_copy = *word;
                             let mut tmp_word: u64 = 0;
-                            for step in 0..<u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS {
+                            for step in 0..<u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS_IN_WORD {
                                 if number_of_registers == [<Precision $exponent>]::NUMBER_OF_REGISTERS {
                                     break;
                                 }
-                                let register = (word_copy >> (step * [<Bits $bits>]::NUMBER_OF_BITS)) & <u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK;
-                                let new_register = f(register as u32) as u64;
+                                let [register] = extract_register_from_word::<[<Bits $bits>], 1, u64>([word_copy], step * [<Bits $bits>]::NUMBER_OF_BITS);
+                                let new_register = f(register);
                                 debug_assert!(new_register < 1 << [<Bits $bits>]::NUMBER_OF_BITS);
-                                tmp_word |= new_register << (step * [<Bits $bits>]::NUMBER_OF_BITS);
-                                number_of_registers += 1;
+                                tmp_word |= u64::from(new_register) << (step * [<Bits $bits>]::NUMBER_OF_BITS);
+                                number_of_registers += <[<Precision $exponent>] as Precision>::NumberOfRegisters::ONE;
                             }
                             *word = tmp_word;
                         }
                     }
 
                     #[inline(always)]
-                    fn set_greater(&mut self, index: usize, new_register: u32) -> (u32, u32) {
+                    fn set_greater(&mut self, index: <[<Precision $exponent>] as Precision>::NumberOfRegisters, new_register: u8) -> (u8, u8) {
                         debug_assert!(index < [<Precision $exponent>]::NUMBER_OF_REGISTERS);
                         debug_assert!(new_register < 1 << [<Bits $bits>]::NUMBER_OF_BITS);
 
                         // Calculate the position of the register in the internal buffer array.
-                        let word_position = index / <u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS;
-                        let register_position = index - word_position * <u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS;
+                        let (word_position, register_position) = split_index::<[<Precision $exponent>], [<Bits $bits>]>(index);
 
                         // Extract the current value of the register at `index`.
-                        let register_value: u64 =
-                            (self[word_position] >> (register_position * [<Bits $bits>]::NUMBER_OF_BITS)) & <u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK;
+                        let register_value: u8 =
+                            u8::try_from((self[word_position] >> (register_position * [<Bits $bits>]::NUMBER_OF_BITS)) & <u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK).unwrap();
 
-                        if register_value as u32 >= new_register {
-                            return (register_value as u32, register_value as u32);
+                        if register_value >= new_register {
+                            return (register_value , register_value );
                         }
 
                         self[word_position] &= !(<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK << (register_position * [<Bits $bits>]::NUMBER_OF_BITS));
                         self[word_position] |= (new_register as u64) << (register_position * [<Bits $bits>]::NUMBER_OF_BITS);
 
-                        (register_value as u32, new_register)
+                        (register_value, new_register)
                     }
 
-                    fn get_register(&self, index: usize) -> u32 {
+                    fn get_register(&self, index: <[<Precision $exponent>] as Precision>::NumberOfRegisters) -> u8 {
                         // Calculate the position of the register in the internal buffer array.
-                        let word_position = index / <u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS;
-                        let register_position = index - word_position * <u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS;
+                        let (word_position, register_position) = split_index::<[<Precision $exponent>], [<Bits $bits>]>(index);
 
                         // Extract the current value of the register at `index`.
-                        let register = (self[word_position] >> (register_position * [<Bits $bits>]::NUMBER_OF_BITS)) & <u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK;
-                        register as u32
+                        extract_register_from_word::<[<Bits $bits>], 1, u64>([self[word_position]], register_position * [<Bits $bits>]::NUMBER_OF_BITS)[0]
                     }
 
                     fn clear(&mut self) {

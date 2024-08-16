@@ -13,7 +13,7 @@ pub(crate) struct BasicLogLog<
     S: Float = f32,
 > {
     registers: R,
-    number_of_zero_registers: P::NumberOfZeros,
+    number_of_zero_registers: P::NumberOfRegisters,
     harmonic_sum: S,
     _phantom: core::marker::PhantomData<(P, B, Hasher)>,
 }
@@ -54,8 +54,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: Float>
     fn new() -> Self {
         Self {
             registers: R::zeroed(),
-            number_of_zero_registers: P::NumberOfZeros::from_usize(P::NUMBER_OF_REGISTERS),
-            harmonic_sum: S::from_usize(P::NUMBER_OF_REGISTERS),
+            number_of_zero_registers: P::NUMBER_OF_REGISTERS,
+            harmonic_sum: S::exp2(P::EXPONENT),
             _phantom: core::marker::PhantomData,
         }
     }
@@ -66,17 +66,17 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: Float>
         hasher.finish()
     }
 
-    fn insert_register_value_and_index(&mut self, new_register_value: u32, index: usize) -> bool {
+    fn insert_register_value_and_index(&mut self, new_register_value: u8, index: P::NumberOfRegisters) -> bool {
         // Count leading zeros.
         debug_assert!(new_register_value < 1 << B::NUMBER_OF_BITS);
 
         let (old_register_value, larger_register_value) =
             self.registers.set_greater(index, new_register_value);
 
-        self.number_of_zero_registers -= P::NumberOfZeros::from_bool(old_register_value == 0);
+        self.number_of_zero_registers -= P::NumberOfRegisters::from_bool(old_register_value == 0);
 
-        self.harmonic_sum += S::inverse_register(larger_register_value as i32)
-            - S::inverse_register(old_register_value as i32);
+        self.harmonic_sum += S::exp2_minus(larger_register_value)
+            - S::exp2_minus(old_register_value);
 
         old_register_value != new_register_value
     }
@@ -98,7 +98,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: Float>
 
     #[inline(always)]
     /// Returns the number of registers with zero values.
-    fn get_number_of_zero_registers(&self) -> P::NumberOfZeros {
+    fn get_number_of_zero_registers(&self) -> P::NumberOfRegisters {
         self.number_of_zero_registers
     }
 
@@ -114,17 +114,17 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: Float>
         F::from_f64(self.harmonic_sum.to_f64())
     }
 
-    fn get_register(&self, index: usize) -> u32 {
+    fn get_register(&self, index: P::NumberOfRegisters) -> u8 {
         self.registers.get_register(index)
     }
 
     fn from_registers(registers: R) -> Self {
-        let mut number_of_zero_registers = P::NumberOfZeros::ZERO;
+        let mut number_of_zero_registers = P::NumberOfRegisters::ZERO;
         let mut harmonic_sum = S::ZERO;
 
         for register in registers.iter_registers() {
-            number_of_zero_registers += P::NumberOfZeros::from_bool(register == 0);
-            harmonic_sum += S::inverse_register(register as i32);
+            number_of_zero_registers += P::NumberOfRegisters::from_bool(register == 0);
+            harmonic_sum += S::exp2_minus(register);
         }
 
         Self {
@@ -146,7 +146,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, A: Hash, Hasher: HasherType, S: 
     }
 }
 
-#[allow(clippy::suspicious_op_assign_impl)]
 impl<
         P: Precision,
         B: Bits,
@@ -161,14 +160,12 @@ impl<
         let mut rhs_registers = rhs.registers().iter_registers();
 
         self.registers.apply(|old_register| {
-            let rhs_register: u32 = rhs_registers.next().unwrap();
+            let rhs_register: u8 = rhs_registers.next().unwrap();
 
             if rhs_register > old_register {
-                self.harmonic_sum += S::inverse_register(rhs_register as i32)
-                    - S::inverse_register(old_register as i32);
-                if old_register == 0 {
-                    self.number_of_zero_registers -= P::NumberOfZeros::ONE;
-                }
+                self.harmonic_sum += S::exp2_minus(rhs_register)
+                    - S::exp2_minus(old_register);
+                self.number_of_zero_registers -= P::NumberOfRegisters::from_bool(old_register == 0);
                 rhs_register
             } else {
                 old_register
@@ -213,7 +210,7 @@ impl<
     fn new_hybrid() -> Self {
         Self {
             registers: R::zeroed(),
-            number_of_zero_registers: P::NumberOfZeros::from_usize(P::NUMBER_OF_REGISTERS),
+            number_of_zero_registers: P::NUMBER_OF_REGISTERS,
             harmonic_sum: S::NEG_INFINITY,
             _phantom: core::marker::PhantomData,
         }
@@ -222,8 +219,8 @@ impl<
     fn dehybridize(&mut self) {
         if self.is_hybrid() {
             let number_of_hashes = self.number_of_hashes();
-            self.number_of_zero_registers = P::NumberOfZeros::from_usize(P::NUMBER_OF_REGISTERS);
-            self.harmonic_sum = S::from_usize(P::NUMBER_OF_REGISTERS);
+            self.number_of_zero_registers = P::NUMBER_OF_REGISTERS;
+            self.harmonic_sum = S::exp2(P::EXPONENT);
             let registers = self.registers.clone();
             self.registers = R::zeroed();
             for hash in registers.words().take(number_of_hashes) {
@@ -243,7 +240,7 @@ impl<
 
     fn clear_words(&mut self) {
         self.registers.clear();
-        self.number_of_zero_registers = P::NumberOfZeros::ZERO;
+        self.number_of_zero_registers = P::NumberOfRegisters::ZERO;
         self.harmonic_sum = S::NEG_INFINITY;
     }
 
@@ -287,12 +284,12 @@ impl<
                     .sorted_insert_with_len(hash, self.number_of_hashes())
                 {
                     debug_assert!(
-                        self.number_of_zero_registers <= P::NumberOfZeros::from_usize(P::NUMBER_OF_REGISTERS),
+                        self.number_of_zero_registers <= P::NUMBER_OF_REGISTERS,
                         "Number of zero registers ({}) is greater than the number of registers ({})",
                         self.number_of_zero_registers,
                         P::NUMBER_OF_REGISTERS
                     );
-                    self.number_of_zero_registers += P::NumberOfZeros::ONE;
+                    self.number_of_zero_registers += P::NumberOfRegisters::ONE;
                     true
                 } else {
                     false
@@ -309,7 +306,7 @@ impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, S: Float> Se
 {
     #[inline(always)]
     fn is_empty(&self) -> bool {
-        self.number_of_zero_registers == P::NumberOfZeros::from_usize(P::NUMBER_OF_REGISTERS)
+        self.number_of_zero_registers == P::NUMBER_OF_REGISTERS
     }
 
     #[inline(always)]
@@ -337,8 +334,8 @@ impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, S: Float> Mu
 {
     fn clear(&mut self) {
         self.registers.clear();
-        self.number_of_zero_registers = P::NumberOfZeros::from_usize(P::NUMBER_OF_REGISTERS);
-        self.harmonic_sum = S::from_usize(P::NUMBER_OF_REGISTERS);
+        self.number_of_zero_registers = P::NUMBER_OF_REGISTERS;
+        self.harmonic_sum = S::exp2(P::EXPONENT);
     }
 }
 

@@ -33,7 +33,7 @@ macro_rules! hll_impl {
             #[inline(always)]
             fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
                 use serde::ser::SerializeSeq;
-                let mut seq = serializer.serialize_seq(Some(P::NUMBER_OF_REGISTERS))?;
+                let mut seq = serializer.serialize_seq(Some(1 << P::EXPONENT))?;
                 for register in self.registers().iter_registers() {
                     seq.serialize_element(&(register as u8))?;
                 }
@@ -50,9 +50,9 @@ macro_rules! hll_impl {
                 D: serde::Deserializer<'de>,
             {
                 let mut registers: R = R::zeroed();
-                let visitor = $crate::serde::RegisterVisitor::<u8>::new(P::NUMBER_OF_REGISTERS);
+                let visitor = $crate::serde::RegisterVisitor::<u8>::new(1 << P::EXPONENT);
                 let mut iter = deserializer.deserialize_seq(visitor)?.into_iter();
-                registers.apply(|_| iter.next().unwrap() as u32);
+                registers.apply(|_| iter.next().unwrap());
                 debug_assert_eq!(iter.next(), None);
                 Ok(Self::from_registers(registers))
             }
@@ -77,11 +77,11 @@ macro_rules! hll_impl {
                 self.counter.registers()
             }
 
-            fn get_number_of_zero_registers(&self) -> <P as Precision>::NumberOfZeros {
+            fn get_number_of_zero_registers(&self) -> <P as Precision>::NumberOfRegisters {
                 self.counter.get_number_of_zero_registers()
             }
 
-            fn get_register(&self, index: usize) -> u32 {
+            fn get_register(&self, index: P::NumberOfRegisters) -> u8 {
                 self.counter.get_register(index)
             }
 

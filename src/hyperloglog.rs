@@ -3,7 +3,16 @@ use crate::prelude::*;
 
 /// Trait for HyperLogLog counters.
 pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Default>:
-    Sized + Default + Eq + PartialEq + BitOrAssign<Self> + BitOr<Self, Output = Self> + Send + Sync + SetProperties + MutableSet
+    Sized
+    + Default
+    + Eq
+    + PartialEq
+    + BitOrAssign<Self>
+    + BitOr<Self, Output = Self>
+    + Send
+    + Sync
+    + SetProperties
+    + MutableSet
 {
     /// The type of the registers of the HyperLogLog counter.
     type Registers: Registers<P, B>;
@@ -41,7 +50,7 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
     ///
     /// assert_eq!(number_of_zero_registers, 61);
     /// ```
-    fn get_number_of_zero_registers(&self) -> P::NumberOfZeros;
+    fn get_number_of_zero_registers(&self) -> P::NumberOfRegisters;
 
     #[inline(always)]
     /// Returns whether the provided HyperLogLog counter may be fully contained in the current HyperLogLog counter.
@@ -86,8 +95,11 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
 
     #[inline(always)]
     /// Slits the hash into two parts: the register value and the index of the register.
-    fn split_hash(hash: u64) -> (u32, usize) {
-        let index: usize = hash as usize & (P::NUMBER_OF_REGISTERS - 1);
+    fn split_hash(hash: u64) -> (u8, P::NumberOfRegisters) {
+        let index: P::NumberOfRegisters = P::NumberOfRegisters::try_from_u64(
+            hash & (P::NUMBER_OF_REGISTERS - P::NumberOfRegisters::ONE).into(),
+        )
+        .unwrap();
 
         // And we delete the used bits from the hash.
         let mut hash: u64 = hash >> P::EXPONENT;
@@ -107,14 +119,14 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
             hash |= 1 << (64 - ((1 << B::NUMBER_OF_BITS) - 1));
         }
 
-        let register_value = hash.leading_zeros() + 1 - P::EXPONENT as u32;
+        let register_value = u8::try_from(hash.leading_zeros() + 1).unwrap() - P::EXPONENT;
 
         (register_value, index)
     }
 
     #[inline(always)]
     /// Hashes the element and returns the register value and the index of the register.
-    fn hash_and_index<T: core::hash::Hash>(element: &T) -> (u32, usize) {
+    fn hash_and_index<T: core::hash::Hash>(element: &T) -> (u8, P::NumberOfRegisters) {
         let mut hasher = Hasher::default();
         element.hash(&mut hasher);
         let hash = hasher.finish();
@@ -123,7 +135,7 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
     }
 
     /// Return the value of the register at the given index.
-    fn get_register(&self, index: usize) -> u32;
+    fn get_register(&self, index: P::NumberOfRegisters) -> u8;
 
     /// Create a new HyperLogLog counter from an array of registers.
     fn from_registers(registers: Self::Registers) -> Self;

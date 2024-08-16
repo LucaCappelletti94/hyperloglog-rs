@@ -1,6 +1,6 @@
 //! # Utils
 //!
-//! This module provides utility functions used by the HyperLogLog algorithm implementation.
+//! This module provides utility functions used by the [`HyperLogLog`] algorithm implementation.
 //!
 //! The functions provided are:
 //!
@@ -42,7 +42,7 @@ pub(crate) const fn ceil(numerator: usize, denominator: usize) -> usize {
 
 #[inline]
 /// Returns the maximal multiplicity of the registers given the precision and the number of bits.
-pub(crate) const fn maximal_multeplicity(precision: usize, bits: usize) -> usize {
+pub(crate) const fn maximal_multeplicity(precision: u8, bits: u8) -> u8 {
     debug_assert!(
         precision >= 4,
         "The precision must be greater than or equal to 4."
@@ -62,8 +62,8 @@ pub(crate) const fn maximal_multeplicity(precision: usize, bits: usize) -> usize
 #[inline]
 /// Returns the lowest possible value for the harmonic sum given the precision and the number of bits.
 pub(crate) fn miminal_harmonic_sum<F: Float, P: Precision, B: Bits>() -> F {
-    F::inverse_register(
-        i32::try_from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)).unwrap() - i32::try_from(P::EXPONENT).unwrap() - 1,
+    F::exp2_minus(
+        maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS) - P::EXPONENT - 1,
     )
 }
 

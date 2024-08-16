@@ -5,7 +5,7 @@ use crate::prelude::Named;
 /// Trait marker for the number of bits.
 pub trait Bits: Default + Copy + PartialEq + Eq + Send + Sync + core::fmt::Debug + Named{
     /// The number of bits.
-    const NUMBER_OF_BITS: usize;
+    const NUMBER_OF_BITS: u8;
 }
 
 /// Implementation
@@ -26,7 +26,7 @@ macro_rules! impl_bits {
                 }
 
                 impl Bits for [<Bits $n>] {
-                    const NUMBER_OF_BITS: usize = $n;
+                    const NUMBER_OF_BITS: u8 = $n;
                 }
             }
         )*

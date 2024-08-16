@@ -504,21 +504,21 @@ fn write_precomputed_beta(precisions: &[usize]) {
 /// Given a maximal number of zeros, we can determine the smallest data type
 /// that can hold the number of zeros. We then generate the type aliases for
 /// each precision.
-fn write_number_of_zeros(precisions: &[usize]) {
-    let number_of_zeros = precisions
+fn write_number_of_registers(precisions: &[usize]) {
+    let number_of_registers = precisions
         .iter()
         .map(|precision| {
-            let number_of_zeros = 1 << precision;
-            let smallest_data_type = get_smallest_data_type(number_of_zeros);
-            format!("type NumberOfZeros{precision} = {smallest_data_type};",)
+            let number_of_registers = 1 << precision;
+            let smallest_data_type = get_smallest_data_type(number_of_registers);
+            format!("type NumberOfRegisters{precision} = {smallest_data_type};",)
         })
         .collect::<Vec<String>>()
         .join("\n");
     let out_dir = std::env::var("OUT_DIR").unwrap();
-    let number_of_zeros_path = Path::new(&out_dir).join("number_of_zeros.rs");
-    let mut number_of_zeros_file = File::create(number_of_zeros_path).unwrap();
-    number_of_zeros_file
-        .write_all(number_of_zeros.as_bytes())
+    let number_of_registers_path = Path::new(&out_dir).join("number_of_registers.rs");
+    let mut number_of_registers_file = File::create(number_of_registers_path).unwrap();
+    number_of_registers_file
+        .write_all(number_of_registers.as_bytes())
         .unwrap();
 }
 
@@ -526,7 +526,7 @@ fn main() {
     let precisions = get_precisions();
 
     write_alphas(&precisions);
-    write_number_of_zeros(&precisions);
+    write_number_of_registers(&precisions);
 
     #[cfg(any(
         all(feature = "beta", not(feature = "precomputed_beta")),
