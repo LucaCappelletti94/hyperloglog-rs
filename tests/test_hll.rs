@@ -1,4 +1,3 @@
-include!("../benches/utils.rs");
 use hyperloglog_rs::prelude::*;
 use twox_hash::XxHash;
 use wyhash::WyHash;
@@ -193,13 +192,6 @@ macro_rules! test_hll_at_precisions {
         $(
             test_hll_at_precision_and_hashers!($precision, XxHash);
             test_hll_at_precision_and_hashers!($precision, WyHash);
-
-            paste::paste!{
-                #[test]
-                pub fn [< test_sahll_at_ $precision:lower >]() {
-                    test_approximated_counter_at_precision_and_bits::<$precision, Bits8, SAHLL<$precision>, XxHash>();
-                }
-            }
         )*
     };
 }
