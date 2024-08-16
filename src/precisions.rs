@@ -35,25 +35,24 @@ fn kmeans_bias<const N: usize, V: PartialOrd + Number, W: Number>(
     biases: &'static [W; N],
     estimate: V,
 ) -> f32 {
-    let index = estimates.partition_point(|a| a <= &estimate).max(1) -1;
+    let index = estimates.partition_point(|a| a <= &estimate).max(1) - 1;
 
     let mut min = if index > 6 { index - 6 } else { 0 };
     let mut max = core::cmp::min(index + 6, N);
 
     while max - min != 6 {
-        let (min_val, max_val) = unsafe {
-            (
-                *estimates.get_unchecked(min),
-                *estimates.get_unchecked(max - 1),
-            )
-        };
+        let (min_val, max_val) = (estimates[min], estimates[max - 1]);
         if V::TWO * estimate - min_val > max_val {
             min += 1;
         } else {
             max -= 1;
         }
     }
-    biases[min..max].iter().map(|bias| bias.to_f32()).sum::<f32>() / 6.0_f32
+    biases[min..max]
+        .iter()
+        .map(|bias| bias.to_f32())
+        .sum::<f32>()
+        / 6.0_f32
 }
 
 #[cfg(all(feature = "plusplus", not(feature = "plusplus_kmeans")))]
@@ -146,9 +145,10 @@ pub trait PrecisionConstants<F: FloatNumber>: Precision {
             return Self::small_correction(number_of_zeros);
         }
 
-        let estimate =
-            Self::ALPHA * F::from_usize(Self::NUMBER_OF_REGISTERS) * F::from_usize(Self::NUMBER_OF_REGISTERS)
-                / harmonic_sum;
+        let estimate = Self::ALPHA
+            * F::from_usize(Self::NUMBER_OF_REGISTERS)
+            * F::from_usize(Self::NUMBER_OF_REGISTERS)
+            / harmonic_sum;
 
         // Apply the small range correction factor if the raw estimate is below the threshold
         // and there are zero registers in the counter.

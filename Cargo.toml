@@ -122,6 +122,7 @@ overflow-checks = false   # Disable integer overflow checks.
 debug = false            # Include debug info.
 debug-assertions = false  # Enables debug assertions.
 opt-level = 3
+codegen-units = 1
 
 [[bench]]
 name = "insert"

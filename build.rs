@@ -13,8 +13,8 @@ trait RedableNumber: Display {
         let integer_part = parts.remove(0);
         let fractional_part = parts.first().unwrap_or(&"");
 
-        // Trim zeros from the fractional part
-        let fractional_part = fractional_part.trim_end_matches('0');
+        // Trim values smaller than five from the end of the fractional part
+        let fractional_part = fractional_part.trim_end_matches(['0', '1', '2', '3', '4']);
 
         // We save whether the number is negative, so to remove the minus sign
         // and re-add it at the end
@@ -319,10 +319,7 @@ fn write_weights(precisions: &[usize]) {
             "const BIAS_{precision}:  Bias{precision} = [\n{}\n];",
             biases
                 .iter()
-                .map(|x| format!(
-                    "    {},",
-                    x.format_with_precision(resolution)
-                ))
+                .map(|x| format!("    {},", x.format_with_precision(resolution)))
                 .collect::<Vec<String>>()
                 .join("\n")
         );
@@ -336,10 +333,7 @@ fn write_weights(precisions: &[usize]) {
             "const ESTIMATES_{precision}:  Estimates{precision} = [\n{}\n];",
             estimates
                 .iter()
-                .map(|x| format!(
-                    "    {},",
-                    x.format_with_precision(resolution)
-                ))
+                .map(|x| format!("    {},", x.format_with_precision(resolution)))
                 .collect::<Vec<String>>()
                 .join("\n")
         );
@@ -424,10 +418,7 @@ fn write_ln_values(precisions: &[usize]) {
         "static LN_VALUES: [f64; {maximal_number_of_registers}] = [\n{}\n];",
         (0..maximal_number_of_registers)
             .map(|x| if x > 0 {
-                format!(
-                    "    {},",
-                    (x as f64).ln().format_with_precision(12)
-                )
+                format!("    {},", (x as f64).ln().format_with_precision(12))
             } else {
                 "    f64::NEG_INFINITY,".to_owned()
             })
@@ -456,7 +447,7 @@ fn write_beta(precisions: &[usize]) {
             "const BETA_{precision}: [f64; {}] = [\n{}\n];",
             beta.len(),
             beta.iter()
-                .map(|x| format!("    {},", x.format_with_precision(12)))
+                .map(|x| format!("    {},", x.format_with_precision(9)))
                 .collect::<Vec<String>>()
                 .join("\n")
         );
@@ -484,11 +475,11 @@ fn write_precomputed_beta(precisions: &[usize]) {
         let beta_horner = get_unrolled_beta_horner(precision);
 
         let beta = format!(
-            "const BETA_HORNER_{precision}: [f64; {}] = [\n{}\n];",
+            "static BETA_HORNER_{precision}: [f64; {}] = [\n{}\n];",
             beta_horner.len(),
             beta_horner
                 .iter()
-                .map(|x| format!("    {},", x.format_with_precision(12)))
+                .map(|x| format!("    {},", x.format_with_precision(9)))
                 .collect::<Vec<String>>()
                 .join("\n")
         );
