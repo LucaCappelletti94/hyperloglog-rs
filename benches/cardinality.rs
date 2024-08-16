@@ -15,7 +15,7 @@ const NUMBER_OF_COUNTERS: usize = 10_000;
 const NUMBER_OF_ELEMENTS: usize = 50_000;
 
 fn cardinality_bencher<
-    H: Estimator<f64> + ExtendableApproximatedSet<u64>,
+    H: Estimator<f64> + hyperloglog_rs::prelude::Named + ExtendableApproximatedSet<u64>,
 >(
     b: &mut Criterion,
 ) {
@@ -45,20 +45,12 @@ fn cardinality_bencher<
 macro_rules! bench_cardinality {
     ($precision:ty, $bits:ty, $hasher:ty) => {
         paste::item! {
-            fn [<bench_plusplusvec_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                cardinality_bencher::<PlusPlus<$precision, $bits, Vec<u64>, $hasher>>(b);
-            }
-
             fn [<bench_plusplusarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 cardinality_bencher::<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>(b);
             }
 
             fn [<bench_pluspluspackedarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 cardinality_bencher::<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>(b);
-            }
-
-            fn [<bench_betavec_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                cardinality_bencher::<LogLogBeta<$precision, $bits, Vec<u64>, $hasher>>(b);
             }
 
             fn [<bench_betaarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
@@ -69,20 +61,12 @@ macro_rules! bench_cardinality {
                 cardinality_bencher::<LogLogBeta<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>(b);
             }
 
-            fn [<bench_hybridplusplusvec_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                cardinality_bencher::<Hybrid<PlusPlus<$precision, $bits, Vec<u64>, $hasher>>>(b);
-            }
-
             fn [<bench_hybridplusplusarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 cardinality_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>>(b);
             }
 
             fn [<bench_hybridpluspluspackedarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 cardinality_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
-            }
-
-            fn [<bench_hybridbetavec_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                cardinality_bencher::<Hybrid<LogLogBeta<$precision, $bits, Vec<u64>, $hasher>>>(b);
             }
 
             fn [<bench_hybridbetaarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
@@ -101,7 +85,7 @@ macro_rules! bench_cludflare_cardinality {
         $(
             paste::item! {
                 fn [<bench_cludflare_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                    cardinality_bencher::<CloudFlareHLL<{$precision::EXPONENT}, {$bits::NUMBER_OF_BITS}, $hasher>>(b);
+                    cardinality_bencher::<CloudFlareHLL<{$precision::EXPONENT as usize}, {$bits::NUMBER_OF_BITS as usize}, $hasher>>(b);
                 }
             }
         )*
@@ -172,7 +156,7 @@ macro_rules! bench_cardinalities {
                 }
 
                 fn [<bench_shll_cardinality_ $precision:lower _bits6>] (b: &mut Criterion) {
-                    cardinality_bencher::<SimpleHLL<{$precision::EXPONENT}>>(b);
+                    cardinality_bencher::<SimpleHLL<{$precision::EXPONENT as usize}>>(b);
                 }
 
                 fn [<bench_sm_cardinality_ $precision:lower _bits6>] (b: &mut Criterion) {
@@ -221,7 +205,7 @@ macro_rules! bench_cardinalities {
                     targets=[<bench_sm_cardinality_ $precision:lower _bits6>]
                 }
 
-                bench_cardinality_registers!($precision, $sample_size, "vec", "array", "packedarray");
+                bench_cardinality_registers!($precision, $sample_size, "array", "packedarray");
             }
         )*
     };
@@ -315,16 +299,12 @@ macro_rules! bench_cardinality_main {
         paste::paste!{
             criterion_main!(
                 $(
-                    [<cardinality_betavec_ $precision:lower>],
                     [<cardinality_betaarray_ $precision:lower>],
                     [<cardinality_betapackedarray_ $precision:lower>],
-                    [<cardinality_plusplusvec_ $precision:lower>],
                     [<cardinality_plusplusarray_ $precision:lower>],
                     [<cardinality_pluspluspackedarray_ $precision:lower>],
-                    [<cardinality_hybridbetavec_ $precision:lower>],
                     [<cardinality_hybridbetaarray_ $precision:lower>],
                     [<cardinality_hybridbetapackedarray_ $precision:lower>],
-                    [<cardinality_hybridplusplusvec_ $precision:lower>],
                     [<cardinality_hybridplusplusarray_ $precision:lower>],
                     [<cardinality_hybridpluspluspackedarray_ $precision:lower>],
                     [<cardinality_tabacpf_ $precision:lower>],

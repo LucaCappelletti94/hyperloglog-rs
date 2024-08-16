@@ -1,5 +1,5 @@
 #[macro_export]
-/// Implements the HyperLogLog trait for a given counter.
+/// Implements the [`HyperLogLog`] trait for a given counter.
 macro_rules! hll_impl {
     ($counter:ty) => {
         impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Default for $counter {
@@ -85,9 +85,7 @@ macro_rules! hll_impl {
                 self.counter.get_register(index)
             }
 
-            fn harmonic_sum<F: Float>(&self) -> F
-            where
-                P: PrecisionConstants<F>,
+            fn harmonic_sum(&self) -> f64
             {
                 self.counter.harmonic_sum()
             }

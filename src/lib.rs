@@ -3,15 +3,14 @@
 #![deny(unsafe_code)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
-// #![warn(clippy::restriction)]
+#![warn(clippy::restriction)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod basicloglog;
 mod bits;
-mod estimated_union_cardinalities;
 mod estimator;
 mod hybrid;
-pub mod hyper_spheres_sketch;
+pub mod sketches;
 mod hyperloglog;
 mod hyperloglog_macro;
 #[cfg(feature = "beta")]
@@ -28,14 +27,14 @@ mod utils;
 pub mod serde;
 
 #[cfg(feature = "std")]
-mod exact_hyper_spheres_sketch;
+mod hashset;
 
 /// Re-exports of the most important traits and structs.
 pub mod prelude {
     pub use crate::bits::*;
     pub use crate::estimator::*;
     pub use crate::hybrid::*;
-    pub use crate::hyper_spheres_sketch::*;
+    pub use crate::sketches::*;
     pub use crate::hyperloglog::*;
     #[cfg(feature = "beta")]
     pub use crate::loglogbeta::*;

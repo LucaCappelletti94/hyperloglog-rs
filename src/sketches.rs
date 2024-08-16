@@ -9,18 +9,14 @@
 //! two nodes, de facto providing features that characterize a candidate edge
 //! between two nodes.
 //!
-//! While in the HyperLogLog case we provide the approximated version of this algorithm,
+//! While in the [`HyperLogLog`] case we provide the approximated version of this algorithm,
 //! sometimes it is necessary, such as in test cases, to have the exact version of the
 //! algorithm. The approximated version is faster and uses less memory, but it is not,
-//! of course, guaranteed to be exact. Learn more about the approximated version in the
-//! [HyperLogLog.estimated_overlap_and_differences_cardinality_matrices] method.
-use crate::prelude::*;
-use crate::utils::*;
-use crate::estimated_union_cardinalities::EstimatedUnionCardinalities;
+//! of course, guaranteed to be exact.
+use crate::prelude::{Float, Number, Estimator, Zero};
 
 /// Trait for sketching algorithms that provide the overlap and differences cardinality matrices.
 pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
-    #[inline(always)]
     /// Returns the overlap and differences cardinality matrices of two lists of sets.
     ///
     /// # Arguments
@@ -37,7 +33,7 @@ pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
     ///
     /// # Examples
     /// In the following illustration, we show that for two vectors left and right of three elements,
-    /// we expect to compute the exclusively overlap matrix $A_{ij}$ and the exclusively differences vectors $B_i$.    
+    /// we expect to compute the exclusively overlap matrix $A_{ij}$ and the exclusively differences vectors $`B_i`$.    
     ///
     /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/triple_overlap.png?raw=true)
     ///
@@ -113,8 +109,7 @@ pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
 }
 
 /// Trait for sketching algorithms that provide the normalized overlap and differences cardinality matrices.
-pub trait NormalizedHyperSpheresSketch<F: Float>: HyperSpheresSketch<F> {
-    #[inline(always)]
+pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch<f64> {
     /// Returns the normalized overlap and differences cardinality matrices of two lists of sets.
     ///
     /// # Arguments
@@ -128,12 +123,12 @@ pub trait NormalizedHyperSpheresSketch<F: Float>: HyperSpheresSketch<F> {
     fn normalized_overlap_and_differences_cardinality_matrices<const L: usize, const R: usize>(
         left: &[Self; L],
         right: &[Self; R],
-    ) -> ([[F; R]; L], [F; L], [F; R]) {
+    ) -> ([[f64; R]; L], [f64; L], [f64; R]) {
         // Initialize overlap and differences cardinality matrices/vectors.
-        let mut last_row = [F::default(); R];
-        let mut differential_overlap_cardinality_matrix = [[F::default(); R]; L];
-        let mut left_difference_cardinality_vector = [F::default(); L];
-        let mut right_cardinalities = [F::default(); R];
+        let mut last_row = [f64::ZERO; R];
+        let mut differential_overlap_cardinality_matrix = [[f64::ZERO; R]; L];
+        let mut left_difference_cardinality_vector = [f64::ZERO; L];
+        let mut right_cardinalities = [f64::ZERO; R];
 
         right
             .iter()
@@ -149,18 +144,18 @@ pub trait NormalizedHyperSpheresSketch<F: Float>: HyperSpheresSketch<F> {
             .zip(right_cardinalities.iter().skip(1))
             .all(|(left, right)| left <= right));
 
-        let mut right_difference_cardinality_vector = [F::default(); R];
-        let mut euc: EstimatedUnionCardinalities<F> = EstimatedUnionCardinalities::default();
-        let mut last_left_difference: F = F::default();
-        let mut last_inner_left_differences = [F::default(); R];
-        let mut last_left_cardinality: F = F::default();
+        let mut right_difference_cardinality_vector = [f64::ZERO; R];
+        let mut euc: EstimatedUnionCardinalities<f64> = EstimatedUnionCardinalities::default();
+        let mut last_left_difference= f64::ZERO;
+        let mut last_inner_left_differences = [f64::ZERO; R];
+        let mut last_left_cardinality= f64::ZERO;
 
         // Populate the overlap cardinality matrix.
         for (i, left) in left.iter().enumerate() {
-            let mut last_right_difference: F = F::default();
+            let mut last_right_difference= f64::ZERO;
             let left_cardinality = left.estimate_cardinality();
-            let mut comulative_row = F::default();
-            let mut last_right_cardinality = F::default();
+            let mut comulative_row = f64::ZERO;
+            let mut last_right_cardinality = f64::ZERO;
             for (j, (right, (right_cardinality, last_inner_left_difference))) in right
                 .iter()
                 .zip(
@@ -183,7 +178,7 @@ pub trait NormalizedHyperSpheresSketch<F: Float>: HyperSpheresSketch<F> {
                     .saturating_zero_sub(delta);
 
                 debug_assert!(
-                    differential_intersection >= F::default(),
+                    differential_intersection >= f64::ZERO,
                     concat!(
                         "Expected differential_intersection to be larger than zero, but it is not. ",
                         "Got: differential_intersection: {:?}, delta: {:?}",
@@ -238,4 +233,85 @@ pub trait NormalizedHyperSpheresSketch<F: Float>: HyperSpheresSketch<F> {
 }
 
 impl<N: Number, M> HyperSpheresSketch<N> for M where M: Estimator<N> {}
-impl<F: Float, M> NormalizedHyperSpheresSketch<F> for M where M: Estimator<F> {}
+impl<M> NormalizedHyperSpheresSketch for M where M: Estimator<f64> {}
+
+
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// A struct for more readable code.
+struct EstimatedUnionCardinalities<F> {
+    /// The estimated cardinality of the left set.
+    left: F,
+    /// The estimated cardinality of the right set.
+    right: F,
+    /// The estimated cardinality of the union of the two sets.
+    union: F,
+}
+
+impl<F: Number> EstimatedUnionCardinalities<F> {
+    /// Returns a new instance of `EstimatedUnionCardinalities` with applied corrections.
+    fn with_correction(left: F, right: F, mut union: F) -> Self {
+        if union > left + right {
+            union = left + right;
+        }
+
+        // The following can happen when the HLL registers start to be saturated.
+        if union < left || union < right {
+            union = if left < right { right } else { left };
+        }
+
+        debug_assert!(left >= F::ZERO);
+        debug_assert!(right >= F::ZERO);
+        debug_assert!(union >= F::ZERO);
+        debug_assert!(
+            left <= union,
+            concat!(
+                "The estimated cardinality of the left set should be less than ",
+                "or equal to the estimated cardinality of the union of the two sets. ",
+                "Received left: {}, right: {}, union: {}."
+            ),
+            left,
+            right,
+            union
+        );
+        debug_assert!(
+            right <= union,
+            concat!(
+                "The estimated cardinality of the right set should be less than ",
+                "or equal to the estimated cardinality of the union of the two sets. ",
+                "Received left: {}, right: {}, union: {}."
+            ),
+            left,
+            right,
+            union
+        );
+        debug_assert!(
+            left + right >= union,
+            concat!(
+                "The sum of the estimated cardinalities of the two sets ",
+                "should be greater than or equal to the estimated cardinality ",
+                "of the union of the two sets. Received left: {}, right: {}, union: {}."
+            ),
+            left,
+            right,
+            union
+        );
+        Self { left, right, union }
+    }
+
+    /// Returns the estimated cardinality of the intersection of the two sets.
+    fn get_intersection_cardinality(&self) -> F {
+        self.left + self.right - self.union
+    }
+
+    /// Returns the estimated cardinality of the left set minus the right set.
+    fn get_left_difference_cardinality(&self) -> F {
+        self.union - self.right
+    }
+
+    /// Returns the estimated cardinality of the right set minus the left set.
+    fn get_right_difference_cardinality(&self) -> F {
+        self.union - self.left
+    }
+}

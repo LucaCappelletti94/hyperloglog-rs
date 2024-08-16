@@ -16,7 +16,7 @@ const NUMBER_OF_ELEMENTS: usize = 50_000;
 const NUMBER_OF_COUNTERS: usize = 2_000;
 
 fn union_bencher<
-    H: Estimator<f64> + ExtendableApproximatedSet<u64>,
+    H: Estimator<f64> + hyperloglog_rs::prelude::Named + ExtendableApproximatedSet<u64>,
 >(
     b: &mut Criterion,
 ) {
@@ -51,9 +51,6 @@ fn union_bencher<
 macro_rules! bench_union {
     ($precision:ty, $bits:ty, $hasher:ty) => {
         paste::item! {
-            fn [<bench_plusplusvec_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<PlusPlus<$precision, $bits, Vec<u64>, $hasher>>(b);
-            }
 
             fn [<bench_plusplusarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 union_bencher::<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>(b);
@@ -63,9 +60,6 @@ macro_rules! bench_union {
                 union_bencher::<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>(b);
             }
 
-            fn [<bench_betavec_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<LogLogBeta<$precision, $bits, Vec<u64>, $hasher>>(b);
-            }
 
             fn [<bench_betaarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 union_bencher::<LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>(b);
@@ -75,9 +69,6 @@ macro_rules! bench_union {
                 union_bencher::<LogLogBeta<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>(b);
             }
 
-            fn [<bench_hybridplusplusvec_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<Hybrid<PlusPlus<$precision, $bits, Vec<u64>, $hasher>>>(b);
-            }
 
             fn [<bench_hybridplusplusarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 union_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>>(b);
@@ -87,9 +78,6 @@ macro_rules! bench_union {
                 union_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
             }
 
-            fn [<bench_hybridbetavec_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<Hybrid<LogLogBeta<$precision, $bits, Vec<u64>, $hasher>>>(b);
-            }
 
             fn [<bench_hybridbetaarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 union_bencher::<Hybrid<LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>>(b);
@@ -99,9 +87,6 @@ macro_rules! bench_union {
                 union_bencher::<Hybrid<LogLogBeta<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
             }
 
-            fn [<bench_mleplusplusvec_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<MLE<PlusPlus<$precision, $bits, Vec<u64>, $hasher>>>(b);
-            }
 
             fn [<bench_mleplusplusarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 union_bencher::<MLE<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>>(b);
@@ -111,9 +96,6 @@ macro_rules! bench_union {
                 union_bencher::<MLE<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
             }
 
-            fn [<bench_mlebetavec_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<MLE<LogLogBeta<$precision, $bits, Vec<u64>, $hasher>>>(b);
-            }
 
             fn [<bench_mlebetaarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 union_bencher::<MLE<LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>>(b);
@@ -123,9 +105,6 @@ macro_rules! bench_union {
                 union_bencher::<MLE<LogLogBeta<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
             }
 
-            fn [<bench_mlehybridplusplusvec_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<Hybrid<MLE<PlusPlus<$precision, $bits, Vec<u64>, $hasher>>>>(b);
-            }
 
             fn [<bench_mlehybridplusplusarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 union_bencher::<Hybrid<MLE<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>>>(b);
@@ -135,9 +114,6 @@ macro_rules! bench_union {
                 union_bencher::<Hybrid<MLE<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>>(b);
             }
 
-            fn [<bench_mlehybridbetavec_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<Hybrid<MLE<LogLogBeta<$precision, $bits, Vec<u64>, $hasher>>>>(b);
-            }
 
             fn [<bench_mlehybridbetaarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 union_bencher::<Hybrid<MLE<LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>>>(b);
@@ -155,7 +131,7 @@ macro_rules! bench_cludflare_union {
         $(
             paste::item! {
                 fn [<bench_cludflare_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                    union_bencher::<CloudFlareHLL<{$precision::EXPONENT}, {$bits::NUMBER_OF_BITS}, $hasher>>(b);
+                    union_bencher::<CloudFlareHLL<{$precision::EXPONENT as usize}, {$bits::NUMBER_OF_BITS as usize}, $hasher>>(b);
                 }
             }
         )*
@@ -246,7 +222,7 @@ macro_rules! bench_cardinalities {
                 }
 
                 fn [<bench_shll_union_ $precision:lower _bits6>] (b: &mut Criterion) {
-                    union_bencher::<SimpleHLL<{$precision::EXPONENT}>>(b);
+                    union_bencher::<SimpleHLL<{$precision::EXPONENT as usize}>>(b);
                 }
 
                 fn [<bench_sm_union_ $precision:lower _bits6>] (b: &mut Criterion) {
@@ -293,7 +269,7 @@ macro_rules! bench_cardinalities {
                     targets=[<bench_sm_union_ $precision:lower _bits6>]
                 }
 
-                bench_union_registers!($precision, $sample_size, "vec", "array", "packedarray");
+                bench_union_registers!($precision, $sample_size, "array", "packedarray");
             }
         )*
     };
@@ -387,28 +363,20 @@ macro_rules! bench_union_main {
         paste::paste!{
             criterion_main!(
                 $(
-                    [<union_betavec_ $precision:lower>],
                     [<union_betaarray_ $precision:lower>],
                     [<union_betapackedarray_ $precision:lower>],
-                    [<union_plusplusvec_ $precision:lower>],
                     [<union_plusplusarray_ $precision:lower>],
                     [<union_pluspluspackedarray_ $precision:lower>],
-                    [<union_hybridbetavec_ $precision:lower>],
                     [<union_hybridbetaarray_ $precision:lower>],
                     [<union_hybridbetapackedarray_ $precision:lower>],
-                    [<union_hybridplusplusvec_ $precision:lower>],
                     [<union_hybridplusplusarray_ $precision:lower>],
                     [<union_hybridpluspluspackedarray_ $precision:lower>],
-                    [<union_mlebetavec_ $precision:lower>],
                     [<union_mlebetaarray_ $precision:lower>],
                     [<union_mlebetapackedarray_ $precision:lower>],
-                    [<union_mleplusplusvec_ $precision:lower>],
                     [<union_mleplusplusarray_ $precision:lower>],
                     [<union_mlepluspluspackedarray_ $precision:lower>],
-                    [<union_mlehybridbetavec_ $precision:lower>],
                     [<union_mlehybridbetaarray_ $precision:lower>],
                     [<union_mlehybridbetapackedarray_ $precision:lower>],
-                    [<union_mlehybridplusplusvec_ $precision:lower>],
                     [<union_mlehybridplusplusarray_ $precision:lower>],
                     [<union_mlehybridpluspluspackedarray_ $precision:lower>],
                     [<union_tabacpf_ $precision:lower>],

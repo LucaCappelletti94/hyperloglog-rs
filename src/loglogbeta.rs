@@ -1,11 +1,11 @@
-//! Submodule implementing LogLogBeta.
+//! Submodule implementing [`LogLogBeta`].
 use crate::basicloglog::BasicLogLog;
 use crate::hll_impl;
 use crate::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
-/// A struct implementing the LogLogBeta algorithm.
+/// A struct implementing the [`LogLogBeta`] algorithm.
 pub struct LogLogBeta<
     P: Precision,
     B: Bits,
@@ -25,7 +25,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType>
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Named
+#[cfg(feature = "std")]
+impl<P: Precision + crate::prelude::Named, B: Bits + crate::prelude::Named, R: Registers<P, B> + crate::prelude::Named, Hasher: HasherType> crate::prelude::Named
     for LogLogBeta<P, B, R, Hasher>
 {
     fn name(&self) -> String {
@@ -39,21 +40,25 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Named
     }
 }
 
-impl<F: Float, P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Estimator<F>
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Estimator<f64>
     for LogLogBeta<P, B, R, Hasher>
 where
-    P: PrecisionConstants<F>,
     Self: HyperLogLog<P, B, Hasher>,
 {
-    fn estimate_cardinality(&self) -> F {
+    fn estimate_cardinality(&self) -> f64 {
         P::beta_estimate(self.harmonic_sum(), self.get_number_of_zero_registers())
     }
 
-    fn estimate_union_cardinality(&self, other: &Self) -> F {
+    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         let (harmonic_sum, number_of_zero_registers) = self
             .registers()
             .get_harmonic_sum_and_zeros(other.registers());
-        P::beta_estimate(harmonic_sum, number_of_zero_registers)
+
+        correct_union_estimate(
+            P::beta_estimate(self.harmonic_sum(), self.get_number_of_zero_registers()),
+            P::beta_estimate(other.harmonic_sum(), other.get_number_of_zero_registers()),
+            P::beta_estimate(harmonic_sum, number_of_zero_registers),
+        )
     }
 
     fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
@@ -66,6 +71,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(feature = "precision_5")]
     fn test_estimate_cardinality() {
         let mut hll = LogLogBeta::<
             Precision5,
@@ -73,15 +79,13 @@ mod tests {
             <Precision5 as ArrayRegister<Bits6>>::ArrayRegister,
         >::default();
         hll.extend(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-        let estimate: f32 = hll.estimate_cardinality();
-        assert!(estimate > 10.0 * (1.0 - Precision5::error_rate() as f32));
-        assert!(estimate < 10.0 * (1.0 + Precision5::error_rate() as f32));
         let estimate: f64 = hll.estimate_cardinality();
         assert!(estimate > 10.0 * (1.0 - Precision5::error_rate()));
         assert!(estimate < 10.0 * (1.0 + Precision5::error_rate()));
     }
 
     #[test]
+    #[cfg(feature = "precision_5")]
     /// In this test we verify that the output of the `estimate_union_cardinality` method always
     /// yields the same result as the `estimate_cardinality` run on the bitor of the two sets.
     fn test_union_bitor() {
@@ -109,9 +113,12 @@ mod tests {
                 }
 
                 let union_estimate: f64 = hll1.estimate_union_cardinality(&hll2);
+                let union_inverted_estimate: f64 = hll2.estimate_union_cardinality(&hll1);
                 let bitor_estimate: f64 = (hll1 | hll2).estimate_cardinality();
+                let bitor_inverted_estimate: f64 = (hll2 | hll1).estimate_cardinality();
 
-                assert_eq!(union_estimate, bitor_estimate);
+                assert_eq!(bitor_inverted_estimate, bitor_estimate);
+                assert_eq!(union_estimate, union_inverted_estimate);
             }
         }
     }

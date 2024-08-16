@@ -13,7 +13,7 @@ use utils::*;
 const RANDOM_STATE: u64 = 87561346897134_u64;
 const NUMBER_OF_ELEMENTS: usize = 10_000;
 
-fn insert_bencher<H: Estimator<f64> + ExtendableApproximatedSet<u64>>(b: &mut Criterion) {
+fn insert_bencher<H: Estimator<f64> + hyperloglog_rs::prelude::Named + ExtendableApproximatedSet<u64>>(b: &mut Criterion) {
     b.bench_function(format!("Insert {}", H::default().name()).as_str(), |b| {
         b.iter(|| {
             let mut hll: H = Default::default();
@@ -27,20 +27,12 @@ fn insert_bencher<H: Estimator<f64> + ExtendableApproximatedSet<u64>>(b: &mut Cr
 macro_rules! bench_cardinality {
     ($precision:ty, $bits:ty, $hasher:ty) => {
         paste::item! {
-            fn [<bench_plusplusvec_insert_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                insert_bencher::<PlusPlus<$precision, $bits, Vec<u64>, $hasher>>(b);
-            }
-
             fn [<bench_plusplusarray_insert_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 insert_bencher::<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>(b);
             }
 
             fn [<bench_pluspluspackedarray_insert_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 insert_bencher::<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>(b);
-            }
-
-            fn [<bench_hybridplusplusvec_insert_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                insert_bencher::<Hybrid<PlusPlus<$precision, $bits, Vec<u64>, $hasher>>>(b);
             }
 
             fn [<bench_hybridplusplusarray_insert_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
@@ -59,7 +51,7 @@ macro_rules! bench_cludflare_cardinality {
         $(
             paste::item! {
                 fn [<bench_cludflare_insert_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                    insert_bencher::<CloudFlareHLL<{$precision::EXPONENT}, {$bits::NUMBER_OF_BITS}, $hasher>>(b);
+                    insert_bencher::<CloudFlareHLL<{$precision::EXPONENT as usize}, {$bits::NUMBER_OF_BITS as usize}, $hasher>>(b);
                 }
             }
         )*
@@ -120,7 +112,7 @@ macro_rules! bench_cardinalities {
                 }
 
                 fn [<bench_shll_insert_ $precision:lower _bits6>] (b: &mut Criterion) {
-                    insert_bencher::<SimpleHLL<{$precision::EXPONENT}>>(b);
+                    insert_bencher::<SimpleHLL<{$precision::EXPONENT as usize}>>(b);
                 }
 
                 fn [<bench_sm_insert_ $precision:lower _bits6>] (b: &mut Criterion) {
@@ -167,7 +159,7 @@ macro_rules! bench_cardinalities {
                     targets=[<bench_sm_insert_ $precision:lower _bits6>]
                 }
 
-                bench_insert_registers!($precision, $sample_size, "vec", "array", "packedarray");
+                bench_insert_registers!($precision, $sample_size, "array", "packedarray");
             }
         )*
     };
@@ -261,22 +253,20 @@ macro_rules! bench_insert_main {
         paste::paste!{
             criterion_main!(
                 $(
-                    // [<insert_plusplusvec_ $precision:lower>],
-                    // [<insert_plusplusarray_ $precision:lower>],
-                    // [<insert_pluspluspackedarray_ $precision:lower>],
-                    // [<insert_hybridplusplusvec_ $precision:lower>],
-                    // [<insert_hybridplusplusarray_ $precision:lower>],
-                    // [<insert_hybridpluspluspackedarray_ $precision:lower>],
-                    // [<insert_tabacpf_ $precision:lower>],
-                    // [<insert_tabacplusplus_ $precision:lower>],
-                    // [<insert_sa_ $precision:lower>],
-                    // [<insert_cludflare_ $precision:lower>],
-                    // [<insert_rhll_ $precision:lower>],
-                    // [<insert_sm_ $precision:lower>],
+                    [<insert_plusplusarray_ $precision:lower>],
+                    [<insert_pluspluspackedarray_ $precision:lower>],
+                    [<insert_hybridplusplusarray_ $precision:lower>],
+                    [<insert_hybridpluspluspackedarray_ $precision:lower>],
+                    [<insert_tabacpf_ $precision:lower>],
+                    [<insert_tabacplusplus_ $precision:lower>],
+                    [<insert_sa_ $precision:lower>],
+                    [<insert_cludflare_ $precision:lower>],
+                    [<insert_rhll_ $precision:lower>],
+                    [<insert_sm_ $precision:lower>],
                     [<insert_shll_ $precision:lower>],
                 )*
-                // insert_hyper_two_bits,
-                // insert_hyper_three_bits,
+                insert_hyper_two_bits,
+                insert_hyper_three_bits,
                 insert_hashset
             );
         }

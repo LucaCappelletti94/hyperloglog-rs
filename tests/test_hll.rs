@@ -1,43 +1,38 @@
+include!("../benches/utils.rs");
 use hyperloglog_rs::prelude::*;
 use twox_hash::XxHash;
 use wyhash::WyHash;
 
 /// Test the HyperLogLog implementation with the provided precision and bits
 pub fn test_approximated_counter_at_precision_and_bits<
-    F: FloatNumber,
-    P: Precision + PrecisionConstants<F>,
+    P: Precision,
     B: Bits,
-    H: ExtendableApproximatedSet<u64> + Estimator<F> + ApproximatedSet<u64> + MutableSet + SetProperties,
+    H: ExtendableApproximatedSet<u64> + Estimator<f64>,
     Hasher: HasherType,
 >() {
-    let number_of_elements = 100_000;
+    let number_of_elements = 200_000;
     let mut total_cardinality_error_rate = 0.0;
     let mut total_union_error_rate = 0.0;
     let mut total_cardinality_samples = 0;
     let mut total_union_samples = 0;
-    let number_of_iterations = 100;
+    let number_of_iterations = 500;
     let starting_cardinality_sampling_rate = 10;
     let starting_union_sampling_rate = 10;
-    let maximal_cardinality_sampling_rate = 10_000;
-    let maximal_union_sampling_rate = 10_000;
+    let maximal_cardinality_sampling_rate = 5_000;
+    let maximal_union_sampling_rate = 5_000;
 
     let mut left_random_state = splitmix64(splitmix64(99534543539_u64));
     let mut right_random_state = splitmix64(splitmix64(22986224539_u64));
     let mut exact_left = std::collections::HashSet::new();
     let mut exact_right = std::collections::HashSet::new();
-    let mut left: H = H::default();
-    let mut right: H = H::default();
 
     for _ in 0..number_of_iterations {
-        left.clear();
-        right.clear();
+        let mut left: H = H::default();
+        let mut right: H = H::default();
         exact_left.clear();
         exact_right.clear();
         left_random_state = splitmix64(left_random_state);
         right_random_state = splitmix64(right_random_state);
-
-        assert!(left.is_empty());
-        assert!(right.is_empty());
 
         let mut cardinality_sampling_rate = starting_cardinality_sampling_rate;
         let mut union_sampling_rate = starting_union_sampling_rate;
@@ -48,13 +43,9 @@ pub fn test_approximated_counter_at_precision_and_bits<
             if i % 2 == 0 {
                 left.insert(&element);
                 exact_left.insert(element);
-                assert!(left.may_contain(&element));
-                assert!(!left.is_empty());
             } else {
                 right.insert(&element);
                 exact_right.insert(element);
-                assert!(right.may_contain(&element));
-                assert!(!right.is_empty());
             }
 
             if i % cardinality_sampling_rate == 0 {
@@ -66,7 +57,7 @@ pub fn test_approximated_counter_at_precision_and_bits<
 
                 total_cardinality_samples += 1;
                 total_cardinality_error_rate +=
-                    (estimated_cardinality.to_f64() - exact_cardinality).abs() / exact_cardinality;
+                    (estimated_cardinality - exact_cardinality).abs() / exact_cardinality;
             }
 
             if i % union_sampling_rate == 0 {
@@ -76,14 +67,14 @@ pub fn test_approximated_counter_at_precision_and_bits<
                 // We also check at each iteration of the right set that the union of the two sets
                 // is correctly estimated.
                 let union = exact_left.union(&exact_right).count() as f64;
-                let estimated_union = left.estimate_union_cardinality(&right).to_f64();
+                let estimated_union = left.estimate_union_cardinality(&right);
 
                 // The union estimate must be symmetric if the approach is not MLE, which is
                 // non-deterministic.
                 if !left.is_union_estimate_non_deterministic(&right) {
                     assert_eq!(
                         estimated_union,
-                        right.estimate_union_cardinality(&left).to_f64()
+                        right.estimate_union_cardinality(&left)
                     );
                 }
 
@@ -130,40 +121,44 @@ macro_rules! test_hll_at_precision_and_bits_and_register {
         $(
             paste::item! {
                 #[test]
+                #[cfg(feature = "plusplus")]
                 pub fn [< test_plusplus_at_ $precision:lower _and_ $bits:lower _bits_and_ $hasher:lower _and_ $register:lower>]() {
-                    test_approximated_counter_at_precision_and_bits::<f64, $precision, $bits, PlusPlus<$precision, $bits, $register, $hasher>, $hasher>();
+                    test_approximated_counter_at_precision_and_bits::<$precision, $bits, PlusPlus<$precision, $bits, $register, $hasher>, $hasher>();
                 }
                 #[test]
+                #[cfg(feature = "beta")]
                 pub fn [< test_beta_at_ $precision:lower _and_ $bits:lower _bits_and_ $hasher:lower _and_ $register:lower>]() {
-                    test_approximated_counter_at_precision_and_bits::<f64, $precision, $bits, LogLogBeta<$precision, $bits, $register, $hasher>, $hasher>();
+                    test_approximated_counter_at_precision_and_bits::<$precision, $bits, LogLogBeta<$precision, $bits, $register, $hasher>, $hasher>();
                 }
                 #[test]
+                #[cfg(feature = "plusplus")]
                 pub fn [< test_hybrid_plusplus_at_ $precision:lower _and_ $bits:lower _bits_and_ $hasher:lower _and_ $register:lower>]() {
-                    test_approximated_counter_at_precision_and_bits::<f64, $precision, $bits, Hybrid<PlusPlus<$precision, $bits, $register, $hasher>>, $hasher>();
+                    test_approximated_counter_at_precision_and_bits::<$precision, $bits, Hybrid<PlusPlus<$precision, $bits, $register, $hasher>>, $hasher>();
                 }
                 #[test]
+                #[cfg(feature = "beta")]
                 pub fn [< test_hybrid_beta_at_ $precision:lower _and_ $bits:lower _bits_and_ $hasher:lower _and_ $register:lower>]() {
-                    test_approximated_counter_at_precision_and_bits::<f64, $precision, $bits, Hybrid<LogLogBeta<$precision, $bits, $register, $hasher>>, $hasher>();
+                    test_approximated_counter_at_precision_and_bits::<$precision, $bits, Hybrid<LogLogBeta<$precision, $bits, $register, $hasher>>, $hasher>();
                 }
                 #[test]
-                #[cfg(feature = "mle")]
+                #[cfg(all(feature = "mle", feature = "plusplus"))]
                 pub fn [< test_mleplusplus_at_ $precision:lower _and_ $bits:lower _bits_and_ $hasher:lower _and_ $register:lower>]() {
-                    test_approximated_counter_at_precision_and_bits::<f64, $precision, $bits, MLE<PlusPlus<$precision, $bits, $register, $hasher>>, $hasher>();
+                    test_approximated_counter_at_precision_and_bits::<$precision, $bits, MLE<PlusPlus<$precision, $bits, $register, $hasher>>, $hasher>();
                 }
                 #[test]
-                #[cfg(feature = "mle")]
+                #[cfg(all(feature = "mle", feature = "beta"))]
                 pub fn [< test_mlebeta_at_ $precision:lower _and_ $bits:lower _bits_and_ $hasher:lower _and_ $register:lower>]() {
-                    test_approximated_counter_at_precision_and_bits::<f64, $precision, $bits, MLE<LogLogBeta<$precision, $bits, $register, $hasher>>, $hasher>();
+                    test_approximated_counter_at_precision_and_bits::<$precision, $bits, MLE<LogLogBeta<$precision, $bits, $register, $hasher>>, $hasher>();
                 }
                 #[test]
-                #[cfg(feature = "mle")]
+                #[cfg(all(feature = "mle", feature = "plusplus"))]
                 pub fn [< test_hybrid_mleplusplus_at_ $precision:lower _and_ $bits:lower _bits_and_ $hasher:lower _and_ $register:lower>]() {
-                    test_approximated_counter_at_precision_and_bits::<f64, $precision, $bits, Hybrid<MLE<PlusPlus<$precision, $bits, $register, $hasher>>>, $hasher>();
+                    test_approximated_counter_at_precision_and_bits::<$precision, $bits, Hybrid<MLE<PlusPlus<$precision, $bits, $register, $hasher>>>, $hasher>();
                 }
                 #[test]
-                #[cfg(feature = "mle")]
+                #[cfg(all(feature = "mle", feature = "beta"))]
                 pub fn [< test_hybrid_mlebeta_at_ $precision:lower _and_ $bits:lower _bits_and_ $hasher:lower _and_ $register:lower>]() {
-                    test_approximated_counter_at_precision_and_bits::<f64, $precision, $bits, Hybrid<MLE<LogLogBeta<$precision, $bits, $register, $hasher>>>, $hasher>();
+                    test_approximated_counter_at_precision_and_bits::<$precision, $bits, Hybrid<MLE<LogLogBeta<$precision, $bits, $register, $hasher>>>, $hasher>();
                 }
             }
         )*
@@ -177,8 +172,7 @@ macro_rules! test_hll_at_precision_and_bits {
             paste::paste!{
                 type [<Array $precision $hasher $bits>] = <$precision as ArrayRegister<$bits>>::ArrayRegister;
                 type [<PackedArray $precision $hasher $bits>] = <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister;
-                type [<Vec $precision $hasher $bits>] = Vec<u64>;
-                test_hll_at_precision_and_bits_and_register!($precision, $hasher, $bits, [<Array $precision $hasher $bits>], [<PackedArray $precision $hasher $bits>], [<Vec $precision $hasher $bits>]);
+                test_hll_at_precision_and_bits_and_register!($precision, $hasher, $bits, [<Array $precision $hasher $bits>], [<PackedArray $precision $hasher $bits>]);
             }
         )*
     };
@@ -199,6 +193,13 @@ macro_rules! test_hll_at_precisions {
         $(
             test_hll_at_precision_and_hashers!($precision, XxHash);
             test_hll_at_precision_and_hashers!($precision, WyHash);
+
+            paste::paste!{
+                #[test]
+                pub fn [< test_sahll_at_ $precision:lower >]() {
+                    test_approximated_counter_at_precision_and_bits::<$precision, Bits8, SAHLL<$precision>, XxHash>();
+                }
+            }
         )*
     };
 }

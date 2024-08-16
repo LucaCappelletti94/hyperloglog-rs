@@ -9,14 +9,52 @@
 //! it will also make it slower, as we need to perform more operations to extract the registers from the
 //! packed array, expecially in the case of bridge registers, i.e. registers that span two words.
 
-use super::*;
+use super::{
+    extract_register_from_word, Bits, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6, Bits7, Bits8,
+    Debug, Float, Number, One, Precision, RegisterWord, Registers, WordLike, Words, Zero,
+};
 
-#[inline(always)]
+#[cfg(feature = "precision_4")]
+use crate::prelude::Precision4;
+#[cfg(feature = "precision_5")]
+use crate::prelude::Precision5;
+#[cfg(feature = "precision_6")]
+use crate::prelude::Precision6;
+#[cfg(feature = "precision_7")]
+use crate::prelude::Precision7;
+#[cfg(feature = "precision_8")]
+use crate::prelude::Precision8;
+#[cfg(feature = "precision_9")]
+use crate::prelude::Precision9;
+#[cfg(feature = "precision_10")]
+use crate::prelude::Precision10;
+#[cfg(feature = "precision_11")]
+use crate::prelude::Precision11;
+#[cfg(feature = "precision_12")]
+use crate::prelude::Precision12;
+#[cfg(feature = "precision_13")]
+use crate::prelude::Precision13;
+#[cfg(feature = "precision_14")]
+use crate::prelude::Precision14;
+#[cfg(feature = "precision_15")]
+use crate::prelude::Precision15;
+#[cfg(feature = "precision_16")]
+use crate::prelude::Precision16;
+#[cfg(feature = "precision_17")]
+use crate::prelude::Precision17;
+#[cfg(feature = "precision_18")]
+use crate::prelude::Precision18;
+
+
 fn extract_bridge_register_from_word<B: Bits, const N: usize, W: WordLike + RegisterWord<B>>(
     lower_word: [W; N],
     upper_word: [W; N],
     offset: u8,
-) -> [u8; N]  where u8: TryFrom<W>, <u8 as TryFrom<W>>::Error: core::fmt::Debug {
+) -> [u8; N]
+where
+    u8: TryFrom<W>,
+    <u8 as TryFrom<W>>::Error: core::fmt::Debug,
+{
     debug_assert!(
         offset + B::NUMBER_OF_BITS > W::NUMBER_OF_BITS,
         "Offset + bits ({} + {}) should be greater than {}",
@@ -41,12 +79,14 @@ fn extract_bridge_register_from_word<B: Bits, const N: usize, W: WordLike + Regi
             lower_word[i] >> offset
         };
         let upper_register = upper_word[i] & upper_register_mask;
-        registers[i] = u8::try_from((upper_register << number_of_bits_in_lower_register) | lower_register).unwrap();
+        registers[i] =
+            u8::try_from((upper_register << number_of_bits_in_lower_register) | lower_register)
+                .unwrap();
     }
     registers
 }
 
-pub struct PackedArrayRegisterIter<'a, P: Precision, B: Bits, R: Registers<P, B> + Words>
+pub struct RegisterIter<'a, P: Precision, B: Bits, R: Registers<P, B> + Words>
 where
     R: 'a,
 {
@@ -62,12 +102,12 @@ where
     _phantom: core::marker::PhantomData<(P, B, R)>,
 }
 
-/// New constructor for PackedArrayRegisterIter.
-impl<'a, P: Precision, B: Bits, R: Registers<P, B> + Words> PackedArrayRegisterIter<'a, P, B, R>
+/// New constructor for [`RegisterIter`].
+impl<'a, P: Precision, B: Bits, R: Registers<P, B> + Words> RegisterIter<'a, P, B, R>
 where
     R: 'a,
 {
-    pub fn new(registers: &'a R) -> Self {
+    fn new(registers: &'a R) -> Self {
         let mut words = registers.words();
         let current_word = words.next();
         Self {
@@ -80,9 +120,9 @@ where
     }
 }
 
-/// Implementation of the Iterator trait for PackedArrayRegisterIter.
+/// Implementation of the Iterator trait for [`RegisterIter`].
 impl<'a, P: Precision, B: Bits, R: Registers<P, B> + Words<Word = u64>> Iterator
-    for PackedArrayRegisterIter<'a, P, B, R>
+    for RegisterIter<'a, P, B, R>
 where
     R: 'a,
     R::Word: RegisterWord<B>,
@@ -122,12 +162,8 @@ where
     }
 }
 
-pub struct PackedArrayRegisterTupleIter<
-    'a,
-    P: Precision,
-    B: Bits,
-    R: Registers<P, B> + Words<Word = u64>,
-> where
+pub struct RegisterTupleIter<'a, P: Precision, B: Bits, R: Registers<P, B> + Words<Word = u64>>
+where
     R: 'a,
 {
     current_register: P::NumberOfRegisters,
@@ -138,9 +174,9 @@ pub struct PackedArrayRegisterTupleIter<
     _phantom: core::marker::PhantomData<(P, B, R)>,
 }
 
-/// Constructor for PackedArrayRegisterTupleIter.
+/// Constructor for [`RegisterTupleIter`].
 impl<'a, P: Precision, B: Bits, R: Registers<P, B> + Words<Word = u64>>
-    PackedArrayRegisterTupleIter<'a, P, B, R>
+    RegisterTupleIter<'a, P, B, R>
 {
     pub fn new(left: &'a R, right: &'a R) -> Self {
         let mut left = left.words();
@@ -157,9 +193,9 @@ impl<'a, P: Precision, B: Bits, R: Registers<P, B> + Words<Word = u64>>
     }
 }
 
-/// Implementation of the Iterator trait for PackedArrayRegisterTupleIter.
+/// Implementation of the Iterator trait for [`RegisterTupleIter`].
 impl<'a, P: Precision, B: Bits, R: Registers<P, B> + Words<Word = u64>> Iterator
-    for PackedArrayRegisterTupleIter<'a, P, B, R>
+    for RegisterTupleIter<'a, P, B, R>
 where
     R::Word: RegisterWord<B>,
 {
@@ -180,10 +216,7 @@ where
                     self.word_offset,
                 );
                 self.word_offset += B::NUMBER_OF_BITS;
-                return (
-                    u8::try_from(left_register).unwrap(),
-                    u8::try_from(right_register).unwrap(),
-                );
+                return (left_register, right_register);
             }
             // Otherwise, we need to extract the register from the bridge between the current word
             // and the next one. Since we are guaranteed that the current word is not the last one,
@@ -198,7 +231,7 @@ where
 
             self.word_offset = B::NUMBER_OF_BITS - (R::Word::NUMBER_OF_BITS - self.word_offset);
 
-            (u8::try_from(left_register).unwrap(), u8::try_from(right_register).unwrap())
+            (left_register, right_register)
         })
     }
 }
@@ -210,8 +243,8 @@ pub struct PackedArray<W, const N: usize> {
     words: [W; N],
 }
 
-impl<const N: usize, W> Named for PackedArray<W, N>
-{
+#[cfg(feature = "std")]
+impl<const N: usize, W> crate::prelude::Named for PackedArray<W, N> {
     fn name(&self) -> String {
         "PackedArray".to_string()
     }
@@ -252,12 +285,19 @@ pub trait PackedArrayRegister<B: Bits>: Precision {
     type PackedArrayRegister: Registers<Self, B>;
 }
 
-fn split_packed_index<P: Precision, B: Bits>(index: P::NumberOfRegisters) -> (usize, u8) where u64: RegisterWord<B> {
+fn split_packed_index<P: Precision, B: Bits>(index: P::NumberOfRegisters) -> (usize, u8)
+where
+    u64: RegisterWord<B>,
+{
     let number_of_bits: u64 = B::NUMBER_OF_BITS.into();
     let absolute_register_offset: u64 = number_of_bits * index.into();
     let word_position: u64 = absolute_register_offset / 64;
-    let relative_register_offset = u8::try_from(absolute_register_offset - word_position * 64).unwrap();
-    (usize::try_from(word_position).unwrap(), relative_register_offset)
+    let relative_register_offset =
+        u8::try_from(absolute_register_offset - word_position * 64).unwrap();
+    (
+        usize::try_from(word_position).unwrap(),
+        relative_register_offset,
+    )
 }
 
 macro_rules! impl_packed_array_register_for_precision_and_bits {
@@ -271,8 +311,8 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
 
                 #[cfg(feature = "precision_" $exponent)]
                 impl Registers<[<Precision $exponent>], [<Bits $bits>]> for PackedArray<u64, {crate::utils::ceil(usize::pow(2, $exponent) * $bits, 64)}> {
-                    type Iter<'a> = PackedArrayRegisterIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>;
-                    type IterZipped<'a> = PackedArrayRegisterTupleIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>
+                    type Iter<'a> = RegisterIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>;
+                    type IterZipped<'a> = RegisterTupleIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>
                         where
                             Self: 'a;
 
@@ -281,20 +321,19 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                     }
 
                     fn iter_registers(&self) -> Self::Iter<'_> {
-                        PackedArrayRegisterIter::new(self)
+                        RegisterIter::new(self)
                     }
 
                     fn iter_registers_zipped<'a>(&'a self, other: &'a Self) -> Self::IterZipped<'a>{
-                        PackedArrayRegisterTupleIter::new(self, other)
+                        RegisterTupleIter::new(self, other)
                     }
 
-                    fn get_harmonic_sum_and_zeros<F: Float>(
+                    fn get_harmonic_sum_and_zeros(
                         &self,
                         other: &Self,
-                    ) -> (F, <[<Precision $exponent>] as Precision>::NumberOfRegisters)
-                    where
-                    [<Precision $exponent>]: PrecisionConstants<F> {
-                        let mut harmonic_sum = F::ZERO;
+                    ) -> (f64, <[<Precision $exponent>] as Precision>::NumberOfRegisters)
+                    {
+                        let mut harmonic_sum = f64::ZERO;
                         let mut union_zeros = <[<Precision $exponent>] as Precision>::NumberOfRegisters::ZERO;
 
                         let mut word_offset = 0;
@@ -321,7 +360,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                             };
                             number_of_registers += 1;
                             let max_register = core::cmp::max(left_register, right_register);
-                            harmonic_sum += F::exp2_minus(max_register);
+                            harmonic_sum += f64::integer_exp2_minus(max_register);
                             union_zeros += <[<Precision $exponent>] as Precision>::NumberOfRegisters::from_bool(max_register.is_zero());
                         }
 
@@ -365,7 +404,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                     #[inline(always)]
                     fn set_greater(&mut self, index: <[<Precision $exponent>] as Precision>::NumberOfRegisters, new_register: u8) -> (u8, u8) {
                         debug_assert!(index < [<Precision $exponent>]::NUMBER_OF_REGISTERS);
-                        debug_assert!(new_register < 1 << [<Bits $bits>]::NUMBER_OF_BITS);
+                        debug_assert!(new_register <= u8::try_from(<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK).unwrap());
 
                         let (word_position, relative_register_offset) = split_packed_index::<[<Precision $exponent>], [<Bits $bits>]>(index);
 

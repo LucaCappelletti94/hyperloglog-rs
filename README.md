@@ -6,8 +6,8 @@
 [![Latest version](https://img.shields.io/crates/v/hyperloglog-rs.svg)](https://crates.io/crates/hyperloglog-rs)
 [![Documentation](https://docs.rs/hyperloglog-rs/badge.svg)](https://docs.rs/hyperloglog-rs)
 
-This is a Rust library that provides an implementation of the HyperLogLog (HLL) algorithm, trying to be parsimonious with memory.
-It also provides an implementation based on the MLE algorithm, which is a more accurate version of the HyperLogLog algorithm but is slower.
+This is a Rust library that provides an implementation of the `HyperLogLog` (HLL) algorithm, trying to be parsimonious with memory.
+It also provides an implementation based on the MLE algorithm, which is a more accurate version of the `HyperLogLog` algorithm but is slower.
 
 You can use it to estimate the cardinality of large sets, and determine also the union and intersection of two sets.
 
@@ -35,26 +35,26 @@ hll2.insert(&3);
 
 let union = hll | hll2;
 
-let estimated_cardinality: f32 = union.estimate_cardinality();
+let estimated_cardinality: f64 = union.estimate_cardinality();
 assert!(
-estimated_cardinality >= 3.0_f32 * 0.9 &&
-estimated_cardinality <= 3.0_f32 * 1.1,
+estimated_cardinality >= 3.0_f64 * 0.9 &&
+estimated_cardinality <= 3.0_f64 * 1.1,
 "Expected cardinality to be around 3, got {}",
 estimated_cardinality
 );
 
-let intersection_cardinality: f32 = hll.estimate_intersection_cardinality(&hll2);
+let intersection_cardinality: f64 = hll.estimate_intersection_cardinality(&hll2);
 
 assert!(
-        intersection_cardinality >= 1.0_f32 * 0.9 &&
-        intersection_cardinality <= 1.0_f32 * 1.1,
+        intersection_cardinality >= 1.0_f64 * 0.9 &&
+        intersection_cardinality <= 1.0_f64 * 1.1,
         "Expected intersection cardinality to be around 1, got {}",
         intersection_cardinality
 );
 ```
 
 ### Using MLE estimation
-The [MLE estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github.io/hyperloglog-sketch-estimation-paper/paper/paper.pdf) provides a more accurate estimation of the cardinality of a set, but it is slower than the standard HyperLogLog algorithm. Here is an example of how to use it:
+The [MLE estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github.io/hyperloglog-sketch-estimation-paper/paper/paper.pdf) provides a more accurate estimation of the cardinality of a set, but it is slower than the standard `HyperLogLog` algorithm. Here is an example of how to use it:
 
 ```rust
 #[cfg(feature = "mle")]
@@ -73,19 +73,19 @@ The [MLE estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github
         hll2.insert(&3);
         hll2.insert(&4);
 
-        let estimated_cardinality: f32 = hll1.estimate_cardinality();
+        let estimated_cardinality: f64 = hll1.estimate_cardinality();
         assert!(
-                estimated_cardinality >= 3.0_f32 * 0.9 &&
-                estimated_cardinality <= 3.0_f32 * 1.1,
+                estimated_cardinality >= 3.0_f64 * 0.9 &&
+                estimated_cardinality <= 3.0_f64 * 1.1,
                 "MLE: Expected cardinality to be around 3, got {}",
                 estimated_cardinality
         );
 
-        let estimate_intersection_cardinality: f32 = hll1.estimate_intersection_cardinality(&hll2);
+        let estimate_intersection_cardinality: f64 = hll1.estimate_intersection_cardinality(&hll2);
 
         assert!(
-                estimate_intersection_cardinality >= 2.0_f32 * 0.9 &&
-                estimate_intersection_cardinality <= 2.0_f32 * 1.1,
+                estimate_intersection_cardinality >= 2.0_f64 * 0.9 &&
+                estimate_intersection_cardinality <= 2.0_f64 * 1.1,
                 "MLE: Expected intersection cardinality to be around 2, got {}",
                 estimate_intersection_cardinality
         );

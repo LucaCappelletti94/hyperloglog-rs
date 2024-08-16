@@ -1,5 +1,5 @@
 use cardinality_estimator::CardinalityEstimator;
-use hyperloglog_rs::prelude::*;
+use hyperloglog_rs::prelude::{HasherType, Precision, Estimator, ExtendableApproximatedSet};
 use hyperloglogplus::HyperLogLog as TabacHyperLogLog;
 use hyperloglogplus::HyperLogLogPF as TabacHyperLogLogPF;
 use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
@@ -51,7 +51,7 @@ impl<P: Precision> Default for SourMash<P> {
             // Since to the best of my knowledge SourMash does not actually use the ksize
             // parameter, we set it to a preposterously large value to ensure that errors
             // will be very apparent if it is used.
-            estimator: SourMashHyperLogLog::new(P::EXPONENT, usize::MAX).unwrap(),
+            estimator: SourMashHyperLogLog::new(P::EXPONENT as usize, usize::MAX).unwrap(),
             _precision: PhantomData,
         }
     }
@@ -125,13 +125,15 @@ impl<P: Precision> Default for SAHLL<P> {
     }
 }
 
-impl<const P: usize> Named for SimpleHLL<P> {
+#[cfg(feature = "std")]
+impl<const P: usize> hyperloglog_rs::prelude::Named for SimpleHLL<P> {
     fn name(&self) -> String {
         format!("SHLL<P{}, B8, Vec>", P)
     }
 }
 
-impl<S: hypertwobits::h2b::Sketch> Named for HyperTwoBits<S> {
+#[cfg(feature = "std")]
+impl<S: hypertwobits::h2b::Sketch> hyperloglog_rs::prelude::Named for HyperTwoBits<S> {
     fn name(&self) -> String {
         format!(
             "H2B<{}>",
@@ -140,7 +142,8 @@ impl<S: hypertwobits::h2b::Sketch> Named for HyperTwoBits<S> {
     }
 }
 
-impl<S: hypertwobits::h3b::Sketch> Named for HyperThreeBits<S> {
+#[cfg(feature = "std")]
+impl<S: hypertwobits::h3b::Sketch> hyperloglog_rs::prelude::Named for HyperThreeBits<S> {
     fn name(&self) -> String {
         format!(
             "H3B<{}>",
@@ -149,13 +152,15 @@ impl<S: hypertwobits::h3b::Sketch> Named for HyperThreeBits<S> {
     }
 }
 
-impl<P: Precision> Named for SourMash<P> {
+#[cfg(feature = "std")]
+impl<P: Precision> hyperloglog_rs::prelude::Named for SourMash<P> {
     fn name(&self) -> String {
         format!("SM<P{}, B8, Vec>", P::EXPONENT)
     }
 }
 
-impl<H: HasherType, const P: usize, const B: usize> Named for CloudFlareHLL<P, B, H> {
+#[cfg(feature = "std")]
+impl<H: HasherType, const P: usize, const B: usize> hyperloglog_rs::prelude::Named for CloudFlareHLL<P, B, H> {
     fn name(&self) -> String {
         format!(
             "CF<P{}, B{}, Mix> + {}",
@@ -166,25 +171,29 @@ impl<H: HasherType, const P: usize, const B: usize> Named for CloudFlareHLL<P, B
     }
 }
 
-impl<P: Precision> Named for RustHLL<P> {
+#[cfg(feature = "std")]
+impl<P: Precision> hyperloglog_rs::prelude::Named for RustHLL<P> {
     fn name(&self) -> String {
         format!("FrankPP<P{}, B8, Vec> + SipHasher13", P::EXPONENT)
     }
 }
 
-impl<P: Precision> Named for TabacHLLPlusPlus<P> {
+#[cfg(feature = "std")]
+impl<P: Precision> hyperloglog_rs::prelude::Named for TabacHLLPlusPlus<P> {
     fn name(&self) -> String {
         format!("TabacPP<P{}, B6, Vec> + XxHash64", P::EXPONENT)
     }
 }
 
-impl<P: Precision> Named for TabacHLL<P> {
+#[cfg(feature = "std")]
+impl<P: Precision> hyperloglog_rs::prelude::Named for TabacHLL<P> {
     fn name(&self) -> String {
         format!("Tabac<P{}, B6, Vec> + XxHash64", P::EXPONENT)
     }
 }
 
-impl<P: Precision> Named for SAHLL<P> {
+#[cfg(feature = "std")]
+impl<P: Precision> hyperloglog_rs::prelude::Named for SAHLL<P> {
     fn name(&self) -> String {
         assert_eq!(P::EXPONENT as u8, self.estimator.precision());
 
@@ -287,7 +296,7 @@ impl<H: HasherType, const P: usize, const B: usize> Estimator<f64> for CloudFlar
     }
 
     fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
+        true
     }
 }
 

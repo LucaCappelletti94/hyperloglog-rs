@@ -1,7 +1,7 @@
-//! The `hyperloglog` module contains the `HyperLogLog` trait that defines the interface for HyperLogLog counters.
+//! The `hyperloglog` module contains the [`HyperLogLog`] trait that defines the interface for [`HyperLogLog`] counters.
 use crate::prelude::*;
 
-/// Trait for HyperLogLog counters.
+/// Trait for [`HyperLogLog`] counters.
 pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Default>:
     Sized
     + Default
@@ -14,16 +14,14 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
     + SetProperties
     + MutableSet
 {
-    /// The type of the registers of the HyperLogLog counter.
+    /// The type of the registers of the [`HyperLogLog`] counter.
     type Registers: Registers<P, B>;
 
-    /// Returns a reference to the registers of the HyperLogLog counter.
+    /// Returns a reference to the registers of the [`HyperLogLog`] counter.
     fn registers(&self) -> &Self::Registers;
 
     /// Returns the harmonic sum of the registers.
-    fn harmonic_sum<F: Float>(&self) -> F
-    where
-        P: PrecisionConstants<F>;
+    fn harmonic_sum(&self) -> f64;
 
     /// Returns the number of registers with zero values. This value is used for computing a small
     /// correction when estimating the cardinality of a small set.
@@ -31,7 +29,9 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
     /// # Examples
     ///
     /// ```
-    /// # use hyperloglog_rs::prelude::*;
+    /// #[cfg(feature = "beta")]
+    /// {
+    ///  use hyperloglog_rs::prelude::*;
     ///
     /// // Create a new HyperLogLog counter with precision 14 and 5 bits per register.
     /// let mut hll = LogLogBeta::<
@@ -49,14 +49,14 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
     /// let number_of_zero_registers = hll.get_number_of_zero_registers();
     ///
     /// assert_eq!(number_of_zero_registers, 61);
+    /// }
     /// ```
     fn get_number_of_zero_registers(&self) -> P::NumberOfRegisters;
 
-    #[inline(always)]
-    /// Returns whether the provided HyperLogLog counter may be fully contained in the current HyperLogLog counter.
+    /// Returns whether the provided [`HyperLogLog`] counter may be fully contained in the current [`HyperLogLog`] counter.
     ///
     /// # Arguments
-    /// * `rhs` - The HyperLogLog counter to check.
+    /// * `rhs` - The [`HyperLogLog`] counter to check.
     ///
     /// # Implementative details
     /// We define a counter that fully contains another counter when all of the registers
@@ -93,7 +93,7 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
             .all(|(lhs, rhs)| lhs >= rhs)
     }
 
-    #[inline(always)]
+    #[must_use]
     /// Slits the hash into two parts: the register value and the index of the register.
     fn split_hash(hash: u64) -> (u8, P::NumberOfRegisters) {
         let index: P::NumberOfRegisters = P::NumberOfRegisters::try_from_u64(
@@ -124,7 +124,6 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
         (register_value, index)
     }
 
-    #[inline(always)]
     /// Hashes the element and returns the register value and the index of the register.
     fn hash_and_index<T: core::hash::Hash>(element: &T) -> (u8, P::NumberOfRegisters) {
         let mut hasher = Hasher::default();
@@ -137,6 +136,6 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
     /// Return the value of the register at the given index.
     fn get_register(&self, index: P::NumberOfRegisters) -> u8;
 
-    /// Create a new HyperLogLog counter from an array of registers.
+    /// Create a new [`HyperLogLog`] counter from an array of registers.
     fn from_registers(registers: Self::Registers) -> Self;
 }

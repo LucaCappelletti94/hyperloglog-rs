@@ -75,7 +75,7 @@ fn get_random_hyper_spheres_hll<
 fn test_hyper_spheres_sketch<Hasher, P, B, H, const L: usize, const R: usize>()
 where
     Hasher: Default + core::hash::Hasher,
-    P: Precision + PrecisionConstants<f64>,
+    P: Precision,
     B: Bits,
     H: Copy + Default + Estimator<f64> + ExtendableApproximatedSet<usize>,
     [HashSet<usize>; L]: Default,

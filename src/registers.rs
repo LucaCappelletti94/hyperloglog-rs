@@ -3,15 +3,14 @@
 use core::fmt::Debug;
 
 use crate::prelude::*;
-use crate::utils::*;
+use crate::utils::{Float, Number, One, RegisterWord, WordLike, Words, Zero};
 mod array;
 mod packed_array;
 
 pub use array::ArrayRegister;
 pub use packed_array::{PackedArray, PackedArrayRegister};
 
-#[inline(always)]
-pub(self) fn extract_register_from_word<B: Bits, const N: usize, W: WordLike + RegisterWord<B>>(
+fn extract_register_from_word<B: Bits, const N: usize, W: WordLike + RegisterWord<B>>(
     word: [W; N],
     offset: u8,
 ) -> [u8; N] where u8: TryFrom<W>, <u8 as TryFrom<W>>::Error: core::fmt::Debug {
@@ -25,7 +24,7 @@ pub(self) fn extract_register_from_word<B: Bits, const N: usize, W: WordLike + R
 
 /// Trait marker for the registers.
 pub trait Registers<P: Precision, B: Bits>:
-    Eq + PartialEq + Clone + Debug + Send + Sync + Named
+    Eq + PartialEq + Clone + Debug + Send + Sync
 {
     /// Iterator over the registers.
     type Iter<'a>: Iterator<Item = u8>
@@ -44,9 +43,7 @@ pub trait Registers<P: Precision, B: Bits>:
     fn iter_registers_zipped<'a>(&'a self, other: &'a Self) -> Self::IterZipped<'a>;
 
     /// Returns the harmonic sum of the maximum value of the registers and the number of zero registers.
-    fn get_harmonic_sum_and_zeros<F: Float>(&self, other: &Self) -> (F, P::NumberOfRegisters)
-    where
-        P: PrecisionConstants<F>;
+    fn get_harmonic_sum_and_zeros(&self, other: &Self) -> (f64, P::NumberOfRegisters);
 
     /// Applies a function to each register.
     fn apply<F>(&mut self, f: F)
@@ -78,6 +75,7 @@ pub trait Registers<P: Precision, B: Bits>:
 mod tests {
     use super::*;
 
+    #[cfg(feature = "std")]
     fn test_register_iterator<P: Precision, B: Bits, R: Registers<P, B>>() {
         let mut registers = R::zeroed();
         let collected_values = registers.iter_registers().collect::<Vec<_>>();
@@ -107,6 +105,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "std")]
     fn test_registers_self_consistency<
         P: Precision + ArrayRegister<B> + PackedArrayRegister<B>,
         B: Bits,
@@ -166,16 +165,19 @@ mod tests {
             $(
                 paste::item! {
                     #[test]
+                    #[cfg(feature = "std")]
                     fn [< test_registers_self_consistency_ $precision:lower _and_ $bits:lower _bits >]() {
                         test_registers_self_consistency::<$precision, $bits>();
                     }
 
                     #[test]
+                    #[cfg(feature = "std")]
                     fn [< test_array_register_iterator_ $precision:lower _and_ $bits:lower _bits >]() {
                         test_register_iterator::<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>();
                     }
 
                     #[test]
+                    #[cfg(feature = "std")]
                     fn [< test_packed_array_register_iterator_ $precision:lower _and_ $bits:lower _bits >]() {
                         test_register_iterator::<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister>();
                     }

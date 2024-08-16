@@ -6,7 +6,7 @@
 
 use core::fmt::Debug;
 
-use crate::{prelude::Named, utils::*};
+use crate::utils::{Five, Float, Number, One, PositiveInteger};
 
 include!(concat!(env!("OUT_DIR"), "/alpha_values.rs"));
 include!(concat!(env!("OUT_DIR"), "/number_of_registers.rs"));
@@ -34,7 +34,10 @@ fn kmeans_bias<const N: usize, V: PartialOrd + Number, W: Number>(
     estimates: &'static [V; N],
     biases: &'static [W; N],
     estimate: V,
-) -> f32 {
+) -> f64
+where
+    f64: From<W>,
+{
     let index = estimates.partition_point(|a| a <= &estimate).max(1) - 1;
 
     let mut min = if index > 6 { index - 6 } else { 0 };
@@ -48,46 +51,45 @@ fn kmeans_bias<const N: usize, V: PartialOrd + Number, W: Number>(
             max -= 1;
         }
     }
-    biases[min..max]
-        .iter()
-        .map(|bias| bias.to_f32())
-        .sum::<f32>()
-        / 6.0_f32
+    biases[min..max].iter().map(|b| f64::from(*b)).sum::<f64>() / 6.0
 }
 
 #[cfg(feature = "plusplus")]
-fn bias<const N: usize, V: PartialOrd + Number, W: Number, F: Float>(
+fn bias<const N: usize, V: PartialOrd + Number, W: Number>(
     estimates: &'static [V; N],
     biases: &'static [W; N],
     estimate: V,
-) -> F {
+) -> f64
+where
+    f64: From<V> + From<W>,
+{
     #[cfg(feature = "plusplus_kmeans")]
-    return F::from_f32(kmeans_bias(estimates, biases, estimate));
+    return kmeans_bias(estimates, biases, estimate);
 
     #[cfg(not(feature = "plusplus_kmeans"))]
     return {
         let index = estimates.partition_point(|a| a <= &estimate);
 
         if index == 0 {
-            return F::from_f32(biases[0].to_f32());
+            return f64::from(biases[0]);
         }
 
         if index == N {
-            return F::from_f32(biases[N - 1].to_f32());
+            return f64::from(biases[N - 1]);
         }
 
-        let x0 = estimates[index - 1].to_f32();
-        let x1 = estimates[index].to_f32();
+        let x0 = f64::from(estimates[index - 1]);
+        let x1 = f64::from(estimates[index]);
 
-        let y0 = biases[index - 1].to_f32();
-        let y1 = biases[index].to_f32();
+        let y0 = f64::from(biases[index - 1]);
+        let y1 = f64::from(biases[index]);
 
-        F::from_f32(y0 + (y1 - y0) * (estimate.to_f32() - x0) / (x1 - x0))
+        y0 + (y1 - y0) * (f64::from(estimate) - x0) / (x1 - x0)
     };
 }
 
-/// The precision of the HyperLogLog counter.
-pub trait Precision: Default + Copy + Eq + Debug + Send + Sync + Named {
+/// The precision of the [`HyperLogLog`] counter.
+pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     /// The data type to use for the number of zeros registers counter.
     /// This should be the smallest possinle data type that allows us to count
     /// all the registers without overflowing. We can tollerate a one-off error
@@ -95,22 +97,19 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync + Named {
     /// the cardinality as it is known before hand whether this can happen at all.
     type NumberOfRegisters: PositiveInteger;
     /// The exponent of the number of registers, meaning the number of registers
-    /// that will be used is 2^EXPONENT. This is the p parameter in the HyperLogLog.
+    /// that will be used is 2^EXPONENT. This is the p parameter in the [`HyperLogLog`].
     const EXPONENT: u8;
     /// The number of registers that will be used.
     const NUMBER_OF_REGISTERS: Self::NumberOfRegisters;
 
+    #[must_use]
     /// The theoretical error rate of the precision.
     fn error_rate() -> f64 {
-        let exponent = (Self::EXPONENT as f64) / 2.0;
-        1.04 / 2f64.powf(exponent)
+        1.04 / 2f64.powf(f64::from(Self::EXPONENT) / 2.0)
     }
-}
 
-/// The precision constants for the HyperLogLog counter.
-pub trait PrecisionConstants<F: Float>: Precision {
     /// The alpha constant for the precision, used in the estimation of the cardinality.
-    const ALPHA: F;
+    const ALPHA: f64;
 
     #[cfg(feature = "plusplus")]
     /// The number of zero registers over which the counter should switch to the linear counting.
@@ -119,32 +118,30 @@ pub trait PrecisionConstants<F: Float>: Precision {
     #[cfg(feature = "beta")]
     /// Computes LogLog-Beta estimate bias correction using Horner's method.
     ///
-    /// Paper: https://arxiv.org/pdf/1612.02284.pdf
-    /// Wikipedia: https://en.wikipedia.org/wiki/Horner%27s_method
-    fn beta_estimate(harmonic_sum: F, number_of_zero_registers: Self::NumberOfRegisters) -> F;
+    /// Paper: <https://arxiv.org/pdf/1612.02284.pdf>
+    /// Wikipedia: <https://en.wikipedia.org/wiki/Horner%27s_method>
+    fn beta_estimate(harmonic_sum: f64, number_of_zero_registers: Self::NumberOfRegisters) -> f64;
 
     #[cfg(feature = "plusplus")]
     /// Computes the small correction factor for the estimate.
-    fn small_correction(number_of_zero_registers: Self::NumberOfRegisters) -> F;
+    fn small_correction(number_of_zero_registers: Self::NumberOfRegisters) -> f64;
 
     /// Computes the bias correction factor for the estimate.
-    fn bias(estimate: F) -> F;
+    fn bias(estimate: f64) -> f64;
 
-    #[inline(always)]
     #[cfg(feature = "plusplus")]
-    /// Computes the estimate of the cardinality using the LogLog++ algorithm.
-    fn plusplus_estimate(harmonic_sum: F, number_of_zeros: Self::NumberOfRegisters) -> F {
+    /// Computes the estimate of the cardinality using the `LogLog++` algorithm.
+    fn plusplus_estimate(harmonic_sum: f64, number_of_zeros: Self::NumberOfRegisters) -> f64 {
         if number_of_zeros >= Self::LINEAR_COUNT_ZEROS {
             return Self::small_correction(number_of_zeros);
         }
 
-        let estimate = Self::ALPHA
-            * F::exp2(Self::EXPONENT + Self::EXPONENT)
-            / harmonic_sum;
+        let estimate =
+            Self::ALPHA * f64::integer_exp2(Self::EXPONENT + Self::EXPONENT) / harmonic_sum;
 
         // Apply the small range correction factor if the raw estimate is below the threshold
         // and there are zero registers in the counter.
-        if estimate <= F::FIVE * F::exp2(Self::EXPONENT) {
+        if estimate <= f64::FIVE * f64::integer_exp2(Self::EXPONENT) {
             estimate - Self::bias(estimate)
         } else {
             estimate
@@ -162,23 +159,27 @@ macro_rules! impl_precision {
             /// The precision of the HyperLogLog counter.
             pub struct [<Precision $exponent>];
 
-            #[cfg(feature = "precision_" $exponent)]
-            impl Named for [<Precision $exponent>] {
+            #[cfg(all(feature = "precision_" $exponent, feature = "std"))]
+            impl crate::prelude::Named for [<Precision $exponent>] {
                 fn name(&self) -> String {
                     format!("P{}", $exponent)
                 }
             }
 
             #[cfg(feature = "precision_" $exponent)]
-            impl PrecisionConstants<f32> for [<Precision $exponent>] {
-                const ALPHA: f32 = [<ALPHA_ $exponent>] as f32;
+            impl Precision for [<Precision $exponent>] {
+                type NumberOfRegisters = [<NumberOfRegisters $exponent>];
+                const EXPONENT: u8 = $exponent;
+                const NUMBER_OF_REGISTERS: Self::NumberOfRegisters = [<NumberOfRegisters $exponent>]::ONE << $exponent;
+                const ALPHA: f64 = [<ALPHA_ $exponent>];
 
                 #[cfg(feature = "plusplus")]
                 const LINEAR_COUNT_ZEROS: Self::NumberOfRegisters = [<LINEAR_COUNT_ZEROS_ $exponent>];
 
                 #[inline]
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                 #[cfg(feature = "plusplus")]
-                fn bias(estimate: f32) -> f32 {
+                fn bias(estimate: f64) -> f64 {
                     #[cfg(not(feature = "integer_plusplus"))]
                     return bias(
                         &[<ESTIMATES_ $exponent>],
@@ -189,39 +190,8 @@ macro_rules! impl_precision {
                     return bias(
                         &[<ESTIMATES_ $exponent>],
                         &[<BIAS_ $exponent>],
-                        estimate.to_u32()
+                        estimate as u32
                     );
-                }
-
-                /// Computes LogLog-Beta estimate bias correction using Horner's method.
-                ///
-                /// Paper: https://arxiv.org/pdf/1612.02284.pdf
-                /// Wikipedia: https://en.wikipedia.org/wiki/Horner%27s_method
-                #[inline]
-                #[cfg(feature = "beta")]
-                fn beta_estimate(harmonic_sum: f32, number_of_zero_registers: Self::NumberOfRegisters) -> f32 {
-                    <Self as PrecisionConstants<f64>>::beta_estimate(harmonic_sum as f64, number_of_zero_registers)
-                        as f32
-                }
-
-                #[inline(always)]
-                #[cfg(feature = "plusplus")]
-                fn small_correction(number_of_zero_registers: Self::NumberOfRegisters) -> f32 {
-                    <Self as PrecisionConstants<f64>>::small_correction(number_of_zero_registers) as f32
-                }
-            }
-
-            #[cfg(all(feature = "precision_" $exponent))]
-            impl PrecisionConstants<f64> for [<Precision $exponent>] {
-                const ALPHA: f64 = [<ALPHA_ $exponent>];
-
-                #[cfg(feature = "plusplus")]
-                const LINEAR_COUNT_ZEROS: Self::NumberOfRegisters = [<LINEAR_COUNT_ZEROS_ $exponent>];
-
-                #[inline]
-                #[cfg(feature = "plusplus")]
-                fn bias(estimate: f64) -> f64 {
-                    <Self as PrecisionConstants<f32>>::bias(estimate as f32) as f64
                 }
 
                 /// Computes LogLog-Beta estimate bias correction using Horner's method.
@@ -241,15 +211,15 @@ macro_rules! impl_precision {
                         for i in (1..8).rev() {
                             res = res * number_of_zero_registers_ln + [<BETA_ $exponent>][i];
                         }
-                        res * number_of_zero_registers_ln + [<BETA_ $exponent>][0] * number_of_zero_registers as f64
+                        res * number_of_zero_registers_ln + [<BETA_ $exponent>][0] *  f64::from(number_of_zero_registers)
                     };
 
                     #[cfg(feature = "precomputed_beta")]
                     let beta_horner = [<BETA_HORNER_ $exponent>][number_of_zero_registers as usize];
 
                     [<ALPHA_ $exponent>]
-                        * Self::NUMBER_OF_REGISTERS as f64
-                        * (Self::NUMBER_OF_REGISTERS - number_of_zero_registers) as f64
+                        * f64::integer_exp2(Self::EXPONENT)
+                        * (f64::integer_exp2(Self::EXPONENT) - f64::from(number_of_zero_registers))
                         / (harmonic_sum + beta_horner)
                         + 0.5
                 }
@@ -257,16 +227,11 @@ macro_rules! impl_precision {
                 #[inline(always)]
                 #[cfg(feature = "plusplus")]
                 fn small_correction(number_of_zero_registers: Self::NumberOfRegisters) -> f64 {
-                    Self::NUMBER_OF_REGISTERS as f64
-                        * (Self::EXPONENT as f64 * core::f64::consts::LN_2 - LN_VALUES[number_of_zero_registers as usize])
+                    f64::integer_exp2(Self::EXPONENT)
+                        * (f64::from(Self::EXPONENT) * core::f64::consts::LN_2 - LN_VALUES[number_of_zero_registers as usize])
+                    // f64::integer_exp2(Self::EXPONENT)
+                    //     * (f64::integer_exp2(Self::EXPONENT) / f64::from(number_of_zero_registers)).ln()
                 }
-            }
-
-            #[cfg(feature = "precision_" $exponent)]
-            impl Precision for [<Precision $exponent>] {
-                type NumberOfRegisters = [<NumberOfRegisters $exponent>];
-                const EXPONENT: u8 = $exponent;
-                const NUMBER_OF_REGISTERS: Self::NumberOfRegisters = [<NumberOfRegisters $exponent>]::ONE << $exponent;
             }
         }
     };

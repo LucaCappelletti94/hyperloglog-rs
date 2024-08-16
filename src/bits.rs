@@ -1,9 +1,7 @@
 //! Submodule providing the trait marker Bits.
 
-use crate::prelude::Named;
-
 /// Trait marker for the number of bits.
-pub trait Bits: Default + Copy + PartialEq + Eq + Send + Sync + core::fmt::Debug + Named{
+pub trait Bits: Default + Copy + PartialEq + Eq + Send + Sync + core::fmt::Debug{
     /// The number of bits.
     const NUMBER_OF_BITS: u8;
 }
@@ -19,7 +17,8 @@ macro_rules! impl_bits {
                 /// A struct representing the number of bits.
                 pub struct [<Bits $n>];
 
-                impl Named for [<Bits $n>] {
+                #[cfg(feature = "std")]
+                impl crate::prelude::Named for [<Bits $n>] {
                     fn name(&self) -> String {
                         format!("B{}", $n)
                     }

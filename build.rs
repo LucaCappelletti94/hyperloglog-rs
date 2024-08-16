@@ -14,7 +14,7 @@ trait RedableNumber: Display {
         let fractional_part = parts.first().unwrap_or(&"");
 
         // Trim values smaller than five from the end of the fractional part
-        let fractional_part = fractional_part.trim_end_matches(['0', '1', '2', '3', '4']);
+        let fractional_part = fractional_part.trim_end_matches(['0', ]);//'2', '3', '4']);
 
         // We save whether the number is negative, so to remove the minus sign
         // and re-add it at the end
@@ -97,9 +97,9 @@ trait RedableNumber: Display {
 }
 
 impl RedableNumber for f64 {}
-impl RedableNumber for f32 {}
 impl RedableNumber for i32 {}
 impl RedableNumber for u32 {}
+impl RedableNumber for usize {}
 
 /// Returns the list of precision to generate the weights for.
 fn get_precisions() -> Vec<usize> {
@@ -308,10 +308,10 @@ fn write_weights(precisions: &[usize]) {
         #[cfg(not(feature = "integer_plusplus"))]
         let (biases, estimates, biases_type, estimates_type, resolution) = {
             let (biases, estimates) = get_sorted_biases_and_estimates(precision);
-            (biases, estimates, "f32", "f32", 3)
+            (biases, estimates, "f64", "f64", 3)
         };
 
-        let number_of_biases = biases.len();
+        let number_of_biases = biases.len().format_with_precision(0);
 
         let weights_type = format!("type Bias{precision} = [{biases_type}; {number_of_biases}];");
 
@@ -413,9 +413,10 @@ fn write_ln_values(precisions: &[usize]) {
     // ln values for.
     let maximal_precision = *precisions.iter().max().unwrap();
     let maximal_number_of_registers = 1 + (1 << maximal_precision);
+    let formatted_maximal_number_of_registers = maximal_number_of_registers.format_with_precision(0);
 
     let ln_values = format!(
-        "static LN_VALUES: [f64; {maximal_number_of_registers}] = [\n{}\n];",
+        "static LN_VALUES: [f64; {formatted_maximal_number_of_registers}] = [\n{}\n];",
         (0..maximal_number_of_registers)
             .map(|x| if x > 0 {
                 format!("    {},", (x as f64).ln().format_with_precision(12))
@@ -476,7 +477,7 @@ fn write_precomputed_beta(precisions: &[usize]) {
 
         let beta = format!(
             "static BETA_HORNER_{precision}: [f64; {}] = [\n{}\n];",
-            beta_horner.len(),
+            beta_horner.len().format_with_precision(0),
             beta_horner
                 .iter()
                 .map(|x| format!("    {},", x.format_with_precision(9)))

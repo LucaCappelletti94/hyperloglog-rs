@@ -1,7 +1,40 @@
 //! Submodule implementing the registers trait for the array data structure.
-use super::*;
+use super::{
+    extract_register_from_word, Bits, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6, Bits7, Bits8,
+    Float, Number, One, Precision, RegisterWord, Registers, Words, Zero,
+};
 
-pub struct ArrayRegisterIter<'a, P: Precision, B: Bits, R: Words + Registers<P, B>>
+#[cfg(feature = "precision_4")]
+use crate::prelude::Precision4;
+#[cfg(feature = "precision_5")]
+use crate::prelude::Precision5;
+#[cfg(feature = "precision_6")]
+use crate::prelude::Precision6;
+#[cfg(feature = "precision_7")]
+use crate::prelude::Precision7;
+#[cfg(feature = "precision_8")]
+use crate::prelude::Precision8;
+#[cfg(feature = "precision_9")]
+use crate::prelude::Precision9;
+#[cfg(feature = "precision_10")]
+use crate::prelude::Precision10;
+#[cfg(feature = "precision_11")]
+use crate::prelude::Precision11;
+#[cfg(feature = "precision_12")]
+use crate::prelude::Precision12;
+#[cfg(feature = "precision_13")]
+use crate::prelude::Precision13;
+#[cfg(feature = "precision_14")]
+use crate::prelude::Precision14;
+#[cfg(feature = "precision_15")]
+use crate::prelude::Precision15;
+#[cfg(feature = "precision_16")]
+use crate::prelude::Precision16;
+#[cfg(feature = "precision_17")]
+use crate::prelude::Precision17;
+#[cfg(feature = "precision_18")]
+use crate::prelude::Precision18;
+pub struct RegisterIter<'a, P: Precision, B: Bits, R: Words + Registers<P, B>>
 where
     R: 'a,
 {
@@ -12,7 +45,7 @@ where
     _phantom: core::marker::PhantomData<(P, B, R)>,
 }
 
-impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> ArrayRegisterIter<'a, P, B, R> {
+impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> RegisterIter<'a, P, B, R> {
     pub(super) fn new(registers: &'a R) -> Self {
         let mut words = registers.words();
         let current_word = words.next();
@@ -27,7 +60,7 @@ impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> ArrayRegisterIter<'a
 }
 
 impl<'a, P: Precision, B: Bits, R: Words<Word = u64> + Registers<P, B>> Iterator
-    for ArrayRegisterIter<'a, P, B, R>
+    for RegisterIter<'a, P, B, R>
 where
     R::Word: RegisterWord<B>,
 {
@@ -56,7 +89,7 @@ where
     }
 }
 
-pub struct ArrayRegisterTupleIter<'a, P: Precision, B: Bits, R: Words + Registers<P, B>>
+pub struct TupleIter<'a, P: Precision, B: Bits, R: Words + Registers<P, B>>
 where
     R: 'a,
 {
@@ -68,7 +101,7 @@ where
     _phantom: core::marker::PhantomData<(P, B, R)>,
 }
 
-impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> ArrayRegisterTupleIter<'a, P, B, R> {
+impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> TupleIter<'a, P, B, R> {
     pub(super) fn new(left: &'a R, right: &'a R) -> Self {
         let mut left = left.words();
         let mut right = right.words();
@@ -87,7 +120,7 @@ impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> ArrayRegisterTupleIt
 }
 
 impl<'a, P: Precision, B: Bits, R: Words<Word = u64> + Registers<P, B>> Iterator
-    for ArrayRegisterTupleIter<'a, P, B, R>
+    for TupleIter<'a, P, B, R>
 where
     R::Word: RegisterWord<B>,
 {
@@ -126,7 +159,8 @@ pub trait ArrayRegister<B: Bits>: Precision {
     type ArrayRegister: Registers<Self, B>;
 }
 
-impl<const N: usize, W> Named for [W; N] {
+#[cfg(feature = "std")]
+impl<const N: usize, W> crate::prelude::Named for [W; N] {
     fn name(&self) -> String {
         "Array".to_string()
     }
@@ -153,8 +187,8 @@ macro_rules! impl_register_for_precision_and_bits {
 
                 #[cfg(feature = "precision_" $exponent)]
                 impl Registers<[<Precision $exponent>], [<Bits $bits>]> for [u64; crate::utils::ceil(usize::pow(2, $exponent), 64 / $bits)] {
-                    type Iter<'a> = ArrayRegisterIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>;
-                    type IterZipped<'a> = ArrayRegisterTupleIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>
+                    type Iter<'a> = RegisterIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>;
+                    type IterZipped<'a> = TupleIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>
                         where
                             Self: 'a;
 
@@ -163,32 +197,31 @@ macro_rules! impl_register_for_precision_and_bits {
                     }
 
                     fn iter_registers(&self) -> Self::Iter<'_> {
-                        ArrayRegisterIter::new(self)
+                        RegisterIter::new(self)
                     }
 
                     fn iter_registers_zipped<'a>(&'a self, other: &'a Self) -> Self::IterZipped<'a>{
-                        ArrayRegisterTupleIter::new(self, other)
+                        TupleIter::new(self, other)
                     }
 
-                    fn get_harmonic_sum_and_zeros<F: Float>(
+                    fn get_harmonic_sum_and_zeros(
                         &self,
                         other: &Self,
-                    ) -> (F, <[<Precision $exponent>] as Precision>::NumberOfRegisters)
-                    where
-                    [<Precision $exponent>]: PrecisionConstants<F> {
-                        let mut harmonic_sum = F::ZERO;
+                    ) -> (f64, <[<Precision $exponent>] as Precision>::NumberOfRegisters)
+        {
+                        let mut harmonic_sum = f64::ZERO;
                         let mut union_zeros = <[<Precision $exponent>] as Precision>::NumberOfRegisters::ZERO;
 
                         for i in 0..self.len() {
                             let left = self[i];
                             let right = other[i];
-                            let mut partial_sum = F::ZERO;
+                            let mut partial_sum = f64::ZERO;
                             let mut partial_zeros = <[<Precision $exponent>] as Precision>::NumberOfRegisters::ZERO;
 
                             for step in 0..<u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS_IN_WORD {
                                 let [left_register, right_register] = extract_register_from_word::<[<Bits $bits>], 2, u64>([left, right], step * [<Bits $bits>]::NUMBER_OF_BITS);
                                 let max_register = left_register.max(right_register);
-                                partial_sum += F::exp2_minus(max_register);
+                                partial_sum += f64::integer_exp2_minus(max_register);
                                 partial_zeros += <[<Precision $exponent>] as Precision>::NumberOfRegisters::from_bool(max_register == 0);
                             }
                             harmonic_sum += partial_sum;
@@ -200,7 +233,7 @@ macro_rules! impl_register_for_precision_and_bits {
                         - u64::from(<[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS)).unwrap();
 
                         union_zeros -= <[<Precision $exponent>] as Precision>::NumberOfRegisters::from(number_of_padding_registers);
-                        harmonic_sum -= F::from(number_of_padding_registers);
+                        harmonic_sum -= f64::from(number_of_padding_registers);
 
                         (harmonic_sum, union_zeros)
                     }
@@ -219,7 +252,14 @@ macro_rules! impl_register_for_precision_and_bits {
                                 }
                                 let [register] = extract_register_from_word::<[<Bits $bits>], 1, u64>([word_copy], step * [<Bits $bits>]::NUMBER_OF_BITS);
                                 let new_register = f(register);
-                                debug_assert!(new_register < 1 << [<Bits $bits>]::NUMBER_OF_BITS);
+                                debug_assert!(
+                                    new_register <= u8::try_from(<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK).unwrap(),
+                                    "Expected the new register at precision {} and bits {} to be <= {} but got {}.",
+                                    [<Precision $exponent>]::EXPONENT,
+                                    [<Bits $bits>]::NUMBER_OF_BITS,
+                                    u8::try_from(<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK).unwrap(),
+                                    new_register
+                                );
                                 tmp_word |= u64::from(new_register) << (step * [<Bits $bits>]::NUMBER_OF_BITS);
                                 number_of_registers += <[<Precision $exponent>] as Precision>::NumberOfRegisters::ONE;
                             }
@@ -230,7 +270,14 @@ macro_rules! impl_register_for_precision_and_bits {
                     #[inline(always)]
                     fn set_greater(&mut self, index: <[<Precision $exponent>] as Precision>::NumberOfRegisters, new_register: u8) -> (u8, u8) {
                         debug_assert!(index < [<Precision $exponent>]::NUMBER_OF_REGISTERS);
-                        debug_assert!(new_register < 1 << [<Bits $bits>]::NUMBER_OF_BITS);
+                        debug_assert!(
+                            new_register <= u8::try_from(<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK).unwrap(),
+                            "Expected the new register at precision {} and bits {} to be <= {} but got {}.",
+                            [<Precision $exponent>]::EXPONENT,
+                            [<Bits $bits>]::NUMBER_OF_BITS,
+                            u8::try_from(<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK).unwrap(),
+                            new_register
+                        );
 
                         // Calculate the position of the register in the internal buffer array.
                         let (word_position, register_position) = split_index::<[<Precision $exponent>], [<Bits $bits>]>(index);
@@ -244,7 +291,7 @@ macro_rules! impl_register_for_precision_and_bits {
                         }
 
                         self[word_position] &= !(<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK << (register_position * [<Bits $bits>]::NUMBER_OF_BITS));
-                        self[word_position] |= (new_register as u64) << (register_position * [<Bits $bits>]::NUMBER_OF_BITS);
+                        self[word_position] |= u64::from(new_register) << (register_position * [<Bits $bits>]::NUMBER_OF_BITS);
 
                         (register_value, new_register)
                     }

@@ -21,6 +21,7 @@ impl<H, const ERROR: i32> From<H> for MLE<H, ERROR> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<const ERROR: i32, H: Named> Named for MLE<H, ERROR> {
     fn name(&self) -> String {
         format!("MLE{}{}", ERROR, self.counter.name())
@@ -28,50 +29,49 @@ impl<const ERROR: i32, H: Named> Named for MLE<H, ERROR> {
 }
 
 fn mle_union_cardinality<
-    P: Precision + PrecisionConstants<F>,
+    P: Precision,
     B: Bits,
-    F: Float,
     Hasher: HasherType,
-    H: HyperLogLog<P, B, Hasher> + Estimator<F>,
+    H: HyperLogLog<P, B, Hasher> + Estimator<f64>,
     const ERROR: i32,
 >(
     left: &H,
     right: &H,
-    estimate: fn(F, P::NumberOfRegisters) -> F,
-) -> F {
+    estimate: fn(f64, P::NumberOfRegisters) -> f64,
+) -> f64 {
     let mut left_multiplicities_larger =
-        vec![F::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
+        vec![f64::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
     let mut left_multiplicities_smaller =
-        vec![F::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
+        vec![f64::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
     let mut right_multiplicities_larger =
-        vec![F::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
+        vec![f64::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
     let mut right_multiplicities_smaller =
-        vec![F::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
+        vec![f64::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
     let mut joint_multiplicities =
-        vec![F::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
-    let mut union_harmonic_sum = F::ZERO;
+        vec![f64::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
+    let mut union_harmonic_sum = f64::ZERO;
     let mut union_zeros = P::NumberOfRegisters::ZERO;
 
     for (left, right) in left.registers().iter_registers_zipped(right.registers()) {
         let larger_register = match left.cmp(&right) {
             core::cmp::Ordering::Less => {
-                left_multiplicities_smaller[left as usize] += F::ONE;
-                right_multiplicities_larger[right as usize] += F::ONE;
+                left_multiplicities_smaller[left as usize] += f64::ONE;
+                right_multiplicities_larger[right as usize] += f64::ONE;
                 right
             }
             core::cmp::Ordering::Greater => {
-                left_multiplicities_larger[left as usize] += F::ONE;
-                right_multiplicities_smaller[right as usize] += F::ONE;
+                left_multiplicities_larger[left as usize] += f64::ONE;
+                right_multiplicities_smaller[right as usize] += f64::ONE;
                 left
             }
             core::cmp::Ordering::Equal => {
                 // If left register is equal to right register
-                joint_multiplicities[left as usize] += F::ONE;
+                joint_multiplicities[left as usize] += f64::ONE;
                 left
             }
         };
 
-        union_harmonic_sum += F::exp2_minus(larger_register);
+        union_harmonic_sum += f64::integer_exp2_minus(larger_register);
         union_zeros += P::NumberOfRegisters::from_bool(larger_register.is_zero());
     }
 
@@ -86,42 +86,42 @@ fn mle_union_cardinality<
     // to the number of registers, it means that the intersection
     // is empty.
     if union_zeros == P::NUMBER_OF_REGISTERS {
-        return F::ZERO;
+        return f64::ZERO;
     }
 
-    let mut intersection: F =
+    let mut intersection: f64 =
         left_cardinality_estimate + right_cardinality_estimate - union_cardinality_estimate;
-    if intersection < F::ZERO {
-        intersection = F::EPSILON;
+    if intersection < f64::ZERO {
+        intersection = f64::EPSILON;
     }
 
-    let left_difference: F = union_cardinality_estimate - right_cardinality_estimate;
-    if left_difference < F::ZERO {
-        return F::EPSILON;
+    let mut left_difference: f64 = union_cardinality_estimate - right_cardinality_estimate;
+    if left_difference < f64::ZERO {
+        left_difference = f64::EPSILON;
     }
 
-    let right_difference: F = union_cardinality_estimate - left_cardinality_estimate;
-    if right_difference < F::ZERO {
-        return F::EPSILON;
+    let mut right_difference: f64 = union_cardinality_estimate - left_cardinality_estimate;
+    if right_difference < f64::ZERO {
+        right_difference = f64::EPSILON;
     }
 
-    let relative_error_limit = F::TEN.powi(-ERROR) / F::exp2(P::EXPONENT).sqrt();
-    debug_assert!(intersection >= F::ZERO);
-    debug_assert!(left_difference >= F::ZERO);
-    debug_assert!(right_difference >= F::ZERO);
+    let relative_error_limit = f64::TEN.powi(-ERROR) / f64::integer_exp2(P::EXPONENT).sqrt();
+    debug_assert!(intersection >= f64::ZERO);
+    debug_assert!(left_difference >= f64::ZERO);
+    debug_assert!(right_difference >= f64::ZERO);
 
     // we introdce the following expressions to simplify the computation
     // of the gradient.
-    let x = |phi: F, two_to_minus_register: F| -> F { phi.exp() * two_to_minus_register };
+    let x = |phi: f64, two_to_minus_register: f64| -> f64 { phi.exp() * two_to_minus_register };
 
-    let yz = |x: F| -> (F, F) {
+    let yz = |x: f64| -> (f64, f64) {
         let exp_m1 = (-x).exp_m1();
-        (F::ONE + exp_m1, -exp_m1)
+        (f64::ONE + exp_m1, -exp_m1)
     };
 
     // We precompute q and q+1 for reference.
     let q_plus_one: u8 = maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS) - 1;
-    let q: u8 = q_plus_one as u8 - 1;
+    let q: u8 = q_plus_one - 1;
 
     // We initialize the vectors for the Adam optimizer.
     let mut phis = [
@@ -129,9 +129,9 @@ fn mle_union_cardinality<
         right_difference.ln(),
         intersection.ln(),
     ];
-    let mut gradients: [F; 3] = [F::ZERO, F::ZERO, F::ZERO];
+    let mut gradients: [f64; 3] = [f64::ZERO, f64::ZERO, f64::ZERO];
 
-    let mut optimizer: Adam<F, 3> = Default::default();
+    let mut optimizer: Adam<3> = Adam::default();
 
     let left_number_of_zeros =
         left_multiplicities_smaller[0] + left_multiplicities_larger[0] + joint_multiplicities[0];
@@ -147,15 +147,15 @@ fn mle_union_cardinality<
     let intersection_number_of_saturated_registers =
         joint_multiplicities[joint_multiplicities.len() - 1];
 
-    let two_to_zero: F = F::exp2_minus(P::EXPONENT);
-    let two_to_minus_q: F = F::exp2_minus(P::EXPONENT + q);
+    let two_to_zero: f64 = f64::integer_exp2_minus(P::EXPONENT);
+    let two_to_minus_q: f64 = f64::integer_exp2_minus(P::EXPONENT + q);
 
     for _ in 0..10_000 {
         let x_left_0 = x(phis[0], two_to_zero);
-        debug_assert!(x_left_0 >= F::ZERO);
+        debug_assert!(x_left_0 >= f64::ZERO);
         debug_assert!(x_left_0.is_finite());
         let x_right_0 = x(phis[1], two_to_zero);
-        debug_assert!(x_right_0 >= F::ZERO);
+        debug_assert!(x_right_0 >= f64::ZERO);
         debug_assert!(
             x_right_0.is_finite(),
             "x(phis[1]: {}, two_to_zero: {}) = {}",
@@ -164,47 +164,47 @@ fn mle_union_cardinality<
             x_right_0
         );
         let x_joint_0 = x(phis[2], two_to_zero);
-        debug_assert!(x_joint_0 >= F::ZERO, "x_joint_0: {}", x_joint_0);
+        debug_assert!(x_joint_0 >= f64::ZERO, "x_joint_0: {x_joint_0}");
         debug_assert!(x_joint_0.is_finite());
         let x_left_q = x(phis[0], two_to_minus_q);
-        debug_assert!(x_left_q >= F::ZERO);
+        debug_assert!(x_left_q >= f64::ZERO);
         debug_assert!(x_left_q.is_finite());
         let (y_left_q, z_left_q) = yz(x_left_q);
         let x_right_q = x(phis[1], two_to_minus_q);
-        debug_assert!(x_right_q >= F::ZERO);
+        debug_assert!(x_right_q >= f64::ZERO);
         debug_assert!(x_right_q.is_finite());
         let (y_right_q, z_right_q) = yz(x_right_q);
         let x_joint_q = x(phis[2], two_to_minus_q);
-        debug_assert!(x_joint_q >= F::ZERO);
+        debug_assert!(x_joint_q >= f64::ZERO);
         debug_assert!(x_joint_q.is_finite());
         let (y_joint_q, z_joint_q) = yz(x_joint_q);
 
-        let denominator = F::ONE / (z_joint_q + y_joint_q * z_left_q * z_right_q);
+        let denominator = f64::ONE / (z_joint_q + y_joint_q * z_left_q * z_right_q);
 
         let xl_yl_q = x_left_q * y_left_q;
         let xr_yr_q = x_right_q * y_right_q;
-        let xj_yj_q = x_joint_q * y_joint_q;
+        let xj_yjoint_q = x_joint_q * y_joint_q;
         let shared_factor =
-            if intersection_number_of_saturated_registers > F::ZERO && y_joint_q > F::EPSILON {
+            if intersection_number_of_saturated_registers > f64::ZERO && y_joint_q > f64::EPSILON {
                 intersection_number_of_saturated_registers * y_joint_q * denominator
             } else {
-                F::ZERO
+                f64::ZERO
             };
 
-        gradients[0] = if xl_yl_q > F::EPSILON {
+        gradients[0] = if xl_yl_q > f64::EPSILON {
             xl_yl_q * (shared_factor * z_right_q + left_number_of_saturated_registers / z_left_q)
         } else {
-            F::ZERO
+            f64::ZERO
         };
         gradients[0] -= left_number_of_zeros * x_left_0;
 
         debug_assert!(gradients[0].is_finite());
-        debug_assert!(z_right_q >= F::ZERO);
+        debug_assert!(z_right_q >= f64::ZERO);
 
-        gradients[1] = if xr_yr_q > F::EPSILON {
+        gradients[1] = if xr_yr_q > f64::EPSILON {
             xr_yr_q * (shared_factor * z_left_q + right_number_of_saturated_registers / z_right_q)
         } else {
-            F::ZERO
+            f64::ZERO
         };
 
         gradients[1] -= right_number_of_zeros * x_right_0;
@@ -226,31 +226,31 @@ fn mle_union_cardinality<
             x_right_0,
         );
 
-        gradients[2] = if intersection_number_of_saturated_registers > F::ZERO
-            && xj_yj_q > F::EPSILON
+        gradients[2] = if intersection_number_of_saturated_registers > f64::ZERO
+            && xj_yjoint_q > f64::EPSILON
             && denominator.is_finite()
         {
             intersection_number_of_saturated_registers
-                * xj_yj_q
+                * xj_yjoint_q
                 * (y_left_q + z_left_q * y_right_q)
                 * denominator
         } else {
-            F::ZERO
+            f64::ZERO
         };
         gradients[2] -= intersection_number_of_zeros * x_joint_0;
 
         debug_assert!(gradients[2].is_finite());
 
         (1..q_plus_one).for_each(|register_value| {
-            let two_to_minus_register: F =
-                F::exp2_minus(P::EXPONENT + register_value);
+            let two_to_minus_register =
+                f64::integer_exp2_minus(P::EXPONENT + register_value);
 
             let x_left = x(phis[0], two_to_minus_register);
-            debug_assert!(x_left >= F::ZERO);
+            debug_assert!(x_left >= f64::ZERO);
             let x_right = x(phis[1], two_to_minus_register);
-            debug_assert!(x_right >= F::ZERO);
+            debug_assert!(x_right >= f64::ZERO);
             let x_joint = x(phis[2], two_to_minus_register);
-            debug_assert!(x_joint >= F::ZERO);
+            debug_assert!(x_joint >= f64::ZERO);
             let (y_left, z_left) = yz(x_left);
             let (y_right, z_right) = yz(x_right);
             let (y_joint, z_joint) = yz(x_joint);
@@ -261,49 +261,49 @@ fn mle_union_cardinality<
             let right_smaller_k = right_multiplicities_smaller[register_value as usize];
             let right_larger_k = right_multiplicities_larger[register_value as usize];
 
-            let yj_zleft = y_joint * z_left;
-            let yjright_zleft = yj_zleft * y_right;
-            let yj_zright = y_joint * z_right;
-            let yjleft_zright = yj_zright * y_left;
-            let yjleft = y_joint * y_left;
-            let yjright = y_joint * y_right;
-            let yj_zlr = yj_zleft * z_right;
-            let mut zj_plus_yj_zleft = z_joint + yj_zleft;
-            debug_assert!(zj_plus_yj_zleft >= F::ZERO);
-            if zj_plus_yj_zleft < F::EPSILON {
-                zj_plus_yj_zleft = F::EPSILON;
+            let yjoint_zleft = y_joint * z_left;
+            let yjoint_right_zleft = yjoint_zleft * y_right;
+            let yjoint_zright = y_joint * z_right;
+            let yjointleft_zright = yjoint_zright * y_left;
+            let yjointleft = y_joint * y_left;
+            let yjointright = y_joint * y_right;
+            let yjoint_zlr = yjoint_zleft * z_right;
+            let mut zj_plus_yjoint_zleft = z_joint + yjoint_zleft;
+            debug_assert!(zj_plus_yjoint_zleft >= f64::ZERO);
+            if zj_plus_yjoint_zleft < f64::EPSILON {
+                zj_plus_yjoint_zleft = f64::EPSILON;
             }
-            let reciprocal_zj_plus_yj_zleft = F::ONE / zj_plus_yj_zleft;
-            let mut zj_plus_yj_zright = z_joint + yj_zright;
-            debug_assert!(zj_plus_yj_zright >= F::ZERO);
-            if zj_plus_yj_zright < F::EPSILON {
-                zj_plus_yj_zright = F::EPSILON;
+            let reciprocal_zj_plus_yjoint_zleft = f64::ONE / zj_plus_yjoint_zleft;
+            let mut zj_plus_yjoint_zright = z_joint + yjoint_zright;
+            debug_assert!(zj_plus_yjoint_zright >= f64::ZERO);
+            if zj_plus_yjoint_zright < f64::EPSILON {
+                zj_plus_yjoint_zright = f64::EPSILON;
             }
-            let reciprocal_zj_plus_yj_zright = F::ONE / zj_plus_yj_zright;
-            let mut zj_plus_yj_zlr = z_joint + yj_zlr;
-            debug_assert!(zj_plus_yj_zlr >= F::ZERO);
-            if zj_plus_yj_zlr < F::EPSILON {
-                zj_plus_yj_zlr = F::EPSILON;
+            let reciprocal_zj_plus_yjoint_zright = f64::ONE / zj_plus_yjoint_zright;
+            let mut zj_plus_yjoint_zlr = z_joint + yjoint_zlr;
+            debug_assert!(zj_plus_yjoint_zlr >= f64::ZERO);
+            if zj_plus_yjoint_zlr < f64::EPSILON {
+                zj_plus_yjoint_zlr = f64::EPSILON;
             }
-            let reciprocal_zj_plus_yj_zlr = F::ONE / zj_plus_yj_zlr;
+            let reciprocal_zj_plus_yjoint_zlr = f64::ONE / zj_plus_yjoint_zlr;
 
-            let left_reciprocal = left_smaller_k * (reciprocal_zj_plus_yj_zleft * yjleft - F::ONE);
-            let right_reciprocal = right_smaller_k * (reciprocal_zj_plus_yj_zright * yjright - F::ONE);
+            let left_reciprocal = left_smaller_k * (reciprocal_zj_plus_yjoint_zleft * yjointleft - f64::ONE);
+            let right_reciprocal = right_smaller_k * (reciprocal_zj_plus_yjoint_zright * yjointright - f64::ONE);
 
-            if x_left > F::EPSILON {
+            if x_left > f64::EPSILON {
                 gradients[0] += x_left
                     * (left_reciprocal
-                        + joint_k * (yjleft_zright * reciprocal_zj_plus_yj_zlr - F::ONE)
-                        + left_larger_k * (y_left / z_left - F::ONE));
+                        + joint_k * (yjointleft_zright * reciprocal_zj_plus_yjoint_zlr - f64::ONE)
+                        + left_larger_k * (y_left / z_left - f64::ONE));
             }
 
             debug_assert!(gradients[0].is_finite());
 
-            if x_right > F::EPSILON {
+            if x_right > f64::EPSILON {
                 gradients[1] += x_right
                     * (right_reciprocal
-                        + joint_k * (yjright_zleft * reciprocal_zj_plus_yj_zlr - F::ONE)
-                        + right_larger_k * (y_right / z_right - F::ONE));
+                        + joint_k * (yjoint_right_zleft * reciprocal_zj_plus_yjoint_zlr - f64::ONE)
+                        + right_larger_k * (y_right / z_right - f64::ONE));
             }
 
             debug_assert!(
@@ -311,24 +311,24 @@ fn mle_union_cardinality<
                 concat!(
                     "The gradient is not finite: {}. ",
                     "We computed this gradient with the following values: ",
-                    "x_right({}) * (right_reciprocal({}) + joint_k({}) * (yjright_zleft({}) * reciprocal_zj_plus_yj_zlr({}) - 1) + right_larger_k({}) * (y_right({}) / z_right({}) - 1)",
+                    "x_right({}) * (right_reciprocal({}) + joint_k({}) * (yjoint_right_zleft({}) * reciprocal_zj_plus_yjoint_zlr({}) - 1) + right_larger_k({}) * (y_right({}) / z_right({}) - 1)",
                 ),
                 gradients[1],
                 x_right,
                 right_reciprocal,
                 joint_k,
-                yjright_zleft,
-                reciprocal_zj_plus_yj_zlr,
+                yjoint_right_zleft,
+                reciprocal_zj_plus_yjoint_zlr,
                 right_larger_k,
                 y_right,
                 z_right,
             );
 
-            if x_joint > F::EPSILON {
+            if x_joint > f64::EPSILON {
                 gradients[2] += x_joint
                     * (left_reciprocal
                         + right_reciprocal
-                        + joint_k * ((yjleft + yjright_zleft) * reciprocal_zj_plus_yj_zlr - F::ONE));
+                        + joint_k * ((yjointleft + yjoint_right_zleft) * reciprocal_zj_plus_yjoint_zlr - f64::ONE));
             }
 
             debug_assert!(gradients[2].is_finite());
@@ -349,23 +349,16 @@ fn mle_union_cardinality<
     let left_difference = phis[0].exp();
     let right_difference = phis[1].exp();
     let intersection = phis[2].exp();
-
+    
     left_difference + right_difference + intersection
 }
 
-impl<
-        const ERROR: i32,
-        F: Float,
-        P: Precision,
-        B: Bits,
-        R: Registers<P, B>,
-        Hasher: HasherType,
-    > Estimator<F> for MLE<LogLogBeta<P, B, R, Hasher>, ERROR>
+impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Estimator<f64>
+    for MLE<LogLogBeta<P, B, R, Hasher>, ERROR>
 where
-    P: PrecisionConstants<F>,
     Self: HyperLogLog<P, B, Hasher>,
 {
-    fn estimate_cardinality(&self) -> F {
+    fn estimate_cardinality(&self) -> f64 {
         self.counter.estimate_cardinality()
     }
 
@@ -373,8 +366,8 @@ where
         true
     }
 
-    fn estimate_union_cardinality(&self, other: &Self) -> F {
-        mle_union_cardinality::<P, B, F, Hasher, LogLogBeta<P, B, R, Hasher>, ERROR>(
+    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+        mle_union_cardinality::<P, B, Hasher, LogLogBeta<P, B, R, Hasher>, ERROR>(
             &self.counter,
             &other.counter,
             P::beta_estimate,
@@ -382,19 +375,12 @@ where
     }
 }
 
-impl<
-        const ERROR: i32,
-        F: Float,
-        P: Precision,
-        B: Bits,
-        R: Registers<P, B>,
-        Hasher: HasherType,
-    > Estimator<F> for MLE<PlusPlus<P, B, R, Hasher>, ERROR>
+impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Estimator<f64>
+    for MLE<PlusPlus<P, B, R, Hasher>, ERROR>
 where
-    P: PrecisionConstants<F>,
     Self: HyperLogLog<P, B, Hasher>,
 {
-    fn estimate_cardinality(&self) -> F {
+    fn estimate_cardinality(&self) -> f64 {
         self.counter.estimate_cardinality()
     }
 
@@ -402,8 +388,8 @@ where
         true
     }
 
-    fn estimate_union_cardinality(&self, other: &Self) -> F {
-        mle_union_cardinality::<P, B, F, Hasher, PlusPlus<P, B, R, Hasher>, ERROR>(
+    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+        mle_union_cardinality::<P, B, Hasher, PlusPlus<P, B, R, Hasher>, ERROR>(
             &self.counter,
             &other.counter,
             P::plusplus_estimate,
@@ -411,35 +397,30 @@ where
     }
 }
 
-trait Optimizer<F, const N: usize> {
-    fn apply(&mut self, gradients: &mut [F; N], phis: &mut [F; N]);
-}
-
-struct Adam<F, const N: usize> {
-    first_moments: [F; N],
-    second_moments: [F; N],
+struct Adam<const N: usize> {
+    first_moments: [f64; N],
+    second_moments: [f64; N],
     time: i32,
-    learning_rate: F,
-    first_order_decay_factor: F,
-    second_order_decay_factor: F,
+    learning_rate: f64,
+    first_order_decay_factor: f64,
+    second_order_decay_factor: f64,
 }
 
-impl<F: Float, const N: usize> Default for Adam<F, N> {
+impl<const N: usize> Default for Adam<N> {
     fn default() -> Self {
         Adam {
-            first_moments: [F::ZERO; N],
-            second_moments: [F::ZERO; N],
+            first_moments: [0.0; N],
+            second_moments: [0.0; N],
             time: 0,
-            learning_rate: F::ONE / F::ONE_THOUSAND,
-            first_order_decay_factor: F::NINE / F::TEN,
-            second_order_decay_factor: (F::ONE_HUNDRED - F::ONE) / F::ONE_THOUSAND,
+            learning_rate: 0.01,
+            first_order_decay_factor: 0.9,
+            second_order_decay_factor: 0.999,
         }
     }
 }
 
-impl<F: Float, const N: usize> Optimizer<F, N> for Adam<F, N> {
-    #[inline(always)]
-    fn apply(&mut self, gradients: &mut [F; N], phis: &mut [F; N]) {
+impl<const N: usize> Adam<N> {
+    fn apply(&mut self, gradients: &mut [f64; N], phis: &mut [f64; N]) {
         self.time += 1;
         self.first_moments
             .iter_mut()
@@ -447,18 +428,18 @@ impl<F: Float, const N: usize> Optimizer<F, N> for Adam<F, N> {
             .zip(gradients.iter_mut().zip(phis.iter_mut()))
             .for_each(|((first_moment, second_moment), (gradient, phi))| {
                 *first_moment = self.first_order_decay_factor * *first_moment
-                    + (F::ONE - self.first_order_decay_factor) * *gradient;
+                    + (1.0 - self.first_order_decay_factor) * *gradient;
                 *second_moment = self.second_order_decay_factor * *second_moment
-                    + (F::ONE - self.second_order_decay_factor) * (*gradient).powi(2);
+                    + (1.0 - self.second_order_decay_factor) * (*gradient).powi(2);
                 let adaptative_learning_rate = self.learning_rate
-                    * (F::ONE - self.second_order_decay_factor.powi(self.time)).sqrt()
-                    / (F::ONE - self.first_order_decay_factor.powi(self.time));
+                    * (1.0 - self.second_order_decay_factor.powi(self.time)).sqrt()
+                    / (1.0 - self.first_order_decay_factor.powi(self.time));
                 let second_moment_root = (*second_moment).sqrt();
                 *gradient = adaptative_learning_rate * (*first_moment)
-                    / if second_moment_root > F::EPSILON {
+                    / if second_moment_root > f64::EPSILON {
                         second_moment_root
                     } else {
-                        F::EPSILON
+                        f64::EPSILON
                     };
                 *phi += *gradient;
             });
@@ -480,7 +461,7 @@ mod tests {
     #[test]
     fn test_adam_optimizer() {
         let mut phis = [0.0, 0.0]; // Initial guess
-        let mut adam = Adam::<f64, 2>::default();
+        let mut adam = Adam::<2>::default();
 
         for _ in 0..10_000 {
             let (value, gradients) = quadratic_function(&phis);
