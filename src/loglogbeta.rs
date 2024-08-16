@@ -1,7 +1,11 @@
 //! Submodule implementing [`LogLogBeta`].
 use crate::basicloglog::BasicLogLog;
 use crate::hll_impl;
+use core::any::type_name;
 use crate::prelude::*;
+
+#[cfg(feature = "std")]
+use crate::utils::Named;
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
@@ -12,6 +16,7 @@ pub struct LogLogBeta<
     R: Registers<P, B>,
     Hasher: HasherType = twox_hash::XxHash64,
 > {
+    /// The underlying `BasicLogLog` counter.
     counter: BasicLogLog<P, B, R, Hasher>,
 }
 
@@ -20,22 +25,24 @@ hll_impl!(LogLogBeta<P, B, R, Hasher>);
 impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType>
     From<BasicLogLog<P, B, R, Hasher>> for LogLogBeta<P, B, R, Hasher>
 {
+    #[inline]
     fn from(counter: BasicLogLog<P, B, R, Hasher>) -> Self {
         Self { counter }
     }
 }
 
 #[cfg(feature = "std")]
-impl<P: Precision + crate::prelude::Named, B: Bits + crate::prelude::Named, R: Registers<P, B> + crate::prelude::Named, Hasher: HasherType> crate::prelude::Named
+impl<P: Precision + Named, B: Bits + Named, R: Registers<P, B> + Named, Hasher: HasherType> Named
     for LogLogBeta<P, B, R, Hasher>
 {
+    #[inline]
     fn name(&self) -> String {
         format!(
             "LLB<{}, {}, {}> + {}",
             P::default().name(),
             B::default().name(),
             self.registers().name(),
-            std::any::type_name::<Hasher>().split("::").last().unwrap()
+            type_name::<Hasher>().split("::").last().unwrap()
         )
     }
 }
@@ -44,11 +51,13 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Estimator<f6
     for LogLogBeta<P, B, R, Hasher>
 where
     Self: HyperLogLog<P, B, Hasher>,
-{
+{   
+    #[inline]
     fn estimate_cardinality(&self) -> f64 {
         P::beta_estimate(self.harmonic_sum(), self.get_number_of_zero_registers())
     }
 
+    #[inline]
     fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         let (harmonic_sum, number_of_zero_registers) = self
             .registers()
@@ -61,6 +70,7 @@ where
         )
     }
 
+    #[inline]
     fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
         false
     }

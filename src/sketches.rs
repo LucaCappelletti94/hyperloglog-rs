@@ -17,6 +17,7 @@ use crate::prelude::{Float, Number, Estimator, Zero};
 
 /// Trait for sketching algorithms that provide the overlap and differences cardinality matrices.
 pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
+    #[inline]
     /// Returns the overlap and differences cardinality matrices of two lists of sets.
     ///
     /// # Arguments
@@ -41,8 +42,8 @@ pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
     ///
     /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/tuple_overlap.png?raw=true)
     fn overlap_and_differences_cardinality_matrices<const L: usize, const R: usize>(
-        left: &[Self; L],
-        right: &[Self; R],
+        lefts: &[Self; L],
+        rights: &[Self; R],
     ) -> ([[N; R]; L], [N; L], [N; R]) {
         // Initialize overlap and differences cardinality matrices/vectors.
         let mut last_row = [N::default(); R];
@@ -50,7 +51,7 @@ pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
         let mut left_difference_cardinality_vector = [N::default(); L];
         let mut right_cardinalities = [N::default(); R];
 
-        right
+        rights
             .iter()
             .zip(right_cardinalities.iter_mut())
             .for_each(|(right, right_cardinality)| {
@@ -62,11 +63,11 @@ pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
         let mut last_left_difference = N::default();
 
         // Populate the overlap cardinality matrix.
-        for (i, left) in left.iter().enumerate() {
+        for (i, left) in lefts.iter().enumerate() {
             let mut last_right_difference = N::default();
             let left_cardinality = left.estimate_cardinality();
             let mut comulative_row = N::default();
-            for (j, (right, right_cardinality)) in right.iter().zip(right_cardinalities).enumerate()
+            for (j, (right, right_cardinality)) in rights.iter().zip(right_cardinalities).enumerate()
             {
                 let union_cardinality = left.estimate_union_cardinality(right);
                 euc = EstimatedUnionCardinalities::with_correction(
@@ -110,6 +111,7 @@ pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
 
 /// Trait for sketching algorithms that provide the normalized overlap and differences cardinality matrices.
 pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch<f64> {
+    #[inline]
     /// Returns the normalized overlap and differences cardinality matrices of two lists of sets.
     ///
     /// # Arguments
@@ -121,8 +123,8 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch<f64> {
     /// * `left_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the left array and the last element of the right array.
     /// * `right_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the right array and the last element of the left array.
     fn normalized_overlap_and_differences_cardinality_matrices<const L: usize, const R: usize>(
-        left: &[Self; L],
-        right: &[Self; R],
+        lefts: &[Self; L],
+        rights: &[Self; R],
     ) -> ([[f64; R]; L], [f64; L], [f64; R]) {
         // Initialize overlap and differences cardinality matrices/vectors.
         let mut last_row = [f64::ZERO; R];
@@ -130,7 +132,7 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch<f64> {
         let mut left_difference_cardinality_vector = [f64::ZERO; L];
         let mut right_cardinalities = [f64::ZERO; R];
 
-        right
+        rights
             .iter()
             .zip(right_cardinalities.iter_mut())
             .for_each(|(right, right_cardinality)| {
@@ -142,7 +144,7 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch<f64> {
         debug_assert!(right_cardinalities
             .iter()
             .zip(right_cardinalities.iter().skip(1))
-            .all(|(left, right)| left <= right));
+            .all(|(left, right)| left <= right), "The right cardinalities should be sorted in ascending order.");
 
         let mut right_difference_cardinality_vector = [f64::ZERO; R];
         let mut euc: EstimatedUnionCardinalities<f64> = EstimatedUnionCardinalities::default();
@@ -151,12 +153,12 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch<f64> {
         let mut last_left_cardinality= f64::ZERO;
 
         // Populate the overlap cardinality matrix.
-        for (i, left) in left.iter().enumerate() {
+        for (i, left) in lefts.iter().enumerate() {
             let mut last_right_difference= f64::ZERO;
             let left_cardinality = left.estimate_cardinality();
             let mut comulative_row = f64::ZERO;
             let mut last_right_cardinality = f64::ZERO;
-            for (j, (right, (right_cardinality, last_inner_left_difference))) in right
+            for (j, (right, (right_cardinality, last_inner_left_difference))) in rights
                 .iter()
                 .zip(
                     right_cardinalities
@@ -261,9 +263,9 @@ impl<F: Number> EstimatedUnionCardinalities<F> {
             union = if left < right { right } else { left };
         }
 
-        debug_assert!(left >= F::ZERO);
-        debug_assert!(right >= F::ZERO);
-        debug_assert!(union >= F::ZERO);
+        debug_assert!(left >= F::ZERO, "The estimated cardinality of the left set should be greater than or equal to zero.");
+        debug_assert!(right >= F::ZERO, "The estimated cardinality of the right set should be greater than or equal to zero.");
+        debug_assert!(union >= F::ZERO, "The estimated cardinality of the union of the two sets should be greater than or equal to zero.");
         debug_assert!(
             left <= union,
             concat!(

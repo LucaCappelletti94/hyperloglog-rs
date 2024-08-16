@@ -1,14 +1,16 @@
 //! Submodule for words-arrays
 use crate::utils::WordLike;
+use core::iter::Copied;
+use core::slice::Iter;
 
 /// Trait for arrays of words.
 pub trait Words {
     /// The type of the words.
     type Word: WordLike;
     /// The type of the iterator over the words.
-    type WordIter<'a>: Iterator<Item = Self::Word>
+    type WordIter<'words>: Iterator<Item = Self::Word>
     where
-        Self: 'a;
+        Self: 'words;
 
     /// Returns the number of words in the array, i.e., the length of the array.
     fn number_of_words(&self) -> usize;
@@ -25,26 +27,41 @@ pub trait Words {
 
 impl<T: WordLike, const N: usize> Words for [T; N] {
     type Word = T;
-    type WordIter<'a> = core::iter::Copied<core::slice::Iter<'a, Self::Word>> where Self: 'a;
+    type WordIter<'words> = Copied<Iter<'words, Self::Word>> where Self: 'words;
 
     #[must_use]
+    #[inline]
     fn number_of_words(&self) -> usize {
         N
     }
 
     #[must_use]
+    #[inline]
     fn find_sorted_with_len(&self, value: Self::Word, len: usize) -> bool {
-        debug_assert!(len <= N);
-        debug_assert!(self[..len].windows(2).all(|w| w[0] <= w[1]));
+        debug_assert!(
+            len <= N,
+            "The length must be less than or equal to the number of words."
+        );
+        debug_assert!(
+            self[..len].windows(2).all(|w| w[0] <= w[1]),
+            "The array must be sorted."
+        );
         self[..len].binary_search(&value).is_ok()
     }
 
     #[must_use]
+    #[inline]
     fn sorted_insert_with_len(&mut self, value: Self::Word, len: usize) -> bool {
-        debug_assert!(len <= N);
+        debug_assert!(
+            len <= N,
+            "The length must be less than or equal to the number of words."
+        );
 
         // We check that the array is sorted within a debug assertion.
-        debug_assert!(self[..len].windows(2).all(|w| w[0] <= w[1]));
+        debug_assert!(
+            self[..len].windows(2).all(|w| w[0] <= w[1]),
+            "The array must be sorted."
+        );
 
         match self[..len].binary_search(&value) {
             Ok(_) => false,
@@ -57,6 +74,7 @@ impl<T: WordLike, const N: usize> Words for [T; N] {
     }
 
     #[must_use]
+    #[inline]
     fn words(&self) -> Self::WordIter<'_> {
         self.iter().copied()
     }

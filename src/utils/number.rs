@@ -1,34 +1,35 @@
 //! Traits regarding numbers.
-use core::ops::{Shl, Shr};
-
-use crate::utils::{Half, Zero};
+use core::ops::{Shl, Shr, Add, Sub, Div, Mul, AddAssign, SubAssign, MulAssign, Neg};
+use core::fmt::{Debug, Display};
+use core::iter::Sum;
+use crate::utils::{Half, Zero, One, Two, Three, Five, Six, Seven, Eight, Nine, Ten, OneHundred, OneThousand};
 
 /// A trait for numbers.
 pub trait Number:
     Copy
     + Default
-    + core::ops::Add<Self, Output = Self>
-    + core::ops::Sub<Self, Output = Self>
-    + core::ops::Div<Self, Output = Self>
-    + core::ops::Mul<Self, Output = Self>
-    + core::ops::MulAssign
-    + core::ops::AddAssign
-    + core::ops::SubAssign
-    + core::fmt::Debug
-    + core::fmt::Display
-    + crate::utils::Zero
-    + crate::utils::One
-    + crate::utils::Two
-    + crate::utils::Three
-    + crate::utils::Five
-    + crate::utils::Six
-    + crate::utils::Seven
-    + crate::utils::Eight
-    + crate::utils::Nine
-    + crate::utils::Ten
-    + crate::utils::OneHundred
+    + Add<Self, Output = Self>
+    + Sub<Self, Output = Self>
+    + Div<Self, Output = Self>
+    + Mul<Self, Output = Self>
+    + MulAssign
+    + AddAssign
+    + SubAssign
+    + Debug
+    + Display
+    + Zero
+    + One
+    + Two
+    + Three
+    + Five
+    + Six
+    + Seven
+    + Eight
+    + Nine
+    + Ten
+    + OneHundred
     + From<u8>
-    + core::iter::Sum
+    + Sum
     + PartialOrd
     + Send
     + Sync
@@ -38,6 +39,7 @@ pub trait Number:
     fn saturating_zero_sub(self, other: Self) -> Self;
 
     #[must_use]
+    #[inline]
     /// Converts a boolean value to a number.
     fn from_bool(value: bool) -> Self {
         if value {
@@ -53,9 +55,9 @@ pub trait PositiveInteger:
     Number + Eq + Into<u64> + Ord + Shl<u8, Output = Self> + Shr<u8, Output = Self>
 {
     /// The error type for the `try_from_u64` method.
-    type TryFromU64Error: core::fmt::Debug;
+    type TryFromU64Error: Debug;
     /// The error type for the `try_from_usize` method.
-    type TryFromUsizeError: core::fmt::Debug;
+    type TryFromUsizeError: Debug;
 
     /// Converts a `u64` to a positive integer number.
     /// 
@@ -74,7 +76,7 @@ pub trait PositiveInteger:
 }
 
 /// A trait for floating point numbers.
-pub trait Float: Number + Half + crate::utils::OneThousand + core::ops::Neg<Output = Self> {
+pub trait Float: Number + Half + OneThousand + Neg<Output = Self> {
     /// The value of positive infinity.
     const INFINITY: Self;
     /// The value of negative infinity.
@@ -92,20 +94,18 @@ pub trait Float: Number + Half + crate::utils::OneThousand + core::ops::Neg<Outp
     fn integer_exp2(register: u8) -> Self;
 
     #[must_use]
+    #[inline]
     /// Computes the saturating division of two numbers that are expected to be positive.
     /// and at most equal to one.
     fn saturating_one_div(self, other: Self) -> Self {
-        debug_assert!(self >= Self::ZERO);
-        debug_assert!(other >= Self::ZERO);
+        debug_assert!(self >= Self::ZERO, "The dividend must be positive.");
+        debug_assert!(other >= Self::ZERO, "The divisor must be positive.");
         if self >= other {
             Self::ONE
         } else {
             self / other
         }
     }
-
-    /// Converts a `f64` to a floating point number.
-    fn from_f64(value: f64) -> Self;
 
     /// Converts the provided usize to a floating point number
     /// with the same value, checking that the conversion is lossless.
@@ -154,15 +154,11 @@ pub trait Float: Number + Half + crate::utils::OneThousand + core::ops::Neg<Outp
 
     #[cfg(feature = "std")]
     #[must_use]
-    /// Returns the floor of the floating point number.
-    fn floor(self) -> Self;
-
-    #[cfg(feature = "std")]
-    #[must_use]
     /// Returns the exponential of the floating point number minus one.
     fn exp_m1(self) -> Self;
 }
 
+/// A trait for numbers.
 macro_rules! impl_number {
     ($($t:ty),*) => {
         $(
@@ -184,8 +180,9 @@ macro_rules! impl_number {
 
 impl_number!(u8, u16, u32, u64, usize);
 impl_number!(i32);
-impl_number!(f32, f64);
+impl_number!(f64);
 
+/// A trait for signed numbers.
 macro_rules! impl_positive_integer_number {
     ($($t:ty),*) => {
         $(
@@ -206,7 +203,7 @@ macro_rules! impl_positive_integer_number {
                 #[inline(always)]
                 #[must_use]
                 fn to_usize(self) -> usize {
-                    self as usize
+                    usize::try_from(self).unwrap()
                 }
             }
         )*
@@ -221,11 +218,13 @@ impl Float for f64 {
     const EPSILON: Self = f64::EPSILON;
 
     #[must_use]
+    #[inline]
     fn integer_exp2_minus(register: u8) -> Self {
         f64::from_le_bytes((u64::from(1023_u16 - u16::from(register)) << 52).to_le_bytes())
     }
 
     #[must_use]
+    #[inline]
     fn integer_exp2_minus_signed(register: i8) -> Self {
         f64::from_le_bytes(
             (u64::try_from(1023_i16 - i16::from(register)).unwrap() << 52).to_le_bytes(),
@@ -233,11 +232,12 @@ impl Float for f64 {
     }
 
     #[must_use]
+    #[inline]
     fn integer_exp2(register: u8) -> Self {
         f64::from_le_bytes((u64::from(1023_u16 + u16::from(register)) << 52).to_le_bytes())
     }
 
-    #[allow(clippy::cast_precision_loss)]
+    #[inline]
     fn from_usize_checked(value: usize) -> Result<Self, &'static str> {
         let max_lossless_integer = 2_usize.pow(53) - 1;
 
@@ -249,64 +249,62 @@ impl Float for f64 {
     }
 
     #[must_use]
+    #[inline]
     fn is_finite(self) -> bool {
         self.is_finite()
     }
 
     #[must_use]
-    fn from_f64(value: f64) -> Self {
-        value as Self
-    }
-
-    #[must_use]
+    #[inline]
     #[cfg(feature = "std")]
     fn abs(self) -> Self {
         self.abs()
     }
 
     #[must_use]
+    #[inline]
     #[cfg(feature = "std")]
     fn ln(self) -> Self {
         self.ln()
     }
 
     #[must_use]
+    #[inline]
     #[cfg(feature = "std")]
     fn ln_1p(self) -> Self {
         self.ln_1p()
     }
 
     #[must_use]
+    #[inline]
     #[cfg(feature = "std")]
     fn log2(self) -> Self {
         self.log2()
     }
 
     #[must_use]
+    #[inline]
     #[cfg(feature = "std")]
     fn exp(self) -> Self {
         self.exp()
     }
 
     #[must_use]
+    #[inline]
     #[cfg(feature = "std")]
     fn sqrt(self) -> Self {
         self.sqrt()
     }
 
     #[must_use]
+    #[inline]
     #[cfg(feature = "std")]
     fn powi(self, n: i32) -> Self {
         self.powi(n)
     }
 
     #[must_use]
-    #[cfg(feature = "std")]
-    fn floor(self) -> Self {
-        self.floor()
-    }
-
-    #[must_use]
+    #[inline]
     #[cfg(feature = "std")]
     fn exp_m1(self) -> Self {
         self.exp_m1()

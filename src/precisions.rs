@@ -38,7 +38,7 @@ fn kmeans_bias<const N: usize, V: PartialOrd + Number, W: Number>(
 where
     f64: From<W>,
 {
-    let index = estimates.partition_point(|a| a <= &estimate).max(1) - 1;
+    let index = estimates.partition_point(|estimate_centroid| estimate_centroid <= &estimate).max(1) - 1;
 
     let mut min = if index > 6 { index - 6 } else { 0 };
     let mut max = core::cmp::min(index + 6, N);
@@ -55,6 +55,8 @@ where
 }
 
 #[cfg(feature = "plusplus")]
+/// Computes the bias correction factor for the estimate using either
+/// the k-means algorithm or the simpler linear interpolation.
 fn bias<const N: usize, V: PartialOrd + Number, W: Number>(
     estimates: &'static [V; N],
     biases: &'static [W; N],
@@ -68,7 +70,7 @@ where
 
     #[cfg(not(feature = "plusplus_kmeans"))]
     return {
-        let index = estimates.partition_point(|a| a <= &estimate);
+        let index = estimates.partition_point(|estimate_centroid| estimate_centroid <= &estimate);
 
         if index == 0 {
             return f64::from(biases[0]);
@@ -103,9 +105,10 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     const NUMBER_OF_REGISTERS: Self::NumberOfRegisters;
 
     #[must_use]
+    #[inline]
     /// The theoretical error rate of the precision.
     fn error_rate() -> f64 {
-        1.04 / 2f64.powf(f64::from(Self::EXPONENT) / 2.0)
+        1.04 / 2_f64.powf(f64::from(Self::EXPONENT) / 2.0)
     }
 
     /// The alpha constant for the precision, used in the estimation of the cardinality.
@@ -130,6 +133,7 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     fn bias(estimate: f64) -> f64;
 
     #[cfg(feature = "plusplus")]
+    #[inline]
     /// Computes the estimate of the cardinality using the `LogLog++` algorithm.
     fn plusplus_estimate(harmonic_sum: f64, number_of_zeros: Self::NumberOfRegisters) -> f64 {
         if number_of_zeros >= Self::LINEAR_COUNT_ZEROS {
@@ -153,6 +157,7 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
 macro_rules! impl_precision {
     ($exponent:expr) => {
         paste::paste! {
+            #[non_exhaustive]
             #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
             #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
@@ -161,6 +166,7 @@ macro_rules! impl_precision {
 
             #[cfg(all(feature = "precision_" $exponent, feature = "std"))]
             impl crate::prelude::Named for [<Precision $exponent>] {
+                #[inline]
                 fn name(&self) -> String {
                     format!("P{}", $exponent)
                 }
@@ -177,7 +183,6 @@ macro_rules! impl_precision {
                 const LINEAR_COUNT_ZEROS: Self::NumberOfRegisters = [<LINEAR_COUNT_ZEROS_ $exponent>];
 
                 #[inline]
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                 #[cfg(feature = "plusplus")]
                 fn bias(estimate: f64) -> f64 {
                     #[cfg(not(feature = "integer_plusplus"))]
@@ -206,8 +211,8 @@ macro_rules! impl_precision {
                     }
                     #[cfg(not(feature = "precomputed_beta"))]
                     let beta_horner = {
-                        let number_of_zero_registers_ln = LN_VALUES[1 + number_of_zero_registers as usize];
-                        let mut res = 0.0;
+                        let number_of_zero_registers_ln = LN_VALUES[1 + usize::try_from(number_of_zero_registers).unwrap()];
+                        let mut res = f64::ZERO;
                         for i in (1..8).rev() {
                             res = res * number_of_zero_registers_ln + [<BETA_ $exponent>][i];
                         }
@@ -215,7 +220,7 @@ macro_rules! impl_precision {
                     };
 
                     #[cfg(feature = "precomputed_beta")]
-                    let beta_horner = [<BETA_HORNER_ $exponent>][number_of_zero_registers as usize];
+                    let beta_horner = [<BETA_HORNER_ $exponent>][usize::try_from(number_of_zero_registers).unwrap()];
 
                     [<ALPHA_ $exponent>]
                         * f64::integer_exp2(Self::EXPONENT)
@@ -228,9 +233,7 @@ macro_rules! impl_precision {
                 #[cfg(feature = "plusplus")]
                 fn small_correction(number_of_zero_registers: Self::NumberOfRegisters) -> f64 {
                     f64::integer_exp2(Self::EXPONENT)
-                        * (f64::from(Self::EXPONENT) * core::f64::consts::LN_2 - LN_VALUES[number_of_zero_registers as usize])
-                    // f64::integer_exp2(Self::EXPONENT)
-                    //     * (f64::integer_exp2(Self::EXPONENT) / f64::from(number_of_zero_registers)).ln()
+                        * (f64::from(Self::EXPONENT) * core::f64::consts::LN_2 - LN_VALUES[usize::try_from(number_of_zero_registers).unwrap()])
                 }
             }
         }

@@ -11,21 +11,16 @@
 
 use super::{
     extract_register_from_word, Bits, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6, Bits7, Bits8,
-    Debug, Float, Number, One, Precision, RegisterWord, Registers, WordLike, Words, Zero,
+    Float, Number, One, Precision, RegisterWord, Registers, WordLike, Words, Zero,
 };
+use core::fmt::Debug;
+use core::iter::Copied;
+use core::marker::PhantomData;
+use core::slice::Iter;
 
-#[cfg(feature = "precision_4")]
-use crate::prelude::Precision4;
-#[cfg(feature = "precision_5")]
-use crate::prelude::Precision5;
-#[cfg(feature = "precision_6")]
-use crate::prelude::Precision6;
-#[cfg(feature = "precision_7")]
-use crate::prelude::Precision7;
-#[cfg(feature = "precision_8")]
-use crate::prelude::Precision8;
-#[cfg(feature = "precision_9")]
-use crate::prelude::Precision9;
+#[cfg(feature = "std")]
+use crate::utils::Named;
+
 #[cfg(feature = "precision_10")]
 use crate::prelude::Precision10;
 #[cfg(feature = "precision_11")]
@@ -44,8 +39,20 @@ use crate::prelude::Precision16;
 use crate::prelude::Precision17;
 #[cfg(feature = "precision_18")]
 use crate::prelude::Precision18;
+#[cfg(feature = "precision_4")]
+use crate::prelude::Precision4;
+#[cfg(feature = "precision_5")]
+use crate::prelude::Precision5;
+#[cfg(feature = "precision_6")]
+use crate::prelude::Precision6;
+#[cfg(feature = "precision_7")]
+use crate::prelude::Precision7;
+#[cfg(feature = "precision_8")]
+use crate::prelude::Precision8;
+#[cfg(feature = "precision_9")]
+use crate::prelude::Precision9;
 
-
+/// Extracts a bridge register from a starting word and an ending word.
 fn extract_bridge_register_from_word<B: Bits, const N: usize, W: WordLike + RegisterWord<B>>(
     lower_word: [W; N],
     upper_word: [W; N],
@@ -53,7 +60,7 @@ fn extract_bridge_register_from_word<B: Bits, const N: usize, W: WordLike + Regi
 ) -> [u8; N]
 where
     u8: TryFrom<W>,
-    <u8 as TryFrom<W>>::Error: core::fmt::Debug,
+    <u8 as TryFrom<W>>::Error: Debug,
 {
     debug_assert!(
         offset + B::NUMBER_OF_BITS > W::NUMBER_OF_BITS,
@@ -86,9 +93,10 @@ where
     registers
 }
 
-pub struct RegisterIter<'a, P: Precision, B: Bits, R: Registers<P, B> + Words>
+/// Iterator over the registers of a packed array.
+pub struct RegisterIter<'register, P: Precision, B: Bits, R: Registers<P, B> + Words>
 where
-    R: 'a,
+    R: 'register,
 {
     /// The current register index across the packed array.
     current_register: P::NumberOfRegisters,
@@ -96,18 +104,20 @@ where
     /// offset of the bridge size from the previous word.
     word_offset: u8,
     /// The iterator over the words of the packed array.
-    words: R::WordIter<'a>,
+    words: R::WordIter<'register>,
     /// The current register being processed.
     current_word: Option<R::Word>,
-    _phantom: core::marker::PhantomData<(P, B, R)>,
+    /// Phantom data to keep track of the precision, bits, and registers.
+    _phantom: PhantomData<(P, B, R)>,
 }
 
 /// New constructor for [`RegisterIter`].
-impl<'a, P: Precision, B: Bits, R: Registers<P, B> + Words> RegisterIter<'a, P, B, R>
+impl<'register, P: Precision, B: Bits, R: Registers<P, B> + Words> RegisterIter<'register, P, B, R>
 where
-    R: 'a,
+    R: 'register,
 {
-    fn new(registers: &'a R) -> Self {
+    /// Creates a new instance of the register iterator.
+    fn new(registers: &'register R) -> Self {
         let mut words = registers.words();
         let current_word = words.next();
         Self {
@@ -115,16 +125,16 @@ where
             word_offset: 0,
             words,
             current_word,
-            _phantom: core::marker::PhantomData,
+            _phantom: PhantomData,
         }
     }
 }
 
 /// Implementation of the Iterator trait for [`RegisterIter`].
-impl<'a, P: Precision, B: Bits, R: Registers<P, B> + Words<Word = u64>> Iterator
-    for RegisterIter<'a, P, B, R>
+impl<'register, P: Precision, B: Bits, R: Registers<P, B> + Words<Word = u64>> Iterator
+    for RegisterIter<'register, P, B, R>
 where
-    R: 'a,
+    R: 'register,
     R::Word: RegisterWord<B>,
 {
     type Item = u8;
@@ -134,68 +144,85 @@ where
             return None;
         }
 
-        self.current_word.map(|word| {
+        self.current_word.and_then(|word| {
             self.current_register += P::NumberOfRegisters::ONE;
             // If the current register is inside the current word and not a bridge register, we can
             // extract the register directly from the word.
             if self.word_offset + B::NUMBER_OF_BITS <= R::Word::NUMBER_OF_BITS {
                 let [register] = extract_register_from_word::<B, 1, u64>([word], self.word_offset);
                 self.word_offset += B::NUMBER_OF_BITS;
-                return register;
+                return Some(register);
             }
             // Otherwise, we need to extract the register from the bridge between the current word
             // and the next one. Since we are guaranteed that the current word is not the last one,
             // we can safely unwrap the next word after having stored what we need from the current.
             self.current_word = self.words.next();
-            let next_word = self.current_word.unwrap();
+            self.current_word.map(|next_word| {
 
-            let register = extract_bridge_register_from_word::<B, 1, u64>(
-                [word],
-                [next_word],
-                self.word_offset,
-            )[0];
+                let register = extract_bridge_register_from_word::<B, 1, u64>(
+                    [word],
+                    [next_word],
+                    self.word_offset,
+                )[0];
 
-            self.word_offset = B::NUMBER_OF_BITS - (R::Word::NUMBER_OF_BITS - self.word_offset);
+                self.word_offset = B::NUMBER_OF_BITS - (R::Word::NUMBER_OF_BITS - self.word_offset);
 
-            register
+                register
+            })
         })
     }
 }
 
-pub struct RegisterTupleIter<'a, P: Precision, B: Bits, R: Registers<P, B> + Words<Word = u64>>
-where
-    R: 'a,
+/// Iterator over the registers of two packed arrays.
+pub struct RegisterTupleIter<
+    'registers,
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B> + Words<Word = u64>,
+> where
+    R: 'registers,
 {
+    /// The current register index across the packed array.
     current_register: P::NumberOfRegisters,
+    /// The offset in bits of the current word. In the case of bridge registers, this will be the
+    /// offset of the bridge size from the previous word.
     word_offset: u8,
-    left: R::WordIter<'a>,
-    right: R::WordIter<'a>,
+    /// The iterator over the words of the left packed array.
+    left: R::WordIter<'registers>,
+    /// The iterator over the words of the right packed array.
+    right: R::WordIter<'registers>,
+    /// The current word tuple being processed.
     current_word: Option<(R::Word, R::Word)>,
-    _phantom: core::marker::PhantomData<(P, B, R)>,
+    /// Phantom data to keep track of the precision, bits, and registers.
+    _phantom: PhantomData<(P, B, R)>,
 }
 
 /// Constructor for [`RegisterTupleIter`].
-impl<'a, P: Precision, B: Bits, R: Registers<P, B> + Words<Word = u64>>
-    RegisterTupleIter<'a, P, B, R>
+impl<'registers, P: Precision, B: Bits, R: Registers<P, B> + Words<Word = u64>>
+    RegisterTupleIter<'registers, P, B, R>
 {
-    pub fn new(left: &'a R, right: &'a R) -> Self {
-        let mut left = left.words();
-        let mut right = right.words();
-        let current_word = Some((left.next().unwrap(), right.next().unwrap()));
+    #[inline]
+    /// Creates a new instance of the register tuple iterator.
+    fn new(left: &'registers R, right: &'registers R) -> Self {
+        let mut left_iterator = left.words();
+        let mut right_iterator = right.words();
+        let current_word = left_iterator.next().and_then(|left_word| {
+            right_iterator.next().map(|right_word| (left_word, right_word))
+        });
         Self {
             current_register: P::NumberOfRegisters::ZERO,
             word_offset: 0,
-            left,
-            right,
+            left: left_iterator,
+            right: right_iterator,
             current_word,
-            _phantom: core::marker::PhantomData,
+            _phantom: PhantomData,
         }
     }
 }
 
 /// Implementation of the Iterator trait for [`RegisterTupleIter`].
-impl<'a, P: Precision, B: Bits, R: Registers<P, B> + Words<Word = u64>> Iterator
-    for RegisterTupleIter<'a, P, B, R>
+impl<'registers, P: Precision, B: Bits, R: Registers<P, B> + Words<Word = u64>> Iterator
+    for RegisterTupleIter<'registers, P, B, R>
 where
     R::Word: RegisterWord<B>,
 {
@@ -206,7 +233,7 @@ where
             return None;
         }
 
-        self.current_word.map(|(left_word, right_word)| {
+        self.current_word.and_then(|(left_word, right_word)| {
             self.current_register += P::NumberOfRegisters::ONE;
             // If the current register is inside the current word and not a bridge register, we can
             // extract the register directly from the word.
@@ -216,22 +243,25 @@ where
                     self.word_offset,
                 );
                 self.word_offset += B::NUMBER_OF_BITS;
-                return (left_register, right_register);
+                return Some((left_register, right_register));
             }
             // Otherwise, we need to extract the register from the bridge between the current word
             // and the next one. Since we are guaranteed that the current word is not the last one,
             // we can safely unwrap the next word after having stored what we need from the current.
-            self.current_word = Some((self.left.next().unwrap(), self.right.next().unwrap()));
-            let (next_left_word, next_right_word) = self.current_word.unwrap();
-            let [left_register, right_register] = extract_bridge_register_from_word::<B, 2, u64>(
-                [left_word, right_word],
-                [next_left_word, next_right_word],
-                self.word_offset,
-            );
-
-            self.word_offset = B::NUMBER_OF_BITS - (R::Word::NUMBER_OF_BITS - self.word_offset);
-
-            (left_register, right_register)
+            self.current_word = self.left.next().and_then(|new_left_word| {
+                self.right.next().map(|new_right_word| (new_left_word, new_right_word))
+            });
+            self.current_word.map(|(next_left_word, next_right_word)| {
+                let [left_register, right_register] = extract_bridge_register_from_word::<B, 2, u64>(
+                    [left_word, right_word],
+                    [next_left_word, next_right_word],
+                    self.word_offset,
+                );
+    
+                self.word_offset = B::NUMBER_OF_BITS - (R::Word::NUMBER_OF_BITS - self.word_offset);
+    
+                (left_register, right_register)    
+            })
         })
     }
 }
@@ -240,40 +270,40 @@ where
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 /// Register implementation for the packed array registers.
 pub struct PackedArray<W, const N: usize> {
+    /// The packed array of registers.
     words: [W; N],
 }
 
 #[cfg(feature = "std")]
-impl<const N: usize, W> crate::prelude::Named for PackedArray<W, N> {
+impl<const N: usize, W> Named for PackedArray<W, N> {
+    #[inline]
     fn name(&self) -> String {
-        "PackedArray".to_string()
+        "PackedArray".to_owned()
     }
 }
 
 impl<const N: usize, W: WordLike> Words for PackedArray<W, N> {
     type Word = W;
-    type WordIter<'a> = core::iter::Copied<core::slice::Iter<'a, Self::Word>> where Self: 'a;
+    type WordIter<'register> = Copied<Iter<'register, Self::Word>> where Self: 'register;
 
+    #[inline]
     fn number_of_words(&self) -> usize {
         N
     }
 
+    #[inline]
     fn find_sorted_with_len(&self, value: Self::Word, len: usize) -> bool {
         self.words.find_sorted_with_len(value, len)
     }
 
+    #[inline]
     fn sorted_insert_with_len(&mut self, value: Self::Word, len: usize) -> bool {
         self.words.sorted_insert_with_len(value, len)
     }
 
+    #[inline]
     fn words(&self) -> Self::WordIter<'_> {
         self.words.iter().copied()
-    }
-}
-
-impl<W, const N: usize> From<[W; N]> for PackedArray<W, N> {
-    fn from(words: [W; N]) -> Self {
-        Self { words }
     }
 }
 
@@ -285,6 +315,7 @@ pub trait PackedArrayRegister<B: Bits>: Precision {
     type PackedArrayRegister: Registers<Self, B>;
 }
 
+/// Extracts the word position and the relative register offset from the packed index.
 fn split_packed_index<P: Precision, B: Bits>(index: P::NumberOfRegisters) -> (usize, u8)
 where
     u64: RegisterWord<B>,
@@ -300,6 +331,7 @@ where
     )
 }
 
+/// Implement the packed array registers for a specific combination of precision and bits.
 macro_rules! impl_packed_array_register_for_precision_and_bits {
     ($exponent: expr, $($bits: expr),*) => {
         $(
@@ -311,23 +343,29 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
 
                 #[cfg(feature = "precision_" $exponent)]
                 impl Registers<[<Precision $exponent>], [<Bits $bits>]> for PackedArray<u64, {crate::utils::ceil(usize::pow(2, $exponent) * $bits, 64)}> {
-                    type Iter<'a> = RegisterIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>;
-                    type IterZipped<'a> = RegisterTupleIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>
+                    type Iter<'register> = RegisterIter<'register, [<Precision $exponent>], [<Bits $bits>], Self>;
+                    type IterZipped<'registers> = RegisterTupleIter<'registers, [<Precision $exponent>], [<Bits $bits>], Self>
                         where
-                            Self: 'a;
+                            Self: 'registers;
 
+                    #[inline]
                     fn zeroed() -> Self {
-                        PackedArray::from([0; crate::utils::ceil(usize::pow(2, $exponent) * $bits, 64)])
+                        PackedArray {
+                            words: [0; crate::utils::ceil(usize::pow(2, $exponent) * $bits, 64)]
+                        }
                     }
 
+                    #[inline]
                     fn iter_registers(&self) -> Self::Iter<'_> {
                         RegisterIter::new(self)
                     }
 
-                    fn iter_registers_zipped<'a>(&'a self, other: &'a Self) -> Self::IterZipped<'a>{
+                    #[inline]
+                    fn iter_registers_zipped<'register>(&'register self, other: &'register Self) -> Self::IterZipped<'register>{
                         RegisterTupleIter::new(self, other)
                     }
 
+                    #[inline]
                     fn get_harmonic_sum_and_zeros(
                         &self,
                         other: &Self,
@@ -367,7 +405,8 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                         (harmonic_sum, union_zeros)
                     }
 
-                    fn apply<F>(&mut self, mut f: F)
+                    #[inline]
+                    fn apply<F>(&mut self, mut register_function: F)
                     where
                         F: FnMut(u8) -> u8,
                     {
@@ -377,8 +416,8 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                         while number_of_registers < [<Precision $exponent>]::NUMBER_OF_REGISTERS {
                             if register_offset + [<Bits $bits>]::NUMBER_OF_BITS <= 64 {
                                 let [register] = extract_register_from_word::<[<Bits $bits>], 1, u64>([self.words[word_index]], register_offset);
-                                let new_register = f(u8::try_from(register).unwrap());
-                                self.words[word_index] &= !((<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK as u64) << register_offset);
+                                let new_register = register_function(u8::try_from(register).unwrap());
+                                self.words[word_index] &= !(u64::from(<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK) << register_offset);
                                 self.words[word_index] |= u64::from(new_register) << register_offset;
                                 register_offset += [<Bits $bits>]::NUMBER_OF_BITS;
                                 number_of_registers += 1;
@@ -389,8 +428,8 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                                 let lower_register = self.words[word_index] >> register_offset;
                                 let upper_register = self.words[word_index + 1] & upper_register_mask;
                                 let register = u8::try_from((upper_register << number_of_bits_in_lower_register) | lower_register).unwrap();
-                                let new_register = f(register);
-                                self.words[word_index] &= !((<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK as u64) << register_offset);
+                                let new_register = register_function(register);
+                                self.words[word_index] &= !(u64::from(<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK) << register_offset);
                                 self.words[word_index] |= u64::from(new_register) << register_offset;
                                 self.words[word_index + 1] &= !upper_register_mask;
                                 self.words[word_index + 1] |= u64::from(new_register) >> number_of_bits_in_lower_register;
@@ -413,7 +452,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                             let [old_register] = extract_register_from_word::<[<Bits $bits>], 1, u64>([*word], relative_register_offset);
                             if new_register > old_register {
                                 // We delete the old register
-                                *word &= !((<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK as u64) << relative_register_offset);
+                                *word &= !(u64::from(<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK) << relative_register_offset);
                                 // We insert the new register
                                 *word |= u64::from(new_register) << relative_register_offset;
                                 (old_register, new_register)
@@ -442,6 +481,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                         }
                     }
 
+                    #[inline]
                     /// Returns the value of the register at the given index in the packed array.
                     fn get_register(&self, index: <[<Precision $exponent>] as Precision>::NumberOfRegisters) -> u8 {
                         // We determine the word which contains the register and the position of the register,
@@ -460,6 +500,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                         }
                     }
 
+                    #[inline]
                     fn clear(&mut self) {
                         for word in self.words.iter_mut() {
                             *word = 0;
@@ -471,6 +512,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
     };
 }
 
+/// Implement the packed array registers for all the possible combinations of precision and bits.
 macro_rules! impl_registers_for_precisions {
     ($($exponent: expr),*) => {
         $(

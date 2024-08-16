@@ -10,11 +10,16 @@ mod packed_array;
 pub use array::ArrayRegister;
 pub use packed_array::{PackedArray, PackedArrayRegister};
 
+/// Extracts the register from one or more words at the given offset.
+/// 
+/// # Arguments
+/// * `word` - The word array from which the register is to be extracted.
+/// * `offset` - The offset at which the register starts.
 fn extract_register_from_word<B: Bits, const N: usize, W: WordLike + RegisterWord<B>>(
     word: [W; N],
     offset: u8,
-) -> [u8; N] where u8: TryFrom<W>, <u8 as TryFrom<W>>::Error: core::fmt::Debug {
-    debug_assert!(offset + B::NUMBER_OF_BITS <= W::NUMBER_OF_BITS);
+) -> [u8; N] where u8: TryFrom<W>, <u8 as TryFrom<W>>::Error: Debug {
+    debug_assert!(offset + B::NUMBER_OF_BITS <= W::NUMBER_OF_BITS, "The offset is too large.");
     let mut registers = [0_u8; N];
     for i in 0..N {
         registers[i] = u8::try_from((word[i] >> offset) & W::LOWER_REGISTER_MASK).unwrap();
@@ -27,20 +32,20 @@ pub trait Registers<P: Precision, B: Bits>:
     Eq + PartialEq + Clone + Debug + Send + Sync
 {
     /// Iterator over the registers.
-    type Iter<'a>: Iterator<Item = u8>
+    type Iter<'register>: Iterator<Item = u8>
     where
-        Self: 'a;
+        Self: 'register;
 
     /// Iterator over the registers zipped with another set of registers.
-    type IterZipped<'a>: Iterator<Item = (u8, u8)>
+    type IterZipped<'registers>: Iterator<Item = (u8, u8)>
     where
-        Self: 'a;
+        Self: 'registers;
 
     /// Returns an iterator over the registers.
     fn iter_registers(&self) -> Self::Iter<'_>;
 
     /// Returns an iterator over the registers zipped with another set of registers.
-    fn iter_registers_zipped<'a>(&'a self, other: &'a Self) -> Self::IterZipped<'a>;
+    fn iter_registers_zipped<'registers>(&'registers self, other: &'registers Self) -> Self::IterZipped<'registers>;
 
     /// Returns the harmonic sum of the maximum value of the registers and the number of zero registers.
     fn get_harmonic_sum_and_zeros(&self, other: &Self) -> (f64, P::NumberOfRegisters);

@@ -2,15 +2,12 @@
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 #![warn(clippy::all)]
-#![warn(clippy::pedantic)]
-#![warn(clippy::restriction)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod basicloglog;
 mod bits;
 mod estimator;
 mod hybrid;
-pub mod sketches;
 mod hyperloglog;
 mod hyperloglog_macro;
 #[cfg(feature = "beta")]
@@ -21,6 +18,7 @@ mod mle;
 mod plusplus;
 mod precisions;
 mod registers;
+pub mod sketches;
 mod utils;
 
 #[cfg(feature = "serde")]
@@ -34,7 +32,6 @@ pub mod prelude {
     pub use crate::bits::*;
     pub use crate::estimator::*;
     pub use crate::hybrid::*;
-    pub use crate::sketches::*;
     pub use crate::hyperloglog::*;
     #[cfg(feature = "beta")]
     pub use crate::loglogbeta::*;
@@ -44,6 +41,7 @@ pub mod prelude {
     pub use crate::plusplus::*;
     pub use crate::precisions::*;
     pub use crate::registers::*;
+    pub use crate::sketches::*;
     pub use crate::utils::*;
     pub use core::ops::{BitOr, BitOrAssign};
 }

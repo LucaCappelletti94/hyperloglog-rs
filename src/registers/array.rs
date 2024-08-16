@@ -1,8 +1,13 @@
 //! Submodule implementing the registers trait for the array data structure.
+use core::marker::PhantomData;
+
 use super::{
     extract_register_from_word, Bits, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6, Bits7, Bits8,
     Float, Number, One, Precision, RegisterWord, Registers, Words, Zero,
 };
+
+#[cfg(feature = "std")]
+use crate::prelude::Named;
 
 #[cfg(feature = "precision_4")]
 use crate::prelude::Precision4;
@@ -34,19 +39,27 @@ use crate::prelude::Precision16;
 use crate::prelude::Precision17;
 #[cfg(feature = "precision_18")]
 use crate::prelude::Precision18;
-pub struct RegisterIter<'a, P: Precision, B: Bits, R: Words + Registers<P, B>>
+
+/// Iterator over the registers.
+pub struct RegisterIter<'register, P: Precision, B: Bits, R: Words + Registers<P, B>>
 where
-    R: 'a,
+    R: 'register,
 {
+    /// The current register.
     current_register: P::NumberOfRegisters,
+    /// The current register in the word.
     current_register_in_word: u8,
-    words: R::WordIter<'a>,
+    /// The iterator over the words.
+    words: R::WordIter<'register>,
+    /// The current word.
     current_word: Option<R::Word>,
-    _phantom: core::marker::PhantomData<(P, B, R)>,
+    /// The phantom data.
+    _phantom: PhantomData<(P, B, R)>,
 }
 
-impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> RegisterIter<'a, P, B, R> {
-    pub(super) fn new(registers: &'a R) -> Self {
+impl<'register, P: Precision, B: Bits, R: Words + Registers<P, B>> RegisterIter<'register, P, B, R> {
+    /// Creates a new instance of the register iterator.
+    fn new(registers: &'register R) -> Self {
         let mut words = registers.words();
         let current_word = words.next();
         Self {
@@ -54,13 +67,13 @@ impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> RegisterIter<'a, P, 
             words,
             current_register_in_word: 0,
             current_word,
-            _phantom: core::marker::PhantomData,
+            _phantom: PhantomData,
         }
     }
 }
 
-impl<'a, P: Precision, B: Bits, R: Words<Word = u64> + Registers<P, B>> Iterator
-    for RegisterIter<'a, P, B, R>
+impl<'register, P: Precision, B: Bits, R: Words<Word = u64> + Registers<P, B>> Iterator
+    for RegisterIter<'register, P, B, R>
 where
     R::Word: RegisterWord<B>,
 {
@@ -89,38 +102,46 @@ where
     }
 }
 
-pub struct TupleIter<'a, P: Precision, B: Bits, R: Words + Registers<P, B>>
+/// Iterator over the registers zipped with another set of registers.
+pub struct TupleIter<'registers, P: Precision, B: Bits, R: Words + Registers<P, B>>
 where
-    R: 'a,
+    R: 'registers,
 {
+    /// The current register.
     current_register: P::NumberOfRegisters,
+    /// The current register in the word.
     current_register_in_word: u8,
-    left: R::WordIter<'a>,
-    right: R::WordIter<'a>,
+    /// The iterator over the left registers.
+    left: R::WordIter<'registers>,
+    /// The iterator over the right registers.
+    right: R::WordIter<'registers>,
+    /// The current words.
     current_word: Option<(R::Word, R::Word)>,
-    _phantom: core::marker::PhantomData<(P, B, R)>,
+    /// The phantom data.
+    _phantom: PhantomData<(P, B, R)>,
 }
 
-impl<'a, P: Precision, B: Bits, R: Words + Registers<P, B>> TupleIter<'a, P, B, R> {
-    pub(super) fn new(left: &'a R, right: &'a R) -> Self {
-        let mut left = left.words();
-        let mut right = right.words();
-        let current_word = left
+impl<'registers, P: Precision, B: Bits, R: Words + Registers<P, B>> TupleIter<'registers, P, B, R> {
+    /// Creates a new instance of the tuple iterator.
+    fn new(left: &'registers R, right: &'registers R) -> Self {
+        let mut left_iterator = left.words();
+        let mut right_iterator = right.words();
+        let current_word = left_iterator
             .next()
-            .and_then(|left_word| right.next().map(|right_word| (left_word, right_word)));
+            .and_then(|left_word| right_iterator.next().map(|right_word| (left_word, right_word)));
         Self {
             current_register: P::NumberOfRegisters::ZERO,
-            left,
-            right,
+            left: left_iterator,
+            right: right_iterator,
             current_register_in_word: 0,
             current_word,
-            _phantom: core::marker::PhantomData,
+            _phantom: PhantomData,
         }
     }
 }
 
-impl<'a, P: Precision, B: Bits, R: Words<Word = u64> + Registers<P, B>> Iterator
-    for TupleIter<'a, P, B, R>
+impl<'registers, P: Precision, B: Bits, R: Words<Word = u64> + Registers<P, B>> Iterator
+    for TupleIter<'registers, P, B, R>
 where
     R::Word: RegisterWord<B>,
 {
@@ -160,12 +181,14 @@ pub trait ArrayRegister<B: Bits>: Precision {
 }
 
 #[cfg(feature = "std")]
-impl<const N: usize, W> crate::prelude::Named for [W; N] {
+impl<const N: usize, W> Named for [W; N] {
+    #[inline]
     fn name(&self) -> String {
-        "Array".to_string()
+        "Array".to_owned()
     }
 }
 
+/// Splits the index into the word position and the register position.
 fn split_index<P: Precision, B: Bits>(index: P::NumberOfRegisters) -> (usize, u8)
 where
     u64: RegisterWord<B>,
@@ -176,6 +199,7 @@ where
     (usize::try_from(word_position).unwrap(), register_position)
 }
 
+/// Implement the registers trait for the different combinations of precision and bits.
 macro_rules! impl_register_for_precision_and_bits {
     ($exponent: expr, $($bits: expr),*) => {
         $(
@@ -187,23 +211,27 @@ macro_rules! impl_register_for_precision_and_bits {
 
                 #[cfg(feature = "precision_" $exponent)]
                 impl Registers<[<Precision $exponent>], [<Bits $bits>]> for [u64; crate::utils::ceil(usize::pow(2, $exponent), 64 / $bits)] {
-                    type Iter<'a> = RegisterIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>;
-                    type IterZipped<'a> = TupleIter<'a, [<Precision $exponent>], [<Bits $bits>], Self>
+                    type Iter<'register> = RegisterIter<'register, [<Precision $exponent>], [<Bits $bits>], Self>;
+                    type IterZipped<'registers> = TupleIter<'registers, [<Precision $exponent>], [<Bits $bits>], Self>
                         where
-                            Self: 'a;
+                            Self: 'registers;
 
+                    #[inline]
                     fn zeroed() -> Self {
                         [0; crate::utils::ceil(usize::pow(2, $exponent), 64 / $bits)]
                     }
 
+                    #[inline]
                     fn iter_registers(&self) -> Self::Iter<'_> {
                         RegisterIter::new(self)
                     }
 
-                    fn iter_registers_zipped<'a>(&'a self, other: &'a Self) -> Self::IterZipped<'a>{
+                    #[inline]
+                    fn iter_registers_zipped<'registers>(&'registers self, other: &'registers Self) -> Self::IterZipped<'registers>{
                         TupleIter::new(self, other)
                     }
 
+                    #[inline]
                     fn get_harmonic_sum_and_zeros(
                         &self,
                         other: &Self,
@@ -228,7 +256,7 @@ macro_rules! impl_register_for_precision_and_bits {
                             union_zeros += partial_zeros;
                         }
 
-                        let number_of_padding_registers: u8 = u8::try_from((self.len() as u64)
+                        let number_of_padding_registers: u8 = u8::try_from(u64::try_from(self.len()).unwrap()
                         * u64::from(<u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS_IN_WORD)
                         - u64::from(<[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS)).unwrap();
 
@@ -238,7 +266,8 @@ macro_rules! impl_register_for_precision_and_bits {
                         (harmonic_sum, union_zeros)
                     }
 
-                    fn apply<F>(&mut self, mut f: F)
+                    #[inline]
+                    fn apply<F>(&mut self, mut register_function: F)
                     where
                         F: FnMut(u8) -> u8,
                     {
@@ -251,7 +280,7 @@ macro_rules! impl_register_for_precision_and_bits {
                                     break;
                                 }
                                 let [register] = extract_register_from_word::<[<Bits $bits>], 1, u64>([word_copy], step * [<Bits $bits>]::NUMBER_OF_BITS);
-                                let new_register = f(register);
+                                let new_register = register_function(register);
                                 debug_assert!(
                                     new_register <= u8::try_from(<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK).unwrap(),
                                     "Expected the new register at precision {} and bits {} to be <= {} but got {}.",
@@ -267,7 +296,7 @@ macro_rules! impl_register_for_precision_and_bits {
                         }
                     }
 
-                    #[inline(always)]
+                    #[inline]
                     fn set_greater(&mut self, index: <[<Precision $exponent>] as Precision>::NumberOfRegisters, new_register: u8) -> (u8, u8) {
                         debug_assert!(index < [<Precision $exponent>]::NUMBER_OF_REGISTERS);
                         debug_assert!(
@@ -296,6 +325,7 @@ macro_rules! impl_register_for_precision_and_bits {
                         (register_value, new_register)
                     }
 
+                    #[inline]
                     fn get_register(&self, index: <[<Precision $exponent>] as Precision>::NumberOfRegisters) -> u8 {
                         // Calculate the position of the register in the internal buffer array.
                         let (word_position, register_position) = split_index::<[<Precision $exponent>], [<Bits $bits>]>(index);
@@ -304,6 +334,7 @@ macro_rules! impl_register_for_precision_and_bits {
                         extract_register_from_word::<[<Bits $bits>], 1, u64>([self[word_position]], register_position * [<Bits $bits>]::NUMBER_OF_BITS)[0]
                     }
 
+                    #[inline]
                     fn clear(&mut self) {
                         for word in self.iter_mut() {
                             *word = 0;
@@ -315,6 +346,7 @@ macro_rules! impl_register_for_precision_and_bits {
     };
 }
 
+/// Implement the registers trait for the different combinations of precision and bits.
 macro_rules! impl_registers_for_precisions {
     ($($exponent: expr),*) => {
         $(

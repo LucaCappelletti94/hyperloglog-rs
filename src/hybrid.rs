@@ -1,6 +1,8 @@
 //! Marker struct for the hybrid approach, that keeps the hash explicit up until they fit into the registers.
 
 use crate::prelude::*;
+use core::cmp::Ordering;
+use core::hash::Hash;
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
@@ -8,13 +10,15 @@ use crate::prelude::*;
 /// A struct representing the hybrid for approximate set cardinality estimation,
 /// where the hash values are kept explicit up until they fit into the registers.
 pub struct Hybrid<H> {
-    pub(crate) inner: H,
+    /// The inner counter.
+    inner: H,
 }
 
 impl<H: Hybridazable> Default for Hybrid<H>
 where
     H: Default,
 {
+    #[inline]
     fn default() -> Self {
         Self {
             inner: H::new_hybrid(),
@@ -26,51 +30,63 @@ impl<H: Hybridazable> Hybridazable for Hybrid<H>
 where
     H: Hybridazable
 {
-    type IterSortedHashes<'a> = H::IterSortedHashes<'a> where Self: 'a;
+    type IterSortedHashes<'words> = H::IterSortedHashes<'words> where Self: 'words;
 
+    #[inline]
     fn dehybridize(&mut self) {
         self.inner.dehybridize();
     }
 
+    #[inline]
     fn new_hybrid() -> Self {
         Self::default()
     }
 
+    #[inline]
     fn is_hybrid(&self) -> bool {
         self.inner.is_hybrid()
     }
 
+    #[inline]
     fn number_of_hashes(&self) -> usize {
         self.inner.number_of_hashes()
     }
 
+    #[inline]
     fn capacity(&self) -> usize {
         self.inner.capacity()
     }
 
+    #[inline]
     fn clear_words(&mut self) {
         self.inner.clear_words();
     }
 
+    #[inline]
     fn iter_sorted_hashes(&self) -> Self::IterSortedHashes<'_> {
         self.inner.iter_sorted_hashes()
     }
 
-    fn contains<T: core::hash::Hash>(&self, element: &T) -> bool {
+    #[inline]
+    fn contains<T: Hash>(&self, element: &T) -> bool {
         self.inner.contains(element)
     }
-    fn hybrid_insert<T: core::hash::Hash>(&mut self, value: &T) -> bool {
+
+    #[inline]
+    fn hybrid_insert<T: Hash>(&mut self, value: &T) -> bool {
         self.inner.hybrid_insert(value)
     }
 }
 
 impl<H: PartialEq> PartialEq<Self> for Hybrid<H> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
 impl<H: PartialEq<H>> PartialEq<H> for Hybrid<H> {
+    #[inline]
     fn eq(&self, other: &H) -> bool {
         &self.inner == other
     }
@@ -79,6 +95,7 @@ impl<H: PartialEq<H>> PartialEq<H> for Hybrid<H> {
 impl<H: Eq> Eq for Hybrid<H> {}
 
 impl<H: SetProperties + Hybridazable> SetProperties for Hybrid<H> {
+    #[inline]
     fn is_empty(&self) -> bool {
         if self.is_hybrid() {
             self.inner.number_of_hashes() == 0
@@ -87,6 +104,7 @@ impl<H: SetProperties + Hybridazable> SetProperties for Hybrid<H> {
         }
     }
 
+    #[inline]
     fn is_full(&self) -> bool {
         if self.is_hybrid() {
             self.inner.number_of_hashes() == self.inner.capacity()
@@ -96,7 +114,8 @@ impl<H: SetProperties + Hybridazable> SetProperties for Hybrid<H> {
     }
 }
 
-impl<T: core::hash::Hash, H: ApproximatedSet<T> + Hybridazable> ApproximatedSet<T> for Hybrid<H> {
+impl<T: Hash, H: ApproximatedSet<T> + Hybridazable> ApproximatedSet<T> for Hybrid<H> {
+    #[inline]
     fn may_contain(&self, element: &T) -> bool {
         if self.is_hybrid() {
             Hybridazable::contains(&self.inner, element)
@@ -107,14 +126,16 @@ impl<T: core::hash::Hash, H: ApproximatedSet<T> + Hybridazable> ApproximatedSet<
 }
 
 impl<H: MutableSet + Hybridazable> MutableSet for Hybrid<H> {
+    #[inline]
     fn clear(&mut self) {
         self.inner.clear_words();
     }
 }
 
-impl<T: core::hash::Hash, H: ExtendableApproximatedSet<T> + Hybridazable>
+impl<T: Hash, H: ExtendableApproximatedSet<T> + Hybridazable>
     ExtendableApproximatedSet<T> for Hybrid<H>
 {
+    #[inline]
     fn insert(&mut self, element: &T) -> bool {
         if self.is_hybrid() {
             Hybridazable::hybrid_insert(&mut self.inner, element)
@@ -124,6 +145,8 @@ impl<T: core::hash::Hash, H: ExtendableApproximatedSet<T> + Hybridazable>
     }
 }
 
+#[inline]
+/// Returns the number of unique values from two sorted iterators.
 pub(crate) fn unique_values_from_sorted_iterators<
     T: Ord,
     I: Iterator<Item = T>,
@@ -133,33 +156,33 @@ pub(crate) fn unique_values_from_sorted_iterators<
     mut right: J,
 ) -> usize {
     let mut count = 0;
-    let mut left_value = left.next();
-    let mut right_value = right.next();
-    while let Some(ord) = left_value.as_ref().and_then(|left_value| {
-        right_value
+    let mut maybe_left_value = left.next();
+    let mut maybe_right_value = right.next();
+    while let Some(ord) = maybe_left_value.as_ref().and_then(|left_value| {
+        maybe_right_value
             .as_ref()
             .map(|right_value| left_value.cmp(right_value))
     }) {
         count += 1;
         match ord {
-            core::cmp::Ordering::Less => {
-                left_value = left.next();
+            Ordering::Less => {
+                maybe_left_value = left.next();
             }
-            core::cmp::Ordering::Greater => {
-                right_value = right.next();
+            Ordering::Greater => {
+                maybe_right_value = right.next();
             }
-            core::cmp::Ordering::Equal => {
-                left_value = left.next();
-                right_value = right.next();
+            Ordering::Equal => {
+                maybe_left_value = left.next();
+                maybe_right_value = right.next();
             }
         }
     }
 
-    if left_value.is_some() {
+    if maybe_left_value.is_some() {
         count += 1;
     }
 
-    if right_value.is_some() {
+    if maybe_right_value.is_some() {
         count += 1;
     }
 
@@ -169,9 +192,9 @@ pub(crate) fn unique_values_from_sorted_iterators<
 /// Trait for a struct that can be used in the hybrid approach.
 pub trait Hybridazable: Default {
     /// The type of the iterator over the sorted hashes.
-    type IterSortedHashes<'a>: Iterator<Item = u64>
+    type IterSortedHashes<'words>: Iterator<Item = u64>
     where
-        Self: 'a;
+        Self: 'words;
 
     /// De-hybridize the struct, i.e., convert it to a register-based counter.
     fn dehybridize(&mut self);
@@ -196,14 +219,15 @@ pub trait Hybridazable: Default {
     fn iter_sorted_hashes(&self) -> Self::IterSortedHashes<'_>;
 
     /// Returns whether the counter contains the element.
-    fn contains<T: core::hash::Hash>(&self, element: &T) -> bool;
+    fn contains<T: Hash>(&self, element: &T) -> bool;
 
     /// Inserts a value into the counter.
-    fn hybrid_insert<T: core::hash::Hash>(&mut self, value: &T) -> bool;
+    fn hybrid_insert<T: Hash>(&mut self, value: &T) -> bool;
 }
 
 #[cfg(feature = "std")]
 impl<H: Named> Named for Hybrid<H> {
+    #[inline]
     fn name(&self) -> String {
         format!("Hybrid{}", self.inner.name())
     }
@@ -213,6 +237,7 @@ impl<F: Float, H: Clone + Estimator<F> + Hybridazable + Default> Estimator<F> fo
 where
     Hybrid<H>: Default,
 {
+    #[inline]
     fn estimate_cardinality(&self) -> F {
         if self.inner.is_hybrid() {
             F::from_usize_checked(self.inner.number_of_hashes()).unwrap()
@@ -221,11 +246,13 @@ where
         }
     }
 
+    #[inline]
     fn is_union_estimate_non_deterministic(&self, other: &Self) -> bool {
         !(self.is_hybrid() && other.is_hybrid())
             && self.inner.is_union_estimate_non_deterministic(&other.inner)
     }
 
+    #[inline]
     fn estimate_union_cardinality(&self, other: &Self) -> F {
         match (self.is_hybrid(), other.is_hybrid()) {
             (true, true) => {

@@ -14,7 +14,7 @@ trait RedableNumber: Display {
         let fractional_part = parts.first().unwrap_or(&"");
 
         // Trim values smaller than five from the end of the fractional part
-        let fractional_part = fractional_part.trim_end_matches(['0', ]);//'2', '3', '4']);
+        let fractional_part = fractional_part.trim_end_matches(['0']); //'2', '3', '4']);
 
         // We save whether the number is negative, so to remove the minus sign
         // and re-add it at the end
@@ -65,11 +65,8 @@ trait RedableNumber: Display {
         // We check whether the string matches for its
         // entirety with the known constants
         let constants = [
-            (
-                "0.693_147_180_559_945_309_417_232_121_458_176_568",
-                "core::f64::consts::LN_2",
-            ),
-            ("2.302_585_092_994", "core::f64::consts::LN_10"),
+            ("0.693_147_180_559_945_309_417_232_121_458_176_568", "LN_2"),
+            ("2.302_585_092_994", "LN_10"),
         ];
 
         for (formatted, constant) in constants.iter() {
@@ -313,10 +310,10 @@ fn write_weights(precisions: &[usize]) {
 
         let number_of_biases = biases.len().format_with_precision(0);
 
-        let weights_type = format!("type Bias{precision} = [{biases_type}; {number_of_biases}];");
+        let weights_type = format!("/// Bias centroid type for precision {precision} for [`PlusPlus`]. \ntype Bias{precision} = [{biases_type}; {number_of_biases}];");
 
         let biases = format!(
-            "const BIAS_{precision}:  Bias{precision} = [\n{}\n];",
+            "/// Biases aligned with estimates centroids for precision {precision} for [`PlusPlus`]. \nconst BIAS_{precision}:  Bias{precision} = [\n{}\n];",
             biases
                 .iter()
                 .map(|x| format!("    {},", x.format_with_precision(resolution)))
@@ -325,12 +322,12 @@ fn write_weights(precisions: &[usize]) {
         );
 
         let estimate_type =
-            format!("type Estimates{precision} = [{estimates_type}; {number_of_biases}];");
+            format!("/// Estimates centroid type for precision {precision} for [`PlusPlus`]. \ntype Estimates{precision} = [{estimates_type}; {number_of_biases}];");
 
         all_types.push(estimate_type);
 
         let estimates = format!(
-            "const ESTIMATES_{precision}:  Estimates{precision} = [\n{}\n];",
+            "/// Sorted estimates centroids for precision {precision} for [`PlusPlus`]. \nconst ESTIMATES_{precision}:  Estimates{precision} = [\n{}\n];",
             estimates
                 .iter()
                 .map(|x| format!("    {},", x.format_with_precision(resolution)))
@@ -369,7 +366,7 @@ fn write_linear_count_zeros(precisions: &[usize]) {
         .map(|precision| {
             let count = get_linear_count(1 << precision, get_linear_count_threshold(*precision));
             let data_type = get_smallest_data_type(1 << precision);
-            format!("const LINEAR_COUNT_ZEROS_{precision}: {data_type} = {count};",)
+            format!("/// Number of zeros for linear count threshold for precision {precision} used in [`HyperLogLog`]. \nconst LINEAR_COUNT_ZEROS_{precision}: {data_type} = {count};",)
         })
         .collect::<Vec<String>>()
         .join("\n");
@@ -388,7 +385,7 @@ fn write_alphas(precisions: &[usize]) {
             let number_of_registers = 1 << precision;
             let alpha = get_alpha(number_of_registers);
             format!(
-                "const ALPHA_{precision}: f64 = {};",
+                "/// Alpha constants for precision {precision} used in [`HyperLogLog`]. \nconst ALPHA_{precision}: f64 = {};",
                 alpha.format_with_precision(12)
             )
         })
@@ -413,10 +410,11 @@ fn write_ln_values(precisions: &[usize]) {
     // ln values for.
     let maximal_precision = *precisions.iter().max().unwrap();
     let maximal_number_of_registers = 1 + (1 << maximal_precision);
-    let formatted_maximal_number_of_registers = maximal_number_of_registers.format_with_precision(0);
+    let formatted_maximal_number_of_registers =
+        maximal_number_of_registers.format_with_precision(0);
 
     let ln_values = format!(
-        "static LN_VALUES: [f64; {formatted_maximal_number_of_registers}] = [\n{}\n];",
+        "use core::f64::consts::{{LN_2, LN_10}};\n\n/// Precomputed natural log values for no-std log computations. \nstatic LN_VALUES: [f64; {formatted_maximal_number_of_registers}] = [\n{}\n];",
         (0..maximal_number_of_registers)
             .map(|x| if x > 0 {
                 format!("    {},", (x as f64).ln().format_with_precision(12))
@@ -445,7 +443,7 @@ fn write_beta(precisions: &[usize]) {
         let beta = get_beta(precision);
 
         let beta = format!(
-            "const BETA_{precision}: [f64; {}] = [\n{}\n];",
+            "/// Beta factors for the [`LogLogBeta`] approach.\nconst BETA_{precision}: [f64; {}] = [\n{}\n];",
             beta.len(),
             beta.iter()
                 .map(|x| format!("    {},", x.format_with_precision(9)))
@@ -476,7 +474,7 @@ fn write_precomputed_beta(precisions: &[usize]) {
         let beta_horner = get_unrolled_beta_horner(precision);
 
         let beta = format!(
-            "static BETA_HORNER_{precision}: [f64; {}] = [\n{}\n];",
+            "/// Precomputed beta-horner factors for the [`LogLogBeta`] approach.\nstatic BETA_HORNER_{precision}: [f64; {}] = [\n{}\n];",
             beta_horner.len().format_with_precision(0),
             beta_horner
                 .iter()
@@ -511,7 +509,7 @@ fn write_number_of_registers(precisions: &[usize]) {
         .map(|precision| {
             let number_of_registers = 1 << precision;
             let smallest_data_type = get_smallest_data_type(number_of_registers);
-            format!("type NumberOfRegisters{precision} = {smallest_data_type};",)
+            format!("/// Smallest word-like data-type for the number of register used in [`Precision`] trait implementations.\ntype NumberOfRegisters{precision} = {smallest_data_type};",)
         })
         .collect::<Vec<String>>()
         .join("\n");

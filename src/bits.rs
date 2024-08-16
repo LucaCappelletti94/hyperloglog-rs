@@ -1,7 +1,11 @@
 //! Submodule providing the trait marker Bits.
+use core::fmt::Debug;
+
+#[cfg(feature = "std")]
+use crate::utils::Named;
 
 /// Trait marker for the number of bits.
-pub trait Bits: Default + Copy + PartialEq + Eq + Send + Sync + core::fmt::Debug{
+pub trait Bits: Default + Copy + PartialEq + Eq + Send + Sync + Debug{
     /// The number of bits.
     const NUMBER_OF_BITS: u8;
 }
@@ -11,6 +15,7 @@ macro_rules! impl_bits {
     ($($n: expr),*) => {
         $(
             paste::paste! {
+                #[non_exhaustive]
                 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
                 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
                 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -18,7 +23,8 @@ macro_rules! impl_bits {
                 pub struct [<Bits $n>];
 
                 #[cfg(feature = "std")]
-                impl crate::prelude::Named for [<Bits $n>] {
+                impl Named for [<Bits $n>] {
+                    #[inline]
                     fn name(&self) -> String {
                         format!("B{}", $n)
                     }

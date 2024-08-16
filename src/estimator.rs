@@ -1,3 +1,4 @@
+//! This module defines the traits for the cardinality estimators.
 use core::hash::Hash;
 
 use crate::prelude::*;
@@ -29,6 +30,7 @@ pub trait ExtendableApproximatedSet<T: Hash> {
     /// Insert an element into the set and return whether the element has been inserted.
     fn insert(&mut self, element: &T) -> bool;
 
+    #[inline]
     /// Extend the [`HyperLogLog`] counter with the elements from an iterator.
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for value in iter {
@@ -48,6 +50,7 @@ pub trait Estimator<F: Number>: Sized + Default + Send + Sync {
     /// Returns whether the union estimate is currently non-deterministic.
     fn is_union_estimate_non_deterministic(&self, other: &Self) -> bool;
 
+    #[inline]
     /// Returns an estimate of the intersection cardinality between two counters.
     fn estimate_intersection_cardinality(&self, other: &Self) -> F {
         let self_cardinality = self.estimate_cardinality();
@@ -62,6 +65,7 @@ pub trait Estimator<F: Number>: Sized + Default + Send + Sync {
         }
     }
 
+    #[inline]
     /// Returns an estimate of the Jaccard index between two counters.
     fn estimate_jaccard_index(&self, other: &Self) -> F {
         let self_cardinality = self.estimate_cardinality();
@@ -76,6 +80,7 @@ pub trait Estimator<F: Number>: Sized + Default + Send + Sync {
         }
     }
 
+    #[inline]
     /// Returns an estimate of the cardinality of the current counter minus the cardinality of the other counter.
     fn estimate_difference_cardinality(&self, other: &Self) -> F {
         let union_cardinality = self.estimate_union_cardinality(other);

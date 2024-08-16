@@ -26,8 +26,6 @@ pub(crate) use register_word::RegisterWord;
 pub use word_like::WordLike;
 pub use words::Words;
 
-use crate::{bits::Bits, prelude::Precision};
-
 #[cfg(feature = "std")]
 /// Trait for an object with a name.
 pub trait Named {
@@ -37,6 +35,11 @@ pub trait Named {
 
 #[inline]
 /// Calculates the integer ceil of the division of `numerator` by `denominator`.
+/// 
+/// # Arguments
+/// * `numerator` - The numerator of the division.
+/// * `denominator` - The denominator of the division.
+/// 
 pub(crate) const fn ceil(numerator: usize, denominator: usize) -> usize {
     (numerator + denominator - 1) / denominator
 }
@@ -61,14 +64,6 @@ pub(crate) const fn maximal_multeplicity(precision: u8, bits: u8) -> u8 {
 }
 
 #[inline]
-/// Returns the lowest possible value for the harmonic sum given the precision and the number of bits.
-pub(crate) fn miminal_harmonic_sum<P: Precision, B: Bits>() -> f64 {
-    f64::integer_exp2_minus_signed(
-        i8::try_from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)).unwrap() - i8::try_from(P::EXPONENT).unwrap() - 1,
-    )
-}
-
-#[inline]
 /// Applies a correction to the provided union cardinality estimate.
 pub(crate) fn correct_union_estimate(
     left_cardinality: f64,
@@ -84,52 +79,6 @@ pub(crate) fn correct_union_estimate(
 mod test {
     use super::*;
     use crate::prelude::*;
-
-    #[test]
-    #[cfg(feature = "precision_4")]
-    fn test_miminal_harmonic_sum_4() {
-        assert_eq!(miminal_harmonic_sum::<Precision4, Bits1>(), 8.0);
-    }
-
-    #[test]
-    #[cfg(feature = "precision_10")]
-    fn test_miminal_harmonic_sum_10() {
-        assert_eq!(miminal_harmonic_sum::<Precision10, Bits4>(), 0.03125);
-    }
-
-    macro_rules! test_minimal_harmonic_sum_by_precision_and_bits {
-        ($precision: expr, $($bits: expr),*) => {
-            $(
-                paste::item! {
-                    #[cfg(feature = "precision_" $precision)]
-                    #[test]
-                    fn [<test_miminal_harmonic_sum_ $precision _ $bits _against_baseline>]() {
-                        let maximal_register_value = maximal_multeplicity([<Precision $precision>]::EXPONENT, [<Bits $bits>]::NUMBER_OF_BITS) - 1;
-                        let expected = [<Precision $precision>]::NUMBER_OF_REGISTERS as f64 * (-(maximal_register_value as f64)).exp2();
-                        let actual = miminal_harmonic_sum::<[<Precision $precision>], [<Bits $bits>]>();
-                        assert!(
-                            (expected - actual).abs() < f64::EPSILON,
-                            "The minimal harmonic sum ({}) is different from the expected value ({}) for precision {} and bits {}.",
-                            actual,
-                            expected,
-                            [<Precision $precision>]::EXPONENT,
-                            [<Bits $bits>]::NUMBER_OF_BITS,
-                        );
-                    }
-                }
-            )*
-        };
-    }
-
-    macro_rules! test_minimal_harmonic_sum_by_precisions {
-        ($($precision: expr),*) => {
-            $(
-                test_minimal_harmonic_sum_by_precision_and_bits!($precision, 1, 2, 3, 4);
-            )*
-        };
-    }
-
-    test_minimal_harmonic_sum_by_precisions!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
 
     #[test]
     fn test_ceil() {

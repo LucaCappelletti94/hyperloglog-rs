@@ -1,8 +1,9 @@
 //! The `hyperloglog` module contains the [`HyperLogLog`] trait that defines the interface for [`HyperLogLog`] counters.
 use crate::prelude::*;
+use core::hash::{Hash, Hasher};
 
 /// Trait for [`HyperLogLog`] counters.
-pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Default>:
+pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
     Sized
     + Default
     + Eq
@@ -53,6 +54,7 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
     /// ```
     fn get_number_of_zero_registers(&self) -> P::NumberOfRegisters;
 
+    #[inline]
     /// Returns whether the provided [`HyperLogLog`] counter may be fully contained in the current [`HyperLogLog`] counter.
     ///
     /// # Arguments
@@ -90,10 +92,11 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
     fn may_contain_all(&self, rhs: &Self) -> bool {
         self.registers()
             .iter_registers_zipped(rhs.registers())
-            .all(|(lhs, rhs)| lhs >= rhs)
+            .all(|(left_register, right_register)| left_register >= right_register)
     }
 
     #[must_use]
+    #[inline]
     /// Slits the hash into two parts: the register value and the index of the register.
     fn split_hash(hash: u64) -> (u8, P::NumberOfRegisters) {
         let index: P::NumberOfRegisters = P::NumberOfRegisters::try_from_u64(
@@ -102,7 +105,7 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
         .unwrap();
 
         // And we delete the used bits from the hash.
-        let mut hash: u64 = hash >> P::EXPONENT;
+        let mut censored_hash: u64 = hash >> P::EXPONENT;
 
         debug_assert!(
             index < P::NUMBER_OF_REGISTERS,
@@ -115,18 +118,19 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
         // the number of zeros we obtain afterwards is never higher
         // than the maximal value that may be represented in a register
         // with BITS bits.
-        if B::NUMBER_OF_BITS < 6 {
-            hash |= 1 << (64 - ((1 << B::NUMBER_OF_BITS) - 1));
+        if B::NUMBER_OF_BITS < 6_u8 {
+            censored_hash |= 1 << (64_u8 - ((u8::ONE << B::NUMBER_OF_BITS) - u8::ONE));
         }
 
-        let register_value = u8::try_from(hash.leading_zeros() + 1).unwrap() - P::EXPONENT;
+        let register_value = u8::try_from(censored_hash.leading_zeros() + 1).unwrap() - P::EXPONENT;
 
         (register_value, index)
     }
 
+    #[inline]
     /// Hashes the element and returns the register value and the index of the register.
-    fn hash_and_index<T: core::hash::Hash>(element: &T) -> (u8, P::NumberOfRegisters) {
-        let mut hasher = Hasher::default();
+    fn hash_and_index<T: Hash>(element: &T) -> (u8, P::NumberOfRegisters) {
+        let mut hasher = HS::default();
         element.hash(&mut hasher);
         let hash = hasher.finish();
 

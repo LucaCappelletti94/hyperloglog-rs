@@ -1,8 +1,11 @@
+//! This module contains the macro used to implement the [`HyperLogLog`] trait for a given counter.
+
 #[macro_export]
 /// Implements the [`HyperLogLog`] trait for a given counter.
 macro_rules! hll_impl {
     ($counter:ty) => {
         impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Default for $counter {
+            #[inline]
             fn default() -> Self {
                 Self {
                     counter: Default::default(),
@@ -11,6 +14,7 @@ macro_rules! hll_impl {
         }
 
         impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> PartialEq for $counter {
+            #[inline]
             fn eq(&self, other: &Self) -> bool {
                 self.counter == other.counter
             }
@@ -21,6 +25,7 @@ macro_rules! hll_impl {
         impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> BitOrAssign
             for $counter
         {
+            #[inline]
             fn bitor_assign(&mut self, rhs: Self) {
                 self.counter |= rhs.counter;
             }
@@ -35,7 +40,7 @@ macro_rules! hll_impl {
                 use serde::ser::SerializeSeq;
                 let mut seq = serializer.serialize_seq(Some(1 << P::EXPONENT))?;
                 for register in self.registers().iter_registers() {
-                    seq.serialize_element(&(register as u8))?;
+                    seq.serialize_element(&register)?;
                 }
                 seq.end()
             }
@@ -45,6 +50,7 @@ macro_rules! hll_impl {
         impl<'de, P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType>
             serde::Deserialize<'de> for $counter
         {
+            #[inline]
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
             where
                 D: serde::Deserializer<'de>,
@@ -61,6 +67,7 @@ macro_rules! hll_impl {
         impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> BitOr for $counter {
             type Output = Self;
 
+            #[inline]
             fn bitor(self, rhs: Self) -> Self::Output {
                 Self {
                     counter: self.counter | rhs.counter,
@@ -73,23 +80,28 @@ macro_rules! hll_impl {
         {
             type Registers = R;
 
+            #[inline]
             fn registers(&self) -> &Self::Registers {
                 self.counter.registers()
             }
 
+            #[inline]
             fn get_number_of_zero_registers(&self) -> <P as Precision>::NumberOfRegisters {
                 self.counter.get_number_of_zero_registers()
             }
 
+            #[inline]
             fn get_register(&self, index: P::NumberOfRegisters) -> u8 {
                 self.counter.get_register(index)
             }
 
+            #[inline]
             fn harmonic_sum(&self) -> f64
             {
                 self.counter.harmonic_sum()
             }
 
+            #[inline]
             fn from_registers(registers: R) -> Self {
                 Self {
                     counter: HyperLogLog::from_registers(registers),
@@ -161,42 +173,51 @@ macro_rules! hll_impl {
         impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B> + Words<Word = u64>>
             Hybridazable for $counter
         {
-            type IterSortedHashes<'a> = core::iter::Take<R::WordIter<'a>> where Self: 'a;
+            type IterSortedHashes<'words> = core::iter::Take<R::WordIter<'words>> where Self: 'words;
 
+            #[inline]
             fn is_hybrid(&self) -> bool {
                 self.counter.is_hybrid()
             }
 
+            #[inline]
             fn dehybridize(&mut self) {
                 self.counter.dehybridize()
             }
 
+            #[inline]
             fn new_hybrid() -> Self {
                 Self {
                     counter: Hybridazable::new_hybrid(),
                 }
             }
 
+            #[inline]
             fn number_of_hashes(&self) -> usize {
                 self.counter.number_of_hashes()
             }
 
+            #[inline]
             fn capacity(&self) -> usize {
                 self.counter.capacity()
             }
 
+            #[inline]
             fn contains<T: core::hash::Hash>(&self, element: &T) -> bool {
                 Hybridazable::contains(&self.counter, element)
             }
 
+            #[inline]
             fn clear_words(&mut self) {
                 self.counter.clear_words()
             }
 
+            #[inline]
             fn iter_sorted_hashes(&self) -> Self::IterSortedHashes<'_> {
                 self.counter.iter_sorted_hashes()
             }
 
+            #[inline]
             fn hybrid_insert<T: core::hash::Hash>(&mut self, element: &T) -> bool {
                 self.counter.hybrid_insert(element)
             }
