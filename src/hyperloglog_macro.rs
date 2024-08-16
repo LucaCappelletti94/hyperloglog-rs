@@ -85,7 +85,7 @@ macro_rules! hll_impl {
                 self.counter.get_register(index)
             }
 
-            fn harmonic_sum<F: FloatNumber>(&self) -> F
+            fn harmonic_sum<F: Float>(&self) -> F
             where
                 P: PrecisionConstants<F>,
             {

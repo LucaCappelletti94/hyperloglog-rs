@@ -113,7 +113,7 @@ pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
 }
 
 /// Trait for sketching algorithms that provide the normalized overlap and differences cardinality matrices.
-pub trait NormalizedHyperSpheresSketch<F: FloatNumber>: HyperSpheresSketch<F> {
+pub trait NormalizedHyperSpheresSketch<F: Float>: HyperSpheresSketch<F> {
     #[inline(always)]
     /// Returns the normalized overlap and differences cardinality matrices of two lists of sets.
     ///
@@ -238,4 +238,4 @@ pub trait NormalizedHyperSpheresSketch<F: FloatNumber>: HyperSpheresSketch<F> {
 }
 
 impl<N: Number, M> HyperSpheresSketch<N> for M where M: Estimator<N> {}
-impl<F: FloatNumber, M> NormalizedHyperSpheresSketch<F> for M where M: Estimator<F> {}
+impl<F: Float, M> NormalizedHyperSpheresSketch<F> for M where M: Estimator<F> {}

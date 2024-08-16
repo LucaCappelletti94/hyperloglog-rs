@@ -55,33 +55,9 @@ fn kmeans_bias<const N: usize, V: PartialOrd + Number, W: Number>(
         / 6.0_f32
 }
 
-#[cfg(all(feature = "plusplus", not(feature = "plusplus_kmeans")))]
-fn interpolated_bias<const N: usize, V: PartialOrd + Number, W: Number>(
-    estimates: &'static [V; N],
-    biases: &'static [W; N],
-    estimate: V,
-) -> f32 {
-    let index = estimates.partition_point(|a| a <= &estimate);
-
-    if index == 0 {
-        return biases[0].to_f32();
-    }
-
-    if index == N {
-        return biases[N - 1].to_f32();
-    }
-
-    let x0 = estimates[index - 1].to_f32();
-    let x1 = estimates[index].to_f32();
-
-    let y0 = biases[index - 1].to_f32();
-    let y1 = biases[index].to_f32();
-
-    y0 + (y1 - y0) * (estimate.to_f32() - x0) / (x1 - x0)
-}
 
 #[cfg(feature = "plusplus")]
-fn bias<const N: usize, V: PartialOrd + Number, W: Number, F: FloatNumber>(
+fn bias<const N: usize, V: PartialOrd + Number, W: Number, F: Float>(
     estimates: &'static [V; N],
     biases: &'static [W; N],
     estimate: V,
@@ -90,7 +66,25 @@ fn bias<const N: usize, V: PartialOrd + Number, W: Number, F: FloatNumber>(
     return F::from_f32(kmeans_bias(estimates, biases, estimate));
 
     #[cfg(not(feature = "plusplus_kmeans"))]
-    return F::from_f32(interpolated_bias(estimates, biases, estimate));
+    return {
+        let index = estimates.partition_point(|a| a <= &estimate);
+
+        if index == 0 {
+            return F::from_f32(biases[0].to_f32());
+        }
+
+        if index == N {
+            return F::from_f32(biases[N - 1].to_f32());
+        }
+
+        let x0 = estimates[index - 1].to_f32();
+        let x1 = estimates[index].to_f32();
+
+        let y0 = biases[index - 1].to_f32();
+        let y1 = biases[index].to_f32();
+
+        F::from_f32(y0 + (y1 - y0) * (estimate.to_f32() - x0) / (x1 - x0))
+    }
 }
 
 /// The precision of the HyperLogLog counter.
@@ -100,7 +94,7 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync + Named {
     /// all the registers without overflowing. We can tollerate a one-off error
     /// when counting the number of zeros, as it will be corrected when computing
     /// the cardinality as it is known before hand whether this can happen at all.
-    type NumberOfZeros: PositiveIntegerNumber;
+    type NumberOfZeros: PositiveInteger;
     /// The exponent of the number of registers, meaning the number of registers
     /// that will be used is 2^EXPONENT. This is the p parameter in the HyperLogLog.
     const EXPONENT: usize;
@@ -115,7 +109,7 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync + Named {
 }
 
 /// The precision constants for the HyperLogLog counter.
-pub trait PrecisionConstants<F: FloatNumber>: Precision {
+pub trait PrecisionConstants<F: Float>: Precision {
     /// The alpha constant for the precision, used in the estimation of the cardinality.
     const ALPHA: F;
 

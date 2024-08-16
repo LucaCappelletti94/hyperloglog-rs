@@ -12,7 +12,7 @@ pub trait HyperLogLog<P: Precision, B: Bits, Hasher: core::hash::Hasher + Defaul
     fn registers(&self) -> &Self::Registers;
 
     /// Returns the harmonic sum of the registers.
-    fn harmonic_sum<F: FloatNumber>(&self) -> F
+    fn harmonic_sum<F: Float>(&self) -> F
     where
         P: PrecisionConstants<F>;
 

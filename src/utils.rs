@@ -20,7 +20,7 @@ mod words;
 
 pub use constants::*;
 pub use hasher_type::HasherType;
-pub use number::{FloatNumber, Number, PositiveIntegerNumber};
+pub use number::{Float, Number, PositiveInteger};
 pub use random::*;
 pub(crate) use register_word::RegisterWord;
 pub use word_like::WordLike;
@@ -61,9 +61,9 @@ pub(crate) const fn maximal_multeplicity(precision: usize, bits: usize) -> usize
 
 #[inline]
 /// Returns the lowest possible value for the harmonic sum given the precision and the number of bits.
-pub(crate) fn miminal_harmonic_sum<F: FloatNumber, P: Precision, B: Bits>() -> F {
+pub(crate) fn miminal_harmonic_sum<F: Float, P: Precision, B: Bits>() -> F {
     F::inverse_register(
-        maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS) as i32 - P::EXPONENT as i32 - 1,
+        i32::try_from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)).unwrap() - i32::try_from(P::EXPONENT).unwrap() - 1,
     )
 }
 

@@ -32,7 +32,7 @@ pub trait Registers<P: Precision, B: Bits>:
     fn iter_registers_zipped<'a>(&'a self, other: &'a Self) -> Self::IterZipped<'a>;
 
     /// Returns the harmonic sum of the maximum value of the registers and the number of zero registers.
-    fn get_harmonic_sum_and_zeros<F: FloatNumber>(&self, other: &Self) -> (F, P::NumberOfZeros)
+    fn get_harmonic_sum_and_zeros<F: Float>(&self, other: &Self) -> (F, P::NumberOfZeros)
     where
         P: PrecisionConstants<F>;
 

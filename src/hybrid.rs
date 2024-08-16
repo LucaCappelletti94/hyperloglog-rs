@@ -208,10 +208,11 @@ impl<H: Named> Named for Hybrid<H> {
     }
 }
 
-impl<F: FloatNumber, H: Clone + Estimator<F> + Hybridazable + Default> Estimator<F> for Hybrid<H>
+impl<F: Float, H: Clone + Estimator<F> + Hybridazable + Default> Estimator<F> for Hybrid<H>
 where
     Hybrid<H>: Default,
 {
+    #[inline(always)]
     fn estimate_cardinality(&self) -> F {
         if self.inner.is_hybrid() {
             F::from_usize(self.inner.number_of_hashes())
@@ -220,11 +221,13 @@ where
         }
     }
 
+    #[inline(always)]
     fn is_union_estimate_non_deterministic(&self, other: &Self) -> bool {
         !(self.is_hybrid() && other.is_hybrid())
             && self.inner.is_union_estimate_non_deterministic(&other.inner)
     }
 
+    #[inline(always)]
     fn estimate_union_cardinality(&self, other: &Self) -> F {
         match (self.is_hybrid(), other.is_hybrid()) {
             (true, true) => {

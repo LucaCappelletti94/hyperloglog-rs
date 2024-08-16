@@ -290,7 +290,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                         PackedArrayRegisterTupleIter::new(self, other)
                     }
 
-                    fn get_harmonic_sum_and_zeros<F: FloatNumber>(
+                    fn get_harmonic_sum_and_zeros<F: Float>(
                         &self,
                         other: &Self,
                     ) -> (F, <[<Precision $exponent>] as Precision>::NumberOfZeros)

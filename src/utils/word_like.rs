@@ -1,4 +1,4 @@
-//! Submodule providing the trait WordLike.
+//! Submodule providing the trait [`WordLike`].
 
 use super::Number;
 

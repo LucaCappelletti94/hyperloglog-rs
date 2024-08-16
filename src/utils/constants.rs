@@ -135,7 +135,7 @@ macro_rules! impl_constants_float {
         impl One for $t {
             const ONE: Self = 1.0;
             #[inline(always)]
-            fn is_one(&self) -> bool { *self == 1.0 }
+            fn is_one(&self) -> bool { (*self - 1.0).abs() < Self::EPSILON }
         }
         impl Zero for $t {
             const ZERO: Self = 0.0;

@@ -1,6 +1,9 @@
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+// #![warn(clippy::restriction)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod basicloglog;

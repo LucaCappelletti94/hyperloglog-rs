@@ -26,7 +26,7 @@ impl<P: Precision, B: Bits> Registers<P, B> for Vec<u64> {
         ArrayRegisterTupleIter::new(self, other)
     }
 
-    fn get_harmonic_sum_and_zeros<F: FloatNumber>(
+    fn get_harmonic_sum_and_zeros<F: Float>(
         &self,
         other: &Self,
     ) -> (F, <P as Precision>::NumberOfZeros)
@@ -55,11 +55,10 @@ impl<P: Precision, B: Bits> Registers<P, B> for Vec<u64> {
             union_zeros += partial_zeros;
         }
 
-        let number_of_padding_registers = self.len() * <u64 as RegisterWord<B>>::NUMBER_OF_REGISTERS
-            - P::NUMBER_OF_REGISTERS;
+        let number_of_padding_registers =
+            self.len() * <u64 as RegisterWord<B>>::NUMBER_OF_REGISTERS - P::NUMBER_OF_REGISTERS;
 
-        union_zeros -= 
-            <P as Precision>::NumberOfZeros::from_usize(number_of_padding_registers);
+        union_zeros -= <P as Precision>::NumberOfZeros::from_usize(number_of_padding_registers);
         harmonic_sum -= F::from_usize(number_of_padding_registers);
 
         (harmonic_sum, union_zeros)
@@ -103,14 +102,17 @@ impl<P: Precision, B: Bits> Registers<P, B> for Vec<u64> {
             & <u64 as RegisterWord<B>>::LOWER_REGISTER_MASK;
 
         if register_value as u32 >= new_register {
-            return (register_value as u32, register_value as u32);
+            return (
+                u32::try_from(register_value).unwrap(),
+                u32::try_from(register_value).unwrap(),
+            );
         }
 
         self[word_position] &= !(<u64 as RegisterWord<B>>::LOWER_REGISTER_MASK
             << (register_position * B::NUMBER_OF_BITS));
-        self[word_position] |= (new_register as u64) << (register_position * B::NUMBER_OF_BITS);
+        self[word_position] |= u64::from(new_register) << (register_position * B::NUMBER_OF_BITS);
 
-        (register_value as u32, new_register)
+        (u32::try_from(register_value).unwrap(), new_register)
     }
 
     fn get_register(&self, index: usize) -> u32 {
@@ -122,7 +124,7 @@ impl<P: Precision, B: Bits> Registers<P, B> for Vec<u64> {
         // Extract the current value of the register at `index`.
         let register = (self[word_position] >> (register_position * B::NUMBER_OF_BITS))
             & <u64 as RegisterWord<B>>::LOWER_REGISTER_MASK;
-        register as u32
+        u32::try_from(register).unwrap()
     }
 
     fn clear(&mut self) {

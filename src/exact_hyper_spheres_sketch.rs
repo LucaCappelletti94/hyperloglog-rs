@@ -1,9 +1,9 @@
-//! Submodule providing the implementation of HyperSphere sketches for HashSets.
+//! Submodule providing the implementation of `HyperSphere` sketches for `HashSets`.
 use crate::prelude::*;
 use core::hash::Hash;
 use std::collections::HashSet;
 
-impl<I> Named for HashSet<I>
+impl<I, S: Default + Send + Sync + ::std::hash::BuildHasher> Named for HashSet<I, S>
 where
     I: Eq + Hash,
 {
@@ -15,7 +15,7 @@ where
 macro_rules! impl_estimator_for_hashset {
     ($($typ:ty)*,) => {
         $(
-            impl<I> Estimator<$typ> for HashSet<I>
+            impl<I, S: Default + Send + Sync + ::std::hash::BuildHasher> Estimator<$typ> for HashSet<I, S>
                 where
                     I: Eq + Hash + Send + Sync,
                 {
@@ -36,10 +36,10 @@ macro_rules! impl_estimator_for_hashset {
 }
 
 impl_estimator_for_hashset! {
-    u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize f32 f64,
+    usize f32 f64,
 }
 
-impl<T> SetProperties for HashSet<T> {
+impl<T, S: Default + Send + Sync + ::std::hash::BuildHasher> SetProperties for HashSet<T, S> {
     fn is_empty(&self) -> bool {
         self.is_empty()
     }
@@ -49,13 +49,13 @@ impl<T> SetProperties for HashSet<T> {
     }
 }
 
-impl<T> MutableSet for HashSet<T> {
+impl<T, S: Default + Send + Sync + ::std::hash::BuildHasher> MutableSet for HashSet<T, S> {
     fn clear(&mut self) {
-        self.clear()
+        self.clear();
     }
 }
 
-impl<T> ApproximatedSet<T> for HashSet<T>
+impl<T, S: Default + Send + Sync + ::std::hash::BuildHasher> ApproximatedSet<T> for HashSet<T, S>
 where
     T: Hash + Eq,
 {
@@ -64,7 +64,7 @@ where
     }
 }
 
-impl<T> ExtendableApproximatedSet<T> for HashSet<T>
+impl<T, S: Default + Send + Sync + ::std::hash::BuildHasher> ExtendableApproximatedSet<T> for HashSet<T, S>
 where
     T: Hash + Eq + Clone,
 {

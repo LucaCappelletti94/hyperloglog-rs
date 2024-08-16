@@ -111,6 +111,9 @@ all_precisions = [
 ]
 alloc = []
 
+[package.metadata.clippy]
+all-features = true
+
 [profile.test]
 overflow-checks = true   # Disable integer overflow checks.
 debug = false            # Include debug info.

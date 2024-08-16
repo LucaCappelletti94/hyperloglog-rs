@@ -10,7 +10,7 @@ pub(crate) struct BasicLogLog<
     B: Bits,
     R: Registers<P, B>,
     Hasher: HasherType,
-    S: FloatNumber = f32,
+    S: Float = f32,
 > {
     registers: R,
     number_of_zero_registers: P::NumberOfZeros,
@@ -18,7 +18,7 @@ pub(crate) struct BasicLogLog<
     _phantom: core::marker::PhantomData<(P, B, Hasher)>,
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumber> core::fmt::Debug
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: Float> core::fmt::Debug
     for BasicLogLog<P, B, R, Hasher, S>
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -32,7 +32,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumb
 
 /// Implementation of partial equality for HyperLogLog so as to compare two HyperLogLog instances
 /// ignoring the harmonic sum.
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumber> PartialEq
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: Float> PartialEq
     for BasicLogLog<P, B, R, Hasher, S>
 {
     fn eq(&self, other: &Self) -> bool {
@@ -42,12 +42,12 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumb
 
 /// Implementation of equality for HyperLogLog so as to compare two HyperLogLog instances
 /// ignoring the harmonic sum.
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumber> Eq
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: Float> Eq
     for BasicLogLog<P, B, R, Hasher, S>
 {
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumber>
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: Float>
     BasicLogLog<P, B, R, Hasher, S>
 {
     /// Create a new HyperLogLog counter.
@@ -82,7 +82,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumb
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumber> Default
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: Float> Default
     for BasicLogLog<P, B, R, Hasher, S>
 {
     /// Returns a new HyperLogLog instance with default configuration settings.
@@ -91,7 +91,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumb
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumber>
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: Float>
     HyperLogLog<P, B, Hasher> for BasicLogLog<P, B, R, Hasher, S>
 {
     type Registers = R;
@@ -110,7 +110,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumb
 
     #[inline(always)]
     /// Returns the harmonic sum of the registers.
-    fn harmonic_sum<F: FloatNumber>(&self) -> F {
+    fn harmonic_sum<F: Float>(&self) -> F {
         F::from_f64(self.harmonic_sum.to_f64())
     }
 
@@ -136,7 +136,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, S: FloatNumb
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, A: Hash, Hasher: HasherType, S: FloatNumber>
+impl<P: Precision, B: Bits, R: Registers<P, B>, A: Hash, Hasher: HasherType, S: Float>
     core::iter::FromIterator<A> for BasicLogLog<P, B, R, Hasher, S>
 {
     fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
@@ -153,7 +153,7 @@ impl<
         R: Registers<P, B>,
         Hasher: HasherType,
         Rhs: HyperLogLog<P, B, Hasher>,
-        S: FloatNumber,
+        S: Float,
     > core::ops::BitOrAssign<Rhs> for BasicLogLog<P, B, R, Hasher, S>
 {
     #[inline(always)]
@@ -183,7 +183,7 @@ impl<
         R: Registers<P, B>,
         Rhs: HyperLogLog<P, B, Hasher>,
         Hasher: HasherType,
-        S: FloatNumber,
+        S: Float,
     > core::ops::BitOr<Rhs> for BasicLogLog<P, B, R, Hasher, S>
 {
     type Output = Self;
@@ -200,7 +200,7 @@ impl<
         B: Bits,
         R: Registers<P, B> + Words<Word = u64>,
         Hasher: HasherType,
-        S: FloatNumber,
+        S: Float,
     > Hybridazable for BasicLogLog<P, B, R, Hasher, S>
 {
     type IterSortedHashes<'a> = core::iter::Take<R::WordIter<'a>> where Self: 'a;
@@ -304,7 +304,7 @@ impl<
     }
 }
 
-impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, S: FloatNumber> SetProperties
+impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, S: Float> SetProperties
     for BasicLogLog<P, B, R, Hasher, S>
 {
     #[inline(always)]
@@ -323,7 +323,7 @@ impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, S: FloatNumb
     }
 }
 
-impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, T: Hash, S: FloatNumber>
+impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, T: Hash, S: Float>
     ApproximatedSet<T> for BasicLogLog<P, B, R, Hasher, S>
 {
     #[inline(always)]
@@ -332,7 +332,7 @@ impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, T: Hash, S: 
     }
 }
 
-impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, S: FloatNumber> MutableSet
+impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, S: Float> MutableSet
     for BasicLogLog<P, B, R, Hasher, S>
 {
     fn clear(&mut self) {
@@ -342,7 +342,7 @@ impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, S: FloatNumb
     }
 }
 
-impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, T: Hash, S: FloatNumber>
+impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, T: Hash, S: Float>
     ExtendableApproximatedSet<T> for BasicLogLog<P, B, R, Hasher, S>
 {
     fn insert(&mut self, element: &T) -> bool {

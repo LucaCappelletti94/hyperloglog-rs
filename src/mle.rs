@@ -30,7 +30,7 @@ impl<const ERROR: i32, H: Named> Named for MLE<H, ERROR> {
 fn mle_union_cardinality<
     P: Precision + PrecisionConstants<F>,
     B: Bits,
-    F: FloatNumber,
+    F: Float,
     Hasher: HasherType,
     H: HyperLogLog<P, B, Hasher> + Estimator<F>,
     const ERROR: i32,
@@ -266,25 +266,25 @@ fn mle_union_cardinality<
             let right_smaller_k = right_multiplicities_smaller[register_value as usize];
             let right_larger_k = right_multiplicities_larger[register_value as usize];
 
-            let yj_zl = y_joint * z_left;
-            let yjr_zl = yj_zl * y_right;
-            let yj_zr = y_joint * z_right;
-            let yjl_zr = yj_zr * y_left;
+            let yj_zleft = y_joint * z_left;
+            let yjright_zleft = yj_zleft * y_right;
+            let yj_zright = y_joint * z_right;
+            let yjleft_zright = yj_zright * y_left;
             let yjl = y_joint * y_left;
             let yjr = y_joint * y_right;
-            let yj_zlr = yj_zl * z_right;
-            let mut zj_plus_yj_zl = z_joint + yj_zl;
-            debug_assert!(zj_plus_yj_zl >= F::ZERO);
-            if zj_plus_yj_zl < F::EPSILON {
-                zj_plus_yj_zl = F::EPSILON;
+            let yj_zlr = yj_zleft * z_right;
+            let mut zj_plus_yj_zleft = z_joint + yj_zleft;
+            debug_assert!(zj_plus_yj_zleft >= F::ZERO);
+            if zj_plus_yj_zleft < F::EPSILON {
+                zj_plus_yj_zleft = F::EPSILON;
             }
-            let reciprocal_zj_plus_yj_zl = F::ONE / zj_plus_yj_zl;
-            let mut zj_plus_yj_zr = z_joint + yj_zr;
-            debug_assert!(zj_plus_yj_zr >= F::ZERO);
-            if zj_plus_yj_zr < F::EPSILON {
-                zj_plus_yj_zr = F::EPSILON;
+            let reciprocal_zj_plus_yj_zleft = F::ONE / zj_plus_yj_zleft;
+            let mut zj_plus_yj_zright = z_joint + yj_zright;
+            debug_assert!(zj_plus_yj_zright >= F::ZERO);
+            if zj_plus_yj_zright < F::EPSILON {
+                zj_plus_yj_zright = F::EPSILON;
             }
-            let reciprocal_zj_plus_yj_zr = F::ONE / zj_plus_yj_zr;
+            let reciprocal_zj_plus_yj_zright = F::ONE / zj_plus_yj_zright;
             let mut zj_plus_yj_zlr = z_joint + yj_zlr;
             debug_assert!(zj_plus_yj_zlr >= F::ZERO);
             if zj_plus_yj_zlr < F::EPSILON {
@@ -292,13 +292,13 @@ fn mle_union_cardinality<
             }
             let reciprocal_zj_plus_yj_zlr = F::ONE / zj_plus_yj_zlr;
 
-            let left_reciprocal = left_smaller_k * (reciprocal_zj_plus_yj_zl * yjl - F::ONE);
-            let right_reciprocal = right_smaller_k * (reciprocal_zj_plus_yj_zr * yjr - F::ONE);
+            let left_reciprocal = left_smaller_k * (reciprocal_zj_plus_yj_zleft * yjl - F::ONE);
+            let right_reciprocal = right_smaller_k * (reciprocal_zj_plus_yj_zright * yjr - F::ONE);
 
             if x_left > F::EPSILON {
                 gradients[0] += x_left
                     * (left_reciprocal
-                        + joint_k * (yjl_zr * reciprocal_zj_plus_yj_zlr - F::ONE)
+                        + joint_k * (yjleft_zright * reciprocal_zj_plus_yj_zlr - F::ONE)
                         + left_larger_k * (y_left / z_left - F::ONE));
             }
 
@@ -307,7 +307,7 @@ fn mle_union_cardinality<
             if x_right > F::EPSILON {
                 gradients[1] += x_right
                     * (right_reciprocal
-                        + joint_k * (yjr_zl * reciprocal_zj_plus_yj_zlr - F::ONE)
+                        + joint_k * (yjright_zleft * reciprocal_zj_plus_yj_zlr - F::ONE)
                         + right_larger_k * (y_right / z_right - F::ONE));
             }
 
@@ -316,13 +316,13 @@ fn mle_union_cardinality<
                 concat!(
                     "The gradient is not finite: {}. ",
                     "We computed this gradient with the following values: ",
-                    "x_right({}) * (right_reciprocal({}) + joint_k({}) * (yjr_zl({}) * reciprocal_zj_plus_yj_zlr({}) - 1) + right_larger_k({}) * (y_right({}) / z_right({}) - 1)",
+                    "x_right({}) * (right_reciprocal({}) + joint_k({}) * (yjright_zleft({}) * reciprocal_zj_plus_yj_zlr({}) - 1) + right_larger_k({}) * (y_right({}) / z_right({}) - 1)",
                 ),
                 gradients[1],
                 x_right,
                 right_reciprocal,
                 joint_k,
-                yjr_zl,
+                yjright_zleft,
                 reciprocal_zj_plus_yj_zlr,
                 right_larger_k,
                 y_right,
@@ -333,7 +333,7 @@ fn mle_union_cardinality<
                 gradients[2] += x_joint
                     * (left_reciprocal
                         + right_reciprocal
-                        + joint_k * ((yjl + yjr_zl) * reciprocal_zj_plus_yj_zlr - F::ONE));
+                        + joint_k * ((yjl + yjright_zleft) * reciprocal_zj_plus_yj_zlr - F::ONE));
             }
 
             debug_assert!(gradients[2].is_finite());
@@ -360,7 +360,7 @@ fn mle_union_cardinality<
 
 impl<
         const ERROR: i32,
-        F: FloatNumber,
+        F: Float,
         P: Precision,
         B: Bits,
         R: Registers<P, B>,
@@ -389,7 +389,7 @@ where
 
 impl<
         const ERROR: i32,
-        F: FloatNumber,
+        F: Float,
         P: Precision,
         B: Bits,
         R: Registers<P, B>,
@@ -429,7 +429,7 @@ struct Adam<F, const N: usize> {
     second_order_decay_factor: F,
 }
 
-impl<F: FloatNumber, const N: usize> Default for Adam<F, N> {
+impl<F: Float, const N: usize> Default for Adam<F, N> {
     fn default() -> Self {
         Adam {
             first_moments: [F::ZERO; N],
@@ -442,7 +442,7 @@ impl<F: FloatNumber, const N: usize> Default for Adam<F, N> {
     }
 }
 
-impl<F: FloatNumber, const N: usize> Optimizer<F, N> for Adam<F, N> {
+impl<F: Float, const N: usize> Optimizer<F, N> for Adam<F, N> {
     #[inline(always)]
     fn apply(&mut self, gradients: &mut [F; N], phis: &mut [F; N]) {
         self.time += 1;

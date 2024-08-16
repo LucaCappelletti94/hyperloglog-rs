@@ -39,7 +39,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType>
     }
 }
 
-impl<F: FloatNumber, P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Estimator<F>
+impl<F: Float, P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Estimator<F>
     for PlusPlus<P, B, R, Hasher>
 where
     P: PrecisionConstants<F>,
