@@ -14,17 +14,9 @@ pub trait Words {
     fn number_of_words(&self) -> usize;
 
     /// Searches a value in the array and returns `true` if the value is found.
-    ///
-    /// # Safety
-    /// This method is unsafe because it does not check if the array is sorted in release
-    /// mode, but only in debug mode.
     fn find_sorted_with_len(&self, value: Self::Word, len: usize) -> bool;
 
     /// Inserts a value into the array searching for the correct position within a given length.
-    ///
-    /// # Safety
-    /// This method is unsafe because it does not check if the array is sorted in release
-    /// mode, but only in debug mode.
     fn sorted_insert_with_len(&mut self, value: Self::Word, len: usize) -> bool;
 
     /// Returns an iterator over the words.
