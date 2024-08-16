@@ -1,7 +1,6 @@
 //! Marker struct for the hybrid approach, that keeps the hash explicit up until they fit into the registers.
 
 use crate::prelude::*;
-use crate::utils::Words;
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
@@ -12,23 +11,29 @@ pub struct Hybrid<H> {
     pub(crate) inner: H,
 }
 
-impl<H> From<H> for Hybrid<H>
+impl<H: Hybridazable> Default for Hybrid<H>
 where
-    H: Hybridazable,
+    H: Default,
 {
-    fn from(inner: H) -> Self {
-        Self { inner }
+    fn default() -> Self {
+        Self {
+            inner: H::new_hybrid(),
+        }
     }
 }
 
 impl<H: Hybridazable> Hybridazable for Hybrid<H>
 where
-    H: Hybridazable,
+    H: Hybridazable
 {
     type IterSortedHashes<'a> = H::IterSortedHashes<'a> where Self: 'a;
 
     fn dehybridize(&mut self) {
         self.inner.dehybridize();
+    }
+
+    fn new_hybrid() -> Self {
+        Self::default()
     }
 
     fn is_hybrid(&self) -> bool {
@@ -162,7 +167,7 @@ pub(crate) fn unique_values_from_sorted_iterators<
 }
 
 /// Trait for a struct that can be used in the hybrid approach.
-pub trait Hybridazable {
+pub trait Hybridazable: Default {
     /// The type of the iterator over the sorted hashes.
     type IterSortedHashes<'a>: Iterator<Item = u64>
     where
@@ -170,6 +175,9 @@ pub trait Hybridazable {
 
     /// De-hybridize the struct, i.e., convert it to a register-based counter.
     fn dehybridize(&mut self);
+
+    /// Returns a new hybrid instance.
+    fn new_hybrid() -> Self;
 
     /// Returns whether the struct is currently behaving as
     /// a hybrid counter.
@@ -192,41 +200,6 @@ pub trait Hybridazable {
 
     /// Inserts a value into the counter.
     fn hybrid_insert<T: core::hash::Hash>(&mut self, value: &T) -> bool;
-}
-
-impl<B: Bits, P: Precision, R: Registers<P, B> + Words<Word = u64>, Hasher: HasherType> Default
-    for Hybrid<PlusPlus<P, B, R, Hasher>>
-{
-    fn default() -> Self {
-        let basic: Hybrid<crate::basicloglog::BasicLogLog<P, B, R, Hasher>> = Default::default();
-        Self {
-            inner: PlusPlus::from(basic.inner),
-        }
-    }
-}
-
-impl<B: Bits, P: Precision, R: Registers<P, B> + Words<Word = u64>, Hasher: HasherType> Default
-    for Hybrid<LogLogBeta<P, B, R, Hasher>>
-{
-    fn default() -> Self {
-        let basic: Hybrid<crate::basicloglog::BasicLogLog<P, B, R, Hasher>> = Default::default();
-        Self {
-            inner: LogLogBeta::from(basic.inner),
-        }
-    }
-}
-
-impl<const ERROR: i32, H> Default for Hybrid<MLE<H, ERROR>>
-where
-    Hybrid<H>: Default,
-    MLE<H, ERROR>: From<H>,
-{
-    fn default() -> Self {
-        let inner: Hybrid<H> = Default::default();
-        Self {
-            inner: MLE::from(inner.inner),
-        }
-    }
 }
 
 impl<H: Named> Named for Hybrid<H> {

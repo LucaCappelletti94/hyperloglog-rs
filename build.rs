@@ -1,95 +1,105 @@
+use std::fmt::Display;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-fn format_float_with_underscores(value: f64, precision: usize) -> String {
-    // Format the float with the specified precision
-    let formatted = format!("{:.*}", precision, value);
+trait RedableNumber: Display {
+    fn format_with_precision(&self, precision: usize) -> String {
+        // Format the float with the specified precision
+        let formatted = format!("{:.*}", precision, self);
 
-    // Split into integer and fractional parts
-    let mut parts: Vec<&str> = formatted.split('.').collect();
-    let integer_part = parts.remove(0);
-    let fractional_part = parts.first().unwrap_or(&"");
+        // Split into integer and fractional parts
+        let mut parts: Vec<&str> = formatted.split('.').collect();
+        let integer_part = parts.remove(0);
+        let fractional_part = parts.first().unwrap_or(&"");
 
-    // Trim zeros from the fractional part
-    let fractional_part = fractional_part.trim_end_matches('0');
+        // Trim zeros from the fractional part
+        let fractional_part = fractional_part.trim_end_matches('0');
 
-    // We save whether the number is negative, so to remove the minus sign
-    // and re-add it at the end
-    let is_negative = integer_part.starts_with('-');
+        // We save whether the number is negative, so to remove the minus sign
+        // and re-add it at the end
+        let is_negative = integer_part.starts_with('-');
 
-    // Remove the minus sign from the integer part
-    let integer_part = integer_part.trim_start_matches('-');
+        // Remove the minus sign from the integer part
+        let integer_part = integer_part.trim_start_matches('-');
 
-    // Add underscores to the integer part
-    let integer_with_underscores = integer_part
-        .chars()
-        .rev()
-        .collect::<String>()
-        .chars()
-        .collect::<Vec<_>>()
-        .chunks(3)
-        .map(|chunk| chunk.iter().collect::<String>())
-        .collect::<Vec<String>>()
-        .join("_")
-        .chars()
-        .rev()
-        .collect::<String>();
+        // Add underscores to the integer part
+        let integer_with_underscores = integer_part
+            .chars()
+            .rev()
+            .collect::<String>()
+            .chars()
+            .collect::<Vec<_>>()
+            .chunks(3)
+            .map(|chunk| chunk.iter().collect::<String>())
+            .collect::<Vec<String>>()
+            .join("_")
+            .chars()
+            .rev()
+            .collect::<String>();
 
-    let integer_with_underscores = if is_negative {
-        format!("-{}", integer_with_underscores)
-    } else {
-        integer_with_underscores
-    };
-
-    // Add underscores to the fractional part
-    let fractional_part = fractional_part
-        .chars()
-        .collect::<Vec<_>>()
-        .chunks(3)
-        .map(|chunk| chunk.iter().collect::<String>())
-        .collect::<Vec<String>>()
-        .join("_");
-
-    // Combine the integer part with underscores and the fractional part
-    let result = if !fractional_part.is_empty() {
-        format!("{}.{fractional_part}", integer_with_underscores)
-    } else if precision == 0 {
-        integer_with_underscores
-    } else {
-        format!("{integer_with_underscores}.0")
-    };
-
-    // We check whether the string matches for its
-    // entirety with the known constants
-    let constants = [
-        ("0.693_147_180_559_945_309_417_232_121_458_176_568", "core::f64::consts::LN_2"),
-        ("2.302_585_092_994", "core::f64::consts::LN_10"),
-    ];
-
-    for (formatted, constant) in constants.iter() {
-        if result.len() < 6 {
-            continue;
-        }
-
-        // We remove the last character, which might be
-        // different solely because of the formatting.
-        let result = &result[..result.len() -1];
-
-        let shorter = if result.len() < formatted.len() {
-            &formatted[..result.len()]
+        let integer_with_underscores = if is_negative {
+            format!("-{}", integer_with_underscores)
         } else {
-            &formatted[..formatted.len() - 1]
+            integer_with_underscores
         };
 
-        if result == shorter {
-            return constant.to_string();
+        // Add underscores to the fractional part
+        let fractional_part = fractional_part
+            .chars()
+            .collect::<Vec<_>>()
+            .chunks(3)
+            .map(|chunk| chunk.iter().collect::<String>())
+            .collect::<Vec<String>>()
+            .join("_");
+
+        // Combine the integer part with underscores and the fractional part
+        let result = if !fractional_part.is_empty() {
+            format!("{}.{fractional_part}", integer_with_underscores)
+        } else if precision == 0 {
+            integer_with_underscores
+        } else {
+            format!("{integer_with_underscores}.0")
+        };
+
+        // We check whether the string matches for its
+        // entirety with the known constants
+        let constants = [
+            (
+                "0.693_147_180_559_945_309_417_232_121_458_176_568",
+                "core::f64::consts::LN_2",
+            ),
+            ("2.302_585_092_994", "core::f64::consts::LN_10"),
+        ];
+
+        for (formatted, constant) in constants.iter() {
+            if result.len() < 6 {
+                continue;
+            }
+
+            // We remove the last character, which might be
+            // different solely because of the formatting.
+            let result = &result[..result.len() - 1];
+
+            let shorter = if result.len() < formatted.len() {
+                &formatted[..result.len()]
+            } else {
+                &formatted[..formatted.len() - 1]
+            };
+
+            if result == shorter {
+                return constant.to_string();
+            }
         }
+
+        result
     }
-
-    result
-
 }
+
+impl RedableNumber for f64 {}
+impl RedableNumber for f32 {}
+impl RedableNumber for i32 {}
+impl RedableNumber for u32 {}
 
 /// Returns the list of precision to generate the weights for.
 fn get_precisions() -> Vec<usize> {
@@ -311,7 +321,7 @@ fn write_weights(precisions: &[usize]) {
                 .iter()
                 .map(|x| format!(
                     "    {},",
-                    format_float_with_underscores(*x as f64, resolution)
+                    x.format_with_precision(resolution)
                 ))
                 .collect::<Vec<String>>()
                 .join("\n")
@@ -328,7 +338,7 @@ fn write_weights(precisions: &[usize]) {
                 .iter()
                 .map(|x| format!(
                     "    {},",
-                    format_float_with_underscores(*x as f64, resolution)
+                    x.format_with_precision(resolution)
                 ))
                 .collect::<Vec<String>>()
                 .join("\n")
@@ -385,7 +395,7 @@ fn write_alphas(precisions: &[usize]) {
             let alpha = get_alpha(number_of_registers);
             format!(
                 "const ALPHA_{precision}: f64 = {};",
-                format_float_with_underscores(alpha, 6),
+                alpha.format_with_precision(12)
             )
         })
         .collect::<Vec<String>>()
@@ -414,7 +424,10 @@ fn write_ln_values(precisions: &[usize]) {
         "static LN_VALUES: [f64; {maximal_number_of_registers}] = [\n{}\n];",
         (0..maximal_number_of_registers)
             .map(|x| if x > 0 {
-                format!("    {},", format_float_with_underscores((x as f64).ln(), 12))
+                format!(
+                    "    {},",
+                    (x as f64).ln().format_with_precision(12)
+                )
             } else {
                 "    f64::NEG_INFINITY,".to_owned()
             })
@@ -443,7 +456,7 @@ fn write_beta(precisions: &[usize]) {
             "const BETA_{precision}: [f64; {}] = [\n{}\n];",
             beta.len(),
             beta.iter()
-                .map(|x| format!("    {},", format_float_with_underscores(*x, 12)))
+                .map(|x| format!("    {},", x.format_with_precision(12)))
                 .collect::<Vec<String>>()
                 .join("\n")
         );
@@ -475,7 +488,7 @@ fn write_precomputed_beta(precisions: &[usize]) {
             beta_horner.len(),
             beta_horner
                 .iter()
-                .map(|x| format!("    {},", format_float_with_underscores(*x, 6)))
+                .map(|x| format!("    {},", x.format_with_precision(12)))
                 .collect::<Vec<String>>()
                 .join("\n")
         );

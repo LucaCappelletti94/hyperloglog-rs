@@ -50,7 +50,7 @@ macro_rules! hll_impl {
                 D: serde::Deserializer<'de>,
             {
                 let mut registers: R = R::zeroed();
-                let visitor = crate::serde::RegisterVisitor::<u8>::new(P::NUMBER_OF_REGISTERS);
+                let visitor = $crate::serde::RegisterVisitor::<u8>::new(P::NUMBER_OF_REGISTERS);
                 let mut iter = deserializer.deserialize_seq(visitor)?.into_iter();
                 registers.apply(|_| iter.next().unwrap() as u32);
                 debug_assert_eq!(iter.next(), None);
@@ -171,6 +171,12 @@ macro_rules! hll_impl {
 
             fn dehybridize(&mut self) {
                 self.counter.dehybridize()
+            }
+
+            fn new_hybrid() -> Self {
+                Self {
+                    counter: Hybridazable::new_hybrid(),
+                }
             }
 
             fn number_of_hashes(&self) -> usize {

@@ -27,21 +27,60 @@ impl<const ERROR: i32, H: Named> Named for MLE<H, ERROR> {
     }
 }
 
-fn mle_union_cardinality_from_multiplicities<
+fn mle_union_cardinality<
     P: Precision + PrecisionConstants<F>,
     B: Bits,
     F: FloatNumber,
+    Hasher: HasherType,
+    H: HyperLogLog<P, B, Hasher> + Estimator<F>,
     const ERROR: i32,
 >(
-    left_multiplicities_larger: Vec<F>,
-    left_multiplicities_smaller: Vec<F>,
-    right_multiplicities_larger: Vec<F>,
-    right_multiplicities_smaller: Vec<F>,
-    joint_multiplicities: Vec<F>,
-    union_cardinality_estimate: F,
-    left_cardinality_estimate: F,
-    right_cardinality_estimate: F,
+    left: &H,
+    right: &H,
+    estimate: fn(F, P::NumberOfZeros) -> F,
 ) -> F {
+    let mut left_multiplicities_larger =
+        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+    let mut left_multiplicities_smaller =
+        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+    let mut right_multiplicities_larger =
+        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+    let mut right_multiplicities_smaller =
+        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+    let mut joint_multiplicities =
+        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
+    let mut union_harmonic_sum = F::ZERO;
+    let mut union_zeros = P::NumberOfZeros::ZERO;
+
+    for (left, right) in left.registers().iter_registers_zipped(right.registers()) {
+        let larger_register = match left.cmp(&right) {
+            core::cmp::Ordering::Less => {
+                left_multiplicities_smaller[left as usize] += F::ONE;
+                right_multiplicities_larger[right as usize] += F::ONE;
+                right
+            }
+            core::cmp::Ordering::Greater => {
+                left_multiplicities_larger[left as usize] += F::ONE;
+                right_multiplicities_smaller[right as usize] += F::ONE;
+                left
+            }
+            core::cmp::Ordering::Equal => {
+                // If left register is equal to right register
+                joint_multiplicities[left as usize] += F::ONE;
+                left
+            }
+        };
+
+        union_harmonic_sum += F::inverse_register(larger_register as i32);
+        union_zeros += P::NumberOfZeros::from_bool(larger_register.is_zero());
+    }
+
+    // We get the best estimates from HyperLogLog++
+    let union_cardinality_estimate = estimate(union_harmonic_sum, union_zeros);
+
+    let left_cardinality_estimate = left.estimate_cardinality();
+    let right_cardinality_estimate = right.estimate_cardinality();
+
     // If the sum of the number of registers equal to zero, i.e.
     // the first value in the multiplicities vectors, is equal
     // to the number of registers, it means that the intersection
@@ -317,72 +356,6 @@ fn mle_union_cardinality_from_multiplicities<
     let intersection = phis[2].exp();
 
     left_difference + right_difference + intersection
-}
-
-fn mle_union_cardinality<
-    P: Precision + PrecisionConstants<F>,
-    B: Bits,
-    F: FloatNumber,
-    Hasher: HasherType,
-    H: HyperLogLog<P, B, Hasher> + Estimator<F>,
-    const ERROR: i32,
->(
-    left: &H,
-    right: &H,
-    estimate: fn(F, P::NumberOfZeros) -> F,
-) -> F {
-    let mut left_multiplicities_larger =
-        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
-    let mut left_multiplicities_smaller =
-        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
-    let mut right_multiplicities_larger =
-        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
-    let mut right_multiplicities_smaller =
-        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
-    let mut joint_multiplicities =
-        vec![F::ZERO; maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)];
-    let mut union_harmonic_sum = F::ZERO;
-    let mut union_zeros = P::NumberOfZeros::ZERO;
-
-    for (left, right) in left.registers().iter_registers_zipped(right.registers()) {
-        let larger_register = match left.cmp(&right) {
-            core::cmp::Ordering::Less => {
-                left_multiplicities_smaller[left as usize] += F::ONE;
-                right_multiplicities_larger[right as usize] += F::ONE;
-                right
-            }
-            core::cmp::Ordering::Greater => {
-                left_multiplicities_larger[left as usize] += F::ONE;
-                right_multiplicities_smaller[right as usize] += F::ONE;
-                left
-            }
-            core::cmp::Ordering::Equal => {
-                // If left register is equal to right register
-                joint_multiplicities[left as usize] += F::ONE;
-                left
-            }
-        };
-
-        union_harmonic_sum += F::inverse_register(larger_register as i32);
-        union_zeros += P::NumberOfZeros::from_bool(larger_register.is_zero());
-    }
-
-    // We get the best estimates from HyperLogLog++
-    let union_cardinality_estimate = estimate(union_harmonic_sum, union_zeros);
-
-    let left_cardinality_estimate = left.estimate_cardinality();
-    let right_cardinality_estimate = right.estimate_cardinality();
-
-    mle_union_cardinality_from_multiplicities::<P, B, F, ERROR>(
-        left_multiplicities_larger,
-        left_multiplicities_smaller,
-        right_multiplicities_larger,
-        right_multiplicities_smaller,
-        joint_multiplicities,
-        union_cardinality_estimate,
-        left_cardinality_estimate,
-        right_cardinality_estimate,
-    )
 }
 
 impl<

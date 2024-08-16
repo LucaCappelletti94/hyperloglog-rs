@@ -210,6 +210,15 @@ impl<
         self.harmonic_sum < S::ZERO
     }
 
+    fn new_hybrid() -> Self {
+        Self {
+            registers: R::zeroed(),
+            number_of_zero_registers: P::NumberOfZeros::from_usize(P::NUMBER_OF_REGISTERS),
+            harmonic_sum: S::NEG_INFINITY,
+            _phantom: core::marker::PhantomData,
+        }
+    }
+
     fn dehybridize(&mut self) {
         if self.is_hybrid() {
             let number_of_hashes = self.number_of_hashes();
@@ -292,22 +301,6 @@ impl<
         } else {
             self.insert(element)
         }
-    }
-}
-
-impl<
-        P: Precision,
-        B: Bits,
-        R: Registers<P, B> + Words<Word = u64>,
-        Hasher: HasherType,
-        S: FloatNumber,
-    > Default for Hybrid<BasicLogLog<P, B, R, Hasher, S>>
-{
-    fn default() -> Self {
-        let mut hll: BasicLogLog<P, B, R, Hasher, S> = Default::default();
-        hll.harmonic_sum = S::NEG_INFINITY;
-        hll.number_of_zero_registers = P::NumberOfZeros::ZERO;
-        Self::from(hll)
     }
 }
 
