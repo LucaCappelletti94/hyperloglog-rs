@@ -3,144 +3,14 @@
 //! competitor libraries.
 //! Evaluation of set-like properties across different data structures.
 use crate::utils::*;
-use cardinality_estimator::CardinalityEstimator;
 use core::f64;
-use core::hash::BuildHasher;
 use hyperloglog_rs::prelude::*;
-use hyperloglogplus::HyperLogLog as TabacHyperLogLog;
-use hyperloglogplus::HyperLogLogPF as TabacHyperLogLogPF;
-use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
 use indicatif::ParallelProgressIterator;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use mem_dbg::MemSize;
 use mem_dbg::SizeFlags;
 use rayon::prelude::*;
-use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
-use std::collections::HashSet;
-use streaming_algorithms::HyperLogLog as SAHyperLogLog;
-
-pub(super) trait Cardinality: Sized + TestSetLike<u64> {
-    fn cardinality(&self) -> f64;
-}
-
-impl Cardinality for HashSet<u64> {
-    fn cardinality(&self) -> f64 {
-        self.len() as f64
-    }
-}
-
-impl Cardinality for RustHyperLogLog {
-    fn cardinality(&self) -> f64 {
-        self.len()
-    }
-}
-
-impl<const P: usize, H: core::hash::Hasher + Default, const W: usize> Cardinality
-    for CardinalityEstimator<u64, H, P, W>
-{
-    fn cardinality(&self) -> f64 {
-        self.estimate() as f64
-    }
-}
-
-impl<P: Precision + PrecisionConstants<f64>, B: Bits, R: Registers<P, B>, Hasher: HasherType>
-    Cardinality for PlusPlus<P, B, R, Hasher>
-where
-    Self: HyperLogLog<P, B, Hasher>,
-    P: MemSize,
-    B: MemSize,
-    R: MemSize,
-    P::NumberOfZeros: MemSize,
-{
-    fn cardinality(&self) -> f64 {
-        self.estimate_cardinality()
-    }
-}
-
-impl<P: Precision + PrecisionConstants<f64>, B: Bits, R: Registers<P, B>, Hasher: HasherType>
-    Cardinality for LogLogBeta<P, B, R, Hasher>
-where
-    Self: HyperLogLog<P, B, Hasher>,
-    P: MemSize,
-    B: MemSize,
-    R: MemSize,
-    P::NumberOfZeros: MemSize,
-{
-    fn cardinality(&self) -> f64 {
-        self.estimate_cardinality()
-    }
-}
-
-impl<H> Cardinality for Hybrid<H>
-where
-    Self: Estimator<f64> + TestSetLike<u64>,
-{
-    fn cardinality(&self) -> f64 {
-        self.estimate_cardinality()
-    }
-}
-
-impl<B: BuildHasher> Cardinality for TabacHyperLogLogPF<u64, B>
-where
-    Self: Clone,
-    B: MemSize + Default,
-{
-    fn cardinality(&self) -> f64 {
-        self.clone().count()
-    }
-}
-
-impl<B: BuildHasher> Cardinality for TabacHyperLogLogPlus<u64, B>
-where
-    Self: Clone,
-    B: MemSize + Default,
-{
-    fn cardinality(&self) -> f64 {
-        self.clone().count()
-    }
-}
-
-impl Cardinality for SAHyperLogLog<u64> {
-    fn cardinality(&self) -> f64 {
-        self.len()
-    }
-}
-
-impl<const EXPONENT: usize, P: Precision> Cardinality for SetLikeObjects<EXPONENT, P>
-where
-    P: ArrayRegister<Bits8> + ArrayRegister<Bits6> + PrecisionConstants<f64>,
-    P: MemSize,
-    <P as ArrayRegister<Bits8>>::ArrayRegister: MemSize + Words<Word = u64>,
-    <P as ArrayRegister<Bits6>>::ArrayRegister: MemSize + Words<Word = u64>,
-    P::NumberOfZeros: MemSize,
-    Self: TestSetLike<u64>,
-{
-    fn cardinality(&self) -> f64 {
-        match self {
-            SetLikeObjects::HashSet(set) => set.cardinality(),
-            SetLikeObjects::TabacHyperLogLogPlus(set) => set.cardinality(),
-            SetLikeObjects::TabacHyperLogLogPF(set) => set.cardinality(),
-            SetLikeObjects::SAHyperLogLog(set) => set.cardinality(),
-            SetLikeObjects::RustHyperLogLog(set) => set.cardinality(),
-            SetLikeObjects::CardinalityEstimator(set) => set.cardinality(),
-            SetLikeObjects::HLL6Xxhasher(set) => set.cardinality(),
-            SetLikeObjects::HLL6WyHash(set) => set.cardinality(),
-            SetLikeObjects::HLL8Xxhasher(set) => set.cardinality(),
-            SetLikeObjects::HLL8WyHash(set) => set.cardinality(),
-            SetLikeObjects::Beta6Xxhasher(set) => set.cardinality(),
-            SetLikeObjects::Beta6WyHash(set) => set.cardinality(),
-            SetLikeObjects::Beta8Xxhasher(set) => set.cardinality(),
-            SetLikeObjects::Beta8WyHash(set) => set.cardinality(),
-            SetLikeObjects::HybridPPXxhasher(set) => set.cardinality(),
-            SetLikeObjects::HybridPPWyHash(set) => set.cardinality(),
-            SetLikeObjects::HybridBetaXxhasher(set) => set.cardinality(),
-            SetLikeObjects::HybridBetaWyHash(set) => set.cardinality(),
-            #[cfg(feature = "mle")]
-            _ => unimplemented!("We do not have a cardinality implementation for MLE."),
-        }
-    }
-}
 
 pub(super) fn cardinality_comparatively<
     const EXPONENT: usize,
@@ -148,16 +18,15 @@ pub(super) fn cardinality_comparatively<
         + Precision
         + ArrayRegister<Bits8>
         + ArrayRegister<Bits6>
-        + PrecisionConstants<f64>
         + ArrayRegister<Bits5>
         + ArrayRegister<Bits4>,
 >()
 where
-    <P as ArrayRegister<Bits8>>::ArrayRegister: mem_dbg::MemSize + Words<Word = u64>,
-    <P as ArrayRegister<Bits6>>::ArrayRegister: mem_dbg::MemSize + Words<Word = u64>,
-    <P as ArrayRegister<Bits5>>::ArrayRegister: mem_dbg::MemSize + Words<Word = u64>,
-    <P as ArrayRegister<Bits4>>::ArrayRegister: mem_dbg::MemSize + Words<Word = u64>,
-    <P as hyperloglog_rs::prelude::Precision>::NumberOfZeros: mem_dbg::MemSize,
+    <P as ArrayRegister<Bits8>>::ArrayRegister: mem_dbg::MemSize + Words,
+    <P as ArrayRegister<Bits6>>::ArrayRegister: mem_dbg::MemSize + Words,
+    <P as ArrayRegister<Bits5>>::ArrayRegister: mem_dbg::MemSize + Words,
+    <P as ArrayRegister<Bits4>>::ArrayRegister: mem_dbg::MemSize + Words,
+    <P as hyperloglog_rs::prelude::Precision>::NumberOfRegisters: mem_dbg::MemSize,
 {
     // If there is already a report stored, we can skip the evaluation.
     let path = format!(

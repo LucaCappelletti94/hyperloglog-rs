@@ -1,7 +1,4 @@
 use hyperloglog_rs::prelude::*;
-mod cardinality;
-mod union;
-mod utils;
 
 /// Macro to generate the list of calls to cardinality comparison for a given precision type.
 macro_rules! cardinality_comparisons {

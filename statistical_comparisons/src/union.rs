@@ -5,250 +5,13 @@
 use crate::utils::*;
 use hyperloglog_rs::prelude::*;
 
-use cardinality_estimator::CardinalityEstimator;
 use core::f64;
-use core::hash::BuildHasher;
-use hyperloglogplus::HyperLogLog as TabacHyperLogLog;
-use hyperloglogplus::HyperLogLogPF as TabacHyperLogLogPF;
-use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
 use indicatif::ParallelProgressIterator;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use mem_dbg::MemSize;
 use mem_dbg::SizeFlags;
 use rayon::prelude::*;
-use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
-use std::collections::HashSet;
-use std::hash::Hash;
-use streaming_algorithms::HyperLogLog as SAHyperLogLog;
-
-pub(super) trait Union {
-    fn union(&self, other: &Self) -> f64;
-}
-
-impl<I: Hash + Eq + PartialEq> Union for HashSet<I> {
-    fn union(&self, other: &Self) -> f64 {
-        self.union(other).count() as f64
-    }
-}
-
-impl Union for RustHyperLogLog {
-    fn union(&self, other: &Self) -> f64 {
-        let mut copy = self.clone();
-        copy.merge(&other);
-        copy.len() as f64
-    }
-}
-
-impl<const P: usize, I: Hash, H: HasherType, const W: usize> Union
-    for CardinalityEstimator<I, H, P, W>
-{
-    fn union(&self, other: &Self) -> f64 {
-        let mut copy = self.clone();
-        copy.merge(&other);
-        copy.estimate() as f64
-    }
-}
-
-impl<P: Precision + PrecisionConstants<f64>, B: Bits, R: Registers<P, B>, Hasher: HasherType> Union
-    for PlusPlus<P, B, R, Hasher>
-where
-    Self: HyperLogLog<P, B, Hasher>,
-{
-    fn union(&self, other: &Self) -> f64 {
-        self.estimate_union_cardinality(other)
-    }
-}
-
-impl<H> Union for Hybrid<H>
-where
-    Self: Estimator<f64>,
-{
-    fn union(&self, other: &Self) -> f64 {
-        self.estimate_union_cardinality(other)
-    }
-}
-
-impl<P: Precision + PrecisionConstants<f64>, B: Bits, R: Registers<P, B>, Hasher: HasherType> Union
-    for LogLogBeta<P, B, R, Hasher>
-where
-    Self: HyperLogLog<P, B, Hasher>,
-{
-    fn union(&self, other: &Self) -> f64 {
-        self.estimate_union_cardinality(other)
-    }
-}
-
-#[cfg(feature = "mle")]
-impl<
-        const ERROR: i32,
-        P: Precision + PrecisionConstants<f64>,
-        B: Bits,
-        R: Registers<P, B>,
-        Hasher: HasherType,
-    > Union for MLE<PlusPlus<P, B, R, Hasher>, ERROR>
-where
-    Self: HyperLogLog<P, B, Hasher>,
-{
-    fn union(&self, other: &Self) -> f64 {
-        self.estimate_union_cardinality(other)
-    }
-}
-
-#[cfg(feature = "mle")]
-impl<
-        const ERROR: i32,
-        P: Precision + PrecisionConstants<f64>,
-        B: Bits,
-        R: Registers<P, B>,
-        Hasher: HasherType,
-    > Union for MLE<LogLogBeta<P, B, R, Hasher>, ERROR>
-where
-    Self: HyperLogLog<P, B, Hasher> + Estimator<f64>,
-{
-    fn union(&self, other: &Self) -> f64 {
-        self.estimate_union_cardinality(other)
-    }
-}
-
-impl<I: Hash + Eq + PartialEq, B: BuildHasher> Union for TabacHyperLogLogPF<I, B>
-where
-    Self: Clone,
-{
-    fn union(&self, other: &Self) -> f64 {
-        let mut self_copy = self.clone();
-        self_copy.merge(&other).unwrap();
-        self_copy.count()
-    }
-}
-
-impl<I: Hash + Eq + PartialEq, B: BuildHasher> Union for TabacHyperLogLogPlus<I, B>
-where
-    Self: Clone,
-{
-    fn union(&self, other: &Self) -> f64 {
-        let mut self_copy = self.clone();
-        self_copy.merge(&other).unwrap();
-        self_copy.count()
-    }
-}
-
-impl<I: Hash + Eq + PartialEq> Union for SAHyperLogLog<I> {
-    fn union(&self, other: &Self) -> f64 {
-        let mut copy = self.clone();
-        <SAHyperLogLog<I>>::union(&mut copy, &other);
-        copy.len()
-    }
-}
-
-impl<const EXPONENT: usize, P: mem_dbg::MemSize + Precision> Union for SetLikeObjects<EXPONENT, P>
-where
-    P: ArrayRegister<Bits8> + ArrayRegister<Bits6> + PrecisionConstants<f64>,
-    P: MemSize,
-    <P as ArrayRegister<Bits8>>::ArrayRegister: MemSize + Words<Word = u64>,
-    <P as ArrayRegister<Bits6>>::ArrayRegister: MemSize + Words<Word = u64>,
-    P::NumberOfZeros: MemSize,
-    Self: TestSetLike<u64>,
-{
-    fn union(&self, other: &Self) -> f64 {
-        match (self, other) {
-            (SetLikeObjects::HashSet(left), SetLikeObjects::HashSet(right)) => {
-                <HashSet<u64> as Union>::union(left, right)
-            }
-            (SetLikeObjects::RustHyperLogLog(left), SetLikeObjects::RustHyperLogLog(right)) => {
-                left.union(right)
-            }
-            (
-                SetLikeObjects::CardinalityEstimator(left),
-                SetLikeObjects::CardinalityEstimator(right),
-            ) => left.union(right),
-            (
-                SetLikeObjects::TabacHyperLogLogPF(left),
-                SetLikeObjects::TabacHyperLogLogPF(right),
-            ) => left.union(right),
-            (
-                SetLikeObjects::TabacHyperLogLogPlus(left),
-                SetLikeObjects::TabacHyperLogLogPlus(right),
-            ) => left.union(right),
-            (SetLikeObjects::SAHyperLogLog(left), SetLikeObjects::SAHyperLogLog(right)) => {
-                left.union(right)
-            }
-            (SetLikeObjects::HLL6Xxhasher(left), SetLikeObjects::HLL6Xxhasher(right)) => {
-                left.union(right)
-            }
-            (SetLikeObjects::HLL6WyHash(left), SetLikeObjects::HLL6WyHash(right)) => {
-                left.union(right)
-            }
-            (SetLikeObjects::HLL8Xxhasher(left), SetLikeObjects::HLL8Xxhasher(right)) => {
-                left.union(right)
-            }
-            (SetLikeObjects::HLL8WyHash(left), SetLikeObjects::HLL8WyHash(right)) => {
-                left.union(right)
-            }
-            (SetLikeObjects::Beta6Xxhasher(left), SetLikeObjects::Beta6Xxhasher(right)) => {
-                left.union(right)
-            }
-            (SetLikeObjects::Beta6WyHash(left), SetLikeObjects::Beta6WyHash(right)) => {
-                left.union(right)
-            }
-            (SetLikeObjects::Beta8Xxhasher(left), SetLikeObjects::Beta8Xxhasher(right)) => {
-                left.union(right)
-            }
-            (SetLikeObjects::Beta8WyHash(left), SetLikeObjects::Beta8WyHash(right)) => {
-                left.union(right)
-            }
-            #[cfg(feature = "mle")]
-            (SetLikeObjects::MLEPPXxhasher(left), SetLikeObjects::MLEPPXxhasher(right)) => {
-                left.union(right)
-            }
-            #[cfg(feature = "mle")]
-            (SetLikeObjects::MLEBetaXxhasher(left), SetLikeObjects::MLEBetaXxhasher(right)) => {
-                left.union(right)
-            }
-            #[cfg(feature = "mle")]
-            (SetLikeObjects::MLEPPWyHash(left), SetLikeObjects::MLEPPWyHash(right)) => {
-                left.union(right)
-            }
-            #[cfg(feature = "mle")]
-            (SetLikeObjects::MLEBetaWyHash(left), SetLikeObjects::MLEBetaWyHash(right)) => {
-                left.union(right)
-            }
-            #[cfg(feature = "mle")]
-            (
-                SetLikeObjects::HybridMLEPPXxhasher(left),
-                SetLikeObjects::HybridMLEPPXxhasher(right),
-            ) => left.union(right),
-            #[cfg(feature = "mle")]
-            (
-                SetLikeObjects::HybridMLEBetaXxhasher(left),
-                SetLikeObjects::HybridMLEBetaXxhasher(right),
-            ) => left.union(right),
-            #[cfg(feature = "mle")]
-            (SetLikeObjects::HybridMLEPPWyHash(left), SetLikeObjects::HybridMLEPPWyHash(right)) => {
-                left.union(right)
-            }
-            #[cfg(feature = "mle")]
-            (
-                SetLikeObjects::HybridMLEBetaWyHash(left),
-                SetLikeObjects::HybridMLEBetaWyHash(right),
-            ) => left.union(right),
-            (SetLikeObjects::HybridPPXxhasher(left), SetLikeObjects::HybridPPXxhasher(right)) => {
-                left.union(right)
-            }
-            (
-                SetLikeObjects::HybridBetaXxhasher(left),
-                SetLikeObjects::HybridBetaXxhasher(right),
-            ) => left.union(right),
-            (SetLikeObjects::HybridPPWyHash(left), SetLikeObjects::HybridPPWyHash(right)) => {
-                left.union(right)
-            }
-            (SetLikeObjects::HybridBetaWyHash(left), SetLikeObjects::HybridBetaWyHash(right)) => {
-                left.union(right)
-            }
-            _ => unimplemented!(),
-        }
-    }
-}
 
 pub(super) fn union_comparatively<
     const EXPONENT: usize,
@@ -258,15 +21,15 @@ pub(super) fn union_comparatively<
         + ArrayRegister<Bits6>
         + ArrayRegister<Bits5>
         + ArrayRegister<Bits4>
-        + PrecisionConstants<f64>
+       
         + ArrayRegister<Bits5>,
 >()
 where
-    <P as ArrayRegister<Bits8>>::ArrayRegister: mem_dbg::MemSize + Words<Word = u64>,
-    <P as ArrayRegister<Bits6>>::ArrayRegister: mem_dbg::MemSize + Words<Word = u64>,
-    <P as ArrayRegister<Bits5>>::ArrayRegister: mem_dbg::MemSize + Words<Word = u64>,
-    <P as ArrayRegister<Bits4>>::ArrayRegister: mem_dbg::MemSize + Words<Word = u64>,
-    <P as hyperloglog_rs::prelude::Precision>::NumberOfZeros: mem_dbg::MemSize,
+    <P as ArrayRegister<Bits8>>::ArrayRegister: mem_dbg::MemSize,
+    <P as ArrayRegister<Bits6>>::ArrayRegister: mem_dbg::MemSize,
+    <P as ArrayRegister<Bits5>>::ArrayRegister: mem_dbg::MemSize,
+    <P as ArrayRegister<Bits4>>::ArrayRegister: mem_dbg::MemSize,
+    <P as hyperloglog_rs::prelude::Precision>::NumberOfRegisters: mem_dbg::MemSize,
 {
     // If there is already a report stored, we can skip the evaluation.
     let path = format!("./statistical_tests_reports/union_{}.csv", P::EXPONENT);

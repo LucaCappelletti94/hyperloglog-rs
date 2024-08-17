@@ -3,7 +3,7 @@ use core::iter::Copied;
 use core::slice::Iter;
 
 /// Trait for arrays of words.
-pub trait Words {
+pub(crate) trait Words {
     /// The type of the iterator over the words.
     type WordIter<'words>: Iterator<Item = u64>
     where

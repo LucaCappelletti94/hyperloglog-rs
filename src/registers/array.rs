@@ -1,10 +1,10 @@
 //! Submodule implementing the registers trait for the array data structure.
-use core::marker::PhantomData;
-
 use super::{
     extract_register_from_word, Bits, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6, Bits7, Bits8,
-    FloatOps, Number, One, Precision, RegisterWord, Registers, Words, Zero,
+    FloatOps, Number, One, Precision, RegisterWord, Registers, Zero,
 };
+use core::marker::PhantomData;
+use core::slice::Iter;
 
 #[cfg(feature = "std")]
 use crate::prelude::Named;
@@ -41,29 +41,23 @@ use crate::prelude::Precision8;
 use crate::prelude::Precision9;
 
 /// Iterator over the registers.
-pub struct RegisterIter<'register, P: Precision, B: Bits, R: Words + Registers<P, B>>
-where
-    R: 'register,
-{
+pub struct RegisterIter<'words, P: Precision, B: Bits> {
     /// The current register.
     current_register: P::NumberOfRegisters,
     /// The current register in the word.
     current_register_in_word: u8,
     /// The iterator over the words.
-    words: R::WordIter<'register>,
+    words: Iter<'words, u64>,
     /// The current word.
     current_word: Option<u64>,
     /// The phantom data.
-    _phantom: PhantomData<(P, B, R)>,
+    _phantom: PhantomData<(P, B)>,
 }
 
-impl<'register, P: Precision, B: Bits, R: Words + Registers<P, B>>
-    RegisterIter<'register, P, B, R>
-{
+impl<'words, P: Precision, B: Bits> RegisterIter<'words, P, B> {
     /// Creates a new instance of the register iterator.
-    fn new(registers: &'register R) -> Self {
-        let mut words = registers.words();
-        let current_word = words.next();
+    fn new(mut words: Iter<'words, u64>) -> Self {
+        let current_word = words.next().copied();
         Self {
             current_register: P::NumberOfRegisters::ZERO,
             words,
@@ -74,9 +68,7 @@ impl<'register, P: Precision, B: Bits, R: Words + Registers<P, B>>
     }
 }
 
-impl<'register, P: Precision, B: Bits, R: Words + Registers<P, B>> Iterator
-    for RegisterIter<'register, P, B, R>
-{
+impl<'words, P: Precision, B: Bits> Iterator for RegisterIter<'words, P, B> {
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -95,7 +87,7 @@ impl<'register, P: Precision, B: Bits, R: Words + Registers<P, B>> Iterator
                 == <u64 as RegisterWord<B>>::NUMBER_OF_REGISTERS_IN_WORD
             {
                 self.current_register_in_word = 0;
-                self.current_word = self.words.next();
+                self.current_word = self.words.next().copied();
             }
             register
         })
@@ -103,38 +95,34 @@ impl<'register, P: Precision, B: Bits, R: Words + Registers<P, B>> Iterator
 }
 
 /// Iterator over the registers zipped with another set of registers.
-pub struct TupleIter<'registers, P: Precision, B: Bits, R: Words + Registers<P, B>>
-where
-    R: 'registers,
+pub struct TupleIter<'words, P: Precision, B: Bits>
 {
     /// The current register.
     current_register: P::NumberOfRegisters,
     /// The current register in the word.
     current_register_in_word: u8,
     /// The iterator over the left registers.
-    left: R::WordIter<'registers>,
+    left: Iter<'words, u64>,
     /// The iterator over the right registers.
-    right: R::WordIter<'registers>,
+    right: Iter<'words, u64>,
     /// The current words.
     current_word: Option<(u64, u64)>,
     /// The phantom data.
-    _phantom: PhantomData<(P, B, R)>,
+    _phantom: PhantomData<(P, B)>,
 }
 
-impl<'registers, P: Precision, B: Bits, R: Words + Registers<P, B>> TupleIter<'registers, P, B, R> {
+impl<'words, P: Precision, B: Bits> TupleIter<'words, P, B> {
     /// Creates a new instance of the tuple iterator.
-    fn new(left: &'registers R, right: &'registers R) -> Self {
-        let mut left_iterator = left.words();
-        let mut right_iterator = right.words();
-        let current_word = left_iterator.next().and_then(|left_word| {
-            right_iterator
-                .next()
+    fn new(mut left: Iter<'words, u64>, mut right: Iter<'words, u64>) -> Self {
+        let current_word = left.next().copied().and_then(|left_word| {
+            right
+                .next().copied()
                 .map(|right_word| (left_word, right_word))
         });
         Self {
             current_register: P::NumberOfRegisters::ZERO,
-            left: left_iterator,
-            right: right_iterator,
+            left,
+            right,
             current_register_in_word: 0,
             current_word,
             _phantom: PhantomData,
@@ -142,8 +130,8 @@ impl<'registers, P: Precision, B: Bits, R: Words + Registers<P, B>> TupleIter<'r
     }
 }
 
-impl<'registers, P: Precision, B: Bits, R: Words + Registers<P, B>> Iterator
-    for TupleIter<'registers, P, B, R>
+impl<'words, P: Precision, B: Bits> Iterator
+    for TupleIter<'words, P, B>
 {
     type Item = (u8, u8);
 
@@ -163,8 +151,8 @@ impl<'registers, P: Precision, B: Bits, R: Words + Registers<P, B>> Iterator
                 == <u64 as RegisterWord<B>>::NUMBER_OF_REGISTERS_IN_WORD
             {
                 self.current_register_in_word = 0;
-                self.current_word = self.left.next().and_then(|left_word| {
-                    self.right.next().map(|right_word| (left_word, right_word))
+                self.current_word = self.left.next().copied().and_then(|left_word| {
+                    self.right.next().copied().map(|right_word| (left_word, right_word))
                 });
             }
             (left_register, right_register)
@@ -211,10 +199,10 @@ macro_rules! impl_register_for_precision_and_bits {
 
                 #[cfg(feature = "precision_" $exponent)]
                 impl Registers<[<Precision $exponent>], [<Bits $bits>]> for [u64; crate::utils::ceil(usize::pow(2, $exponent), 64 / $bits)] {
-                    type Iter<'register> = RegisterIter<'register, [<Precision $exponent>], [<Bits $bits>], Self>;
-                    type IterZipped<'registers> = TupleIter<'registers, [<Precision $exponent>], [<Bits $bits>], Self>
+                    type Iter<'words> = RegisterIter<'words, [<Precision $exponent>], [<Bits $bits>]>;
+                    type IterZipped<'words> = TupleIter<'words, [<Precision $exponent>], [<Bits $bits>]>
                         where
-                            Self: 'registers;
+                            Self: 'words;
 
                     #[inline]
                     fn zeroed() -> Self {
@@ -223,12 +211,12 @@ macro_rules! impl_register_for_precision_and_bits {
 
                     #[inline]
                     fn iter_registers(&self) -> Self::Iter<'_> {
-                        RegisterIter::new(self)
+                        RegisterIter::new(self.iter())
                     }
 
                     #[inline]
-                    fn iter_registers_zipped<'registers>(&'registers self, other: &'registers Self) -> Self::IterZipped<'registers>{
-                        TupleIter::new(self, other)
+                    fn iter_registers_zipped<'words>(&'words self, other: &'words Self) -> Self::IterZipped<'words>{
+                        TupleIter::new(self.iter(), other.iter())
                     }
 
                     #[inline]

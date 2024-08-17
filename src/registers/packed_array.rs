@@ -93,48 +93,36 @@ where
 }
 
 /// Iterator over the registers of a packed array.
-pub struct RegisterIter<'register, P: Precision, B: Bits, R: Registers<P, B> + Words>
-where
-    R: 'register,
-{
+pub struct RegisterIter<'words, P: Precision, B: Bits> {
     /// The current register index across the packed array.
     current_register: P::NumberOfRegisters,
     /// The offset in bits of the current word. In the case of bridge registers, this will be the
     /// offset of the bridge size from the previous word.
     word_offset: u8,
     /// The iterator over the words of the packed array.
-    words: R::WordIter<'register>,
+    words: Iter<'words, u64>,
     /// The current register being processed.
     current_word: Option<u64>,
     /// Phantom data to keep track of the precision, bits, and registers.
-    _phantom: PhantomData<(P, B, R)>,
+    _phantom: PhantomData<(P, B)>,
 }
 
 /// New constructor for [`RegisterIter`].
-impl<'register, P: Precision, B: Bits, R: Registers<P, B> + Words> RegisterIter<'register, P, B, R>
-where
-    R: 'register,
-{
+impl<'words, P: Precision, B: Bits> RegisterIter<'words, P, B> {
     /// Creates a new instance of the register iterator.
-    fn new(registers: &'register R) -> Self {
-        let mut words = registers.words();
-        let current_word = words.next();
+    fn new(mut words: Iter<'words, u64>) -> Self {
         Self {
             current_register: P::NumberOfRegisters::ZERO,
             word_offset: 0,
+            current_word: words.next().copied(),
             words,
-            current_word,
             _phantom: PhantomData,
         }
     }
 }
 
 /// Implementation of the Iterator trait for [`RegisterIter`].
-impl<'register, P: Precision, B: Bits, R: Registers<P, B> + Words> Iterator
-    for RegisterIter<'register, P, B, R>
-where
-    R: 'register,
-{
+impl<'words, P: Precision, B: Bits> Iterator for RegisterIter<'words, P, B> {
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -154,7 +142,7 @@ where
             // Otherwise, we need to extract the register from the bridge between the current word
             // and the next one. Since we are guaranteed that the current word is not the last one,
             // we can safely unwrap the next word after having stored what we need from the current.
-            self.current_word = self.words.next();
+            self.current_word = self.words.next().copied();
             self.current_word.map(|next_word| {
                 let register = extract_bridge_register_from_word::<B, 1>(
                     [word],
@@ -171,44 +159,38 @@ where
 }
 
 /// Iterator over the registers of two packed arrays.
-pub struct RegisterTupleIter<'registers, P: Precision, B: Bits, R: Registers<P, B> + Words>
-where
-    R: 'registers,
-{
+pub struct RegisterTupleIter<'words, P: Precision, B: Bits> {
     /// The current register index across the packed array.
     current_register: P::NumberOfRegisters,
     /// The offset in bits of the current word. In the case of bridge registers, this will be the
     /// offset of the bridge size from the previous word.
     word_offset: u8,
     /// The iterator over the words of the left packed array.
-    left: R::WordIter<'registers>,
+    left: Iter<'words, u64>,
     /// The iterator over the words of the right packed array.
-    right: R::WordIter<'registers>,
+    right: Iter<'words, u64>,
     /// The current word tuple being processed.
     current_word: Option<(u64, u64)>,
     /// Phantom data to keep track of the precision, bits, and registers.
-    _phantom: PhantomData<(P, B, R)>,
+    _phantom: PhantomData<(P, B)>,
 }
 
 /// Constructor for [`RegisterTupleIter`].
-impl<'registers, P: Precision, B: Bits, R: Registers<P, B> + Words>
-    RegisterTupleIter<'registers, P, B, R>
-{
+impl<'words, P: Precision, B: Bits> RegisterTupleIter<'words, P, B> {
     #[inline]
     /// Creates a new instance of the register tuple iterator.
-    fn new(left: &'registers R, right: &'registers R) -> Self {
-        let mut left_iterator = left.words();
-        let mut right_iterator = right.words();
-        let current_word = left_iterator.next().and_then(|left_word| {
-            right_iterator
+    fn new(mut left: Iter<'words, u64>, mut right: Iter<'words, u64>) -> Self {
+        let current_word = left.next().copied().and_then(|left_word| {
+            right
                 .next()
+                .copied()
                 .map(|right_word| (left_word, right_word))
         });
         Self {
             current_register: P::NumberOfRegisters::ZERO,
             word_offset: 0,
-            left: left_iterator,
-            right: right_iterator,
+            left,
+            right,
             current_word,
             _phantom: PhantomData,
         }
@@ -216,9 +198,7 @@ impl<'registers, P: Precision, B: Bits, R: Registers<P, B> + Words>
 }
 
 /// Implementation of the Iterator trait for [`RegisterTupleIter`].
-impl<'registers, P: Precision, B: Bits, R: Registers<P, B> + Words> Iterator
-    for RegisterTupleIter<'registers, P, B, R>
-{
+impl<'words, P: Precision, B: Bits> Iterator for RegisterTupleIter<'words, P, B> {
     type Item = (u8, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -239,9 +219,9 @@ impl<'registers, P: Precision, B: Bits, R: Registers<P, B> + Words> Iterator
             // Otherwise, we need to extract the register from the bridge between the current word
             // and the next one. Since we are guaranteed that the current word is not the last one,
             // we can safely unwrap the next word after having stored what we need from the current.
-            self.current_word = self.left.next().and_then(|new_left_word| {
+            self.current_word = self.left.next().copied().and_then(|new_left_word| {
                 self.right
-                    .next()
+                    .next().copied()
                     .map(|new_right_word| (new_left_word, new_right_word))
             });
             self.current_word.map(|(next_left_word, next_right_word)| {
@@ -276,7 +256,7 @@ impl<const N: usize> Named for PackedArray<N> {
 }
 
 impl<const N: usize> Words for PackedArray<N> {
-    type WordIter<'register> = Copied<Iter<'register, u64>> where Self: 'register;
+    type WordIter<'words> = Copied<Iter<'words, u64>> where Self: 'words;
 
     #[inline]
     fn number_of_words(&self) -> usize {
@@ -335,10 +315,10 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
 
                 #[cfg(feature = "precision_" $exponent)]
                 impl Registers<[<Precision $exponent>], [<Bits $bits>]> for PackedArray<{crate::utils::ceil(usize::pow(2, $exponent) * $bits, 64)}> {
-                    type Iter<'register> = RegisterIter<'register, [<Precision $exponent>], [<Bits $bits>], Self>;
-                    type IterZipped<'registers> = RegisterTupleIter<'registers, [<Precision $exponent>], [<Bits $bits>], Self>
+                    type Iter<'words> = RegisterIter<'words, [<Precision $exponent>], [<Bits $bits>]>;
+                    type IterZipped<'words> = RegisterTupleIter<'words, [<Precision $exponent>], [<Bits $bits>]>
                         where
-                            Self: 'registers;
+                            Self: 'words;
 
                     #[inline]
                     fn zeroed() -> Self {
@@ -349,12 +329,12 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
 
                     #[inline]
                     fn iter_registers(&self) -> Self::Iter<'_> {
-                        RegisterIter::new(self)
+                        RegisterIter::new(self.words.iter())
                     }
 
                     #[inline]
-                    fn iter_registers_zipped<'register>(&'register self, other: &'register Self) -> Self::IterZipped<'register>{
-                        RegisterTupleIter::new(self, other)
+                    fn iter_registers_zipped<'words>(&'words self, other: &'words Self) -> Self::IterZipped<'words>{
+                        RegisterTupleIter::new(self.words.iter(), other.words.iter())
                     }
 
                     #[inline]

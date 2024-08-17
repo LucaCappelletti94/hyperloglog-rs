@@ -197,7 +197,7 @@ fn unique_values_from_sorted_iterators<T: Ord, I: Iterator<Item = T>, J: Iterato
 }
 
 /// Trait for a struct that can be used in the hybrid approach.
-pub trait Hybridazable: Default {
+pub(crate) trait Hybridazable: Default {
     /// The type of the iterator over the sorted hashes.
     type IterSortedHashes<'words>: Iterator<Item = u64>
     where

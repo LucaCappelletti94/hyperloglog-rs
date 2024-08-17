@@ -39,3 +39,16 @@ mem_dbg = [
     "hypertwobits/mem_dbg",
     "simple_hll/mem_dbg"
 ]
+
+
+[[bench]]
+name = "insert"
+harness = false
+
+[[bench]]
+name = "cardinality"
+harness = false
+
+[[bench]]
+name = "union"
+harness = false
