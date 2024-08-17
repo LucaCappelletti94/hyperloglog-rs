@@ -16,20 +16,22 @@ pub trait One {
     fn is_one(&self) -> bool;
 }
 
+#[cfg(feature = "plusplus")]
 /// The two value for this type.
-pub trait Two {
+pub(crate) trait Two {
     /// The two value for this type.
     const TWO: Self;
 }
 
 /// The five value for this type.
-pub trait Five {
+pub(crate) trait Five {
     /// The five value for this type.
     const FIVE: Self;
 }
 
+#[cfg(feature = "mle")]
 /// The ten value for this type.
-pub trait Ten {
+pub(crate) trait Ten {
     /// The ten value for this type.
     const TEN: Self;
 }
@@ -47,6 +49,7 @@ macro_rules! impl_constants {
             #[inline(always)]
             fn is_zero(&self) -> bool { *self == 0 }
         }
+        #[cfg(feature = "plusplus")]
         impl Two for $t {
             const TWO: Self = 2;
         }
@@ -67,12 +70,15 @@ impl Zero for f64 {
     #[inline]
     fn is_zero(&self) -> bool { *self == 0.0 }
 }
+
+#[cfg(feature = "plusplus")]
 impl Two for f64 {
     const TWO: Self = 2.0;
 }
 impl Five for f64 {
     const FIVE: Self = 5.0;
 }
+#[cfg(feature = "mle")]
 impl Ten for f64 {
     const TEN: Self = 10.0;
 }

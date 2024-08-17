@@ -2,7 +2,7 @@
 use crate::prelude::*;
 
 /// Trait for a register word.
-pub trait RegisterWord<B: Bits> {
+pub(crate) trait RegisterWord<B: Bits> {
     /// The mask for the lower register.
     const LOWER_REGISTER_MASK: Self;
     /// The number of bits in the word.

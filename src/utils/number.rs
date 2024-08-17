@@ -1,7 +1,7 @@
 //! Traits regarding numbers.
-use core::ops::{Shl, Shr, Add, Sub, Div, Mul, AddAssign, SubAssign, Neg};
+use crate::utils::{One, Zero};
 use core::fmt::{Debug, Display};
-use crate::utils::{Zero, One, Two};
+use core::ops::{Add, AddAssign, Div, Mul, Neg, Shl, Shr, Sub, SubAssign};
 
 /// A trait for numbers.
 pub trait Number:
@@ -17,7 +17,6 @@ pub trait Number:
     + Display
     + Zero
     + One
-    + Two
     + PartialOrd
     + Send
     + Sync
@@ -48,7 +47,7 @@ pub trait PositiveInteger:
     type TryFromUsizeError: Debug;
 
     /// Converts a `u64` to a positive integer number.
-    /// 
+    ///
     /// # Errors
     /// * If the value is too large to be converted to a positive integer number.
     fn try_from_u64(value: u64) -> Result<Self, Self::TryFromU64Error>;
@@ -58,8 +57,8 @@ pub trait PositiveInteger:
 }
 
 /// A trait for floating point numbers.
-pub trait FloatOps: Number + Neg<Output = Self> {
-   /// Returns the value of 2^(-register), with strict positivite register.
+pub(crate) trait FloatOps: Number + Neg<Output = Self> {
+    /// Returns the value of 2^(-register), with strict positivite register.
     fn integer_exp2_minus(register: u8) -> Self;
 
     /// Returns the value of 2^(-register), including negative registers.

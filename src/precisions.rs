@@ -8,6 +8,9 @@ use core::fmt::Debug;
 
 use crate::utils::{Five, FloatOps, Number, One, PositiveInteger};
 
+#[cfg(feature = "plusplus")]
+use crate::utils::Two;
+
 #[cfg(all(feature="beta", not(feature="precomputed_beta")))]
 use crate::utils::Zero;
 
@@ -33,7 +36,7 @@ include!(concat!(env!("OUT_DIR"), "/beta.rs"));
 include!(concat!(env!("OUT_DIR"), "/beta_horner.rs"));
 
 #[cfg(feature = "plusplus_kmeans")]
-fn kmeans_bias<const N: usize, V: PartialOrd + Number, W: Number>(
+fn kmeans_bias<const N: usize, V: PartialOrd + Number + Two, W: Number>(
     estimates: &'static [V; N],
     biases: &'static [W; N],
     estimate: V,
@@ -60,7 +63,7 @@ where
 #[cfg(feature = "plusplus")]
 /// Computes the bias correction factor for the estimate using either
 /// the k-means algorithm or the simpler linear interpolation.
-fn bias<const N: usize, V: PartialOrd + Number, W: Number>(
+fn bias<const N: usize, V: PartialOrd + Two + Number, W: Number>(
     estimates: &'static [V; N],
     biases: &'static [W; N],
     estimate: V,
