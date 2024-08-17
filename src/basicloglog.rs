@@ -196,7 +196,7 @@ impl<
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B> + Words<Word = u64>, Hasher: HasherType> Hybridazable
+impl<P: Precision, B: Bits, R: Registers<P, B> + Words, Hasher: HasherType> Hybridazable
     for BasicLogLog<P, B, R, Hasher>
 {
     type IterSortedHashes<'words> = Take<R::WordIter<'words>> where Self: 'words;

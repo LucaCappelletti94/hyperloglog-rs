@@ -3,7 +3,7 @@
 use core::fmt::Debug;
 
 use crate::prelude::*;
-use crate::utils::{FloatOps, Number, One, RegisterWord, WordLike, Words, Zero};
+use crate::utils::{FloatOps, Number, One, RegisterWord, Words, Zero};
 mod array;
 mod packed_array;
 
@@ -15,14 +15,14 @@ pub use packed_array::{PackedArray, PackedArrayRegister};
 /// # Arguments
 /// * `word` - The word array from which the register is to be extracted.
 /// * `offset` - The offset at which the register starts.
-fn extract_register_from_word<B: Bits, const N: usize, W: WordLike + RegisterWord<B>>(
-    word: [W; N],
+fn extract_register_from_word<B: Bits, const N: usize>(
+    word: [u64; N],
     offset: u8,
-) -> [u8; N] where u8: TryFrom<W>, <u8 as TryFrom<W>>::Error: Debug {
-    debug_assert!(offset + B::NUMBER_OF_BITS <= W::NUMBER_OF_BITS, "The offset is too large.");
+) -> [u8; N] where u64: RegisterWord<B> {
+    debug_assert!(offset + B::NUMBER_OF_BITS <= u64::NUMBER_OF_BITS, "The offset is too large.");
     let mut registers = [0_u8; N];
     for i in 0..N {
-        registers[i] = u8::try_from((word[i] >> offset) & W::LOWER_REGISTER_MASK).unwrap();
+        registers[i] = u8::try_from((word[i] >> offset) & u64::LOWER_REGISTER_MASK).unwrap();
     }
     registers
 }
@@ -85,7 +85,7 @@ mod tests {
         let mut registers = R::zeroed();
         let collected_values = registers.iter_registers().collect::<Vec<_>>();
         assert_eq!(
-            P::NumberOfRegisters::try_from_usize(collected_values.len()).unwrap(),
+            P::NumberOfRegisters::try_from_u64(collected_values.len() as u64).unwrap(),
             P::NUMBER_OF_REGISTERS
         );
         // All the values should be zeroed.
@@ -95,7 +95,7 @@ mod tests {
             .iter()
             .enumerate()
             .all(|(index, &value)| value
-                == registers.get_register(P::NumberOfRegisters::try_from_usize(index).unwrap())));
+                == registers.get_register(P::NumberOfRegisters::try_from_u64(index as u64).unwrap())));
 
         // We check that, given all registers are currently zeroed, when we set them to the maximum value
         // we get always returned a value and that value is equal to zero.

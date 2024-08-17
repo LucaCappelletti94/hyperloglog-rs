@@ -15,15 +15,13 @@ mod hasher_type;
 mod number;
 mod random;
 mod register_word;
-mod word_like;
 mod words;
 
 pub use constants::*;
 pub use hasher_type::HasherType;
-pub use number::{FloatOps, Number, PositiveInteger};
+pub(crate) use number::{FloatOps, Number, PositiveInteger};
 pub use random::*;
 pub(crate) use register_word::RegisterWord;
-pub use word_like::WordLike;
 pub use words::Words;
 
 #[cfg(feature = "std")]

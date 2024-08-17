@@ -1,14 +1,11 @@
 //! Submodule for words-arrays
-use crate::utils::WordLike;
 use core::iter::Copied;
 use core::slice::Iter;
 
 /// Trait for arrays of words.
 pub trait Words {
-    /// The type of the words.
-    type Word: WordLike;
     /// The type of the iterator over the words.
-    type WordIter<'words>: Iterator<Item = Self::Word>
+    type WordIter<'words>: Iterator<Item = u64>
     where
         Self: 'words;
 
@@ -16,18 +13,17 @@ pub trait Words {
     fn number_of_words(&self) -> usize;
 
     /// Searches a value in the array and returns `true` if the value is found.
-    fn find_sorted_with_len(&self, value: Self::Word, len: usize) -> bool;
+    fn find_sorted_with_len(&self, value: u64, len: usize) -> bool;
 
     /// Inserts a value into the array searching for the correct position within a given length.
-    fn sorted_insert_with_len(&mut self, value: Self::Word, len: usize) -> bool;
+    fn sorted_insert_with_len(&mut self, value: u64, len: usize) -> bool;
 
     /// Returns an iterator over the words.
     fn words(&self) -> Self::WordIter<'_>;
 }
 
-impl<T: WordLike, const N: usize> Words for [T; N] {
-    type Word = T;
-    type WordIter<'words> = Copied<Iter<'words, Self::Word>> where Self: 'words;
+impl<const N: usize> Words for [u64; N] {
+    type WordIter<'words> = Copied<Iter<'words, u64>> where Self: 'words;
 
     #[must_use]
     #[inline]
@@ -37,7 +33,7 @@ impl<T: WordLike, const N: usize> Words for [T; N] {
 
     #[must_use]
     #[inline]
-    fn find_sorted_with_len(&self, value: Self::Word, len: usize) -> bool {
+    fn find_sorted_with_len(&self, value: u64, len: usize) -> bool {
         debug_assert!(
             len <= N,
             "The length must be less than or equal to the number of words."
@@ -51,7 +47,7 @@ impl<T: WordLike, const N: usize> Words for [T; N] {
 
     #[must_use]
     #[inline]
-    fn sorted_insert_with_len(&mut self, value: Self::Word, len: usize) -> bool {
+    fn sorted_insert_with_len(&mut self, value: u64, len: usize) -> bool {
         debug_assert!(
             len <= N,
             "The length must be less than or equal to the number of words."

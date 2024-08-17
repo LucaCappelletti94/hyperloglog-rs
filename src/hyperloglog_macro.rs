@@ -170,7 +170,7 @@ macro_rules! hll_impl {
             }
         }
 
-        impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B> + Words<Word = u64>>
+        impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B> + Words>
             Hybridazable for $counter
         {
             type IterSortedHashes<'words> = core::iter::Take<R::WordIter<'words>> where Self: 'words;

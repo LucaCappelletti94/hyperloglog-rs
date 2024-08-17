@@ -22,7 +22,6 @@ pub trait Number:
     + Two
     + Five
     + Ten
-    + From<u8>
     + Sum
     + PartialOrd
     + Send
@@ -58,12 +57,6 @@ pub trait PositiveInteger:
     /// # Errors
     /// * If the value is too large to be converted to a positive integer number.
     fn try_from_u64(value: u64) -> Result<Self, Self::TryFromU64Error>;
-
-    /// Converts a `usize` to a positive integer number.
-    /// 
-    /// # Errors
-    /// * If the value is too large to be converted to a positive integer number.
-    fn try_from_usize(value: usize) -> Result<Self, Self::TryFromUsizeError>;
 
     /// Converts the positive integer number to a `usize`.
     fn to_usize(self) -> usize;
@@ -130,11 +123,6 @@ macro_rules! impl_positive_integer_number {
                 #[inline(always)]
                 fn try_from_u64(value: u64) -> Result<Self, Self::TryFromU64Error> {
                     <$t as core::convert::TryFrom<u64>>::try_from(value)
-                }
-
-                #[inline(always)]
-                fn try_from_usize(value: usize) -> Result<Self, Self::TryFromUsizeError> {
-                    <$t as core::convert::TryFrom<usize>>::try_from(value)
                 }
 
                 #[inline(always)]

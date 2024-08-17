@@ -52,7 +52,7 @@ where
     /// The iterator over the words.
     words: R::WordIter<'register>,
     /// The current word.
-    current_word: Option<R::Word>,
+    current_word: Option<u64>,
     /// The phantom data.
     _phantom: PhantomData<(P, B, R)>,
 }
@@ -72,10 +72,8 @@ impl<'register, P: Precision, B: Bits, R: Words + Registers<P, B>> RegisterIter<
     }
 }
 
-impl<'register, P: Precision, B: Bits, R: Words<Word = u64> + Registers<P, B>> Iterator
+impl<'register, P: Precision, B: Bits, R: Words + Registers<P, B>> Iterator
     for RegisterIter<'register, P, B, R>
-where
-    R::Word: RegisterWord<B>,
 {
     type Item = u8;
 
@@ -85,7 +83,7 @@ where
         }
 
         self.current_word.map(|word| {
-            let [register] = extract_register_from_word(
+            let [register] = extract_register_from_word::<B, 1>(
                 [word],
                 self.current_register_in_word * B::NUMBER_OF_BITS,
             );
@@ -116,7 +114,7 @@ where
     /// The iterator over the right registers.
     right: R::WordIter<'registers>,
     /// The current words.
-    current_word: Option<(R::Word, R::Word)>,
+    current_word: Option<(u64, u64)>,
     /// The phantom data.
     _phantom: PhantomData<(P, B, R)>,
 }
@@ -140,10 +138,8 @@ impl<'registers, P: Precision, B: Bits, R: Words + Registers<P, B>> TupleIter<'r
     }
 }
 
-impl<'registers, P: Precision, B: Bits, R: Words<Word = u64> + Registers<P, B>> Iterator
+impl<'registers, P: Precision, B: Bits, R: Words + Registers<P, B>> Iterator
     for TupleIter<'registers, P, B, R>
-where
-    R::Word: RegisterWord<B>,
 {
     type Item = (u8, u8);
 
@@ -153,7 +149,7 @@ where
         }
 
         self.current_word.map(|(left, right)| {
-            let [left_register, right_register] = extract_register_from_word(
+            let [left_register, right_register] = extract_register_from_word::<B, 2>(
                 [left, right],
                 self.current_register_in_word * B::NUMBER_OF_BITS,
             );
@@ -247,7 +243,7 @@ macro_rules! impl_register_for_precision_and_bits {
                             let mut partial_zeros = <[<Precision $exponent>] as Precision>::NumberOfRegisters::ZERO;
 
                             for step in 0..<u64 as RegisterWord<[<Bits $bits>]>>::NUMBER_OF_REGISTERS_IN_WORD {
-                                let [left_register, right_register] = extract_register_from_word::<[<Bits $bits>], 2, u64>([left, right], step * [<Bits $bits>]::NUMBER_OF_BITS);
+                                let [left_register, right_register] = extract_register_from_word::<[<Bits $bits>], 2>([left, right], step * [<Bits $bits>]::NUMBER_OF_BITS);
                                 let max_register = left_register.max(right_register);
                                 partial_sum += f64::integer_exp2_minus(max_register);
                                 partial_zeros += <[<Precision $exponent>] as Precision>::NumberOfRegisters::from_bool(max_register == 0);
@@ -279,7 +275,7 @@ macro_rules! impl_register_for_precision_and_bits {
                                 if number_of_registers == [<Precision $exponent>]::NUMBER_OF_REGISTERS {
                                     break;
                                 }
-                                let [register] = extract_register_from_word::<[<Bits $bits>], 1, u64>([word_copy], step * [<Bits $bits>]::NUMBER_OF_BITS);
+                                let [register] = extract_register_from_word::<[<Bits $bits>], 1>([word_copy], step * [<Bits $bits>]::NUMBER_OF_BITS);
                                 let new_register = register_function(register);
                                 debug_assert!(
                                     new_register <= u8::try_from(<u64 as RegisterWord<[<Bits $bits>]>>::LOWER_REGISTER_MASK).unwrap(),
@@ -331,7 +327,7 @@ macro_rules! impl_register_for_precision_and_bits {
                         let (word_position, register_position) = split_index::<[<Precision $exponent>], [<Bits $bits>]>(index);
 
                         // Extract the current value of the register at `index`.
-                        extract_register_from_word::<[<Bits $bits>], 1, u64>([self[word_position]], register_position * [<Bits $bits>]::NUMBER_OF_BITS)[0]
+                        extract_register_from_word::<[<Bits $bits>], 1>([self[word_position]], register_position * [<Bits $bits>]::NUMBER_OF_BITS)[0]
                     }
 
                     #[inline]
