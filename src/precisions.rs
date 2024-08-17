@@ -6,7 +6,7 @@
 
 use core::fmt::Debug;
 
-use crate::utils::{Five, FloatOps, Number, One, PositiveInteger};
+use crate::utils::{FloatOps, Number, One, PositiveInteger};
 
 #[cfg(feature = "plusplus")]
 use crate::utils::Two;

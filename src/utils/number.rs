@@ -6,7 +6,6 @@ use core::ops::{Add, AddAssign, Div, Mul, Neg, Shl, Shr, Sub, SubAssign};
 /// A trait for numbers.
 pub trait Number:
     Copy
-    + Default
     + Add<Self, Output = Self>
     + Sub<Self, Output = Self>
     + Div<Self, Output = Self>
@@ -43,8 +42,6 @@ pub trait PositiveInteger:
 {
     /// The error type for the `try_from_u64` method.
     type TryFromU64Error: Debug;
-    /// The error type for the `try_from_usize` method.
-    type TryFromUsizeError: Debug;
 
     /// Converts a `u64` to a positive integer number.
     ///
@@ -112,7 +109,6 @@ macro_rules! impl_positive_integer_number {
         $(
             impl PositiveInteger for $t {
                 type TryFromU64Error = <$t as core::convert::TryFrom<u64>>::Error;
-                type TryFromUsizeError = <$t as core::convert::TryFrom<usize>>::Error;
 
                 #[inline(always)]
                 fn try_from_u64(value: u64) -> Result<Self, Self::TryFromU64Error> {

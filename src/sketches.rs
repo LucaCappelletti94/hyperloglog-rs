@@ -46,10 +46,10 @@ pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
         rights: &[Self; R],
     ) -> ([[N; R]; L], [N; L], [N; R]) {
         // Initialize overlap and differences cardinality matrices/vectors.
-        let mut last_row = [N::default(); R];
-        let mut differential_overlap_cardinality_matrix = [[N::default(); R]; L];
-        let mut left_difference_cardinality_vector = [N::default(); L];
-        let mut right_cardinalities = [N::default(); R];
+        let mut last_row = [N::ZERO; R];
+        let mut differential_overlap_cardinality_matrix = [[N::ZERO; R]; L];
+        let mut left_difference_cardinality_vector = [N::ZERO; L];
+        let mut right_cardinalities = [N::ZERO; R];
 
         rights
             .iter()
@@ -58,24 +58,24 @@ pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
                 *right_cardinality = right.estimate_cardinality();
             });
 
-        let mut right_difference_cardinality_vector = [N::default(); R];
-        let mut euc: EstimatedUnionCardinalities<N> = EstimatedUnionCardinalities::default();
-        let mut last_left_difference = N::default();
+        let mut right_difference_cardinality_vector = [N::ZERO; R];
+        let mut euc: EstimatedUnionCardinalities<N> = EstimatedUnionCardinalities { left:N::ZERO, right:N::ZERO, union:N::ZERO };
+        let mut last_left_difference = N::ZERO;
 
         // Populate the overlap cardinality matrix.
         for (i, left) in lefts.iter().enumerate() {
-            let mut last_right_difference = N::default();
+            let mut last_right_difference = N::ZERO;
             let left_cardinality = left.estimate_cardinality();
-            let mut comulative_row = N::default();
+            let mut comulative_row = N::ZERO;
             for (j, (right, right_cardinality)) in
                 rights.iter().zip(right_cardinalities).enumerate()
             {
                 let union_cardinality = left.estimate_union_cardinality(right);
-                euc = EstimatedUnionCardinalities::with_correction(
-                    left_cardinality,
-                    right_cardinality,
-                    union_cardinality,
-                );
+                euc = EstimatedUnionCardinalities {
+                    left: left_cardinality,
+                    right: right_cardinality,
+                    union: union_cardinality,
+                };
                 let delta = last_row[j] + comulative_row;
                 differential_overlap_cardinality_matrix[i][j] = euc
                     .get_intersection_cardinality()
@@ -151,7 +151,11 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch<f64> {
         );
 
         let mut right_difference_cardinality_vector = [f64::ZERO; R];
-        let mut euc: EstimatedUnionCardinalities<f64> = EstimatedUnionCardinalities::default();
+        let mut euc: EstimatedUnionCardinalities<f64> = EstimatedUnionCardinalities {
+            left: f64::ZERO,
+            right: f64::ZERO,
+            union: f64::ZERO,
+        };
         let mut last_left_difference = f64::ZERO;
         let mut last_inner_left_differences = [f64::ZERO; R];
         let mut last_left_cardinality = f64::ZERO;
@@ -173,11 +177,11 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch<f64> {
                 .enumerate()
             {
                 let union_cardinality = left.estimate_union_cardinality(right);
-                euc = EstimatedUnionCardinalities::with_correction(
-                    left_cardinality,
-                    right_cardinality,
-                    union_cardinality,
-                );
+                euc = EstimatedUnionCardinalities {
+                    left: left_cardinality,
+                    right: right_cardinality,
+                    union: union_cardinality,
+                };
                 let delta = last_row[j] + comulative_row;
                 let differential_intersection = euc
                     .get_intersection_cardinality()
@@ -241,7 +245,7 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch<f64> {
 impl<N: Number, M> HyperSpheresSketch<N> for M where M: Estimator<N> {}
 impl<M> NormalizedHyperSpheresSketch for M where M: Estimator<f64> {}
 
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A struct for more readable code.
@@ -255,62 +259,6 @@ struct EstimatedUnionCardinalities<F> {
 }
 
 impl<F: Number> EstimatedUnionCardinalities<F> {
-    /// Returns a new instance of `EstimatedUnionCardinalities` with applied corrections.
-    fn with_correction(left: F, right: F, mut union: F) -> Self {
-        if union > left + right {
-            union = left + right;
-        }
-
-        // The following can happen when the HLL registers start to be saturated.
-        if union < left || union < right {
-            union = if left < right { right } else { left };
-        }
-
-        debug_assert!(
-            left >= F::ZERO,
-            "The estimated cardinality of the left set should be greater than or equal to zero."
-        );
-        debug_assert!(
-            right >= F::ZERO,
-            "The estimated cardinality of the right set should be greater than or equal to zero."
-        );
-        debug_assert!(union >= F::ZERO, "The estimated cardinality of the union of the two sets should be greater than or equal to zero.");
-        debug_assert!(
-            left <= union,
-            concat!(
-                "The estimated cardinality of the left set should be less than ",
-                "or equal to the estimated cardinality of the union of the two sets. ",
-                "Received left: {}, right: {}, union: {}."
-            ),
-            left,
-            right,
-            union
-        );
-        debug_assert!(
-            right <= union,
-            concat!(
-                "The estimated cardinality of the right set should be less than ",
-                "or equal to the estimated cardinality of the union of the two sets. ",
-                "Received left: {}, right: {}, union: {}."
-            ),
-            left,
-            right,
-            union
-        );
-        debug_assert!(
-            left + right >= union,
-            concat!(
-                "The sum of the estimated cardinalities of the two sets ",
-                "should be greater than or equal to the estimated cardinality ",
-                "of the union of the two sets. Received left: {}, right: {}, union: {}."
-            ),
-            left,
-            right,
-            union
-        );
-        Self { left, right, union }
-    }
-
     /// Returns the estimated cardinality of the intersection of the two sets.
     fn get_intersection_cardinality(&self) -> F {
         self.left + self.right - self.union
