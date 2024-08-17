@@ -66,7 +66,7 @@ mem_dbg = [
     "dep:mem_dbg",
     "std",
 ]
-mle = ["std"]
+mle = ["std", "alloc"]
 precision_4 = []
 precision_5 = []
 precision_6 = []

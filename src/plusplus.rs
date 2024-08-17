@@ -23,8 +23,17 @@ impl<P: Precision + Named, B: Bits + Named, R: Registers<P, B> + Named, Hasher: 
 {
     #[inline]
     fn name(&self) -> String {
+        #[cfg(all(feature = "integer_plusplus", not(feature = "plusplus_kmeans")))]
+        let model_name = "PPI";
+        #[cfg(all(feature = "integer_plusplus", feature = "plusplus_kmeans"))]
+        let model_name = "PPIK";
+        #[cfg(all(not(feature = "integer_plusplus"), not(feature = "plusplus_kmeans")))]
+        let model_name = "PP";
+        #[cfg(all(not(feature = "integer_plusplus"), feature = "plusplus_kmeans"))]
+        let model_name = "PPK";
+
         format!(
-            "PP<{}, {}, {}> + {}",
+            "{model_name}<{}, {}, {}> + {}",
             P::default().name(),
             B::default().name(),
             self.registers().name(),

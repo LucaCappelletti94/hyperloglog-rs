@@ -162,7 +162,7 @@ fn unique_values_from_sorted_iterators<T: Ord, I: Iterator<Item = T>, J: Iterato
     mut left: I,
     mut right: J,
 ) -> u32 {
-    let mut count = u32::ONE;
+    let mut count = u32::ZERO;
     let mut maybe_left_value = left.next();
     let mut maybe_right_value = right.next();
     while let Some(ord) = maybe_left_value.as_ref().and_then(|left_value| {
@@ -600,7 +600,7 @@ mod tests {
 
         assert!(
             average_union_cardinality_error < P::error_rate(),
-            "Expected: <{}, got: {} with hybrid mix, and {} with normal counters",
+            "Expected union cardinality error: <{}, got: {} with hybrid mix, and {} with normal counters",
             P::error_rate(),
             average_union_cardinality_error,
             average_normal_union_cardinality_error

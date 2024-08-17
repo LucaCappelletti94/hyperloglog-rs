@@ -37,8 +37,13 @@ impl<P: Precision + Named, B: Bits + Named, R: Registers<P, B> + Named, Hasher: 
 {
     #[inline]
     fn name(&self) -> String {
+        #[cfg(feature = "precomputed_beta")]
+        let model_name = "LLPB";
+        #[cfg(not(feature = "precomputed_beta"))]
+        let model_name = "LLB";
+
         format!(
-            "LLB<{}, {}, {}> + {}",
+            "{model_name}<{}, {}, {}> + {}",
             P::default().name(),
             B::default().name(),
             self.registers().name(),
