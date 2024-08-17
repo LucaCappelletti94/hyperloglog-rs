@@ -8,6 +8,9 @@ use core::fmt::Debug;
 
 use crate::utils::{Five, Float, Number, One, PositiveInteger};
 
+#[cfg(all(feature="beta", not(feature="precomputed_beta")))]
+use crate::utils::Zero;
+
 include!(concat!(env!("OUT_DIR"), "/alpha_values.rs"));
 include!(concat!(env!("OUT_DIR"), "/number_of_registers.rs"));
 
@@ -184,6 +187,8 @@ macro_rules! impl_precision {
 
                 #[inline]
                 #[cfg(feature = "plusplus")]
+                #[cfg_attr(feature = "integer_plusplus", expect(clippy::cast_sign_loss, reason="Cardinality is always positive."))]
+                #[cfg_attr(feature = "integer_plusplus", expect(clippy::cast_possible_truncation, reason="Bias is only applied to values smaller than 2**21."))]
                 fn bias(estimate: f64) -> f64 {
                     #[cfg(not(feature = "integer_plusplus"))]
                     return bias(

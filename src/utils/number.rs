@@ -107,13 +107,6 @@ pub trait Float: Number + Half + OneThousand + Neg<Output = Self> {
         }
     }
 
-    /// Converts the provided usize to a floating point number
-    /// with the same value, checking that the conversion is lossless.
-    /// 
-    /// # Errors
-    /// * If the value is too large to be losslessly converted to a floating point number.
-    fn from_usize_checked(value: usize) -> Result<Self, &'static str>;
-
     /// Checks if the floating point number is finite.
     fn is_finite(self) -> bool;
 
@@ -235,17 +228,6 @@ impl Float for f64 {
     #[inline]
     fn integer_exp2(register: u8) -> Self {
         f64::from_le_bytes((u64::from(1023_u16 + u16::from(register)) << 52).to_le_bytes())
-    }
-
-    #[inline]
-    fn from_usize_checked(value: usize) -> Result<Self, &'static str> {
-        let max_lossless_integer = 2_usize.pow(53) - 1;
-
-        if value > max_lossless_integer {
-            Err("The value is too large to be losslessly converted to a f64.")
-        } else {
-            Ok(value as Self)
-        }
     }
 
     #[must_use]

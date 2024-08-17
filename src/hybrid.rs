@@ -28,7 +28,7 @@ where
 
 impl<H: Hybridazable> Hybridazable for Hybrid<H>
 where
-    H: Hybridazable
+    H: Hybridazable,
 {
     type IterSortedHashes<'words> = H::IterSortedHashes<'words> where Self: 'words;
 
@@ -132,8 +132,8 @@ impl<H: MutableSet + Hybridazable> MutableSet for Hybrid<H> {
     }
 }
 
-impl<T: Hash, H: ExtendableApproximatedSet<T> + Hybridazable>
-    ExtendableApproximatedSet<T> for Hybrid<H>
+impl<T: Hash, H: ExtendableApproximatedSet<T> + Hybridazable> ExtendableApproximatedSet<T>
+    for Hybrid<H>
 {
     #[inline]
     fn insert(&mut self, element: &T) -> bool {
@@ -147,15 +147,22 @@ impl<T: Hash, H: ExtendableApproximatedSet<T> + Hybridazable>
 
 #[inline]
 /// Returns the number of unique values from two sorted iterators.
-pub(crate) fn unique_values_from_sorted_iterators<
-    T: Ord,
-    I: Iterator<Item = T>,
-    J: Iterator<Item = T>,
->(
+///
+/// # Implementative details
+/// The sets we are considering are the union of the two sorted iterators
+/// of Hybrid counters' hashes. The largest possible number of unique values
+/// in each iterator is the number of words in a 2**18 counter, with the bit
+/// size set to 8 (used primarely to benefit from the SIMD instructions).
+/// As such 8 * 2**18 = 2**21, divided by the number of bits in a u64, we get
+/// 2**21 / 64 = 2**15 unique values. The number of unique values in the union
+/// of the two sets is at most the sum of the number of unique values in each set,
+/// so at most 2**16 unique values. We can thus use a u32 to represent the number
+/// of unique values.
+fn unique_values_from_sorted_iterators<T: Ord, I: Iterator<Item = T>, J: Iterator<Item = T>>(
     mut left: I,
     mut right: J,
-) -> usize {
-    let mut count = 0;
+) -> u32 {
+    let mut count = u32::ONE;
     let mut maybe_left_value = left.next();
     let mut maybe_right_value = right.next();
     while let Some(ord) = maybe_left_value.as_ref().and_then(|left_value| {
@@ -163,7 +170,7 @@ pub(crate) fn unique_values_from_sorted_iterators<
             .as_ref()
             .map(|right_value| left_value.cmp(right_value))
     }) {
-        count += 1;
+        count += u32::ONE;
         match ord {
             Ordering::Less => {
                 maybe_left_value = left.next();
@@ -179,14 +186,14 @@ pub(crate) fn unique_values_from_sorted_iterators<
     }
 
     if maybe_left_value.is_some() {
-        count += 1;
+        count += u32::ONE;
     }
 
     if maybe_right_value.is_some() {
-        count += 1;
+        count += u32::ONE;
     }
 
-    count + left.count() + right.count()
+    count + u32::try_from(left.count()).unwrap() + u32::try_from(right.count()).unwrap()
 }
 
 /// Trait for a struct that can be used in the hybrid approach.
@@ -233,14 +240,18 @@ impl<H: Named> Named for Hybrid<H> {
     }
 }
 
-impl<F: Float, H: Clone + Estimator<F> + Hybridazable + Default> Estimator<F> for Hybrid<H>
+impl<H: Clone + Estimator<f64> + Hybridazable + Default> Estimator<f64> for Hybrid<H>
 where
     Hybrid<H>: Default,
 {
     #[inline]
-    fn estimate_cardinality(&self) -> F {
+    fn estimate_cardinality(&self) -> f64 {
         if self.inner.is_hybrid() {
-            F::from_usize_checked(self.inner.number_of_hashes()).unwrap()
+            // We can safely convert this usize to an u32 because the maximal value that
+            // can be stored in an Hybrid counter with the largest possible number of words
+            // using the largest possible bit size (8) is 2**21 / 64 = 2**15, which fits
+            // cosily in an u16.
+            f64::from(u16::try_from(self.inner.number_of_hashes()).unwrap())
         } else {
             self.inner.estimate_cardinality()
         }
@@ -253,16 +264,16 @@ where
     }
 
     #[inline]
-    fn estimate_union_cardinality(&self, other: &Self) -> F {
+    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         match (self.is_hybrid(), other.is_hybrid()) {
             (true, true) => {
                 // In the case where both counters are in hybrid mode, we can
                 // simply iterate on the two sorted hash arrays and determine the number
                 // of unique hashes.
-                F::from_usize_checked(unique_values_from_sorted_iterators(
+                f64::from(unique_values_from_sorted_iterators(
                     self.iter_sorted_hashes(),
                     other.iter_sorted_hashes(),
-                )).unwrap()
+                ))
             }
             (true, false) => {
                 let mut copy = self.clone();
@@ -295,11 +306,13 @@ mod tests {
 
             let unique_values =
                 unique_values_from_sorted_iterators(left.iter().cloned(), right.iter().cloned());
-            let unique_values_set = left
-                .iter()
-                .chain(right.iter())
-                .collect::<std::collections::HashSet<_>>()
-                .len();
+            let unique_values_set = u32::try_from(
+                left.iter()
+                    .chain(right.iter())
+                    .collect::<std::collections::HashSet<_>>()
+                    .len(),
+            )
+            .unwrap();
             assert_eq!(unique_values, unique_values_set);
         }
     }

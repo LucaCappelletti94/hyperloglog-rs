@@ -3,6 +3,7 @@
 use crate::hll_impl;
 use crate::prelude::*;
 use core::cmp::Ordering;
+use core::f64;
 
 #[derive(Debug, Clone, Copy, Hash)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
@@ -57,7 +58,8 @@ fn mle_union_cardinality<
     let mut union_harmonic_sum = f64::ZERO;
     let mut union_zeros = P::NumberOfRegisters::ZERO;
 
-    for (left_register, right_register) in left.registers().iter_registers_zipped(right.registers()) {
+    for (left_register, right_register) in left.registers().iter_registers_zipped(right.registers())
+    {
         let larger_register = match left_register.cmp(&right_register) {
             Ordering::Less => {
                 left_multiplicities_smaller[usize::from(left_register)] += f64::ONE;
@@ -94,26 +96,17 @@ fn mle_union_cardinality<
         return f64::ZERO;
     }
 
-    let mut intersection: f64 =
-        left_cardinality_estimate + right_cardinality_estimate - union_cardinality_estimate;
-    if intersection < f64::ZERO {
-        intersection = f64::EPSILON;
-    }
+    let intersection: f64 = (left_cardinality_estimate + right_cardinality_estimate
+        - union_cardinality_estimate)
+        .max(f64::EPSILON);
 
-    let mut left_difference: f64 = union_cardinality_estimate - right_cardinality_estimate;
-    if left_difference < f64::ZERO {
-        left_difference = f64::EPSILON;
-    }
+    let left_difference: f64 =
+        (union_cardinality_estimate - right_cardinality_estimate).max(f64::EPSILON);
 
-    let mut right_difference: f64 = union_cardinality_estimate - left_cardinality_estimate;
-    if right_difference < f64::ZERO {
-        right_difference = f64::EPSILON;
-    }
+    let right_difference: f64 =
+        (union_cardinality_estimate - left_cardinality_estimate).max(f64::EPSILON);
 
     let relative_error_limit = f64::TEN.powi(-ERROR) / f64::integer_exp2(P::EXPONENT).sqrt();
-    debug_assert!(intersection >= f64::ZERO, "Intersection must be greater or equal to zero, got {intersection}", );
-    debug_assert!(left_difference >= f64::ZERO, "Left difference must be greater or equal to zero, got {left_difference}", );
-    debug_assert!(right_difference >= f64::ZERO, "Right difference must be greater or equal to zero, got {right_difference}", );
 
     // we introdce the following expressions to simplify the computation
     // of the gradient.
@@ -157,31 +150,13 @@ fn mle_union_cardinality<
 
     for _ in 0_u16..10_000_u16 {
         let x_left_0 = x(phis[0], two_to_zero);
-        debug_assert!(x_left_0 >= f64::ZERO, "Expected x_left_0 to be greater or equal to zero, got {x_left_0}");
-        debug_assert!(x_left_0.is_finite(), "Expected x_left_0 to be finite, got {x_left_0}");
         let x_right_0 = x(phis[1], two_to_zero);
-        debug_assert!(x_right_0 >= f64::ZERO, "Expected x_right_0 to be greater or equal to zero, got {x_right_0}");
-        debug_assert!(
-            x_right_0.is_finite(),
-            "x(phis[1]: {}, two_to_zero: {}) = {}",
-            phis[1],
-            two_to_zero,
-            x_right_0
-        );
         let x_joint_0 = x(phis[2], two_to_zero);
-        debug_assert!(x_joint_0 >= f64::ZERO, "Expected x_joint_0 to be greater or equal to zero, got {x_joint_0}");
-        debug_assert!(x_joint_0.is_finite(), "Expected x_joint_0 to be finite, got {x_joint_0}");
         let x_left_q = x(phis[0], two_to_minus_q);
-        debug_assert!(x_left_q >= f64::ZERO, "Expected x_left_q to be greater or equal to zero, got {x_left_q}");
-        debug_assert!(x_left_q.is_finite(), "Expected x_left_q to be finite, got {x_left_q}");
         let (y_left_q, z_left_q) = yz(x_left_q);
         let x_right_q = x(phis[1], two_to_minus_q);
-        debug_assert!(x_right_q >= f64::ZERO, "Expected x_right_q to be greater or equal to zero, got {x_right_q}");
-        debug_assert!(x_right_q.is_finite(), "Expected x_right_q to be finite, got {x_right_q}");
         let (y_right_q, z_right_q) = yz(x_right_q);
         let x_joint_q = x(phis[2], two_to_minus_q);
-        debug_assert!(x_joint_q >= f64::ZERO, "Expected x_joint_q to be greater or equal to zero, got {x_joint_q}");
-        debug_assert!(x_joint_q.is_finite(), "Expected x_joint_q to be finite, got {x_joint_q}");
         let (y_joint_q, z_joint_q) = yz(x_joint_q);
 
         let denominator = f64::ONE / (z_joint_q + y_joint_q * z_left_q * z_right_q);
@@ -203,9 +178,6 @@ fn mle_union_cardinality<
         };
         gradients[0] -= left_number_of_zeros * x_left_0;
 
-        debug_assert!(gradients[0].is_finite(), "The gradient is not finite: {}", gradients[0]);
-        debug_assert!(z_right_q >= f64::ZERO, "Expected z_right_q to be greater or equal to zero, got {z_right_q}");
-
         gradients[1] = if xr_yr_q > f64::EPSILON {
             xr_yr_q * (shared_factor * z_left_q + right_number_of_saturated_registers / z_right_q)
         } else {
@@ -213,23 +185,6 @@ fn mle_union_cardinality<
         };
 
         gradients[1] -= right_number_of_zeros * x_right_0;
-
-        debug_assert!(
-            gradients[1].is_finite(),
-            concat!(
-                "The gradient is not finite: {}. ",
-                "We computed this gradient with the following values: ",
-                "xr_yr_q({}) * (shared_factor({}) * z_left_q({}) + right_number_of_saturated_registers({}) / z_right_q({})) - right_number_of_zeros({}) * x_right_0({})",
-            ),
-            gradients[1],
-            xr_yr_q,
-            shared_factor,
-            z_left_q,
-            right_number_of_saturated_registers,
-            z_right_q,
-            right_number_of_zeros,
-            x_right_0,
-        );
 
         gradients[2] = if intersection_number_of_saturated_registers > f64::ZERO
             && xj_yjoint_q > f64::EPSILON
@@ -244,18 +199,12 @@ fn mle_union_cardinality<
         };
         gradients[2] -= intersection_number_of_zeros * x_joint_0;
 
-        debug_assert!(gradients[2].is_finite(), "The gradient is not finite: {}", gradients[2]);
-
         (1..q_plus_one).for_each(|register_value| {
-            let two_to_minus_register =
-                f64::integer_exp2_minus(P::EXPONENT + register_value);
+            let two_to_minus_register = f64::integer_exp2_minus(P::EXPONENT + register_value);
 
             let x_left = x(phis[0], two_to_minus_register);
-            debug_assert!(x_left >= f64::ZERO, "Expected x_left to be greater or equal to zero, got {x_left}");
             let x_right = x(phis[1], two_to_minus_register);
-            debug_assert!(x_right >= f64::ZERO, "Expected x_right to be greater or equal to zero, got {x_right}");
             let x_joint = x(phis[2], two_to_minus_register);
-            debug_assert!(x_joint >= f64::ZERO, "Expected x_joint to be greater or equal to zero, got {x_joint}");
             let (y_left, z_left) = yz(x_left);
             let (y_right, z_right) = yz(x_right);
             let (y_joint, z_joint) = yz(x_joint);
@@ -274,26 +223,25 @@ fn mle_union_cardinality<
             let yjointright = y_joint * y_right;
             let yjoint_zlr = yjoint_zleft * z_right;
             let mut zj_plus_yjoint_zleft = z_joint + yjoint_zleft;
-            debug_assert!(zj_plus_yjoint_zleft >= f64::ZERO, "Expected zj_plus_yjoint_zleft to be greater or equal to zero, got {zj_plus_yjoint_zleft}");
             if zj_plus_yjoint_zleft < f64::EPSILON {
                 zj_plus_yjoint_zleft = f64::EPSILON;
             }
             let reciprocal_zj_plus_yjoint_zleft = f64::ONE / zj_plus_yjoint_zleft;
             let mut zj_plus_yjoint_zright = z_joint + yjoint_zright;
-            debug_assert!(zj_plus_yjoint_zright >= f64::ZERO, "Expected zj_plus_yjoint_zright to be greater or equal to zero, got {zj_plus_yjoint_zright}");
             if zj_plus_yjoint_zright < f64::EPSILON {
                 zj_plus_yjoint_zright = f64::EPSILON;
             }
             let reciprocal_zj_plus_yjoint_zright = f64::ONE / zj_plus_yjoint_zright;
             let mut zj_plus_yjoint_zlr = z_joint + yjoint_zlr;
-            debug_assert!(zj_plus_yjoint_zlr >= f64::ZERO, "Expected zj_plus_yjoint_zlr to be greater or equal to zero, got {zj_plus_yjoint_zlr}");
             if zj_plus_yjoint_zlr < f64::EPSILON {
                 zj_plus_yjoint_zlr = f64::EPSILON;
             }
             let reciprocal_zj_plus_yjoint_zlr = f64::ONE / zj_plus_yjoint_zlr;
 
-            let left_reciprocal = left_smaller_k * (reciprocal_zj_plus_yjoint_zleft * yjointleft - f64::ONE);
-            let right_reciprocal = right_smaller_k * (reciprocal_zj_plus_yjoint_zright * yjointright - f64::ONE);
+            let left_reciprocal =
+                left_smaller_k * (reciprocal_zj_plus_yjoint_zleft * yjointleft - f64::ONE);
+            let right_reciprocal =
+                right_smaller_k * (reciprocal_zj_plus_yjoint_zright * yjointright - f64::ONE);
 
             if x_left > f64::EPSILON {
                 gradients[0] += x_left
@@ -302,41 +250,22 @@ fn mle_union_cardinality<
                         + left_larger_k * (y_left / z_left - f64::ONE));
             }
 
-            debug_assert!(gradients[0].is_finite(), "The gradient is not finite: {}", gradients[0]);
-
             if x_right > f64::EPSILON {
                 gradients[1] += x_right
                     * (right_reciprocal
-                        + joint_k * (yjoint_right_zleft * reciprocal_zj_plus_yjoint_zlr - f64::ONE)
+                        + joint_k
+                            * (yjoint_right_zleft * reciprocal_zj_plus_yjoint_zlr - f64::ONE)
                         + right_larger_k * (y_right / z_right - f64::ONE));
             }
-
-            debug_assert!(
-                gradients[1].is_finite(),
-                concat!(
-                    "The gradient is not finite: {}. ",
-                    "We computed this gradient with the following values: ",
-                    "x_right({}) * (right_reciprocal({}) + joint_k({}) * (yjoint_right_zleft({}) * reciprocal_zj_plus_yjoint_zlr({}) - 1) + right_larger_k({}) * (y_right({}) / z_right({}) - 1)",
-                ),
-                gradients[1],
-                x_right,
-                right_reciprocal,
-                joint_k,
-                yjoint_right_zleft,
-                reciprocal_zj_plus_yjoint_zlr,
-                right_larger_k,
-                y_right,
-                z_right,
-            );
 
             if x_joint > f64::EPSILON {
                 gradients[2] += x_joint
                     * (left_reciprocal
                         + right_reciprocal
-                        + joint_k * ((yjointleft + yjoint_right_zleft) * reciprocal_zj_plus_yjoint_zlr - f64::ONE));
+                        + joint_k
+                            * ((yjointleft + yjoint_right_zleft) * reciprocal_zj_plus_yjoint_zlr
+                                - f64::ONE));
             }
-
-            debug_assert!(gradients[2].is_finite(), "The gradient is not finite: {}", gradients[2]);
         });
 
         // We execute the update of the Adam first and second moments.
@@ -350,7 +279,7 @@ fn mle_union_cardinality<
             break;
         }
     }
-    
+
     phis[0].exp() + phis[1].exp() + phis[2].exp()
 }
 

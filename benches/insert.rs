@@ -27,19 +27,10 @@ fn insert_bencher<H: Estimator<f64> + hyperloglog_rs::prelude::Named + Extendabl
 macro_rules! bench_cardinality {
     ($precision:ty, $bits:ty, $hasher:ty) => {
         paste::item! {
-            fn [<bench_plusplusarray_insert_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
+            fn [<bench_plusplus_insert_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 insert_bencher::<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>(b);
-            }
-
-            fn [<bench_pluspluspackedarray_insert_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 insert_bencher::<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>(b);
-            }
-
-            fn [<bench_hybridplusplusarray_insert_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 insert_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>>(b);
-            }
-
-            fn [<bench_hybridpluspluspackedarray_insert_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 insert_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
             }
         }
@@ -66,26 +57,6 @@ macro_rules! bench_insert_bits {
         $(
             bench_cardinality!($precision, $bits, WyHash);
             bench_cardinality!($precision, $bits, XxHash64);
-        )*
-    };
-}
-
-/// Macro to generate criterion groups.
-macro_rules! bench_insert_registers {
-    ($precision:ty, $sample_size:expr, $($register:expr),*) => {
-        $(
-            paste::paste! {
-                criterion_group! {
-                    name=[<insert_plusplus $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
-                    targets=[<bench_plusplus $register _insert_ $precision:lower _bits6_xxhash64>], [<bench_plusplus $register _insert_ $precision:lower _bits6_wyhash>], [<bench_plusplus $register _insert_ $precision:lower _bits8_xxhash64>], [<bench_plusplus $register _insert_ $precision:lower _bits8_wyhash>],
-                }
-                criterion_group! {
-                    name=[<insert_hybridplusplus $register _ $precision:lower>];
-                    config = Criterion::default().sample_size($sample_size).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
-                    targets=[<bench_hybridplusplus $register _insert_ $precision:lower _bits6_xxhash64>], [<bench_hybridplusplus $register _insert_ $precision:lower _bits6_wyhash>], [<bench_hybridplusplus $register _insert_ $precision:lower _bits8_xxhash64>], [<bench_hybridplusplus $register _insert_ $precision:lower _bits8_wyhash>]
-                }
-            }
         )*
     };
 }
@@ -159,7 +130,11 @@ macro_rules! bench_cardinalities {
                     targets=[<bench_sm_insert_ $precision:lower _bits6>]
                 }
 
-                bench_insert_registers!($precision, $sample_size, "array", "packedarray");
+                criterion_group! {
+                    name=[<insert_plusplus _ $precision:lower>];
+                    config = Criterion::default().sample_size($sample_size).warm_up_time(std::time::Duration::from_secs(1)).measurement_time(std::time::Duration::from_secs(3));
+                    targets=[<bench_plusplus _insert_ $precision:lower _bits6_xxhash64>], [<bench_plusplus _insert_ $precision:lower _bits6_wyhash>], [<bench_plusplus _insert_ $precision:lower _bits8_xxhash64>], [<bench_plusplus _insert_ $precision:lower _bits8_wyhash>],
+                }
             }
         )*
     };
@@ -253,10 +228,7 @@ macro_rules! bench_insert_main {
         paste::paste!{
             criterion_main!(
                 $(
-                    [<insert_plusplusarray_ $precision:lower>],
-                    [<insert_pluspluspackedarray_ $precision:lower>],
-                    [<insert_hybridplusplusarray_ $precision:lower>],
-                    [<insert_hybridpluspluspackedarray_ $precision:lower>],
+                    [<insert_plusplus_ $precision:lower>],
                     [<insert_tabacpf_ $precision:lower>],
                     [<insert_tabacplusplus_ $precision:lower>],
                     [<insert_sa_ $precision:lower>],

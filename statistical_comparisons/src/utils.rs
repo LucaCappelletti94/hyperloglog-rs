@@ -1,200 +1,21 @@
+include!("../../benches/utils.rs");
 use std::collections::HashSet;
 use std::fmt::Display;
-use std::hash::{BuildHasher, Hash, RandomState};
+use std::hash::RandomState;
 
-use cardinality_estimator::CardinalityEstimator;
 use hyperloglog_rs::prelude::*;
-use hyperloglogplus::HyperLogLog as TabacHyperLogLog;
-use hyperloglogplus::HyperLogLogPF as TabacHyperLogLogPF;
-use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
 use indicatif::ProgressIterator;
 use mem_dbg::{MemSize, SizeFlags};
-use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
 use stattest::test::StatisticalTest;
 use stattest::test::WilcoxonWTest;
-use streaming_algorithms::HyperLogLog as SAHyperLogLog;
-
-pub trait TestSetLike<I: Hash>: MemSize + Sized {
-    fn create(precision: usize) -> Self;
-    fn insert(&mut self, x: &I);
-}
-
-impl TestSetLike<u64> for std::collections::HashSet<u64> {
-    fn create(_precision: usize) -> Self {
-        Self::new()
-    }
-    fn insert(&mut self, x: &u64) {
-        self.insert(*x);
-    }
-}
-
-impl<I: Hash> TestSetLike<I> for RustHyperLogLog {
-    fn create(precision: usize) -> Self {
-        let exponent = (precision as f64) / 2.0;
-        let error_rate = 1.04 / 2f64.powf(exponent);
-        RustHyperLogLog::new_deterministic(error_rate, 7465567467454675_u128)
-    }
-
-    fn insert(&mut self, x: &I) {
-        self.insert(&x);
-    }
-}
-
-impl<I: Hash, const P: usize, H: core::hash::Hasher + Default, const W: usize> TestSetLike<I>
-    for CardinalityEstimator<I, H, P, W>
-{
-    fn create(precision: usize) -> Self {
-        assert!(precision == P);
-        Self::new()
-    }
-    fn insert(&mut self, x: &I) {
-        self.insert(&x);
-    }
-}
-
-impl<
-        I: Hash,
-        Hasher: HasherType,
-        P: MemSize + Precision + PrecisionConstants<f64>,
-        B: MemSize + Bits,
-        R: MemSize + Registers<P, B>,
-    > TestSetLike<I> for PlusPlus<P, B, R, Hasher>
-where
-    Self: ExtendableApproximatedSet<I>,
-    <P as Precision>::NumberOfZeros: MemSize,
-{
-    fn create(precision: usize) -> Self {
-        assert!(precision == P::EXPONENT);
-        Self::default()
-    }
-    fn insert(&mut self, x: &I) {
-        <Self as ExtendableApproximatedSet<I>>::insert(self, x);
-    }
-}
-
-impl<H, I: core::hash::Hash> TestSetLike<I> for Hybrid<H>
-where
-    Self: ExtendableApproximatedSet<I> + Default,
-    H: MemSize,
-{
-    fn create(_precision: usize) -> Self {
-        Self::default()
-    }
-    fn insert(&mut self, x: &I) {
-        <Self as ExtendableApproximatedSet<I>>::insert(self, x);
-    }
-}
-
-impl<
-        I: Hash,
-        Hasher: HasherType,
-        P: MemSize + Precision + PrecisionConstants<f64>,
-        B: MemSize + Bits,
-        R: MemSize + Registers<P, B>,
-    > TestSetLike<I> for LogLogBeta<P, B, R, Hasher>
-where
-    <P as Precision>::NumberOfZeros: MemSize,
-{
-    fn create(precision: usize) -> Self {
-        assert!(precision == P::EXPONENT);
-        Self::default()
-    }
-    fn insert(&mut self, x: &I) {
-        <Self as ExtendableApproximatedSet<I>>::insert(self, x);
-    }
-}
-
-#[cfg(feature = "mle")]
-impl<
-        const ERROR: i32,
-        I: Hash,
-        P: MemSize + Precision + PrecisionConstants<f64>,
-        B: MemSize + Bits,
-        R: MemSize + Registers<P, B>,
-        Hasher: HasherType,
-    > TestSetLike<I> for MLE<PlusPlus<P, B, R, Hasher>, ERROR>
-where
-    Self: ExtendableApproximatedSet<I> + Default,
-    <P as Precision>::NumberOfZeros: MemSize,
-{
-    fn create(precision: usize) -> Self {
-        assert!(precision == P::EXPONENT);
-        Self::default()
-    }
-    fn insert(&mut self, x: &I) {
-        <Self as ExtendableApproximatedSet<I>>::insert(self, x);
-    }
-}
-
-#[cfg(feature = "mle")]
-impl<
-        const ERROR: i32,
-        I: Hash,
-        P: MemSize + Precision + PrecisionConstants<f64>,
-        B: MemSize + Bits,
-        R: MemSize + Registers<P, B>,
-        Hasher: HasherType,
-    > TestSetLike<I> for MLE<LogLogBeta<P, B, R, Hasher>, ERROR>
-where
-    Self: ExtendableApproximatedSet<I> + Default,
-    <P as Precision>::NumberOfZeros: MemSize,
-    LogLogBeta<P, B, R, Hasher>: MemSize,
-{
-    fn create(precision: usize) -> Self {
-        assert!(precision == P::EXPONENT);
-        Self::default()
-    }
-    fn insert(&mut self, x: &I) {
-        <Self as ExtendableApproximatedSet<I>>::insert(self, x);
-    }
-}
-
-impl<I: Hash + Eq + PartialEq, B: MemSize + BuildHasher + Default> TestSetLike<I>
-    for TabacHyperLogLogPF<I, B>
-where
-    Self: Clone,
-{
-    fn create(precision: usize) -> Self {
-        TabacHyperLogLogPF::new(precision as u8, B::default()).unwrap()
-    }
-    fn insert(&mut self, x: &I) {
-        TabacHyperLogLog::insert(self, &x);
-    }
-}
-
-impl<I: Hash + Eq + PartialEq, B: MemSize + BuildHasher + Default> TestSetLike<I>
-    for TabacHyperLogLogPlus<I, B>
-where
-    Self: Clone,
-{
-    fn create(precision: usize) -> Self {
-        TabacHyperLogLogPlus::new(precision as u8, B::default()).unwrap()
-    }
-
-    fn insert(&mut self, x: &I) {
-        TabacHyperLogLog::insert(self, &x);
-    }
-}
-
-impl<I: Hash + Eq + PartialEq + MemSize> TestSetLike<I> for SAHyperLogLog<I> {
-    fn create(precision: usize) -> Self {
-        let exponent = (precision as f64) / 2.0;
-        let error_rate = 1.04 / 2f64.powf(exponent);
-        SAHyperLogLog::new(error_rate)
-    }
-
-    fn insert(&mut self, x: &I) {
-        self.push(&x);
-    }
-}
 
 pub(crate) enum SetLikeObjects<const EXPONENT: usize, P: Precision>
 where
     P: ArrayRegister<Bits8> + ArrayRegister<Bits6>,
 {
     HashSet(HashSet<u64>),
-    TabacHyperLogLogPlus(TabacHyperLogLogPlus<u64, RandomState>),
-    TabacHyperLogLogPF(TabacHyperLogLogPF<u64, RandomState>),
+    TabacHyperLogLogPlus(TabacHLLPlusPlus<P>),
+    TabacHyperLogLogPF(TabacHLL<P>),
     SAHyperLogLog(SAHyperLogLog<u64>),
     RustHyperLogLog(RustHyperLogLog),
     CardinalityEstimator(CardinalityEstimator<u64, wyhash::WyHash, EXPONENT, 6>),
@@ -287,53 +108,19 @@ where
     ),
 }
 
+impl<const EXPONENT: usize, P: Precision> Named for SetLikeObjects<EXPONENT, P> {
+    fn name(&self) -> String {
+        
+    }
+}
+
 impl<const EXPONENT: usize, P: Precision> SetLikeObjects<EXPONENT, P>
 where
-    P: ArrayRegister<Bits8> + ArrayRegister<Bits6> + PrecisionConstants<f64>,
+    P: ArrayRegister<Bits8> + ArrayRegister<Bits6>,
     P: MemSize,
     <P as ArrayRegister<Bits8>>::ArrayRegister: MemSize + Words<Word = u64>,
     <P as ArrayRegister<Bits6>>::ArrayRegister: MemSize + Words<Word = u64>,
-    P::NumberOfZeros: MemSize,
 {
-    pub(crate) fn name(&self) -> &'static str {
-        match self {
-            SetLikeObjects::HashSet(_) => "HashSet",
-            SetLikeObjects::TabacHyperLogLogPlus(_) => "Tabac's HLL++",
-            SetLikeObjects::TabacHyperLogLogPF(_) => "Tabac's HLL",
-            SetLikeObjects::SAHyperLogLog(_) => "Streaming Algorithms",
-            SetLikeObjects::RustHyperLogLog(_) => "Rust-HLL",
-            SetLikeObjects::CardinalityEstimator(_) => "Cardinality Estimator",
-            SetLikeObjects::HLL6Xxhasher(_) => "HLL6 + Xxhasher",
-            SetLikeObjects::HLL6WyHash(_) => "HLL6 + WyHash",
-            SetLikeObjects::HLL8Xxhasher(_) => "HLL8 + Xxhasher",
-            SetLikeObjects::HLL8WyHash(_) => "HLL8 + WyHash",
-            SetLikeObjects::Beta6Xxhasher(_) => "Beta6 + Xxhasher",
-            SetLikeObjects::Beta6WyHash(_) => "Beta6 + WyHash",
-            SetLikeObjects::Beta8Xxhasher(_) => "Beta8 + Xxhasher",
-            SetLikeObjects::Beta8WyHash(_) => "Beta8 + WyHash",
-            #[cfg(feature = "mle")]
-            SetLikeObjects::MLEPPWyHash(_) => "MLE++ + WyHash",
-            #[cfg(feature = "mle")]
-            SetLikeObjects::MLEPPXxhasher(_) => "MLE++ + Xxhasher",
-            #[cfg(feature = "mle")]
-            SetLikeObjects::MLEBetaWyHash(_) => "MLEBeta + WyHash",
-            #[cfg(feature = "mle")]
-            SetLikeObjects::MLEBetaXxhasher(_) => "MLEBeta + Xxhasher",
-            #[cfg(feature = "mle")]
-            SetLikeObjects::HybridMLEPPWyHash(_) => "HybridMLE++ + WyHash",
-            #[cfg(feature = "mle")]
-            SetLikeObjects::HybridMLEPPXxhasher(_) => "HybridMLE++ + Xxhasher",
-            #[cfg(feature = "mle")]
-            SetLikeObjects::HybridMLEBetaWyHash(_) => "HybridMLEBeta + WyHash",
-            #[cfg(feature = "mle")]
-            SetLikeObjects::HybridMLEBetaXxhasher(_) => "HybridMLEBeta + Xxhasher",
-            SetLikeObjects::HybridPPWyHash(_) => "Hybrid++ + WyHash",
-            SetLikeObjects::HybridPPXxhasher(_) => "Hybrid++ + Xxhasher",
-            SetLikeObjects::HybridBetaWyHash(_) => "HybridBeta + WyHash",
-            SetLikeObjects::HybridBetaXxhasher(_) => "HybridBeta + Xxhasher",
-        }
-    }
-
     pub(crate) fn all_cardinalities() -> Vec<Self> {
         vec![
             SetLikeObjects::HashSet(HashSet::create(P::EXPONENT)),
@@ -395,7 +182,7 @@ where
 
 impl<const EXPONENT: usize, P: Precision> MemSize for SetLikeObjects<EXPONENT, P>
 where
-    P: ArrayRegister<Bits8> + ArrayRegister<Bits6> + PrecisionConstants<f64>,
+    P: ArrayRegister<Bits8> + ArrayRegister<Bits6>,
     P: MemSize,
     <P as ArrayRegister<Bits8>>::ArrayRegister: MemSize,
     <P as ArrayRegister<Bits6>>::ArrayRegister: MemSize,

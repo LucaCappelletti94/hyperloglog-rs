@@ -44,7 +44,6 @@ hyperloglogplus = {git = "https://github.com/LucaCappelletti94/hyperloglog.rs.gi
 streaming_algorithms = {git = "https://github.com/LucaCappelletti94/streaming_algorithms", branch = "mem_dbg"}
 cardinality-estimator = {git = "https://github.com/LucaCappelletti94/cardinality-estimator.git", branch = "mem_dbg"}
 rust-hyperloglog = {git = "https://github.com/LucaCappelletti94/rust-hyperloglog.git", branch = "updated_siphasher", package = "hyperloglog"}
-stattest = {git = "https://github.com/LucaCappelletti94/stattest"}
 sourmash = {git="https://github.com/LucaCappelletti94/sourmash.git", features = ["mem_dbg"], branch = "latest_merged"}
 hypertwobits = {git="https://github.com/LucaCappelletti94/hypertwobits.git", features = ["mem_dbg"], branch="merge_all"}
 simple_hll = {git="https://github.com/LucaCappelletti94/simple_hll.git", features = ["mem_dbg"], branch="mem_dbg"}

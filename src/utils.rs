@@ -78,7 +78,6 @@ pub(crate) fn correct_union_estimate(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::prelude::*;
 
     #[test]
     fn test_ceil() {
