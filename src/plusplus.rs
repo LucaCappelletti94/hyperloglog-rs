@@ -11,7 +11,7 @@ pub struct PlusPlus<
     P: Precision,
     B: Bits,
     R: Registers<P, B>,
-    Hasher: HasherType = twox_hash::XxHash64,
+    Hasher: HasherType,
 > {
     /// The underlying `BasicLogLog` counter.
     counter: BasicLogLog<P, B, R, Hasher>,
@@ -93,6 +93,7 @@ mod tests {
             Precision5,
             Bits6,
             <Precision5 as ArrayRegister<Bits6>>::ArrayRegister,
+            twox_hash::XxHash64,
         >::default();
         hll.extend(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         let estimate: f64 = hll.estimate_cardinality();
@@ -112,11 +113,13 @@ mod tests {
             Precision5,
             Bits6,
             <Precision5 as ArrayRegister<Bits6>>::ArrayRegister,
+            twox_hash::XxHash64,
         >::default();
         let mut hll2 = PlusPlus::<
             Precision5,
             Bits6,
             <Precision5 as ArrayRegister<Bits6>>::ArrayRegister,
+            twox_hash::XxHash64,
         >::default();
 
         for _ in 0..iterations {

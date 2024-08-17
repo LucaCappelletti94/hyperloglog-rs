@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [".", "statistical_comparisons"]
+members = [".", "statistical_comparisons", "statistical_comparisons/macro_test_utils"]
 
 [package]
 name = "hyperloglog-rs"

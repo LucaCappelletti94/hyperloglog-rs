@@ -1,56 +1,28 @@
 use hyperloglog_rs::prelude::*;
+use statistical_comparisons::cartesian_wilcoxon_test;
+use statistical_comparisons::enumerations::*;
+use statistical_comparisons::reports_generator::SetTester;
 
-/// Macro to generate the list of calls to cardinality comparison for a given precision type.
-macro_rules! cardinality_comparisons {
-    ($($precision:ty),*) => {
+/// Macro to generate the calls to the HLLVariant reports for precisions from 4 to 18.
+macro_rules! generate_hll_variant_reports {
+    ($($exponent:expr),*) => {
         $(
-            cardinality::cardinality_comparatively::<{<$precision as Precision>::EXPONENT}, $precision>();
+            paste::item! {
+                HLLVariants::<$exponent, [<Precision $exponent>]>::prepare_cardinality_reports();
+                HLLVariants::<$exponent, [<Precision $exponent>]>::prepare_union_reports();
+            }
         )*
-    }
-}
-
-/// Macro to generate the list of calls to union comparison for a given precision type.
-macro_rules! union_comparisons {
-    ($($precision:ty),*) => {
-        $(
-            union::union_comparatively::<{<$precision as Precision>::EXPONENT}, $precision>();
-        )*
-    }
+    };
 }
 
 fn main() {
-    cardinality_comparisons!(
-        Precision4,
-        Precision5,
-        Precision6,
-        Precision7,
-        Precision8,
-        Precision9,
-        Precision10,
-        Precision11,
-        Precision12,
-        Precision13,
-        Precision14,
-        Precision15,
-        Precision16,
-        Precision17,
-        Precision18
-    );
-    union_comparisons!(
-        Precision4,
-        Precision5,
-        Precision6,
-        Precision7,
-        Precision8,
-        Precision9,
-        Precision10,
-        Precision11,
-        Precision12,
-        Precision13,
-        Precision14,
-        Precision15,
-        Precision16,
-        Precision17,
-        Precision18
-    );
+    // We init the logger
+    env_logger::init();
+
+    HyperTwoVariants::prepare_cardinality_reports();
+    HyperTwoVariants::prepare_union_reports();
+    generate_hll_variant_reports!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
+
+    cartesian_wilcoxon_test("cardinality");
+    cartesian_wilcoxon_test("union");
 }

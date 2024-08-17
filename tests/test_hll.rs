@@ -6,7 +6,7 @@ use wyhash::WyHash;
 pub fn test_approximated_counter_at_precision_and_bits<
     P: Precision,
     B: Bits,
-    H: ExtendableApproximatedSet<u64> + Estimator<f64>,
+    H: ExtendableApproximatedSet<u64> + Estimator<f64> + Default,
     Hasher: HasherType,
 >() {
     let number_of_elements = 200_000;
@@ -178,7 +178,7 @@ macro_rules! test_hll_at_precision_and_bits {
 macro_rules! test_hll_at_precision_and_hashers {
     ($precision:ty, $($hasher:ty),*) => {
         $(
-            test_hll_at_precision_and_bits!($precision, $hasher, Bits6);
+            test_hll_at_precision_and_bits!($precision, $hasher, Bits6, Bits5);
         )*
     };
 }

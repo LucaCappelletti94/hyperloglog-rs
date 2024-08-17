@@ -1,0 +1,15 @@
+[package]
+name = "macro_test_utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+syn = "2.0"
+quote = "1.0"
+proc-macro2 = "1.0"
+
+[dev-dependencies]
+hyperloglog-rs = { path = "../../../hyperloglog-rs", features=["std"] }
+
+[lib]
+proc-macro = true

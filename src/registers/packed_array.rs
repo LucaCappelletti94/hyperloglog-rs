@@ -21,6 +21,9 @@ use core::slice::Iter;
 #[cfg(feature = "std")]
 use crate::utils::Named;
 
+#[cfg(feature = "mem_dbg")]
+use mem_dbg::{MemDbg, MemSize};
+
 #[cfg(feature = "precision_10")]
 use crate::prelude::Precision10;
 #[cfg(feature = "precision_11")]
@@ -221,7 +224,8 @@ impl<'words, P: Precision, B: Bits> Iterator for RegisterTupleIter<'words, P, B>
             // we can safely unwrap the next word after having stored what we need from the current.
             self.current_word = self.left.next().copied().and_then(|new_left_word| {
                 self.right
-                    .next().copied()
+                    .next()
+                    .copied()
                     .map(|new_right_word| (new_left_word, new_right_word))
             });
             self.current_word.map(|(next_left_word, next_right_word)| {
@@ -240,7 +244,7 @@ impl<'words, P: Precision, B: Bits> Iterator for RegisterTupleIter<'words, P, B>
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
+#[cfg_attr(feature = "mem_dbg", derive(MemDbg, MemSize))]
 /// Register implementation for the packed array registers.
 pub struct PackedArray<const N: usize> {
     /// The packed array of registers.
@@ -284,7 +288,37 @@ impl<const N: usize> Words for PackedArray<N> {
 /// Meant to be associated with a specific Precision.
 pub trait PackedArrayRegister<B: Bits>: Precision {
     /// The type of the packed array register.
-    type PackedArrayRegister: Registers<Self, B>;
+    #[cfg(all(feature = "std", feature = "mem_dbg"))]
+    type PackedArrayRegister: Registers<Self, B> + Words + Named + MemDbg + MemSize;
+    #[cfg(all(feature = "std", not(feature = "mem_dbg")))]
+    type PackedArrayRegister: Registers<Self, B> + Words + Named;
+    #[cfg(not(feature = "std"))]
+    type PackedArrayRegister: Registers<Self, B> + Words;
+}
+
+/// Trait marker to associate a precision to all possible packed array registers.
+pub trait PackedArrayRegisters:
+    PackedArrayRegister<Bits1>
+    + PackedArrayRegister<Bits2>
+    + PackedArrayRegister<Bits3>
+    + PackedArrayRegister<Bits4>
+    + PackedArrayRegister<Bits5>
+    + PackedArrayRegister<Bits6>
+    + PackedArrayRegister<Bits7>
+    + PackedArrayRegister<Bits8>
+{
+}
+
+impl<P: Precision> PackedArrayRegisters for P where
+    P: PackedArrayRegister<Bits1>
+        + PackedArrayRegister<Bits2>
+        + PackedArrayRegister<Bits3>
+        + PackedArrayRegister<Bits4>
+        + PackedArrayRegister<Bits5>
+        + PackedArrayRegister<Bits6>
+        + PackedArrayRegister<Bits7>
+        + PackedArrayRegister<Bits8>
+{
 }
 
 /// Extracts the word position and the relative register offset from the packed index.

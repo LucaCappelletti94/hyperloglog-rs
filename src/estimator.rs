@@ -39,7 +39,7 @@ pub trait ExtendableApproximatedSet<T: Hash> {
 }
 
 /// Trait for a cardinality estimator.
-pub trait Estimator<F: Number>: Sized + Default + Send + Sync {
+pub trait Estimator<F: Number>: Sized + Send + Sync {
     /// Estimates the cardinality.
     fn estimate_cardinality(&self) -> F;
 

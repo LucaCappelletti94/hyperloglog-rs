@@ -9,6 +9,9 @@ use core::slice::Iter;
 #[cfg(feature = "std")]
 use crate::prelude::Named;
 
+#[cfg(feature = "mem_dbg")]
+use mem_dbg::{MemDbg, MemSize};
+
 #[cfg(feature = "precision_10")]
 use crate::prelude::Precision10;
 #[cfg(feature = "precision_11")]
@@ -39,6 +42,7 @@ use crate::prelude::Precision7;
 use crate::prelude::Precision8;
 #[cfg(feature = "precision_9")]
 use crate::prelude::Precision9;
+use crate::utils::Words;
 
 /// Iterator over the registers.
 pub struct RegisterIter<'words, P: Precision, B: Bits> {
@@ -95,8 +99,7 @@ impl<'words, P: Precision, B: Bits> Iterator for RegisterIter<'words, P, B> {
 }
 
 /// Iterator over the registers zipped with another set of registers.
-pub struct TupleIter<'words, P: Precision, B: Bits>
-{
+pub struct TupleIter<'words, P: Precision, B: Bits> {
     /// The current register.
     current_register: P::NumberOfRegisters,
     /// The current register in the word.
@@ -116,7 +119,8 @@ impl<'words, P: Precision, B: Bits> TupleIter<'words, P, B> {
     fn new(mut left: Iter<'words, u64>, mut right: Iter<'words, u64>) -> Self {
         let current_word = left.next().copied().and_then(|left_word| {
             right
-                .next().copied()
+                .next()
+                .copied()
                 .map(|right_word| (left_word, right_word))
         });
         Self {
@@ -130,9 +134,7 @@ impl<'words, P: Precision, B: Bits> TupleIter<'words, P, B> {
     }
 }
 
-impl<'words, P: Precision, B: Bits> Iterator
-    for TupleIter<'words, P, B>
-{
+impl<'words, P: Precision, B: Bits> Iterator for TupleIter<'words, P, B> {
     type Item = (u8, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -152,7 +154,10 @@ impl<'words, P: Precision, B: Bits> Iterator
             {
                 self.current_register_in_word = 0;
                 self.current_word = self.left.next().copied().and_then(|left_word| {
-                    self.right.next().copied().map(|right_word| (left_word, right_word))
+                    self.right
+                        .next()
+                        .copied()
+                        .map(|right_word| (left_word, right_word))
                 });
             }
             (left_register, right_register)
@@ -165,7 +170,37 @@ impl<'words, P: Precision, B: Bits> Iterator
 /// Meant to be associated with a specific Precision.
 pub trait ArrayRegister<B: Bits>: Precision {
     /// The type of the array register.
-    type ArrayRegister: Registers<Self, B>;
+    #[cfg(all(feature = "std", feature = "mem_dbg"))]
+    type ArrayRegister: Registers<Self, B> + Words + Named + MemDbg + MemSize;
+    #[cfg(all(feature = "std", not(feature = "mem_dbg")))]
+    type ArrayRegister: Registers<Self, B> + Words + Named;
+    #[cfg(not(feature = "std"))]
+    type ArrayRegister: Registers<Self, B> + Words;
+}
+
+/// Trait marker to say that a given precision implements all of the array registers.
+pub trait ArrayRegisters:
+    ArrayRegister<Bits1>
+    + ArrayRegister<Bits2>
+    + ArrayRegister<Bits3>
+    + ArrayRegister<Bits4>
+    + ArrayRegister<Bits5>
+    + ArrayRegister<Bits6>
+    + ArrayRegister<Bits7>
+    + ArrayRegister<Bits8>
+{
+}
+
+impl<P: Precision> ArrayRegisters for P where
+    P: ArrayRegister<Bits1>
+        + ArrayRegister<Bits2>
+        + ArrayRegister<Bits3>
+        + ArrayRegister<Bits4>
+        + ArrayRegister<Bits5>
+        + ArrayRegister<Bits6>
+        + ArrayRegister<Bits7>
+        + ArrayRegister<Bits8>
+{
 }
 
 #[cfg(feature = "std")]

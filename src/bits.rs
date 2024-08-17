@@ -17,7 +17,6 @@ macro_rules! impl_bits {
             paste::paste! {
                 #[non_exhaustive]
                 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-                #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
                 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
                 /// A struct representing the number of bits.
                 pub struct [<Bits $n>];

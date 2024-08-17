@@ -24,21 +24,17 @@ twox-hash = "1.6.3"
 indicatif = {version="0.17.8", features=["rayon"]}
 rayon = "1.10.0"
 serde = "1.0.206"
+macro_test_utils = { path = "macro_test_utils" }
+strum = "0.26.3"
+strum_macros = "0.26.4"
+bincode = "1.3.3"
+log = "0.4.22"
+env_logger = "0.11.5"
 
 [features]
 std = []
-default = ["mle", "mem_dbg"]
+default = ["mle"]
 mle = ["std", "hyperloglog-rs/mle"]
-mem_dbg = [
-    "hyperloglog-rs/mem_dbg",
-    "hyperloglogplus/mem_dbg",
-    "streaming_algorithms/mem_dbg",
-    "cardinality-estimator/mem_dbg",
-    "rust-hyperloglog/mem_dbg",
-    "sourmash/mem_dbg",
-    "hypertwobits/mem_dbg",
-    "simple_hll/mem_dbg"
-]
 
 
 [[bench]]

@@ -3,9 +3,9 @@ extern crate test;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use hyperloglog_rs::prelude::*;
+use statistical_comparisons::utils::*;
 use std::{collections::HashSet, hint::black_box};
 use wyhash::WyHash;
-use statistical_comparisons::utils::*;
 
 const RANDOM_STATE: u64 = 87561346897134_u64;
 const NUMBER_OF_ELEMENTS: usize = 10_000;

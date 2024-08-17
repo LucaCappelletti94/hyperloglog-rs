@@ -20,7 +20,7 @@ pub use constants::*;
 pub use hasher_type::HasherType;
 pub(crate) use number::{FloatOps, Number, PositiveInteger};
 pub use random::*;
-pub(crate) use words::Words;
+pub use words::Words;
 
 #[cfg(feature = "std")]
 /// Trait for an object with a name.

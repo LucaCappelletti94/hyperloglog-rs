@@ -6,6 +6,8 @@
 
 use core::fmt::Debug;
 
+use mem_dbg::{MemDbg, MemSize};
+
 use crate::utils::{FloatOps, Number, One, PositiveInteger};
 
 #[cfg(feature = "plusplus")]
@@ -106,6 +108,9 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     /// all the registers without overflowing. We can tollerate a one-off error
     /// when counting the number of zeros, as it will be corrected when computing
     /// the cardinality as it is known before hand whether this can happen at all.
+    #[cfg(feature = "mem_dbg")]
+    type NumberOfRegisters: PositiveInteger + MemSize + MemDbg;
+    #[cfg(not(feature = "mem_dbg"))]
     type NumberOfRegisters: PositiveInteger;
     /// The exponent of the number of registers, meaning the number of registers
     /// that will be used is 2^EXPONENT. This is the p parameter in the [`HyperLogLog`].
@@ -169,7 +174,6 @@ macro_rules! impl_precision {
             #[non_exhaustive]
             #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-            #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
             /// The precision of the HyperLogLog counter.
             pub struct [<Precision $exponent>];
 
