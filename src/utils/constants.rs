@@ -50,17 +50,11 @@ macro_rules! impl_constants {
         impl Two for $t {
             const TWO: Self = 2;
         }
-        impl Five for $t {
-            const FIVE: Self = 5;
-        }
-        impl Ten for $t {
-            const TEN: Self = 10;
-        }
     )*)
 }
 
-impl_constants! { u8 u16 u32 u64 u128 usize }
-impl_constants! { i8 i16 i32 i64 i128 isize }
+impl_constants! { u8 u16 u32 u64 usize }
+impl_constants! { i32 }
 
 
 impl One for f64 {

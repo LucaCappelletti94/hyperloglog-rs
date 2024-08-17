@@ -1,8 +1,7 @@
 //! Traits regarding numbers.
-use core::ops::{Shl, Shr, Add, Sub, Div, Mul, AddAssign, SubAssign, MulAssign, Neg};
+use core::ops::{Shl, Shr, Add, Sub, Div, Mul, AddAssign, SubAssign, Neg};
 use core::fmt::{Debug, Display};
-use core::iter::Sum;
-use crate::utils::{Zero, One, Two, Five, Ten};
+use crate::utils::{Zero, One, Two};
 
 /// A trait for numbers.
 pub trait Number:
@@ -12,7 +11,6 @@ pub trait Number:
     + Sub<Self, Output = Self>
     + Div<Self, Output = Self>
     + Mul<Self, Output = Self>
-    + MulAssign
     + AddAssign
     + SubAssign
     + Debug
@@ -20,9 +18,6 @@ pub trait Number:
     + Zero
     + One
     + Two
-    + Five
-    + Ten
-    + Sum
     + PartialOrd
     + Send
     + Sync
