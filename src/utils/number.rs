@@ -2,7 +2,7 @@
 use core::ops::{Shl, Shr, Add, Sub, Div, Mul, AddAssign, SubAssign, MulAssign, Neg};
 use core::fmt::{Debug, Display};
 use core::iter::Sum;
-use crate::utils::{Half, Zero, One, Two, Three, Five, Six, Seven, Eight, Nine, Ten, OneHundred, OneThousand};
+use crate::utils::{Zero, One, Two, Five, Ten};
 
 /// A trait for numbers.
 pub trait Number:
@@ -20,14 +20,8 @@ pub trait Number:
     + Zero
     + One
     + Two
-    + Three
     + Five
-    + Six
-    + Seven
-    + Eight
-    + Nine
     + Ten
-    + OneHundred
     + From<u8>
     + Sum
     + PartialOrd
@@ -76,15 +70,8 @@ pub trait PositiveInteger:
 }
 
 /// A trait for floating point numbers.
-pub trait Float: Number + Half + OneThousand + Neg<Output = Self> {
-    /// The value of positive infinity.
-    const INFINITY: Self;
-    /// The value of negative infinity.
-    const NEG_INFINITY: Self;
-    /// The value of epsilon.
-    const EPSILON: Self;
-
-    /// Returns the value of 2^(-register), with strict positivite register.
+pub trait FloatOps: Number + Neg<Output = Self> {
+   /// Returns the value of 2^(-register), with strict positivite register.
     fn integer_exp2_minus(register: u8) -> Self;
 
     /// Returns the value of 2^(-register), including negative registers.
@@ -106,49 +93,6 @@ pub trait Float: Number + Half + OneThousand + Neg<Output = Self> {
             self / other
         }
     }
-
-    /// Checks if the floating point number is finite.
-    fn is_finite(self) -> bool;
-
-    #[cfg(feature = "std")]
-    #[must_use]
-    /// Returns the absolute value of the floating point number.
-    fn abs(self) -> Self;
-
-    #[cfg(feature = "std")]
-    #[must_use]
-    /// Returns the natural logarithm of the floating point number.
-    fn ln(self) -> Self;
-
-    #[cfg(feature = "std")]
-    #[must_use]
-    /// Returns the natural logarithm of 1 plus the floating point number.
-    fn ln_1p(self) -> Self;
-
-    #[cfg(feature = "std")]
-    #[must_use]
-    /// Returns the base 2 logarithm of the floating point number.
-    fn log2(self) -> Self;
-
-    #[cfg(feature = "std")]
-    #[must_use]
-    /// Returns the exponential of the floating point number.
-    fn exp(self) -> Self;
-
-    #[cfg(feature = "std")]
-    #[must_use]
-    /// Returns the square root of the floating point number.
-    fn sqrt(self) -> Self;
-
-    #[cfg(feature = "std")]
-    #[must_use]
-    /// Returns the floating point number raised to the power of an integer.
-    fn powi(self, n: i32) -> Self;
-
-    #[cfg(feature = "std")]
-    #[must_use]
-    /// Returns the exponential of the floating point number minus one.
-    fn exp_m1(self) -> Self;
 }
 
 /// A trait for numbers.
@@ -205,11 +149,7 @@ macro_rules! impl_positive_integer_number {
 
 impl_positive_integer_number!(u8, u16, u32);
 
-impl Float for f64 {
-    const INFINITY: Self = f64::INFINITY;
-    const NEG_INFINITY: Self = f64::NEG_INFINITY;
-    const EPSILON: Self = f64::EPSILON;
-
+impl FloatOps for f64 {
     #[must_use]
     #[inline]
     fn integer_exp2_minus(register: u8) -> Self {
@@ -228,68 +168,6 @@ impl Float for f64 {
     #[inline]
     fn integer_exp2(register: u8) -> Self {
         f64::from_le_bytes((u64::from(1023_u16 + u16::from(register)) << 52).to_le_bytes())
-    }
-
-    #[must_use]
-    #[inline]
-    fn is_finite(self) -> bool {
-        self.is_finite()
-    }
-
-    #[must_use]
-    #[inline]
-    #[cfg(feature = "std")]
-    fn abs(self) -> Self {
-        self.abs()
-    }
-
-    #[must_use]
-    #[inline]
-    #[cfg(feature = "std")]
-    fn ln(self) -> Self {
-        self.ln()
-    }
-
-    #[must_use]
-    #[inline]
-    #[cfg(feature = "std")]
-    fn ln_1p(self) -> Self {
-        self.ln_1p()
-    }
-
-    #[must_use]
-    #[inline]
-    #[cfg(feature = "std")]
-    fn log2(self) -> Self {
-        self.log2()
-    }
-
-    #[must_use]
-    #[inline]
-    #[cfg(feature = "std")]
-    fn exp(self) -> Self {
-        self.exp()
-    }
-
-    #[must_use]
-    #[inline]
-    #[cfg(feature = "std")]
-    fn sqrt(self) -> Self {
-        self.sqrt()
-    }
-
-    #[must_use]
-    #[inline]
-    #[cfg(feature = "std")]
-    fn powi(self, n: i32) -> Self {
-        self.powi(n)
-    }
-
-    #[must_use]
-    #[inline]
-    #[cfg(feature = "std")]
-    fn exp_m1(self) -> Self {
-        self.exp_m1()
     }
 }
 

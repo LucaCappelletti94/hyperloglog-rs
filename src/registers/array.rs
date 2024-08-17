@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 
 use super::{
     extract_register_from_word, Bits, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6, Bits7, Bits8,
-    Float, Number, One, Precision, RegisterWord, Registers, Words, Zero,
+    FloatOps, Number, One, Precision, RegisterWord, Registers, Words, Zero,
 };
 
 #[cfg(feature = "std")]

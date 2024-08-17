@@ -20,7 +20,7 @@ mod words;
 
 pub use constants::*;
 pub use hasher_type::HasherType;
-pub use number::{Float, Number, PositiveInteger};
+pub use number::{FloatOps, Number, PositiveInteger};
 pub use random::*;
 pub(crate) use register_word::RegisterWord;
 pub use word_like::WordLike;

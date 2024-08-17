@@ -6,7 +6,7 @@
 
 use core::fmt::Debug;
 
-use crate::utils::{Five, Float, Number, One, PositiveInteger};
+use crate::utils::{Five, FloatOps, Number, One, PositiveInteger};
 
 #[cfg(all(feature="beta", not(feature="precomputed_beta")))]
 use crate::utils::Zero;

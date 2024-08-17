@@ -3,7 +3,7 @@
 use core::fmt::Debug;
 
 use crate::prelude::*;
-use crate::utils::{Float, Number, One, RegisterWord, WordLike, Words, Zero};
+use crate::utils::{FloatOps, Number, One, RegisterWord, WordLike, Words, Zero};
 mod array;
 mod packed_array;
 

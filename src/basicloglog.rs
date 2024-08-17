@@ -2,7 +2,7 @@
 
 use crate::prelude::*;
 use crate::utils::{
-    Float, HasherType, Number, One, PositiveInteger, Words, Zero,
+    HasherType, Number, One, PositiveInteger, Words, Zero,
 };
 use core::ops::{BitOr, BitOrAssign};
 use core::hash::Hash;

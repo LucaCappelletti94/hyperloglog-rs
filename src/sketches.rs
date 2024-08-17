@@ -13,7 +13,7 @@
 //! sometimes it is necessary, such as in test cases, to have the exact version of the
 //! algorithm. The approximated version is faster and uses less memory, but it is not,
 //! of course, guaranteed to be exact.
-use crate::prelude::{Float, Number, Estimator, Zero};
+use crate::prelude::{FloatOps, Number, Estimator, Zero};
 
 /// Trait for sketching algorithms that provide the overlap and differences cardinality matrices.
 pub trait HyperSpheresSketch<N: Number>: Estimator<N> {

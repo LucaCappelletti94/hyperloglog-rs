@@ -11,7 +11,7 @@
 
 use super::{
     extract_register_from_word, Bits, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6, Bits7, Bits8,
-    Float, Number, One, Precision, RegisterWord, Registers, WordLike, Words, Zero,
+    FloatOps, Number, One, Precision, RegisterWord, Registers, WordLike, Words, Zero,
 };
 use core::fmt::Debug;
 use core::iter::Copied;
