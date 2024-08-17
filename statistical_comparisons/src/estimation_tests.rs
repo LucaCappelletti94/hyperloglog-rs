@@ -10,26 +10,17 @@ use indicatif::ProgressStyle;
 use rayon::prelude::*;
 use serde::de::DeserializeOwned;
 
-#[derive(Clone, Copy, Debug, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
 pub struct PerformanceReport {
     prediction: f64,
     memory_requirement: usize,
-}
-
-impl From<Vec<String>> for PerformanceReport {
-    fn from(value: Vec<String>) -> Self {
-        PerformanceReport {
-            prediction: value[0].parse().unwrap(),
-            memory_requirement: value[1].parse().unwrap(),
-        }
-    }
 }
 
 pub trait Header: DeserializeOwned + Into<Vec<String>> {
     fn header() -> &'static [&'static str];
 }
 
-#[derive(Clone, Copy, Debug, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
 pub struct ErrorReport {
     error: f64,
     memory_requirement: usize,
@@ -64,7 +55,10 @@ impl Header for ErrorReport {
 
 impl Into<Vec<String>> for ErrorReport {
     fn into(self) -> Vec<String> {
-        vec![format!("{:.10},{}", self.error, self.memory_requirement)]
+        vec![
+            format!("{:.10}", self.error),
+            format!("{}", self.memory_requirement),
+        ]
     }
 }
 
@@ -76,10 +70,10 @@ impl Header for PerformanceReport {
 
 impl Into<Vec<String>> for PerformanceReport {
     fn into(self) -> Vec<String> {
-        vec![format!(
-            "{:.2},{}",
-            self.prediction, self.memory_requirement
-        )]
+        vec![
+            format!("{:.2}", self.prediction),
+            format!("{}", self.memory_requirement),
+        ]
     }
 }
 
@@ -109,7 +103,7 @@ pub(crate) fn cardinality_test<
         .into_par_iter()
         .progress_with(progress_bar)
         .flat_map(|thread_number| {
-            let random_state = splitmix64(splitmix64(random_state.wrapping_mul(thread_number + 1)));
+            let mut random_state = splitmix64(splitmix64(random_state.wrapping_mul(thread_number + 1)));
             let mut performance_reports = Vec::new();
             let mut estimator = estimator.clone();
 
@@ -120,7 +114,8 @@ pub(crate) fn cardinality_test<
 
                 if i % current_sample_rate == 0 {
                     if current_sample_rate < maximum_sample_interval {
-                        current_sample_rate *= 2;
+                        random_state = splitmix64(random_state);
+                        current_sample_rate += random_state as usize % current_sample_rate;
                     }
 
                     let cardinality = estimator.estimate_cardinality();
@@ -145,8 +140,8 @@ pub(crate) fn union_test<
     let number_of_vectors = 2000;
     let minimum_sample_interval = 5;
     let maximum_sample_interval = 1000;
-    let left_random_state = splitmix64(9516748163234878233_u64);
-    let right_random_state = splitmix64(9516748163234878233_u64);
+    let left_random_state = splitmix64(5647315671326798672_u64);
+    let right_random_state = splitmix64(4457567787334878233_u64);
 
     let estimator_name = estimator.name();
 
@@ -168,7 +163,7 @@ pub(crate) fn union_test<
             let mut left_estimator = estimator.clone();
             let mut right_estimator = estimator.clone();
 
-            let left_random_state = splitmix64(splitmix64(
+            let mut left_random_state = splitmix64(splitmix64(
                 left_random_state.wrapping_mul(thread_number + 1),
             ));
             let right_random_state = splitmix64(splitmix64(
@@ -198,7 +193,8 @@ pub(crate) fn union_test<
 
                 if i % current_sample_rate == 0 {
                     if current_sample_rate < maximum_sample_interval {
-                        current_sample_rate *= 2;
+                        left_random_state = splitmix64(left_random_state);
+                        current_sample_rate += left_random_state as usize % current_sample_rate;
                     }
 
                     let union_cardinality =

@@ -11,7 +11,7 @@ use rayon::prelude::*;
 use stattest::test::WilcoxonWTest;
 use stattest::test::StatisticalTest;
 
-#[derive(Debug, PartialEq, Copy, serde::Deserialize, Clone)]
+#[derive(Debug, PartialEq, Copy, serde::Deserialize, Clone, serde::Serialize)]
 enum Outcome {
     /// When the first approach is better than the second.
     First,
@@ -34,7 +34,7 @@ impl Display for Outcome {
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct WilcoxonTestResult {
     first_approach_name: String,
     second_approach_name: String,
@@ -165,6 +165,6 @@ pub fn cartesian_wilcoxon_test(feature_name: &str) {
 
     write_csv(
         results.into_iter(),
-        &format!("reports/{feature_name}/wilcoxon.csv"),
+        &format!("reports/{feature_name}_wilcoxon.csv"),
     );
 }

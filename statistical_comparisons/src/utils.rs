@@ -1,5 +1,6 @@
 use crate::estimation_tests::Header;
 use indicatif::ProgressIterator;
+use serde::Serialize;
 
 pub fn standard_deviation(values: &[f64], mean: f64) -> f64 {
     let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
@@ -15,7 +16,7 @@ pub fn mean_usize(values: &[usize]) -> f64 {
 }
 
 
-pub(crate) fn write_csv<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: Header + Into<Vec<String>>>(
+pub(crate) fn write_csv<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: Header + Serialize>(
     report: I,
     path: &str,
 ) {
@@ -33,8 +34,7 @@ pub(crate) fn write_csv<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: 
     );
 
     for row in report.progress_with(progress_bar) {
-        let row: Vec<String> = row.into();
-        writer.write_record(row).unwrap();
+        writer.serialize(row).unwrap();
     }
 
     writer.flush().unwrap();
