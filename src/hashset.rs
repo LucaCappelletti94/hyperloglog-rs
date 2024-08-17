@@ -1,8 +1,8 @@
 //! Submodule providing the implementation of `HyperSphere` sketches for `HashSets`.
 use crate::prelude::*;
+use core::hash::BuildHasher;
 use core::hash::Hash;
 use std::collections::HashSet;
-use core::hash::BuildHasher;
 
 impl<I, S: Default + Send + Sync + BuildHasher> Named for HashSet<I, S>
 where
@@ -16,31 +16,37 @@ where
 
 /// Implementation of the `Estimator` trait for `HashSet`.
 impl<I, S: Default + Send + Sync + BuildHasher> Estimator<f64> for HashSet<I, S>
-    where
-        I: Eq + Hash + Send + Sync,
-    {
-        #[inline]
-        #[expect(clippy::cast_precision_loss, reason = "This is an adapter trait for tests.")]
-        #[expect(clippy::as_conversions, reason = "There are no better options.")]
-        fn estimate_union_cardinality(&self, other: &Self) -> f64 {
-            self.union(other).count() as f64
-        }
-
-        #[inline]
-        #[expect(clippy::cast_precision_loss, reason = "This is an adapter trait for tests.")]
-        #[expect(clippy::as_conversions, reason = "There are no better options.")]
-        fn estimate_cardinality(&self) -> f64 {
-            self.len() as f64
-        }
-
-        #[inline]
-        fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-            false
-        }
+where
+    I: Eq + Hash + Send + Sync,
+{
+    #[inline]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "This is an adapter trait for tests."
+    )]
+    #[expect(clippy::as_conversions, reason = "There are no better options.")]
+    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+        self.union(other).count() as f64
     }
 
+    #[inline]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "This is an adapter trait for tests."
+    )]
+    #[expect(clippy::as_conversions, reason = "There are no better options.")]
+    fn estimate_cardinality(&self) -> f64 {
+        self.len() as f64
+    }
+
+    #[inline]
+    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
+        false
+    }
+}
+
 impl<I, S: Default + Send + Sync + BuildHasher> Estimator<usize> for HashSet<I, S>
-        where
+where
     I: Eq + Hash + Send + Sync,
 {
     #[inline]

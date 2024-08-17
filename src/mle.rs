@@ -106,7 +106,7 @@ fn mle_union_cardinality<
     let right_difference: f64 =
         (union_cardinality_estimate - left_cardinality_estimate).max(f64::EPSILON);
 
-    let relative_error_limit = f64::TEN.powi(-ERROR) / f64::integer_exp2(P::EXPONENT).sqrt();
+    let relative_error_limit = 10.0_f64.powi(-ERROR) / f64::integer_exp2(P::EXPONENT).sqrt();
 
     // we introdce the following expressions to simplify the computation
     // of the gradient.

@@ -14,15 +14,13 @@ mod constants;
 mod hasher_type;
 mod number;
 mod random;
-mod register_word;
 mod words;
 
 pub use constants::*;
 pub use hasher_type::HasherType;
 pub(crate) use number::{FloatOps, Number, PositiveInteger};
 pub use random::*;
-pub(crate) use register_word::RegisterWord;
-pub use words::Words;
+pub(crate) use words::Words;
 
 #[cfg(feature = "std")]
 /// Trait for an object with a name.
@@ -33,11 +31,10 @@ pub trait Named {
 
 #[inline]
 /// Calculates the integer ceil of the division of `numerator` by `denominator`.
-/// 
+///
 /// # Arguments
 /// * `numerator` - The numerator of the division.
 /// * `denominator` - The denominator of the division.
-/// 
 pub(crate) const fn ceil(numerator: usize, denominator: usize) -> usize {
     (numerator + denominator - 1) / denominator
 }

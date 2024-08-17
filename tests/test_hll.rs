@@ -71,10 +71,7 @@ pub fn test_approximated_counter_at_precision_and_bits<
                 // The union estimate must be symmetric if the approach is not MLE, which is
                 // non-deterministic.
                 if !left.is_union_estimate_non_deterministic(&right) {
-                    assert_eq!(
-                        estimated_union,
-                        right.estimate_union_cardinality(&left)
-                    );
+                    assert_eq!(estimated_union, right.estimate_union_cardinality(&left));
                 }
 
                 total_union_error_rate += (estimated_union as f64 - union).abs() / union;

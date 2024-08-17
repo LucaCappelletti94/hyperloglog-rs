@@ -11,7 +11,7 @@ use crate::utils::{Five, FloatOps, Number, One, PositiveInteger};
 #[cfg(feature = "plusplus")]
 use crate::utils::Two;
 
-#[cfg(all(feature="beta", not(feature="precomputed_beta")))]
+#[cfg(all(feature = "beta", not(feature = "precomputed_beta")))]
 use crate::utils::Zero;
 
 include!(concat!(env!("OUT_DIR"), "/alpha_values.rs"));
@@ -44,7 +44,10 @@ fn kmeans_bias<const N: usize, V: PartialOrd + Number + Two, W: Number>(
 where
     f64: From<W>,
 {
-    let index = estimates.partition_point(|estimate_centroid| estimate_centroid <= &estimate).max(1) - 1;
+    let index = estimates
+        .partition_point(|estimate_centroid| estimate_centroid <= &estimate)
+        .max(1)
+        - 1;
 
     let mut min = if index > 6 { index - 6 } else { 0 };
     let mut max = core::cmp::min(index + 6, N);
@@ -151,7 +154,7 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
 
         // Apply the small range correction factor if the raw estimate is below the threshold
         // and there are zero registers in the counter.
-        if estimate <= f64::FIVE * f64::integer_exp2(Self::EXPONENT) {
+        if estimate <= 5.0_f64 * f64::integer_exp2(Self::EXPONENT) {
             estimate - Self::bias(estimate)
         } else {
             estimate

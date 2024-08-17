@@ -1,15 +1,13 @@
 //! Implementation of the basic struct for [`HyperLogLog`] counter.
 
 use crate::prelude::*;
-use crate::utils::{
-    HasherType, Number, One, PositiveInteger, Words, Zero,
-};
-use core::ops::{BitOr, BitOrAssign};
-use core::hash::Hash;
-use core::iter::{Take, FromIterator};
-use core::marker::PhantomData;
-use core::fmt::Formatter;
+use crate::utils::{HasherType, Number, One, PositiveInteger, Words, Zero};
 use core::fmt::Debug;
+use core::fmt::Formatter;
+use core::hash::Hash;
+use core::iter::{FromIterator, Take};
+use core::marker::PhantomData;
+use core::ops::{BitOr, BitOrAssign};
 
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
@@ -29,7 +27,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Debug
     for BasicLogLog<P, B, R, Hasher>
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
-        formatter.debug_struct("BasicLogLog")
+        formatter
+            .debug_struct("BasicLogLog")
             .field("registers", &self.registers)
             .field("number_of_zero_registers", &self.number_of_zero_registers)
             .field("harmonic_sum", &self.harmonic_sum)
@@ -79,7 +78,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> BasicLogLog<
         index: P::NumberOfRegisters,
     ) -> bool {
         // Count leading zeros.
-        debug_assert!(new_register_value < 1 << B::NUMBER_OF_BITS, "Register value is too large.");
+        debug_assert!(
+            new_register_value < 1 << B::NUMBER_OF_BITS,
+            "Register value is too large."
+        );
 
         let (old_register_value, larger_register_value) =
             self.registers.set_greater(index, new_register_value);
@@ -144,8 +146,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperLogLog<
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, A: Hash, Hasher: HasherType>
-    FromIterator<A> for BasicLogLog<P, B, R, Hasher>
+impl<P: Precision, B: Bits, R: Registers<P, B>, A: Hash, Hasher: HasherType> FromIterator<A>
+    for BasicLogLog<P, B, R, Hasher>
 {
     fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
         let mut hll = Self::new();

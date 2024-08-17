@@ -3,8 +3,8 @@ extern crate test;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use hyperloglog_rs::prelude::*;
-use std::hint::black_box;
 use std::collections::HashSet;
+use std::hint::black_box;
 use wyhash::WyHash;
 
 mod utils;
@@ -21,30 +21,30 @@ fn union_bencher<
     b: &mut Criterion,
 ) {
     let mut random_state = splitmix64(RANDOM_STATE);
-    let counters: Vec<(H, H)> = (0..NUMBER_OF_COUNTERS).map(|_|{
-        let mut left = H::default();
-        let mut right = H::default();
-        random_state = splitmix64(random_state);
-        for value in iter_random_values(NUMBER_OF_ELEMENTS, None, random_state) {
-            if value % 2 == 0 {
-                left.insert(&value);
-            }
-
-            right.insert(&value);
-        }
-        (left, right)
-    }).collect();
-
-    b.bench_function(
-        format!("Union {}", H::default().name()).as_str(),
-        |b| {
-            b.iter(||{
-                let mut total_union = 0.0_f64;
-                for (left, right) in counters.iter() {
-                    total_union += black_box(left).estimate_union_cardinality(black_box(right));
+    let counters: Vec<(H, H)> = (0..NUMBER_OF_COUNTERS)
+        .map(|_| {
+            let mut left = H::default();
+            let mut right = H::default();
+            random_state = splitmix64(random_state);
+            for value in iter_random_values(NUMBER_OF_ELEMENTS, None, random_state) {
+                if value % 2 == 0 {
+                    left.insert(&value);
                 }
-                total_union
-            })
+
+                right.insert(&value);
+            }
+            (left, right)
+        })
+        .collect();
+
+    b.bench_function(format!("Union {}", H::default().name()).as_str(), |b| {
+        b.iter(|| {
+            let mut total_union = 0.0_f64;
+            for (left, right) in counters.iter() {
+                total_union += black_box(left).estimate_union_cardinality(black_box(right));
+            }
+            total_union
+        })
     });
 }
 
@@ -300,14 +300,14 @@ macro_rules! bench_hyper_three_bits {
 }
 
 use hypertwobits::h2b::{
-    M64 as M64H2B, M128 as M128H2B, M256 as M256H2B, M512 as M512H2B, M1024 as M1024H2B,
-    M2048 as M2048H2B, M4096 as M4096H2B,
+    M1024 as M1024H2B, M128 as M128H2B, M2048 as M2048H2B, M256 as M256H2B, M4096 as M4096H2B,
+    M512 as M512H2B, M64 as M64H2B,
 };
 bench_hyper_two_bits!(M64H2B, M128H2B, M256H2B, M512H2B, M1024H2B, M2048H2B, M4096H2B);
 
 use hypertwobits::h3b::{
-    M64 as M64H3B, M128 as M128H3B, M256 as M256H3B, M512 as M512H3B, M1024 as M1024H3B,
-    M2048 as M2048H3B, M4096 as M4096H3B,
+    M1024 as M1024H3B, M128 as M128H3B, M2048 as M2048H3B, M256 as M256H3B, M4096 as M4096H3B,
+    M512 as M512H3B, M64 as M64H3B,
 };
 bench_hyper_three_bits!(M64H3B, M128H3B, M256H3B, M512H3B, M1024H3B, M2048H3B, M4096H3B);
 

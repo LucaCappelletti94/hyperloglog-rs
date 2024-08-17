@@ -32,24 +32,24 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
     /// ```
     /// #[cfg(feature = "beta")]
     /// {
-    ///  use hyperloglog_rs::prelude::*;
+    ///     use hyperloglog_rs::prelude::*;
     ///
-    /// // Create a new HyperLogLog counter with precision 14 and 5 bits per register.
-    /// let mut hll = LogLogBeta::<
-    ///     Precision6,
-    ///     Bits5,
-    ///     <Precision6 as ArrayRegister<Bits5>>::ArrayRegister,
-    /// >::default();
+    ///     // Create a new HyperLogLog counter with precision 14 and 5 bits per register.
+    ///     let mut hll = LogLogBeta::<
+    ///         Precision6,
+    ///         Bits5,
+    ///         <Precision6 as ArrayRegister<Bits5>>::ArrayRegister,
+    ///     >::default();
     ///
-    /// // Add some elements to the counter.
-    /// hll.insert(&1);
-    /// hll.insert(&2);
-    /// hll.insert(&3);
+    ///     // Add some elements to the counter.
+    ///     hll.insert(&1);
+    ///     hll.insert(&2);
+    ///     hll.insert(&3);
     ///
-    /// // Get the number of zero registers.
-    /// let number_of_zero_registers = hll.get_number_of_zero_registers();
+    ///     // Get the number of zero registers.
+    ///     let number_of_zero_registers = hll.get_number_of_zero_registers();
     ///
-    /// assert_eq!(number_of_zero_registers, 61);
+    ///     assert_eq!(number_of_zero_registers, 61);
     /// }
     /// ```
     fn get_number_of_zero_registers(&self) -> P::NumberOfRegisters;

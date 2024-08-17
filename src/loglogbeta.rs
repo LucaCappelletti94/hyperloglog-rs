@@ -1,8 +1,8 @@
 //! Submodule implementing [`LogLogBeta`].
 use crate::basicloglog::BasicLogLog;
 use crate::hll_impl;
-use core::any::type_name;
 use crate::prelude::*;
+use core::any::type_name;
 
 #[cfg(feature = "std")]
 use crate::utils::Named;
@@ -51,7 +51,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Estimator<f6
     for LogLogBeta<P, B, R, Hasher>
 where
     Self: HyperLogLog<P, B, Hasher>,
-{   
+{
     #[inline]
     fn estimate_cardinality(&self) -> f64 {
         P::beta_estimate(self.harmonic_sum(), self.get_number_of_zero_registers())

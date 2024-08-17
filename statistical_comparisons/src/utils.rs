@@ -109,9 +109,7 @@ where
 }
 
 impl<const EXPONENT: usize, P: Precision> Named for SetLikeObjects<EXPONENT, P> {
-    fn name(&self) -> String {
-        
-    }
+    fn name(&self) -> String {}
 }
 
 impl<const EXPONENT: usize, P: Precision> SetLikeObjects<EXPONENT, P>

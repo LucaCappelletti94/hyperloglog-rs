@@ -3,23 +3,41 @@
 use core::fmt::Debug;
 
 use crate::prelude::*;
-use crate::utils::{FloatOps, Number, One, RegisterWord, Words, Zero};
+use crate::utils::{FloatOps, Number, One, Words, Zero};
 mod array;
 mod packed_array;
 
 pub use array::ArrayRegister;
 pub use packed_array::{PackedArray, PackedArrayRegister};
 
+/// Trait for a register word.
+pub(super) trait RegisterWord<B: Bits> {
+    /// The mask for the lower register.
+    const LOWER_REGISTER_MASK: Self;
+    /// The number of bits in the word.
+    const NUMBER_OF_BITS: u8;
+    /// The number of registers in the word.
+    const NUMBER_OF_REGISTERS_IN_WORD: u8 = Self::NUMBER_OF_BITS / B::NUMBER_OF_BITS;
+}
+
+impl<B: Bits> RegisterWord<B> for u64 {
+    const LOWER_REGISTER_MASK: Self = (1 << B::NUMBER_OF_BITS) - 1;
+    const NUMBER_OF_BITS: u8 = 64;
+}
+
 /// Extracts the register from one or more words at the given offset.
-/// 
+///
 /// # Arguments
 /// * `word` - The word array from which the register is to be extracted.
 /// * `offset` - The offset at which the register starts.
-fn extract_register_from_word<B: Bits, const N: usize>(
-    word: [u64; N],
-    offset: u8,
-) -> [u8; N] where u64: RegisterWord<B> {
-    debug_assert!(offset + B::NUMBER_OF_BITS <= u64::NUMBER_OF_BITS, "The offset is too large.");
+fn extract_register_from_word<B: Bits, const N: usize>(word: [u64; N], offset: u8) -> [u8; N]
+where
+    u64: RegisterWord<B>,
+{
+    debug_assert!(
+        offset + B::NUMBER_OF_BITS <= u64::NUMBER_OF_BITS,
+        "The offset is too large."
+    );
     let mut registers = [0_u8; N];
     for i in 0..N {
         registers[i] = u8::try_from((word[i] >> offset) & u64::LOWER_REGISTER_MASK).unwrap();
@@ -28,9 +46,7 @@ fn extract_register_from_word<B: Bits, const N: usize>(
 }
 
 /// Trait marker for the registers.
-pub trait Registers<P: Precision, B: Bits>:
-    Eq + PartialEq + Clone + Debug + Send + Sync
-{
+pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug + Send + Sync {
     /// Iterator over the registers.
     type Iter<'register>: Iterator<Item = u8>
     where
@@ -45,7 +61,10 @@ pub trait Registers<P: Precision, B: Bits>:
     fn iter_registers(&self) -> Self::Iter<'_>;
 
     /// Returns an iterator over the registers zipped with another set of registers.
-    fn iter_registers_zipped<'registers>(&'registers self, other: &'registers Self) -> Self::IterZipped<'registers>;
+    fn iter_registers_zipped<'registers>(
+        &'registers self,
+        other: &'registers Self,
+    ) -> Self::IterZipped<'registers>;
 
     /// Returns the harmonic sum of the maximum value of the registers and the number of zero registers.
     fn get_harmonic_sum_and_zeros(&self, other: &Self) -> (f64, P::NumberOfRegisters);
@@ -95,7 +114,8 @@ mod tests {
             .iter()
             .enumerate()
             .all(|(index, &value)| value
-                == registers.get_register(P::NumberOfRegisters::try_from_u64(index as u64).unwrap())));
+                == registers
+                    .get_register(P::NumberOfRegisters::try_from_u64(index as u64).unwrap())));
 
         // We check that, given all registers are currently zeroed, when we set them to the maximum value
         // we get always returned a value and that value is equal to zero.
@@ -127,16 +147,15 @@ mod tests {
             random_state = splitmix64(random_state);
             index_random_state = splitmix64(index_random_state);
 
-            for (index, value) in iter_random_values(
-                1_000_000,
-                Some(1 << P::EXPONENT),
-                random_state,
-            )
-            .zip(iter_random_values(
-                1_000_000,
-                Some(maximal_register_value.into()),
-                random_state,
-            )) {
+            for (index, value) in
+                iter_random_values(1_000_000, Some(1 << P::EXPONENT), random_state).zip(
+                    iter_random_values(
+                        1_000_000,
+                        Some(maximal_register_value.into()),
+                        random_state,
+                    ),
+                )
+            {
                 let index: P::NumberOfRegisters =
                     P::NumberOfRegisters::try_from_u64(index).unwrap();
                 let value: u8 = u8::try_from(value).unwrap();

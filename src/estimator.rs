@@ -3,7 +3,6 @@ use core::hash::Hash;
 
 use crate::prelude::*;
 
-
 /// Trait for properties of a set.
 pub trait SetProperties {
     /// Returns whether the set is empty.

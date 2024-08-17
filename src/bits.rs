@@ -5,7 +5,7 @@ use core::fmt::Debug;
 use crate::utils::Named;
 
 /// Trait marker for the number of bits.
-pub trait Bits: Default + Copy + PartialEq + Eq + Send + Sync + Debug{
+pub trait Bits: Default + Copy + PartialEq + Eq + Send + Sync + Debug {
     /// The number of bits.
     const NUMBER_OF_BITS: u8;
 }

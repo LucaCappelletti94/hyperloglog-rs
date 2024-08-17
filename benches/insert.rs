@@ -13,7 +13,11 @@ use utils::*;
 const RANDOM_STATE: u64 = 87561346897134_u64;
 const NUMBER_OF_ELEMENTS: usize = 10_000;
 
-fn insert_bencher<H: Estimator<f64> + hyperloglog_rs::prelude::Named + ExtendableApproximatedSet<u64>>(b: &mut Criterion) {
+fn insert_bencher<
+    H: Estimator<f64> + hyperloglog_rs::prelude::Named + ExtendableApproximatedSet<u64>,
+>(
+    b: &mut Criterion,
+) {
     b.bench_function(format!("Insert {}", H::default().name()).as_str(), |b| {
         b.iter(|| {
             let mut hll: H = Default::default();
@@ -165,14 +169,14 @@ macro_rules! bench_hyper_three_bits {
 }
 
 use hypertwobits::h2b::{
-    M64 as M64H2B, M128 as M128H2B, M256 as M256H2B, M512 as M512H2B, M1024 as M1024H2B,
-    M2048 as M2048H2B, M4096 as M4096H2B,
+    M1024 as M1024H2B, M128 as M128H2B, M2048 as M2048H2B, M256 as M256H2B, M4096 as M4096H2B,
+    M512 as M512H2B, M64 as M64H2B,
 };
 bench_hyper_two_bits!(M64H2B, M128H2B, M256H2B, M512H2B, M1024H2B, M2048H2B, M4096H2B);
 
 use hypertwobits::h3b::{
-    M64 as M64H3B, M128 as M128H3B, M256 as M256H3B, M512 as M512H3B, M1024 as M1024H3B,
-    M2048 as M2048H3B, M4096 as M4096H3B,
+    M1024 as M1024H3B, M128 as M128H3B, M2048 as M2048H3B, M256 as M256H3B, M4096 as M4096H3B,
+    M512 as M512H3B, M64 as M64H3B,
 };
 bench_hyper_three_bits!(M64H3B, M128H3B, M256H3B, M512H3B, M1024H3B, M2048H3B, M4096H3B);
 

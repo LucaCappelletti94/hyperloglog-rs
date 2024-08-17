@@ -1,18 +1,18 @@
 use cardinality_estimator::CardinalityEstimator;
-use hyperloglog_rs::prelude::{HasherType, Precision, Estimator, ExtendableApproximatedSet};
+use hyperloglog_rs::prelude::{Estimator, ExtendableApproximatedSet, HasherType, Precision};
 use hyperloglogplus::HyperLogLog as TabacHyperLogLog;
 use hyperloglogplus::HyperLogLogPF as TabacHyperLogLogPF;
 use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
 use hypertwobits::h2b::HyperTwoBits as H2B;
 use hypertwobits::h3b::HyperThreeBits as H3B;
 use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
+use simple_hll::HyperLogLog as SimpleHyperLogLog;
 use sourmash::signature::SigsTrait;
 use sourmash::sketch::hyperloglog::HyperLogLog as SourMashHyperLogLog;
 use std::marker::PhantomData;
 use std::usize;
 use streaming_algorithms::HyperLogLog as SAHyperLogLog;
 use twox_hash::RandomXxHashBuilder64;
-use simple_hll::HyperLogLog as SimpleHyperLogLog;
 
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
@@ -160,7 +160,9 @@ impl<P: Precision> hyperloglog_rs::prelude::Named for SourMash<P> {
 }
 
 #[cfg(feature = "std")]
-impl<H: HasherType, const P: usize, const B: usize> hyperloglog_rs::prelude::Named for CloudFlareHLL<P, B, H> {
+impl<H: HasherType, const P: usize, const B: usize> hyperloglog_rs::prelude::Named
+    for CloudFlareHLL<P, B, H>
+{
     fn name(&self) -> String {
         format!(
             "CF<P{}, B{}, Mix> + {}",

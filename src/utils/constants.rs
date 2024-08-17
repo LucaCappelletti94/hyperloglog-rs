@@ -23,19 +23,6 @@ pub(crate) trait Two {
     const TWO: Self;
 }
 
-/// The five value for this type.
-pub(crate) trait Five {
-    /// The five value for this type.
-    const FIVE: Self;
-}
-
-#[cfg(feature = "mle")]
-/// The ten value for this type.
-pub(crate) trait Ten {
-    /// The ten value for this type.
-    const TEN: Self;
-}
-
 /// Macro implementing several constants for integers.
 macro_rules! impl_constants {
     ($($t:ty)*) => ($(
@@ -59,26 +46,22 @@ macro_rules! impl_constants {
 impl_constants! { u8 u16 u32 u64 usize }
 impl_constants! { i32 }
 
-
 impl One for f64 {
     const ONE: Self = 1.0;
     #[inline]
-    fn is_one(&self) -> bool { (*self - 1.0).abs() < Self::EPSILON }
+    fn is_one(&self) -> bool {
+        (*self - 1.0).abs() < Self::EPSILON
+    }
 }
 impl Zero for f64 {
     const ZERO: Self = 0.0;
     #[inline]
-    fn is_zero(&self) -> bool { *self == 0.0 }
+    fn is_zero(&self) -> bool {
+        *self == 0.0
+    }
 }
 
 #[cfg(feature = "plusplus")]
 impl Two for f64 {
     const TWO: Self = 2.0;
-}
-impl Five for f64 {
-    const FIVE: Self = 5.0;
-}
-#[cfg(feature = "mle")]
-impl Ten for f64 {
-    const TEN: Self = 10.0;
 }

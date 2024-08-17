@@ -9,18 +9,6 @@ use super::{
 #[cfg(feature = "std")]
 use crate::prelude::Named;
 
-#[cfg(feature = "precision_4")]
-use crate::prelude::Precision4;
-#[cfg(feature = "precision_5")]
-use crate::prelude::Precision5;
-#[cfg(feature = "precision_6")]
-use crate::prelude::Precision6;
-#[cfg(feature = "precision_7")]
-use crate::prelude::Precision7;
-#[cfg(feature = "precision_8")]
-use crate::prelude::Precision8;
-#[cfg(feature = "precision_9")]
-use crate::prelude::Precision9;
 #[cfg(feature = "precision_10")]
 use crate::prelude::Precision10;
 #[cfg(feature = "precision_11")]
@@ -39,6 +27,18 @@ use crate::prelude::Precision16;
 use crate::prelude::Precision17;
 #[cfg(feature = "precision_18")]
 use crate::prelude::Precision18;
+#[cfg(feature = "precision_4")]
+use crate::prelude::Precision4;
+#[cfg(feature = "precision_5")]
+use crate::prelude::Precision5;
+#[cfg(feature = "precision_6")]
+use crate::prelude::Precision6;
+#[cfg(feature = "precision_7")]
+use crate::prelude::Precision7;
+#[cfg(feature = "precision_8")]
+use crate::prelude::Precision8;
+#[cfg(feature = "precision_9")]
+use crate::prelude::Precision9;
 
 /// Iterator over the registers.
 pub struct RegisterIter<'register, P: Precision, B: Bits, R: Words + Registers<P, B>>
@@ -57,7 +57,9 @@ where
     _phantom: PhantomData<(P, B, R)>,
 }
 
-impl<'register, P: Precision, B: Bits, R: Words + Registers<P, B>> RegisterIter<'register, P, B, R> {
+impl<'register, P: Precision, B: Bits, R: Words + Registers<P, B>>
+    RegisterIter<'register, P, B, R>
+{
     /// Creates a new instance of the register iterator.
     fn new(registers: &'register R) -> Self {
         let mut words = registers.words();
@@ -124,9 +126,11 @@ impl<'registers, P: Precision, B: Bits, R: Words + Registers<P, B>> TupleIter<'r
     fn new(left: &'registers R, right: &'registers R) -> Self {
         let mut left_iterator = left.words();
         let mut right_iterator = right.words();
-        let current_word = left_iterator
-            .next()
-            .and_then(|left_word| right_iterator.next().map(|right_word| (left_word, right_word)));
+        let current_word = left_iterator.next().and_then(|left_word| {
+            right_iterator
+                .next()
+                .map(|right_word| (left_word, right_word))
+        });
         Self {
             current_register: P::NumberOfRegisters::ZERO,
             left: left_iterator,

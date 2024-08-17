@@ -1,8 +1,8 @@
 //! Module to handle serialization and deserialization of the registers
-use core::marker::PhantomData;
-use serde::de::SeqAccess;
 use core::any::type_name;
 use core::fmt::Formatter;
+use core::marker::PhantomData;
+use serde::de::SeqAccess;
 use serde::de::Visitor;
 
 /// Struct to deserialize a vector of T
@@ -23,9 +23,7 @@ impl<T> RegisterVisitor<T> {
     }
 }
 
-impl<'de, T: Default + Copy + serde::Deserialize<'de>> Visitor<'de>
-    for RegisterVisitor<T>
-{
+impl<'de, T: Default + Copy + serde::Deserialize<'de>> Visitor<'de> for RegisterVisitor<T> {
     type Value = Vec<T>;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {

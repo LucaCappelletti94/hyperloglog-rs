@@ -22,15 +22,14 @@ pub fn xorshift64(mut x: u64) -> u64 {
 
 #[inline]
 /// Returns an iterator over random values.
-/// 
+///
 /// # Arguments
 /// * `maximal_size` - The maximal size of the iterator.
 /// * `maximal_value` - The maximal value of the iterator.
 /// * `random_state` - The random state.
-/// 
+///
 /// # Panics
 /// Panics if the maximal size is greater than `u64::MAX`.
-/// 
 pub fn iter_random_values(
     maximal_size: usize,
     maximal_value: Option<u64>,
@@ -45,14 +44,12 @@ pub fn iter_random_values(
     };
 
     random_state = splitmix64(splitmix64(random_state));
-    let actual_maximal_value = maximal_value.map_or(u64::MAX, |mv| {
-        xorshift64(random_state) % mv
-    });
+    let actual_maximal_value = maximal_value.map_or(u64::MAX, |mv| xorshift64(random_state) % mv);
     (0..actual_maximal_size).map(move |_| {
         random_state = splitmix64(splitmix64(random_state));
         random_state = xorshift64(random_state);
         if actual_maximal_value > 0 {
-            random_state  % actual_maximal_value
+            random_state % actual_maximal_value
         } else {
             0
         }
