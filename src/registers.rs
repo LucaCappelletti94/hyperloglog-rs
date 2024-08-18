@@ -7,8 +7,8 @@ use crate::utils::{FloatOps, Number, One, Words, Zero};
 mod array;
 mod packed_array;
 
-pub use array::{ArrayRegister, ArrayRegisters};
-pub use packed_array::{PackedArray, PackedArrayRegister, PackedArrayRegisters};
+pub use array::{ArrayRegister, AllArrays};
+pub use packed_array::{PackedArray, PackedArrayRegister, AllPackedArrays};
 
 /// Trait for a register word.
 pub(super) trait RegisterWord<B: Bits> {

@@ -46,6 +46,7 @@ pub(crate) fn cardinality_test<
     H: Estimator<f64> + Clone + TransparentMemSize + Named + ExtendableApproximatedSet<u64>,
 >(
     estimator: &H,
+    multi_progress: Option<&indicatif::MultiProgress>,
 ) -> Vec<PerformanceReport> {
     let number_of_vectors = 2_000_u64;
     let minimum_sample_interval = 5_u64;
@@ -66,9 +67,14 @@ pub(crate) fn cardinality_test<
 
     (0..number_of_vectors)
         .into_par_iter()
-        .progress_with(progress_bar)
+        .progress_with(if let Some(multi_progress) = multi_progress {
+            multi_progress.add(progress_bar)
+        } else {
+            progress_bar
+        })
         .flat_map(|thread_number| {
-            let mut random_state = splitmix64(splitmix64(random_state.wrapping_mul(thread_number + 1)));
+            let mut random_state =
+                splitmix64(splitmix64(random_state.wrapping_mul(thread_number + 1)));
             let mut performance_reports = Vec::new();
             let mut estimator = estimator.clone();
 
@@ -85,7 +91,7 @@ pub(crate) fn cardinality_test<
 
                     performance_reports.push(PerformanceReport {
                         prediction: estimator.estimate_cardinality(),
-                        memory_requirement: estimator.transparent_mem_size()
+                        memory_requirement: estimator.transparent_mem_size(),
                     });
                 }
             }
@@ -99,6 +105,7 @@ pub(crate) fn union_test<
     H: Estimator<f64> + Clone + TransparentMemSize + Named + ExtendableApproximatedSet<u64>,
 >(
     estimator: &H,
+    multi_progress: Option<&indicatif::MultiProgress>,
 ) -> Vec<PerformanceReport> {
     let number_of_vectors = 2_000_u64;
     let minimum_sample_interval = 5_u64;
@@ -120,7 +127,11 @@ pub(crate) fn union_test<
 
     (0..number_of_vectors)
         .into_par_iter()
-        .progress_with(progress_bar)
+        .progress_with(if let Some(multi_progress) = multi_progress {
+            multi_progress.add(progress_bar)
+        } else {
+            progress_bar
+        })
         .flat_map(|thread_number| {
             let mut performance_reports = Vec::new();
             let mut left_estimator = estimator.clone();

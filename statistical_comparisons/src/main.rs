@@ -1,5 +1,5 @@
 use hyperloglog_rs::prelude::*;
-use statistical_comparisons::cartesian_wilcoxon_test;
+// use statistical_comparisons::cartesian_wilcoxon_test;
 use statistical_comparisons::enumerations::*;
 use statistical_comparisons::reports_generator::SetTester;
 
@@ -23,6 +23,6 @@ fn main() {
     // HyperTwoVariants::prepare_union_reports();
     generate_hll_variant_reports!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
 
-    cartesian_wilcoxon_test("cardinality");
+    // cartesian_wilcoxon_test("cardinality");
     // cartesian_wilcoxon_test("union");
 }

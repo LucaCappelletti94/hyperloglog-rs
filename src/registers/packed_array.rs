@@ -297,7 +297,7 @@ pub trait PackedArrayRegister<B: Bits>: Precision {
 }
 
 /// Trait marker to associate a precision to all possible packed array registers.
-pub trait PackedArrayRegisters:
+pub trait AllPackedArrays:
     PackedArrayRegister<Bits1>
     + PackedArrayRegister<Bits2>
     + PackedArrayRegister<Bits3>
@@ -309,7 +309,7 @@ pub trait PackedArrayRegisters:
 {
 }
 
-impl<P: Precision> PackedArrayRegisters for P where
+impl<P: Precision> AllPackedArrays for P where
     P: PackedArrayRegister<Bits1>
         + PackedArrayRegister<Bits2>
         + PackedArrayRegister<Bits3>

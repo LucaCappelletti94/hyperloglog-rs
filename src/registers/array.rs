@@ -179,7 +179,7 @@ pub trait ArrayRegister<B: Bits>: Precision {
 }
 
 /// Trait marker to say that a given precision implements all of the array registers.
-pub trait ArrayRegisters:
+pub trait AllArrays:
     ArrayRegister<Bits1>
     + ArrayRegister<Bits2>
     + ArrayRegister<Bits3>
@@ -191,7 +191,7 @@ pub trait ArrayRegisters:
 {
 }
 
-impl<P: Precision> ArrayRegisters for P where
+impl<P: Precision> AllArrays for P where
     P: ArrayRegister<Bits1>
         + ArrayRegister<Bits2>
         + ArrayRegister<Bits3>
