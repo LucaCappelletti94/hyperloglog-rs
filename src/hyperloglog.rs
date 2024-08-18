@@ -104,15 +104,15 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
         )
         .unwrap();
 
-        // And we delete the used bits from the hash.
-        let mut censored_hash: u64 = hash >> P::EXPONENT;
-
         debug_assert!(
             index < P::NUMBER_OF_REGISTERS,
             "The index {} must be less than the number of registers {}.",
             index,
             P::NUMBER_OF_REGISTERS
         );
+
+        // And we censor we just used for the index.
+        let mut censored_hash: u64 = hash | 1 << P::EXPONENT;
 
         // We need to add ones to the hash to make sure that the
         // the number of zeros we obtain afterwards is never higher
@@ -122,7 +122,14 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
             censored_hash |= 1 << (64_u8 - ((u8::ONE << B::NUMBER_OF_BITS) - u8::ONE));
         }
 
-        let register_value = u8::try_from(censored_hash.leading_zeros() + 1).unwrap() - P::EXPONENT;
+        let register_value = u8::try_from(censored_hash.leading_zeros() + 1).unwrap();
+
+        debug_assert!(
+            register_value <= (1 << B::NUMBER_OF_BITS) - 1,
+            "The register value {} must be less than or equal to the maximum register value {}.",
+            register_value,
+            (1 << B::NUMBER_OF_BITS) - 1
+        );
 
         (register_value, index)
     }

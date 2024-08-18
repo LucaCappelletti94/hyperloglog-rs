@@ -11,7 +11,7 @@ pub struct PlusPlus<
     P: Precision,
     B: Bits,
     R: Registers<P, B>,
-    Hasher: HasherType,
+    Hasher: HasherType = twox_hash::XxHash64,
 > {
     /// The underlying `BasicLogLog` counter.
     counter: BasicLogLog<P, B, R, Hasher>,
