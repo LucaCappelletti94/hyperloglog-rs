@@ -29,7 +29,7 @@ pub(crate) fn write_csv<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: 
         .map_or(false, |ext| ext.eq_ignore_ascii_case("gz"));
 
     if use_gzip_compression {
-        let file = std::fs::File::create(format!("{path}.gz")).unwrap();
+        let file = std::fs::File::create(path).unwrap();
         let mut writer = csv::Writer::from_writer(flate2::write::GzEncoder::new(
             file,
             flate2::Compression::default(),
@@ -65,7 +65,7 @@ pub(crate) fn read_csv<V: DeserializeOwned>(path: &str) -> Result<Vec<V>, csv::E
         .map_or(false, |ext| ext.eq_ignore_ascii_case("gz"));
 
     if use_gzip_compression {
-        let file = std::fs::File::open(format!("{path}.gz")).unwrap();
+        let file = std::fs::File::open(path).unwrap();
         let reader = csv::Reader::from_reader(flate2::read::GzDecoder::new(file));
 
         reader.into_deserialize().collect()

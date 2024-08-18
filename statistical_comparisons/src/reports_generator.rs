@@ -7,6 +7,7 @@ use crate::{
     estimation_tests::{ErrorReport, PerformanceReport},
     traits::TransparentMemSize,
 };
+use indicatif::ProgressIterator;
 use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
 use strum::IntoEnumIterator;
@@ -77,7 +78,7 @@ where
             .progress_chars("##-"),
     );
 
-    for enum_entry in entries {
+    for enum_entry in entries.progress_with(entries_progress_bar) {
         // We do the same for each estimator.
         let path = format!("reports/{test_name}/{}.csv.gz", enum_entry.name());
         let report = test(&enum_entry, Some(&multi_progress));
@@ -89,6 +90,8 @@ where
             &path,
         );
     }
+
+    multi_progress.clear().unwrap();
 }
 
 /// Trait to prepare the reports for the cardinality and union tests.
