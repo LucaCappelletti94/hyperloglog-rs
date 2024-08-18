@@ -51,7 +51,7 @@ where
     // We filter the entries, so to be able to provide a loading bar that
     // only includes entry we actually process.
     let entries = entries.filter(|entry| {
-        let path = format!("reports/{test_name}/{}.csv", entry.name());
+        let path = format!("reports/{test_name}/{}.csv.gz", entry.name());
         !std::path::Path::new(&path).exists()
     }).filter(|entry|{
         // If the test name is "cardinality", we exclude all models whose
