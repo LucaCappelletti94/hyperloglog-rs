@@ -1,4 +1,6 @@
-use crate::proxy_implementations::*;
+//! This module contains the enumerations used in the benchmarks.
+
+use crate::proxy_implementations::{CloudFlareHLL, HyperThreeBits, HyperTwoBits, RustHLL, AlecHLL, SimpleHLL, TabacHLL, TabacHLLPlusPlus};
 use crate::traits::TransparentMemSize;
 use hyperloglog_rs::prelude::*;
 use hypertwobits::h2b::{
@@ -9,12 +11,15 @@ use hypertwobits::h3b::{
     M1024 as M1024H3B, M128 as M128H3B, M2048 as M2048H3B, M256 as M256H3B, M4096 as M4096H3B,
     M512 as M512H3B, M64 as M64H3B,
 };
-use macro_test_utils::*;
+use macro_test_utils::{Estimator, ExtendableApproximatedSet, Named, TransparentMemSize};
 use mem_dbg::MemSize;
 use strum_macros::EnumIter;
 
+
+#[allow(missing_docs)]
+#[expect(clippy::large_enum_variant, reason = "The enum is large due to the use of generics, but these are benchmarks and is to be expected.")]
 #[derive(Clone, Named, ExtendableApproximatedSet, Estimator, TransparentMemSize, EnumIter)]
-/// Enumerations will all HyperTwo variants we
+/// Enumerations will all `HyperTwo` variants we
 /// take into consideration for the benchmarks.
 pub enum HyperTwoVariants {
     H2BM64(HyperTwoBits<M64H2B>),
@@ -33,16 +38,18 @@ pub enum HyperTwoVariants {
     H3BM4096(HyperThreeBits<M4096H3B>),
 }
 
+#[allow(missing_docs)]
+#[expect(clippy::type_complexity, reason = "The type is complex due to the use of generics, but these are benchmarks and is to be expected.")]
 #[derive(Clone, Named, ExtendableApproximatedSet, Estimator, TransparentMemSize, EnumIter)]
-/// Enumerations will all HyperLogLog variants we
+/// Enumerations will all `HyperLogLog` variants we
 /// take into consideration for the benchmarks.
 pub enum HLLVariants<const EXPONENT: usize, P: Precision>
 where
-    P: ArrayRegisters + PackedArrayRegisters + Named,
+    P: AllArrays + AllPackedArrays + Named,
 {
     TabacHyperLogLogPlus(TabacHLLPlusPlus<P>),
     TabacHyperLogLogPF(TabacHLL<P>),
-    SAHyperLogLog(SAHLL<P>),
+    SAHyperLogLog(AlecHLL<P>),
     RustHyperLogLog(RustHLL<P>),
     CE4(CloudFlareHLL<EXPONENT, 4, wyhash::WyHash>),
     CE5(CloudFlareHLL<EXPONENT, 5, wyhash::WyHash>),

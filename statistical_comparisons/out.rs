@@ -1396,17 +1396,17 @@ pub mod utils {
             }
         }
     }
-    struct SAHLL<P: Precision> {
+    struct AlecHLL<P: Precision> {
         estimator: SAHyperLogLog<u64>,
         _precision: PhantomData<P>,
     }
     #[automatically_derived]
-    impl<P: ::core::fmt::Debug + Precision> ::core::fmt::Debug for SAHLL<P> {
+    impl<P: ::core::fmt::Debug + Precision> ::core::fmt::Debug for AlecHLL<P> {
         #[inline]
         fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
             ::core::fmt::Formatter::debug_struct_field2_finish(
                 f,
-                "SAHLL",
+                "AlecHLL",
                 "estimator",
                 &self.estimator,
                 "_precision",
@@ -1415,17 +1415,17 @@ pub mod utils {
         }
     }
     #[automatically_derived]
-    impl<P: ::core::clone::Clone + Precision> ::core::clone::Clone for SAHLL<P> {
+    impl<P: ::core::clone::Clone + Precision> ::core::clone::Clone for AlecHLL<P> {
         #[inline]
-        fn clone(&self) -> SAHLL<P> {
-            SAHLL {
+        fn clone(&self) -> AlecHLL<P> {
+            AlecHLL {
                 estimator: ::core::clone::Clone::clone(&self.estimator),
                 _precision: ::core::clone::Clone::clone(&self._precision),
             }
         }
     }
     #[automatically_derived]
-    impl<P: Precision> mem_dbg::MemDbgImpl for SAHLL<P>
+    impl<P: Precision> mem_dbg::MemDbgImpl for AlecHLL<P>
     where
         SAHyperLogLog<u64>: mem_dbg::MemDbgImpl,
         PhantomData<P>: mem_dbg::MemDbgImpl,
@@ -1441,8 +1441,8 @@ pub mod utils {
             _memdbg_flags: mem_dbg::DbgFlags,
         ) -> core::fmt::Result {
             let mut id_sizes: Vec<(usize, usize)> = ::alloc::vec::Vec::new();
-            id_sizes.push((0usize, { builtin # offset_of(SAHLL < P >, estimator) }));
-            id_sizes.push((1usize, { builtin # offset_of(SAHLL < P >, _precision) }));
+            id_sizes.push((0usize, { builtin # offset_of(AlecHLL < P >, estimator) }));
+            id_sizes.push((1usize, { builtin # offset_of(AlecHLL < P >, _precision) }));
             let n = id_sizes.len();
             id_sizes.push((n, core::mem::size_of::<Self>()));
             id_sizes.sort_by_key(|x| x.1);
@@ -1496,7 +1496,7 @@ pub mod utils {
         }
     }
     #[automatically_derived]
-    impl<P: Precision> mem_dbg::CopyType for SAHLL<P>
+    impl<P: Precision> mem_dbg::CopyType for AlecHLL<P>
     where
         SAHyperLogLog<u64>: mem_dbg::MemSize,
         PhantomData<P>: mem_dbg::MemSize,
@@ -1504,7 +1504,7 @@ pub mod utils {
         type Copy = mem_dbg::False;
     }
     #[automatically_derived]
-    impl<P: Precision> mem_dbg::MemSize for SAHLL<P>
+    impl<P: Precision> mem_dbg::MemSize for AlecHLL<P>
     where
         SAHyperLogLog<u64>: mem_dbg::MemSize,
         PhantomData<P>: mem_dbg::MemSize,
@@ -1524,7 +1524,7 @@ pub mod utils {
             bytes
         }
     }
-    impl<P: Precision> Default for SAHLL<P> {
+    impl<P: Precision> Default for AlecHLL<P> {
         fn default() -> Self {
             Self {
                 estimator: SAHyperLogLog::new(P::error_rate()),
@@ -1633,7 +1633,7 @@ pub mod utils {
         }
     }
     #[cfg(feature = "std")]
-    impl<P: Precision> hyperloglog_rs::prelude::Named for SAHLL<P> {
+    impl<P: Precision> hyperloglog_rs::prelude::Named for AlecHLL<P> {
         fn name(&self) -> String {
             match (&(P::EXPONENT as u8), &self.estimator.precision()) {
                 (left_val, right_val) => {
@@ -1710,7 +1710,7 @@ pub mod utils {
             true
         }
     }
-    impl<P: Precision> ExtendableApproximatedSet<u64> for SAHLL<P> {
+    impl<P: Precision> ExtendableApproximatedSet<u64> for AlecHLL<P> {
         fn insert(&mut self, item: &u64) -> bool {
             self.estimator.push(item);
             true
@@ -1821,7 +1821,7 @@ pub mod utils {
             false
         }
     }
-    impl<P: Precision> Estimator<f64> for SAHLL<P> {
+    impl<P: Precision> Estimator<f64> for AlecHLL<P> {
         fn estimate_cardinality(&self) -> f64 {
             self.estimator.len() as f64
         }
@@ -2191,11 +2191,11 @@ pub mod utils {
     /// take into consideration for the benchmarks.
     pub enum HLLVariants<const EXPONENT: usize, P: Precision>
     where
-        P: ArrayRegisters + PackedArrayRegisters + Named + MemSize + MemDbg,
+        P: AllArrays + AllPackedArrays + Named + MemSize + MemDbg,
     {
         TabacHyperLogLogPlus(TabacHLLPlusPlus<P>),
         TabacHyperLogLogPF(TabacHLL<P>),
-        SAHyperLogLog(SAHLL<P>),
+        SAHyperLogLog(AlecHLL<P>),
         RustHyperLogLog(RustHLL<P>),
         CE4(CloudFlareHLL<EXPONENT, 4, wyhash::WyHash>),
         CE5(CloudFlareHLL<EXPONENT, 5, wyhash::WyHash>),
@@ -2884,7 +2884,7 @@ pub mod utils {
     impl<const EXPONENT: usize, P: ::core::clone::Clone + Precision> ::core::clone::Clone
     for HLLVariants<EXPONENT, P>
     where
-        P: ArrayRegisters + PackedArrayRegisters + Named + MemSize + MemDbg,
+        P: AllArrays + AllPackedArrays + Named + MemSize + MemDbg,
     {
         #[inline]
         fn clone(&self) -> HLLVariants<EXPONENT, P> {
@@ -3224,7 +3224,7 @@ pub mod utils {
     }
     impl<const EXPONENT: usize, P: Precision> Named for HLLVariants<EXPONENT, P>
     where
-        P: ArrayRegisters + PackedArrayRegisters + Named + MemSize + MemDbg,
+        P: AllArrays + AllPackedArrays + Named + MemSize + MemDbg,
     {
         fn name(&self) -> String {
             match self {
@@ -3312,7 +3312,7 @@ pub mod utils {
     impl<const EXPONENT: usize, P: Precision> ExtendableApproximatedSet<u64>
     for HLLVariants<EXPONENT, P>
     where
-        P: ArrayRegisters + PackedArrayRegisters + Named + MemSize + MemDbg,
+        P: AllArrays + AllPackedArrays + Named + MemSize + MemDbg,
     {
         fn insert(&mut self, element: &u64) -> bool {
             match self {
@@ -3403,7 +3403,7 @@ pub mod utils {
     }
     impl<const EXPONENT: usize, P: Precision> Estimator<f64> for HLLVariants<EXPONENT, P>
     where
-        P: ArrayRegisters + PackedArrayRegisters + Named + MemSize + MemDbg,
+        P: AllArrays + AllPackedArrays + Named + MemSize + MemDbg,
     {
         fn estimate_cardinality(&self) -> f64 {
             match self {
@@ -4163,7 +4163,7 @@ pub mod utils {
     impl<const EXPONENT: usize, P: Precision> TransparentMemSize
     for HLLVariants<EXPONENT, P>
     where
-        P: ArrayRegisters + PackedArrayRegisters + Named + MemSize + MemDbg,
+        P: AllArrays + AllPackedArrays + Named + MemSize + MemDbg,
     {
         fn transparent_mem_size(&self) -> usize {
             match self {

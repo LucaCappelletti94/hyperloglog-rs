@@ -230,7 +230,7 @@ macro_rules! bench_cardinalities {
                 }
 
                 fn [<bench_sa_union_ $precision:lower>] (b: &mut Criterion) {
-                    union_bencher::<SAHLL<$precision>>(b);
+                    union_bencher::<AlecHLL<$precision>>(b);
                 }
 
                 criterion_group! {

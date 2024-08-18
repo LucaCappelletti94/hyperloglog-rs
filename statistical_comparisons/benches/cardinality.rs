@@ -167,7 +167,7 @@ macro_rules! bench_cardinalities {
                 }
 
                 fn [<bench_sa_cardinality_ $precision:lower>] (b: &mut Criterion) {
-                    cardinality_bencher::<SAHLL<$precision>>(b);
+                    cardinality_bencher::<AlecHLL<$precision>>(b);
                 }
 
                 criterion_group! {

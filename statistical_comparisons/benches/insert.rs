@@ -92,7 +92,7 @@ macro_rules! bench_cardinalities {
                 }
 
                 fn [<bench_sa_insert_ $precision:lower>] (b: &mut Criterion) {
-                    insert_bencher::<SAHLL<$precision>>(b);
+                    insert_bencher::<AlecHLL<$precision>>(b);
                 }
 
                 criterion_group! {

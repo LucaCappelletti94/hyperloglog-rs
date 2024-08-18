@@ -8,20 +8,15 @@ use indicatif::ParallelProgressIterator;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use rayon::prelude::*;
-use serde::de::DeserializeOwned;
 
 #[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
-pub struct PerformanceReport {
+pub(crate) struct PerformanceReport {
     prediction: f64,
     memory_requirement: usize,
 }
 
-pub trait Header: DeserializeOwned + Into<Vec<String>> {
-    fn header() -> &'static [&'static str];
-}
-
 #[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
-pub struct ErrorReport {
+pub(crate) struct ErrorReport {
     error: f64,
     memory_requirement: usize,
 }
@@ -47,49 +42,19 @@ impl ErrorReport {
     }
 }
 
-impl Header for ErrorReport {
-    fn header() -> &'static [&'static str] {
-        &["error", "memory"]
-    }
-}
-
-impl Into<Vec<String>> for ErrorReport {
-    fn into(self) -> Vec<String> {
-        vec![
-            format!("{:.10}", self.error),
-            format!("{}", self.memory_requirement),
-        ]
-    }
-}
-
-impl Header for PerformanceReport {
-    fn header() -> &'static [&'static str] {
-        &["prediction", "memory"]
-    }
-}
-
-impl Into<Vec<String>> for PerformanceReport {
-    fn into(self) -> Vec<String> {
-        vec![
-            format!("{:.2}", self.prediction),
-            format!("{}", self.memory_requirement),
-        ]
-    }
-}
-
 pub(crate) fn cardinality_test<
     H: Estimator<f64> + Clone + TransparentMemSize + Named + ExtendableApproximatedSet<u64>,
 >(
-    estimator: H,
+    estimator: &H,
 ) -> Vec<PerformanceReport> {
-    let number_of_vectors = 2000;
-    let minimum_sample_interval = 5;
-    let maximum_sample_interval = 1000;
-    let random_state = splitmix64(9516748163234878233_u64);
+    let number_of_vectors = 2_000_u64;
+    let minimum_sample_interval = 5_u64;
+    let maximum_sample_interval = 10_000_u64;
+    let random_state = splitmix64(9_516_748_163_234_878_233_u64);
 
     let estimator_name = estimator.name();
 
-    let progress_bar = ProgressBar::new(number_of_vectors as u64);
+    let progress_bar = ProgressBar::new(number_of_vectors);
     progress_bar.set_style(
         ProgressStyle::default_bar()
             .template(&format!(
@@ -109,20 +74,18 @@ pub(crate) fn cardinality_test<
 
             let mut current_sample_rate = minimum_sample_interval;
 
-            for (i, l) in iter_random_values(2_000_000, None, random_state).enumerate() {
-                estimator.insert(&l);
+            for (i, element) in iter_random_values(2_000_000, None, random_state).enumerate() {
+                estimator.insert(&element);
 
-                if i % current_sample_rate == 0 {
+                if u64::try_from(i).unwrap() % current_sample_rate == 0 {
                     if current_sample_rate < maximum_sample_interval {
                         random_state = splitmix64(random_state);
-                        current_sample_rate += random_state as usize % current_sample_rate;
+                        current_sample_rate += random_state % current_sample_rate;
                     }
 
-                    let cardinality = estimator.estimate_cardinality();
-                    let memory_requirement = estimator.transparent_mem_size();
                     performance_reports.push(PerformanceReport {
-                        prediction: cardinality,
-                        memory_requirement,
+                        prediction: estimator.estimate_cardinality(),
+                        memory_requirement: estimator.transparent_mem_size()
                     });
                 }
             }
@@ -135,17 +98,17 @@ pub(crate) fn cardinality_test<
 pub(crate) fn union_test<
     H: Estimator<f64> + Clone + TransparentMemSize + Named + ExtendableApproximatedSet<u64>,
 >(
-    estimator: H,
+    estimator: &H,
 ) -> Vec<PerformanceReport> {
-    let number_of_vectors = 2000;
-    let minimum_sample_interval = 5;
-    let maximum_sample_interval = 1000;
-    let left_random_state = splitmix64(5647315671326798672_u64);
-    let right_random_state = splitmix64(4457567787334878233_u64);
+    let number_of_vectors = 2_000_u64;
+    let minimum_sample_interval = 5_u64;
+    let maximum_sample_interval = 10_000_u64;
+    let left_random_state = splitmix64(5_647_315_671_326_798_672_u64);
+    let right_random_state = splitmix64(4_457_567_787_334_878_233_u64);
 
     let estimator_name = estimator.name();
 
-    let progress_bar = ProgressBar::new(number_of_vectors as u64);
+    let progress_bar = ProgressBar::new(number_of_vectors);
     progress_bar.set_style(
         ProgressStyle::default_bar()
             .template(&format!(
@@ -194,7 +157,7 @@ pub(crate) fn union_test<
                 if i % current_sample_rate == 0 {
                     if current_sample_rate < maximum_sample_interval {
                         left_random_state = splitmix64(left_random_state);
-                        current_sample_rate += left_random_state as usize % current_sample_rate;
+                        current_sample_rate += left_random_state % current_sample_rate;
                     }
 
                     let union_cardinality =

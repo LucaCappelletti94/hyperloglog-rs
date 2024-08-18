@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use mem_dbg::MemSize;
 
-/// A variant on the MemSize trait where the size of the
+/// A variant on the `MemSize` trait where the size of the
 /// enum is skipped from the calculation. It always follow
 /// the references.
 pub trait TransparentMemSize {

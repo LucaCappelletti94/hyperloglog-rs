@@ -2,14 +2,15 @@
 //! and then running the statistical tests.
 use core::{f64, fmt};
 use std::fmt::Display;
+use std::iter::Sum;
+use std::ops::Div;
 
-use crate::estimation_tests::{ErrorReport, Header};
-use crate::reports_generator::read_report_from_csv;
-use crate::utils::{write_csv, mean, mean_usize, standard_deviation};
+use crate::csv_utils::{read_csv, write_csv};
+use crate::estimation_tests::ErrorReport;
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
-use stattest::test::WilcoxonWTest;
 use stattest::test::StatisticalTest;
+use stattest::test::WilcoxonWTest;
 
 #[derive(Debug, PartialEq, Copy, serde::Deserialize, Clone, serde::Serialize)]
 enum Outcome {
@@ -48,49 +49,87 @@ struct WilcoxonTestResult {
     second_std: f64,
 }
 
-impl Into<Vec<String>> for WilcoxonTestResult {
-    fn into(self) -> Vec<String> {
-        vec![
-            self.first_approach_name,
-            self.second_approach_name,
-            format!("{:.5}", self.p_value),
-            self.outcome.to_string(),
-            format!("{}", self.first_memsize),
-            format!("{:.6}", self.first_mean),
-            format!("{:.6}", self.first_std),
-            format!("{}", self.second_memsize),
-            format!("{:.6}", self.second_mean),
-            format!("{:.6}", self.second_std),
-        ]
-    }
+#[derive(Debug)]
+struct ReportInformations {
+    absolute_errors: Vec<f64>,
+    mean_memory_requirements: usize,
+    mean_absolute_error: f64,
+    std_absolute_error: f64,
+    name: String,
 }
 
-impl Header for WilcoxonTestResult {
-    fn header() -> &'static [&'static str] {
-        &[
-            "first_approach",
-            "second_approach",
-            "p-value",
-            "winner",
-            "first_memsize",
-            "first_mean_error",
-            "first_std_error",
-            "second_memsize",
-            "second_mean_error",
-            "second_std_error",
-        ]
-    }
+fn standard_deviation(values: &[f64], mean: f64) -> f64 {
+    // The values are always less than `u32::MAX`, so we can safely convert them.
+    let number_of_values = f64::from(u32::try_from(values.len()).unwrap());
+    let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / number_of_values;
+    variance.sqrt()
 }
 
+fn mean<T, I>(values: I) -> T
+where
+    I: ExactSizeIterator<Item = T>,
+    T: Sum + Div<T, Output = T> + TryFrom<u32>,
+    <T as std::convert::TryFrom<u32>>::Error: std::fmt::Debug,
+{
+    // The values are always less than `u32::MAX`, so we can safely convert them.
+    let number_of_values = T::try_from(u32::try_from(values.len()).unwrap()).unwrap();
+    values.sum::<T>() / number_of_values
+}
+
+/// Runs a cartesian (`NxN`) Paired Signed-rank Wilcoxon test on the reports of a given feature.
+///
+/// Since these tests are by nature simmetrical, we only run the tests for the upper triangular
+/// matrix of the comparisons.
+///
+/// # Arguments
+/// * `feature_name` - The name of the feature to compare.
+/// 
+/// # Panics
+/// * If the reports are not found.
 pub fn cartesian_wilcoxon_test(feature_name: &str) {
     // We load the list of files in the 'reports/{feature_name}' directory,
     // which will be all in the form 'reports/{feature_name}/{approach_name}.csv'.
 
-    let reports = std::fs::read_dir(format!("reports/{feature_name}"))
+    let report_paths = std::fs::read_dir(format!("reports/{feature_name}"))
         .unwrap()
         .map(|entry| entry.unwrap().path())
-        .filter(|path| path.is_file() && path.extension().unwrap() == "csv")
+        .filter(|path| {
+            // We check that the document is a file and the file name ends with '.csv.gz'.
+            path.is_file() && path.to_str().unwrap().ends_with(".csv.gz")
+        })
         .collect::<Vec<_>>();
+
+    let progress_bar = indicatif::ProgressBar::new(report_paths.len() as u64);
+
+    progress_bar.set_style(
+        indicatif::ProgressStyle::default_bar()
+            .template("Loading reports: [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
+            .unwrap()
+            .progress_chars("##-"),
+    );
+
+    // First, we load all of the reports in parallel.
+    let reports: Vec<ReportInformations> = report_paths
+        .par_iter()
+        .progress_with(progress_bar)
+        .map(|path| {
+            let approach_name = path.file_stem().unwrap().to_str().unwrap();
+            let path: &str = path.to_str().unwrap();
+            let report: Vec<ErrorReport> = read_csv(path).unwrap();
+            let absolute_errors = report.iter().map(ErrorReport::error).collect::<Vec<f64>>();
+            let absolute_errors_mean = mean(absolute_errors.iter().copied());
+            let mean_memory = mean(report.iter().map(ErrorReport::memory_requirement));
+            let std_error = standard_deviation(&absolute_errors, absolute_errors_mean);
+
+            ReportInformations {
+                absolute_errors,
+                mean_memory_requirements: mean_memory,
+                mean_absolute_error: absolute_errors_mean,
+                std_absolute_error: std_error,
+                name: approach_name.to_string(),
+            }
+        })
+        .collect::<Vec<ReportInformations>>();
 
     let progress_bar = indicatif::ProgressBar::new(reports.len() as u64);
 
@@ -107,59 +146,38 @@ pub fn cartesian_wilcoxon_test(feature_name: &str) {
         .par_iter()
         .enumerate()
         .progress_with(progress_bar)
-        .flat_map(|(i, path)| {
-            let approach_name = path.file_stem().unwrap().to_str().unwrap();
-            let path: &str = path.to_str().unwrap();
-            let report: Vec<ErrorReport> = read_report_from_csv(path).unwrap();
-            let absolute_errors = report.iter().map(|r| r.error()).collect::<Vec<_>>();
-            let memory_requirements = report.iter().map(|r| r.memory_requirement()).collect::<Vec<_>>();
-            let absolute_errors_mean = mean(&absolute_errors);
-            let mean_memory = mean_usize(&memory_requirements);
-            let std_error = standard_deviation(&absolute_errors, absolute_errors_mean);
+        .flat_map(|(i, report)| {
+            reports.par_iter().skip(1 + i).map(|inner_report| {
+                let w_test =
+                    WilcoxonWTest::paired(&report.absolute_errors, &inner_report.absolute_errors);
 
-            reports
-                .iter()
-                .skip(1 + i)
-                .map(|inner_path| {
-                    let inner_approach_name = inner_path.file_stem().unwrap().to_str().unwrap();
-                    let inner_path: &str = inner_path.to_str().unwrap();
-                    let inner_report: Vec<ErrorReport> = read_report_from_csv(inner_path).unwrap();
-                    let inner_absolute_errors = inner_report.iter().map(|r| r.error()).collect::<Vec<_>>();
-                    let inner_memory_requirements = inner_report.iter().map(|r| r.memory_requirement()).collect::<Vec<_>>();
-                    let inner_absolute_errors_mean = mean(&inner_absolute_errors);
-                    let inner_mean_memory = mean_usize(&inner_memory_requirements);
-                    let inner_std_error = standard_deviation(&inner_absolute_errors, inner_absolute_errors_mean);
-
-                    let w_test = WilcoxonWTest::paired(&absolute_errors, &inner_absolute_errors);
-
-                    let outcome = if let Ok(w_test) = w_test {
-                        if w_test.p_value() < 0.05 {
-                            if mean_memory < inner_mean_memory {
-                                Outcome::First
-                            } else {
-                                Outcome::Second
-                            }
+                let outcome = if let Ok(w_test) = w_test {
+                    if w_test.p_value() < 0.05 {
+                        if report.mean_absolute_error < inner_report.mean_absolute_error {
+                            Outcome::First
                         } else {
-                            Outcome::Tied
+                            Outcome::Second
                         }
                     } else {
-                        Outcome::Failed
-                    };
-
-                    WilcoxonTestResult {
-                        first_approach_name: approach_name.to_string(),
-                        second_approach_name: inner_approach_name.to_string(),
-                        p_value: w_test.map_or(f64::NAN, |w_test| w_test.p_value()),
-                        outcome,
-                        first_memsize: memory_requirements.len(),
-                        first_mean: absolute_errors_mean,
-                        first_std: std_error,
-                        second_memsize: inner_memory_requirements.len(),
-                        second_mean: inner_absolute_errors_mean,
-                        second_std: inner_std_error,
+                        Outcome::Tied
                     }
-                })
-                .collect::<Vec<WilcoxonTestResult>>()
+                } else {
+                    Outcome::Failed
+                };
+
+                WilcoxonTestResult {
+                    first_approach_name: report.name.clone(),
+                    second_approach_name: inner_report.name.clone(),
+                    p_value: w_test.map_or(f64::NAN, |w| w.p_value()),
+                    outcome,
+                    first_memsize: report.mean_memory_requirements,
+                    first_mean: report.mean_absolute_error,
+                    first_std: report.std_absolute_error,
+                    second_memsize: inner_report.mean_memory_requirements,
+                    second_mean: inner_report.mean_absolute_error,
+                    second_std: inner_report.std_absolute_error,
+                }
+            })
         })
         .collect::<Vec<WilcoxonTestResult>>();
 

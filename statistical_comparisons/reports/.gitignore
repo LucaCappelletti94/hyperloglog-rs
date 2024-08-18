@@ -1,2 +1,4 @@
 ./cardinality/*.csv
 ./union/*.csv
+cardinality-HashSet.csv
+union-HashSet.csv
