@@ -40,6 +40,14 @@ precomputed_beta = ["hyperloglog-rs/precomputed_beta"]
 integer_plusplus = ["hyperloglog-rs/integer_plusplus"]
 plusplus_kmeans = ["hyperloglog-rs/plusplus_kmeans"]
 
+[profile.release]
+overflow-checks = false   # Disable integer overflow checks.
+debug = false            # Include debug info.
+debug-assertions = false  # Enables debug assertions.
+opt-level = 3
+codegen-units = 1
+
+
 [[bench]]
 name = "insert"
 harness = false

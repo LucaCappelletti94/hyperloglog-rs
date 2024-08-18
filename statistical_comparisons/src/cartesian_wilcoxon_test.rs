@@ -83,7 +83,7 @@ where
 ///
 /// # Arguments
 /// * `feature_name` - The name of the feature to compare.
-/// 
+///
 /// # Panics
 /// * If the reports are not found.
 pub fn cartesian_wilcoxon_test(feature_name: &str) {
@@ -135,6 +135,27 @@ pub fn cartesian_wilcoxon_test(feature_name: &str) {
 
     progress_bar.set_style(
         indicatif::ProgressStyle::default_bar()
+            .template("Preparing tasks: [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
+            .unwrap()
+            .progress_chars("##-"),
+    );
+
+    // Next, we prepare the tasks to run by pre-rendering the test tuples to evaluate.
+    let tasks: Vec<(&ReportInformations, &ReportInformations)> = reports
+        .par_iter()
+        .enumerate()
+        .progress_with(progress_bar)
+        .flat_map(|(i, report)| {
+            reports[1 + i..]
+                .par_iter()
+                .map(move |inner_report| (report, inner_report))
+        })
+        .collect();
+
+    let progress_bar = indicatif::ProgressBar::new(tasks.len() as u64);
+
+    progress_bar.set_style(
+        indicatif::ProgressStyle::default_bar()
             .template(
                 "Running Wilcoxon tests: [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}",
             )
@@ -142,42 +163,38 @@ pub fn cartesian_wilcoxon_test(feature_name: &str) {
             .progress_chars("##-"),
     );
 
-    let results = reports
+    let results = tasks
         .par_iter()
-        .enumerate()
         .progress_with(progress_bar)
-        .flat_map(|(i, report)| {
-            reports.par_iter().skip(1 + i).map(|inner_report| {
-                let w_test =
-                    WilcoxonWTest::paired(&report.absolute_errors, &inner_report.absolute_errors);
+        .map(|(left, right)| {
+            let w_test = WilcoxonWTest::paired(&left.absolute_errors, &right.absolute_errors);
 
-                let outcome = if let Ok(w_test) = w_test {
-                    if w_test.p_value() < 0.05 {
-                        if report.mean_absolute_error < inner_report.mean_absolute_error {
-                            Outcome::First
-                        } else {
-                            Outcome::Second
-                        }
+            let outcome = if let Ok(w_test) = w_test {
+                if w_test.p_value() < 0.05 {
+                    if left.mean_absolute_error < right.mean_absolute_error {
+                        Outcome::First
                     } else {
-                        Outcome::Tied
+                        Outcome::Second
                     }
                 } else {
-                    Outcome::Failed
-                };
-
-                WilcoxonTestResult {
-                    first_approach_name: report.name.clone(),
-                    second_approach_name: inner_report.name.clone(),
-                    p_value: w_test.map_or(f64::NAN, |w| w.p_value()),
-                    outcome,
-                    first_memsize: report.mean_memory_requirements,
-                    first_mean: report.mean_absolute_error,
-                    first_std: report.std_absolute_error,
-                    second_memsize: inner_report.mean_memory_requirements,
-                    second_mean: inner_report.mean_absolute_error,
-                    second_std: inner_report.std_absolute_error,
+                    Outcome::Tied
                 }
-            })
+            } else {
+                Outcome::Failed
+            };
+
+            WilcoxonTestResult {
+                first_approach_name: left.name.clone(),
+                second_approach_name: right.name.clone(),
+                p_value: w_test.map_or(f64::NAN, |w| w.p_value()),
+                outcome,
+                first_memsize: left.mean_memory_requirements,
+                first_mean: left.mean_absolute_error,
+                first_std: left.std_absolute_error,
+                second_memsize: right.mean_memory_requirements,
+                second_mean: right.mean_absolute_error,
+                second_std: right.std_absolute_error,
+            }
         })
         .collect::<Vec<WilcoxonTestResult>>();
 
