@@ -170,10 +170,12 @@ macro_rules! hll_impl {
             }
         }
 
-        impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B> + VariableWords<CH>, CH: CompositeHash>
+        impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B> + VariableWords<CH>, CH: CompositeHash<P, B>>
             Hybridazable<CH> for $counter
         {
             type IterSortedHashes<'words> = <R as VariableWords<CH>>::Iter<'words> where Self: 'words, CH: 'words;
+            type P = P;
+            type B = B;
 
             #[inline]
             fn is_hybrid(&self) -> bool {

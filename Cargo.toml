@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [".", "evaluate_composite_hash", "statistical_comparisons", "statistical_comparisons/macro_test_utils"]
+members = [".", "evaluate_composite_hash", "hyperloglog-derive", "statistical_comparisons", "statistical_comparisons/macro_test_utils"]
 
 [package]
 name = "hyperloglog-rs"
@@ -33,6 +33,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"], opti
 paste = "1.0.15"
 twox-hash = {version="1.6.3", default-features = false}
 mem_dbg = {version = "0.2.4", optional = true}
+hyperloglog-derive = { path = "hyperloglog-derive" }
 
 [build-dependencies]
 serde_json = "1.0"

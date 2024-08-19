@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::hash::Hasher;
-use twox_hash::XxHash64;
+use wyhash::WyHash;
 
 #[derive(Serialize, Deserialize)]
 /// Struct to store the collision report.
@@ -26,7 +26,7 @@ struct CollisionReport {
 }
 
 /// Function to evaluate the collision rate of the composite hash.
-fn collision_rate<H: CompositeHash, P: Precision, B: Bits>() -> Option<CollisionReport>
+fn collision_rate<H: CompositeHash<P, B>, P: Precision, B: Bits>() -> Option<CollisionReport>
 where
     P: ArrayRegister<B>,
 {
@@ -42,7 +42,7 @@ where
     let number_of_elements: u64 =
         (1_u64 << P::EXPONENT) * B::NUMBER_OF_BITS_U64 / H::NUMBER_OF_BITS_U64;
 
-    let number_of_iterations = 50_000;
+    let number_of_iterations = 500_000;
 
     let (total_collision_rate, total_number_of_collisions) = (0..number_of_iterations)
         .into_par_iter()
@@ -54,7 +54,7 @@ where
                 random_state = splitmix64(random_state);
                 let value = random_state;
 
-                let mut hasher = XxHash64::default();
+                let mut hasher = WyHash::default();
                 value.hash(&mut hasher);
                 let hash = hasher.finish();
 
@@ -63,13 +63,13 @@ where
 
                 // We extract from
                 let (register, index) =
-                    PlusPlus::<P, B, <P as ArrayRegister<B>>::Packed, XxHash64>::split_hash(hash);
+                    PlusPlus::<P, B, <P as ArrayRegister<B>>::Packed, WyHash>::split_hash(hash);
 
-                let encoded = H::encode::<P, B>(register, index, hash);
-                let (decoded_register, decoded_index) = H::decode::<P, B>(encoded);
+                let encoded = H::encode(register, hash);
+                let (decoded_register, decoded_index) = H::decode(encoded);
 
-                assert_eq!(register, decoded_register);
-                assert_eq!(index, decoded_index);
+                assert_eq!(register, decoded_register, "Failure at precision {}, bits {} and hash {}", P::EXPONENT, B::NUMBER_OF_BITS, H::NUMBER_OF_BITS);
+                assert_eq!(index, decoded_index, "Failure at precision {}, bits {} and hash {}", P::EXPONENT, B::NUMBER_OF_BITS, H::NUMBER_OF_BITS);
 
                 // We insert the composite hash in the hashset.
                 hashset_composite.insert(encoded);
@@ -131,17 +131,23 @@ macro_rules! test_collision_rate {
 }
 
 fn main() {
-    let progress_bar = indicatif::ProgressBar::new(157);
+    let progress_bar = indicatif::ProgressBar::new(250);
 
     progress_bar.set_style(
         indicatif::ProgressStyle::default_bar()
-            .template("Computing hash collision rates: [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+            .template("Computing hash collision rates: [{elapsed_precise} | {eta}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
             .unwrap()
             .progress_chars("##-"),
     );
 
     let mut reports: Vec<CollisionReport> = vec![];
-    test_collision_rate!(progress_bar, reports, u8, u16, u32, u40, u64);
+
+    test_composite_hash!(progress_bar, reports, u8, 4, Bits4);
+    test_composite_hash_precisions!(progress_bar, reports, u16, 4, 5, 6, 7, 8, 9, 10);
+    test_composite_hash!(progress_bar, reports, u16, 11, Bits4, Bits5);
+    test_composite_hash!(progress_bar, reports, u16, 12, Bits4);
+
+    test_collision_rate!(progress_bar, reports, u32, u40, u48, u56, u64);
 
     // We write the reports to a CSV using csv and serde.
 

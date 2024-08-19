@@ -3,9 +3,7 @@
 //! are not a power of two.
 use super::PositiveInteger;
 use core::fmt::Debug;
-
-mod word_u40;
-pub use word_u40::u40;
+use hyperloglog_derive::VariableWord;
 
 /// Trait marker for the variable word.
 pub trait VariableWord: Send + Sync + Clone + Copy + Debug + Default {
@@ -23,6 +21,21 @@ pub trait VariableWord: Send + Sync + Clone + Copy + Debug + Default {
     type Word: PositiveInteger + TryInto<u8> + TryInto<u16> + TryInto<u32> + TryInto<u64>;
 }
 
+/// Virtual word with 40 bits.
+#[allow(non_camel_case_types)]
+#[derive(VariableWord)]
+pub struct u40(u64);
+
+/// Virtual word with 48 bits.
+#[allow(non_camel_case_types)]
+#[derive(VariableWord)]
+pub struct u48(u64);
+
+/// Virtual word with 56 bits.
+#[allow(non_camel_case_types)]
+#[derive(VariableWord)]
+pub struct u56(u64);
+
 impl VariableWord for u8 {
     const NUMBER_OF_BITS: u8 = 8;
     type Word = u8;
@@ -39,12 +52,6 @@ impl VariableWord for u32 {
     const NUMBER_OF_BITS: u8 = 32;
     type Word = u32;
     const MASK: u64 = 0xFFFF_FFFF;
-}
-
-impl VariableWord for u40 {
-    const NUMBER_OF_BITS: u8 = 40;
-    type Word = u40;
-    const MASK: u64 = 0xFF_FFFF_FFFF;
 }
 
 impl VariableWord for u64 {

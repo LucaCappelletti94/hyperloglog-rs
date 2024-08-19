@@ -207,10 +207,12 @@ impl<
         B: Bits,
         Hasher: HasherType,
         R: Registers<P, B> + VariableWords<CH>,
-        CH: CompositeHash,
+        CH: CompositeHash<P, B>,
     > Hybridazable<CH> for BasicLogLog<P, B, R, Hasher>
 {
     type IterSortedHashes<'words> = <R as VariableWords<CH>>::Iter<'words> where Self: 'words, CH: 'words;
+    type B = B;
+    type P = P;
 
     fn is_hybrid(&self) -> bool {
         // We employ the harmonic sum as a flag to represent whether the counter is in hybrid mode.
@@ -233,7 +235,7 @@ impl<
             for composite_hash in registers.iter_variable_words(number_of_hashes) {
                 debug_assert!(composite_hash != CH::Word::ZERO, "Composite hash is zero.");
 
-                let (register_value, index) = CH::decode::<P, B>(composite_hash);
+                let (register_value, index) = CH::decode(composite_hash);
                 self.insert_register_value_and_index(register_value, index);
             }
         }
@@ -266,12 +268,10 @@ impl<
         );
 
         let hash = Self::compute_hash(element);
-        let (register, index) = Self::split_hash(hash);
+        let (register, _index) = Self::split_hash(hash);
 
-        self.registers.find_sorted_with_len(
-            CH::encode::<P, B>(register, index, hash),
-            self.number_of_hashes(),
-        )
+        self.registers
+            .find_sorted_with_len(CH::encode(register, hash), self.number_of_hashes())
     }
 
     fn hybrid_insert<T: Hash>(&mut self, element: &T) -> bool {
@@ -308,22 +308,24 @@ impl<
                     "Number of zero hashes is not zero."
                 );
                 debug_assert!(
-                    self.registers.iter_variable_words(self.number_of_hashes()).all(|hash| hash != CH::Word::ZERO),
+                    self.registers
+                        .iter_variable_words(self.number_of_hashes())
+                        .all(|hash| hash != CH::Word::ZERO),
                     "Number of zero hashes is not zero."
                 );
                 self.dehybridize();
                 self.insert(element)
             } else {
                 let hash = Self::compute_hash(element);
-                let (register, index) = Self::split_hash(hash);
-                let composite_hash = CH::encode::<P, B>(register, index, hash);
+                let (register, _index) = Self::split_hash(hash);
+                let composite_hash = CH::encode(register, hash);
 
                 debug_assert!(composite_hash != CH::Word::ZERO, "Composite hash is zero.");
 
-                if self.registers.sorted_insert_with_len(
-                    composite_hash,
-                    self.number_of_hashes(),
-                ) {
+                if self
+                    .registers
+                    .sorted_insert_with_len(composite_hash, self.number_of_hashes())
+                {
                     debug_assert!(
                         self.number_of_zero_registers <= P::NUMBER_OF_REGISTERS,
                         "Number of zero registers ({}) is greater than the number of registers ({})",
@@ -368,7 +370,8 @@ impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, T: Hash> App
     for BasicLogLog<P, B, R, Hasher>
 {
     fn may_contain(&self, element: &T) -> bool {
-        self.get_register(Self::hash_and_index::<T>(element).1) > 0
+        let (register, index) = Self::hash_and_index::<T>(element);
+        self.get_register(index) >= register
     }
 }
 

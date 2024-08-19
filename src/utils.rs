@@ -25,7 +25,7 @@ pub use hasher_type::HasherType;
 pub use matrix::Matrix;
 pub(crate) use number::{FloatOps, Number, PositiveInteger};
 pub use random::*;
-pub use variable_word::{VariableWord, u40};
+pub use variable_word::{VariableWord, u40, u48, u56};
 pub use variable_words::VariableWords;
 
 #[cfg(feature = "std")]
@@ -33,6 +33,34 @@ pub use variable_words::VariableWords;
 pub trait Named {
     /// Returns the name of the object.
     fn name(&self) -> String;
+}
+
+#[cfg(feature = "std")]
+impl Named for u8 {
+    fn name(&self) -> String {
+        format!("u8")
+    }
+}
+
+#[cfg(feature = "std")]
+impl Named for u16 {
+    fn name(&self) -> String {
+        format!("u16")
+    }
+}
+
+#[cfg(feature = "std")]
+impl Named for u32 {
+    fn name(&self) -> String {
+        format!("u32")
+    }
+}
+
+#[cfg(feature = "std")]
+impl Named for u64 {
+    fn name(&self) -> String {
+        format!("u64")
+    }
 }
 
 #[inline]

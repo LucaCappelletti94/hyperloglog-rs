@@ -2,7 +2,10 @@
 use crate::utils::{One, Zero};
 use core::fmt::{Debug, Display};
 use core::hash::Hash;
-use core::ops::{Add, AddAssign, Div, Mul, Neg, Shl, Shr, Sub, BitAnd, BitAndAssign, SubAssign, BitOrAssign, BitOr};
+use core::ops::{
+    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, Div, Mul, Neg, Not, Shl, Shr, Sub,
+    SubAssign,
+};
 
 /// A trait for numbers.
 pub trait Number:
@@ -39,7 +42,19 @@ pub trait Number:
 
 /// A trait for positive integer numbers.
 pub trait PositiveInteger:
-    Number + Eq + Into<u64> + BitAnd + BitAndAssign + BitOr + BitOrAssign + Ord + Shl<u8, Output = Self> + Shr<u8, Output = Self> + Hash
+    Number
+    + Eq
+    + Into<u64>
+    + From<u8>
+    + BitAnd<Output = Self>
+    + BitAndAssign
+    + BitOr
+    + BitOrAssign
+    + Ord
+    + Shl<u8, Output = Self>
+    + Shr<u8, Output = Self>
+    + Hash
+    + Not<Output = Self>
 {
     /// The error type for the `try_from_u64` method.
     type TryFromU64Error: Debug;
@@ -49,6 +64,10 @@ pub trait PositiveInteger:
     /// # Errors
     /// * If the value is too large to be converted to a positive integer number.
     fn try_from_u64(value: u64) -> Result<Self, Self::TryFromU64Error>;
+
+    #[allow(unsafe_code)]
+    /// Converts a `u64` to a positive integer number without checking the value.
+    unsafe fn unchecked_from_u64(value: u64) -> Self;
 
     /// Converts the positive integer number to a `usize`.
     fn to_usize(self) -> usize;
@@ -114,6 +133,12 @@ macro_rules! impl_positive_integer_number {
                 #[inline(always)]
                 fn try_from_u64(value: u64) -> Result<Self, Self::TryFromU64Error> {
                     <$t as core::convert::TryFrom<u64>>::try_from(value)
+                }
+
+                #[inline(always)]
+                #[allow(unsafe_code)]
+                unsafe fn unchecked_from_u64(value: u64) -> Self {
+                    value as Self
                 }
 
                 #[inline(always)]
