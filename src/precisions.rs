@@ -4,8 +4,9 @@
 //! a number of registers equal of inferior to 256 a Byte, compared to what is possible when
 //! using a number of registers equal or inferior to 65536, which would make us waste another byte.
 
-use core::fmt::Debug;
+use core::{f64, fmt::Debug};
 
+#[cfg(feature = "mem_dbg")]
 use mem_dbg::{MemDbg, MemSize};
 
 use crate::utils::{FloatOps, Number, One, PositiveInteger};
@@ -111,6 +112,7 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     #[cfg(feature = "mem_dbg")]
     type NumberOfRegisters: PositiveInteger + MemSize + MemDbg;
     #[cfg(not(feature = "mem_dbg"))]
+    /// Se documentation above.
     type NumberOfRegisters: PositiveInteger;
     /// The exponent of the number of registers, meaning the number of registers
     /// that will be used is 2^EXPONENT. This is the p parameter in the [`HyperLogLog`].
@@ -122,7 +124,18 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     #[inline]
     /// The theoretical error rate of the precision.
     fn error_rate() -> f64 {
-        1.04 / 2_f64.powf(f64::from(Self::EXPONENT) / 2.0)
+        if Self::EXPONENT % 2 == 0 {
+            // When p is even, we can compute the integer p_half = p/2.
+            let half_exponent = Self::EXPONENT / 2;
+            1.04 * f64::integer_exp2_minus(half_exponent)
+        } else {
+            // 2^-(p/2) = 2^-(1/2)*2^-((p-1)/2).
+            // When p is odd, we can compute the integer p_half = (p-1)/2.
+            let p_minus_one_half = (Self::EXPONENT - 1) / 2;
+            // Since 2^-(1/2) = sqrt(2)^-1, we can compute the error rate as:
+            // 1.04 * 2^-((p-1)/2) / sqrt(2)
+            1.04 * f64::integer_exp2_minus(p_minus_one_half) / f64::consts::SQRT_2
+        }
     }
 
     /// The alpha constant for the precision, used in the estimation of the cardinality.
@@ -143,6 +156,7 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     /// Computes the small correction factor for the estimate.
     fn small_correction(number_of_zero_registers: Self::NumberOfRegisters) -> f64;
 
+    #[cfg(feature = "plusplus")]
     /// Computes the bias correction factor for the estimate.
     fn bias(estimate: f64) -> f64;
 

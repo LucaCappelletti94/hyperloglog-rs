@@ -53,7 +53,7 @@ pub enum HyperTwoVariants {
 /// take into consideration for the benchmarks.
 pub enum HLLVariants<const EXPONENT: usize, P: Precision>
 where
-    P: AllArrays + AllPackedArrays + Named,
+    P: AllArrays + Named,
 {
     TabacHyperLogLogPlus(TabacHLLPlusPlus<P>),
     TabacHyperLogLogPF(TabacHLL<P>),
@@ -64,340 +64,340 @@ where
     CE6(CloudFlareHLL<EXPONENT, 6, wyhash::WyHash>),
     SimpleHLL(SimpleHLL<EXPONENT>),
     PP4ArrayXxhasher(
-        PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, twox_hash::XxHash64>,
+        PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::Array, twox_hash::XxHash64>,
     ),
-    PP4ArrayWyHash(PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, wyhash::WyHash>),
+    PP4ArrayWyHash(PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::Array, wyhash::WyHash>),
     PP5ArrayXxhasher(
-        PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, twox_hash::XxHash64>,
+        PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::Array, twox_hash::XxHash64>,
     ),
-    PP5ArrayWyHash(PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, wyhash::WyHash>),
+    PP5ArrayWyHash(PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::Array, wyhash::WyHash>),
     PP6ArrayXxhasher(
-        PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, twox_hash::XxHash64>,
+        PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>,
     ),
-    PP6ArrayWyHash(PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, wyhash::WyHash>),
-    PP4PackedArrayXxhasher(
+    PP6ArrayWyHash(PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::Array, wyhash::WyHash>),
+    PP4PackedXxhasher(
         PlusPlus<
             P,
             Bits4,
-            <P as PackedArrayRegister<Bits4>>::PackedArrayRegister,
+            <P as ArrayRegister<Bits4>>::Packed,
             twox_hash::XxHash64,
         >,
     ),
-    PP4PackedArrayWyHash(
-        PlusPlus<P, Bits4, <P as PackedArrayRegister<Bits4>>::PackedArrayRegister, wyhash::WyHash>,
+    PP4PackedWyHash(
+        PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::Packed, wyhash::WyHash>,
     ),
-    PP5PackedArrayXxhasher(
+    PP5PackedXxhasher(
         PlusPlus<
             P,
             Bits5,
-            <P as PackedArrayRegister<Bits5>>::PackedArrayRegister,
+            <P as ArrayRegister<Bits5>>::Packed,
             twox_hash::XxHash64,
         >,
     ),
-    PP5PackedArrayWyHash(
-        PlusPlus<P, Bits5, <P as PackedArrayRegister<Bits5>>::PackedArrayRegister, wyhash::WyHash>,
+    PP5PackedWyHash(
+        PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::Packed, wyhash::WyHash>,
     ),
-    PP6PackedArrayXxhasher(
+    PP6PackedXxhasher(
         PlusPlus<
             P,
             Bits6,
-            <P as PackedArrayRegister<Bits6>>::PackedArrayRegister,
+            <P as ArrayRegister<Bits6>>::Packed,
             twox_hash::XxHash64,
         >,
     ),
-    PP6PackedArrayWyHash(
-        PlusPlus<P, Bits6, <P as PackedArrayRegister<Bits6>>::PackedArrayRegister, wyhash::WyHash>,
+    PP6PackedWyHash(
+        PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::Packed, wyhash::WyHash>,
     ),
     LLB4ArrayXxhasher(
-        LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, twox_hash::XxHash64>,
+        LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::Array, twox_hash::XxHash64>,
     ),
     LLB4ArrayWyHash(
-        LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, wyhash::WyHash>,
+        LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::Array, wyhash::WyHash>,
     ),
     LLB5ArrayXxhasher(
-        LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, twox_hash::XxHash64>,
+        LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::Array, twox_hash::XxHash64>,
     ),
     LLB5ArrayWyHash(
-        LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, wyhash::WyHash>,
+        LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::Array, wyhash::WyHash>,
     ),
     LLB6ArrayXxhasher(
-        LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, twox_hash::XxHash64>,
+        LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>,
     ),
     LLB6ArrayWyHash(
-        LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, wyhash::WyHash>,
+        LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::Array, wyhash::WyHash>,
     ),
-    LLB4PackedArrayWyHash(
+    LLB4PackedWyHash(
         LogLogBeta<
             P,
             Bits4,
-            <P as PackedArrayRegister<Bits4>>::PackedArrayRegister,
+            <P as ArrayRegister<Bits4>>::Packed,
             wyhash::WyHash,
         >,
     ),
-    LLB5PackedArrayXxhasher(
+    LLB5PackedXxhasher(
         LogLogBeta<
             P,
             Bits5,
-            <P as PackedArrayRegister<Bits5>>::PackedArrayRegister,
+            <P as ArrayRegister<Bits5>>::Packed,
             twox_hash::XxHash64,
         >,
     ),
-    LLB5PackedArrayWyHash(
+    LLB5PackedWyHash(
         LogLogBeta<
             P,
             Bits5,
-            <P as PackedArrayRegister<Bits5>>::PackedArrayRegister,
+            <P as ArrayRegister<Bits5>>::Packed,
             wyhash::WyHash,
         >,
     ),
-    LLB6PackedArrayXxhasher(
+    LLB6PackedXxhasher(
         LogLogBeta<
             P,
             Bits6,
-            <P as PackedArrayRegister<Bits6>>::PackedArrayRegister,
+            <P as ArrayRegister<Bits6>>::Packed,
             twox_hash::XxHash64,
         >,
     ),
-    LLB6PackedArrayWyHash(
+    LLB6PackedWyHash(
         LogLogBeta<
             P,
             Bits6,
-            <P as PackedArrayRegister<Bits6>>::PackedArrayRegister,
+            <P as ArrayRegister<Bits6>>::Packed,
             wyhash::WyHash,
         >,
     ),
     MLEPP4WyHash(
-        MLE<PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, wyhash::WyHash>>,
+        MLE<PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::Array, wyhash::WyHash>>,
     ),
     MLEPP5WyHash(
-        MLE<PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, wyhash::WyHash>>,
+        MLE<PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::Array, wyhash::WyHash>>,
     ),
     MLEPP6WyHash(
-        MLE<PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, wyhash::WyHash>>,
+        MLE<PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::Array, wyhash::WyHash>>,
     ),
     MLEPP4Xxhasher(
-        MLE<PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, twox_hash::XxHash64>>,
+        MLE<PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::Array, twox_hash::XxHash64>>,
     ),
     MLEPP5Xxhasher(
-        MLE<PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, twox_hash::XxHash64>>,
+        MLE<PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::Array, twox_hash::XxHash64>>,
     ),
     MLEPP6Xxhasher(
-        MLE<PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, twox_hash::XxHash64>>,
+        MLE<PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>>,
     ),
     MLELLB4WyHash(
-        MLE<LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, wyhash::WyHash>>,
+        MLE<LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::Array, wyhash::WyHash>>,
     ),
     MLELLB5WyHash(
-        MLE<LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, wyhash::WyHash>>,
+        MLE<LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::Array, wyhash::WyHash>>,
     ),
     MLELLB6WyHash(
-        MLE<LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, wyhash::WyHash>>,
+        MLE<LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::Array, wyhash::WyHash>>,
     ),
     MLELLB4Xxhasher(
-        MLE<LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, twox_hash::XxHash64>>,
+        MLE<LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::Array, twox_hash::XxHash64>>,
     ),
     MLELLB5Xxhasher(
-        MLE<LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, twox_hash::XxHash64>>,
+        MLE<LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::Array, twox_hash::XxHash64>>,
     ),
     MLELLB6Xxhasher(
-        MLE<LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, twox_hash::XxHash64>>,
+        MLE<LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>>,
     ),
 
     HybridPP4ArrayXxhasher(
-        Hybrid<PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, twox_hash::XxHash64>>,
+        Hybrid<PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::Array, twox_hash::XxHash64>>,
     ),
     HybridPP4ArrayWyHash(
-        Hybrid<PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, wyhash::WyHash>>,
+        Hybrid<PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::Array, wyhash::WyHash>>,
     ),
     HybridPP5ArrayXxhasher(
-        Hybrid<PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, twox_hash::XxHash64>>,
+        Hybrid<PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::Array, twox_hash::XxHash64>>,
     ),
     HybridPP5ArrayWyHash(
-        Hybrid<PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, wyhash::WyHash>>,
+        Hybrid<PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::Array, wyhash::WyHash>>,
     ),
     HybridPP6ArrayXxhasher(
-        Hybrid<PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, twox_hash::XxHash64>>,
+        Hybrid<PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>>,
     ),
     HybridPP6ArrayWyHash(
-        Hybrid<PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, wyhash::WyHash>>,
+        Hybrid<PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::Array, wyhash::WyHash>>,
     ),
-    HybridPP4PackedArrayXxhasher(
+    HybridPP4PackedXxhasher(
         Hybrid<
             PlusPlus<
                 P,
                 Bits4,
-                <P as PackedArrayRegister<Bits4>>::PackedArrayRegister,
+                <P as ArrayRegister<Bits4>>::Packed,
                 twox_hash::XxHash64,
             >,
         >,
     ),
-    HybridPP4PackedArrayWyHash(
+    HybridPP4PackedWyHash(
         Hybrid<
             PlusPlus<
                 P,
                 Bits4,
-                <P as PackedArrayRegister<Bits4>>::PackedArrayRegister,
+                <P as ArrayRegister<Bits4>>::Packed,
                 wyhash::WyHash,
             >,
         >,
     ),
-    HybridPP5PackedArrayXxhasher(
+    HybridPP5PackedXxhasher(
         Hybrid<
             PlusPlus<
                 P,
                 Bits5,
-                <P as PackedArrayRegister<Bits5>>::PackedArrayRegister,
+                <P as ArrayRegister<Bits5>>::Packed,
                 twox_hash::XxHash64,
             >,
         >,
     ),
-    HybridPP5PackedArrayWyHash(
+    HybridPP5PackedWyHash(
         Hybrid<
             PlusPlus<
                 P,
                 Bits5,
-                <P as PackedArrayRegister<Bits5>>::PackedArrayRegister,
+                <P as ArrayRegister<Bits5>>::Packed,
                 wyhash::WyHash,
             >,
         >,
     ),
-    HybridPP6PackedArrayXxhasher(
+    HybridPP6PackedXxhasher(
         Hybrid<
             PlusPlus<
                 P,
                 Bits6,
-                <P as PackedArrayRegister<Bits6>>::PackedArrayRegister,
+                <P as ArrayRegister<Bits6>>::Packed,
                 twox_hash::XxHash64,
             >,
         >,
     ),
-    HybridPP6PackedArrayWyHash(
+    HybridPP6PackedWyHash(
         Hybrid<
             PlusPlus<
                 P,
                 Bits6,
-                <P as PackedArrayRegister<Bits6>>::PackedArrayRegister,
+                <P as ArrayRegister<Bits6>>::Packed,
                 wyhash::WyHash,
             >,
         >,
     ),
     HybridLLB4ArrayXxhasher(
         Hybrid<
-            LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, twox_hash::XxHash64>,
+            LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::Array, twox_hash::XxHash64>,
         >,
     ),
     HybridLLB4ArrayWyHash(
-        Hybrid<LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, wyhash::WyHash>>,
+        Hybrid<LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::Array, wyhash::WyHash>>,
     ),
     HybridLLB5ArrayXxhasher(
         Hybrid<
-            LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, twox_hash::XxHash64>,
+            LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::Array, twox_hash::XxHash64>,
         >,
     ),
     HybridLLB5ArrayWyHash(
-        Hybrid<LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, wyhash::WyHash>>,
+        Hybrid<LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::Array, wyhash::WyHash>>,
     ),
     HybridLLB6ArrayXxhasher(
         Hybrid<
-            LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, twox_hash::XxHash64>,
+            LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>,
         >,
     ),
     HybridLLB6ArrayWyHash(
-        Hybrid<LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, wyhash::WyHash>>,
+        Hybrid<LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::Array, wyhash::WyHash>>,
     ),
-    HybridLLB4PackedArrayWyHash(
+    HybridLLB4PackedWyHash(
         Hybrid<
             LogLogBeta<
                 P,
                 Bits4,
-                <P as PackedArrayRegister<Bits4>>::PackedArrayRegister,
+                <P as ArrayRegister<Bits4>>::Packed,
                 wyhash::WyHash,
             >,
         >,
     ),
-    HybridLLB5PackedArrayXxhasher(
+    HybridLLB5PackedXxhasher(
         Hybrid<
             LogLogBeta<
                 P,
                 Bits5,
-                <P as PackedArrayRegister<Bits5>>::PackedArrayRegister,
+                <P as ArrayRegister<Bits5>>::Packed,
                 twox_hash::XxHash64,
             >,
         >,
     ),
-    HybridLLB5PackedArrayWyHash(
+    HybridLLB5PackedWyHash(
         Hybrid<
             LogLogBeta<
                 P,
                 Bits5,
-                <P as PackedArrayRegister<Bits5>>::PackedArrayRegister,
+                <P as ArrayRegister<Bits5>>::Packed,
                 wyhash::WyHash,
             >,
         >,
     ),
-    HybridLLB6PackedArrayXxhasher(
+    HybridLLB6PackedXxhasher(
         Hybrid<
             LogLogBeta<
                 P,
                 Bits6,
-                <P as PackedArrayRegister<Bits6>>::PackedArrayRegister,
+                <P as ArrayRegister<Bits6>>::Packed,
                 twox_hash::XxHash64,
             >,
         >,
     ),
-    HybridLLB6PackedArrayWyHash(
+    HybridLLB6PackedWyHash(
         Hybrid<
             LogLogBeta<
                 P,
                 Bits6,
-                <P as PackedArrayRegister<Bits6>>::PackedArrayRegister,
+                <P as ArrayRegister<Bits6>>::Packed,
                 wyhash::WyHash,
             >,
         >,
     ),
     HybridMLEPP4WyHash(
-        Hybrid<MLE<PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, wyhash::WyHash>>>,
+        Hybrid<MLE<PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::Array, wyhash::WyHash>>>,
     ),
     HybridMLEPP5WyHash(
-        Hybrid<MLE<PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, wyhash::WyHash>>>,
+        Hybrid<MLE<PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::Array, wyhash::WyHash>>>,
     ),
     HybridMLEPP6WyHash(
-        Hybrid<MLE<PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, wyhash::WyHash>>>,
+        Hybrid<MLE<PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::Array, wyhash::WyHash>>>,
     ),
     HybridMLEPP4Xxhasher(
         Hybrid<
             MLE<
-                PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, twox_hash::XxHash64>,
+                PlusPlus<P, Bits4, <P as ArrayRegister<Bits4>>::Array, twox_hash::XxHash64>,
             >,
         >,
     ),
     HybridMLEPP5Xxhasher(
         Hybrid<
             MLE<
-                PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, twox_hash::XxHash64>,
+                PlusPlus<P, Bits5, <P as ArrayRegister<Bits5>>::Array, twox_hash::XxHash64>,
             >,
         >,
     ),
     HybridMLEPP6Xxhasher(
         Hybrid<
             MLE<
-                PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, twox_hash::XxHash64>,
+                PlusPlus<P, Bits6, <P as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>,
             >,
         >,
     ),
     HybridMLELLB4WyHash(
         Hybrid<
-            MLE<LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::ArrayRegister, wyhash::WyHash>>,
+            MLE<LogLogBeta<P, Bits4, <P as ArrayRegister<Bits4>>::Array, wyhash::WyHash>>,
         >,
     ),
     HybridMLELLB5WyHash(
         Hybrid<
-            MLE<LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::ArrayRegister, wyhash::WyHash>>,
+            MLE<LogLogBeta<P, Bits5, <P as ArrayRegister<Bits5>>::Array, wyhash::WyHash>>,
         >,
     ),
     HybridMLELLB6WyHash(
         Hybrid<
-            MLE<LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::ArrayRegister, wyhash::WyHash>>,
+            MLE<LogLogBeta<P, Bits6, <P as ArrayRegister<Bits6>>::Array, wyhash::WyHash>>,
         >,
     ),
     HybridMLELLB4Xxhasher(
@@ -406,7 +406,7 @@ where
                 LogLogBeta<
                     P,
                     Bits4,
-                    <P as ArrayRegister<Bits4>>::ArrayRegister,
+                    <P as ArrayRegister<Bits4>>::Array,
                     twox_hash::XxHash64,
                 >,
             >,
@@ -418,7 +418,7 @@ where
                 LogLogBeta<
                     P,
                     Bits5,
-                    <P as ArrayRegister<Bits5>>::ArrayRegister,
+                    <P as ArrayRegister<Bits5>>::Array,
                     twox_hash::XxHash64,
                 >,
             >,
@@ -430,7 +430,7 @@ where
                 LogLogBeta<
                     P,
                     Bits6,
-                    <P as ArrayRegister<Bits6>>::ArrayRegister,
+                    <P as ArrayRegister<Bits6>>::Array,
                     twox_hash::XxHash64,
                 >,
             >,

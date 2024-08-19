@@ -520,20 +520,20 @@ mod tests {
     /// is then estimated, and is expected to be within the error rate defined by the
     /// provided precision.
     fn test_randomized_hybrid_union<
-        P: Precision + ArrayRegister<Bits6>,
-        H: Hybridazable<u64>
-            + HyperLogLog<P, Bits6, twox_hash::XxHash64>
+        P: Precision + ArrayRegister<Bits4>,
+        H: Hybridazable<u32>
+            + HyperLogLog<P, Bits4, twox_hash::XxHash64>
             + Estimator<f64>
             + Default
             + ExtendableApproximatedSet<u64>
             + core::fmt::Debug,
     >()
     where
-        Hybrid<H, u64>: Default + Estimator<f64>,
+        Hybrid<H, u32>: Default + Estimator<f64>,
     {
         use std::collections::HashSet;
-        let mut hybrid_left = Hybrid::<H, u64>::default();
-        let mut hybrid_right = Hybrid::<H, u64>::default();
+        let mut hybrid_left = Hybrid::<H, u32>::default();
+        let mut hybrid_right = Hybrid::<H, u32>::default();
         let mut left_normal_counter: H = Default::default();
         let mut right_normal_counter: H = Default::default();
 
@@ -634,13 +634,13 @@ mod tests {
                     #[test]
                     #[cfg(all(feature = "precision_" $exponent, feature = "std"))]
                     fn [<test_randomized_mixed_plusplus_hybrid_union_ $exponent>]() {
-                        test_randomized_hybrid_union::<[<Precision $exponent>], PlusPlus<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>>();
+                        test_randomized_hybrid_union::<[<Precision $exponent>], PlusPlus<[<Precision $exponent>], Bits4, <[<Precision $exponent>] as ArrayRegister<Bits4>>::Array, twox_hash::XxHash64>>();
                     }
 
                     #[test]
                     #[cfg(all(feature = "precision_" $exponent, feature = "std"))]
                     fn [<test_randomized_mixed_beta_hybrid_union_ $exponent>]() {
-                        test_randomized_hybrid_union::<[<Precision $exponent>], LogLogBeta<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>>();
+                        test_randomized_hybrid_union::<[<Precision $exponent>], LogLogBeta<[<Precision $exponent>], Bits4, <[<Precision $exponent>] as ArrayRegister<Bits4>>::Array, twox_hash::XxHash64>>();
                     }
                 }
             )*

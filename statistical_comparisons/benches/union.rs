@@ -57,7 +57,7 @@ macro_rules! bench_union {
             }
 
             fn [<bench_pluspluspackedarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>(b);
+                union_bencher::<PlusPlus<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>(b);
             }
 
 
@@ -66,7 +66,7 @@ macro_rules! bench_union {
             }
 
             fn [<bench_betapackedarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<LogLogBeta<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>(b);
+                union_bencher::<LogLogBeta<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>(b);
             }
 
 
@@ -75,7 +75,7 @@ macro_rules! bench_union {
             }
 
             fn [<bench_hybridpluspluspackedarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
+                union_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>>(b);
             }
 
 
@@ -84,7 +84,7 @@ macro_rules! bench_union {
             }
 
             fn [<bench_hybridbetapackedarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<Hybrid<LogLogBeta<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
+                union_bencher::<Hybrid<LogLogBeta<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>>(b);
             }
 
 
@@ -93,7 +93,7 @@ macro_rules! bench_union {
             }
 
             fn [<bench_mlepluspluspackedarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<MLE<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
+                union_bencher::<MLE<PlusPlus<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>>(b);
             }
 
 
@@ -102,7 +102,7 @@ macro_rules! bench_union {
             }
 
             fn [<bench_mlebetapackedarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<MLE<LogLogBeta<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
+                union_bencher::<MLE<LogLogBeta<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>>(b);
             }
 
 
@@ -111,7 +111,7 @@ macro_rules! bench_union {
             }
 
             fn [<bench_mlehybridpluspluspackedarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<Hybrid<MLE<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>>(b);
+                union_bencher::<Hybrid<MLE<PlusPlus<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>>>(b);
             }
 
 
@@ -120,7 +120,7 @@ macro_rules! bench_union {
             }
 
             fn [<bench_mlehybridbetapackedarray_union_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                union_bencher::<Hybrid<MLE<LogLogBeta<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>>(b);
+                union_bencher::<Hybrid<MLE<LogLogBeta<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>>>(b);
             }
         }
     };

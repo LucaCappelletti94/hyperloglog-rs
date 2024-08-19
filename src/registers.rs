@@ -110,7 +110,7 @@ mod tests {
         let iterations = 50;
         let mut random_state = splitmix64(324564567865354);
         let mut index_random_state = splitmix64(324566754567865354);
-        let mut packed_registers = <P as ArrayRegister<B>>::PackedArray::default();
+        let mut packed_registers = <P as ArrayRegister<B>>::Packed::default();
         let mut array_registers = <P as ArrayRegister<B>>::Array::default();
         let mut reference = vec![0_u8; 1 << P::EXPONENT];
 
@@ -291,7 +291,7 @@ mod tests {
                     #[test]
                     #[cfg(feature = "std")]
                     fn [< test_packed_array_register_iterator_ $precision:lower _and_ $bits:lower _bits >]() {
-                        test_register_iterator::<$precision, $bits, <$precision as ArrayRegister<$bits>>::PackedArray>();
+                        test_register_iterator::<$precision, $bits, <$precision as ArrayRegister<$bits>>::Packed>();
                     }
                 }
             )*

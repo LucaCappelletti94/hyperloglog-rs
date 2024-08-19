@@ -11,7 +11,7 @@
 
 use super::{
     Bits, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6, Bits7, Bits8, FloatOps, Matrix, Number,
-    Precision, Registers, VariableWords, Zero,
+    Precision, Registers, Zero,
 };
 use crate::utils::{PositiveInteger, VariableWord};
 use core::fmt::Debug;
@@ -94,7 +94,10 @@ fn insert_value_into_word<V: VariableWord>(word: &mut u64, offset: u8, value: u6
 const fn value_from_bridge<V: VariableWord>(lower_word: u64, upper_word: u64, offset: u8) -> u64 {
     debug_assert!(offset != 0, "Offset should be greater than 0");
     debug_assert!(offset != 64, "Offset should be less than 64");
-    debug_assert!(offset > 64 - V::NUMBER_OF_BITS, "Offset should be greater than 64 - V::NUMBER_OF_BITS");
+    debug_assert!(
+        offset > 64 - V::NUMBER_OF_BITS,
+        "Offset should be greater than 64 - V::NUMBER_OF_BITS"
+    );
     let number_of_bits_in_lower_value: u8 = 64 - offset;
     let number_of_bits_in_upper_value = V::NUMBER_OF_BITS - number_of_bits_in_lower_value;
     let upper_value_mask: u64 = (1 << number_of_bits_in_upper_value) - 1;
@@ -227,10 +230,13 @@ impl<'array, const PACKED: bool, const N: usize, const M: usize, V: VariableWord
                 self.word_offset = V::NUMBER_OF_BITS - (64 - self.word_offset);
                 values
             } else {
-                debug_assert!(self.word_offset + V::NUMBER_OF_BITS <= 64, "While iterating on an object of type {}, the offset ({} + {}) should be less than or equal to 64", std::any::type_name::<Self>(), self.word_offset, V::NUMBER_OF_BITS);
+                debug_assert!(self.word_offset + V::NUMBER_OF_BITS <= 64, "While iterating on an object of type {}, the offset ({} + {}) should be less than or equal to 64", core::any::type_name::<Self>(), self.word_offset, V::NUMBER_OF_BITS);
                 let values = extract_value_from_words::<V, M>(self.column, self.word_offset);
                 self.word_offset += V::NUMBER_OF_BITS;
-                if self.value_index < self.total_values && (PACKED && self.word_offset == 64 || !PACKED && self.word_offset == V::NUMBER_OF_BITS * V::NUMBER_OF_ENTRIES){
+                if self.value_index < self.total_values
+                    && (PACKED && self.word_offset == 64
+                        || !PACKED && self.word_offset == V::NUMBER_OF_BITS * V::NUMBER_OF_ENTRIES)
+                {
                     self.word_offset = 0;
                     self.word_index += 1;
                     self.column = self.arrays.column(self.word_index);
@@ -272,6 +278,36 @@ impl<
         unsafe { &*(self as *const Array<N, PACKED2, V2> as *const Array<N, PACKED1, V1>) }
     }
 }
+
+macro_rules! impl_as_ref_mut {
+    ($($typ:ty),*) => {
+        $(
+            impl<const N: usize, const PACKED: bool, V2> AsRef<[$typ]>
+                for Array<N, PACKED, V2>
+            {
+                #[inline]
+                #[allow(unsafe_code)]
+                fn as_ref(&self) -> &[$typ] {
+                    let words_u64: &[u64] = self.words.as_ref();
+                    unsafe { core::slice::from_raw_parts(words_u64.as_ptr() as *const $typ, words_u64.len() * core::mem::size_of::<u64>() / core::mem::size_of::<$typ>()) }
+                }
+            }
+
+            impl<const N: usize, const PACKED: bool, V2> AsMut<[$typ]>
+                for Array<N, PACKED, V2>
+            {
+                #[inline]
+                #[allow(unsafe_code)]
+                fn as_mut(&mut self) -> &mut [$typ] {
+                    let words_u64: &mut [u64] = self.words.as_mut();
+                    unsafe { core::slice::from_raw_parts_mut(words_u64.as_mut_ptr() as *mut $typ, words_u64.len() * core::mem::size_of::<u64>() / core::mem::size_of::<$typ>()) }
+                }
+            }
+        )*
+    };
+}
+
+impl_as_ref_mut!(u8, u16, u32, u64);
 
 impl<
         const N: usize,
@@ -342,7 +378,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
             word_index,
             index,
             N,
-            std::any::type_name::<Self>()
+            core::any::type_name::<Self>()
         );
 
         // Now we determine whether the value is a bridge value or not, i.e. if it spans
@@ -382,7 +418,8 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
             insert_bridge_value_into_word::<V>(low, high, relative_value_offset, new_value.into());
 
             debug_assert_eq!(
-                self.get(index), new_value,
+                self.get(index),
+                new_value,
                 "The value at index {} should be equal to the new value {}",
                 index,
                 new_value
@@ -399,7 +436,8 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
             );
 
             debug_assert_eq!(
-                self.get(index), new_value,
+                self.get(index),
+                new_value,
                 "The value at index {} should be equal to the new value {}",
                 index,
                 new_value
@@ -483,21 +521,25 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Named for Array<N, PAC
 ///
 /// Meant to be associated with a specific Precision.
 pub trait ArrayRegister<B: Bits>: Precision {
-    /// The type of the packed array register.
     #[cfg(all(feature = "std", feature = "mem_dbg"))]
+    /// The type of the packed array register.
     type Array: Registers<Self, B> + Named + MemDbg + MemSize;
     #[cfg(all(feature = "std", not(feature = "mem_dbg")))]
+    /// The type of the packed array register.
     type Array: Registers<Self, B> + Named;
     #[cfg(not(feature = "std"))]
+    /// The type of the packed array register.
     type Array: Registers<Self, B>;
 
-    /// The type of the packed array register.
     #[cfg(all(feature = "std", feature = "mem_dbg"))]
-    type PackedArray: Registers<Self, B> + Named + MemDbg + MemSize;
+    /// The type of the packed array register.
+    type Packed: Registers<Self, B> + Named + MemDbg + MemSize;
     #[cfg(all(feature = "std", not(feature = "mem_dbg")))]
-    type PackedArray: Registers<Self, B> + Named;
+    /// The type of the packed array register.
+    type Packed: Registers<Self, B> + Named;
     #[cfg(not(feature = "std"))]
-    type PackedArray: Registers<Self, B>;
+    /// The type of the packed array register.
+    type Packed: Registers<Self, B>;
 }
 
 /// Trait marker to associate a precision to all possible packed array registers.
@@ -537,82 +579,82 @@ const fn split_index<const PACKED: bool, V: VariableWord>(index: u64) -> (usize,
     }
 }
 
-impl<const PACKED: bool, const N: usize, W: VariableWord, V: VariableWord> VariableWords<W>
-    for Array<N, PACKED, V>
-where
-    <W as VariableWord>::Word: 'static,
-{
-    type Iter<'words> = Map<ArrayIter<&'words Array<N, PACKED, W>, 1>, fn([W::Word; 1]) -> W::Word> where Self: 'words, W: 'words;
+// impl<const PACKED: bool, const N: usize, W: VariableWord, V: VariableWord> VariableWords<W>
+//     for Array<N, PACKED, V>
+// where
+//     <W as VariableWord>::Word: 'static,
+// {
+//     type Iter<'words> = Map<ArrayIter<&'words Array<N, PACKED, W>, 1>, fn([W::Word; 1]) -> W::Word> where Self: 'words, W: 'words;
 
-    #[must_use]
-    #[inline]
-    fn number_of_words(&self) -> usize {
-        if PACKED {
-            N * 64 / W::NUMBER_OF_BITS_U64 as usize
-        } else {
-            N * W::NUMBER_OF_ENTRIES_U64 as usize
-        }
-    }
+//     #[must_use]
+//     #[inline]
+//     fn number_of_words(&self) -> usize {
+//         if PACKED {
+//             N * 64 / W::NUMBER_OF_BITS_U64 as usize
+//         } else {
+//             N * W::NUMBER_OF_ENTRIES_U64 as usize
+//         }
+//     }
 
-    #[must_use]
-    #[inline]
-    #[allow(unsafe_code)]
-    fn find_sorted_with_len(&self, value: W::Word, len: usize) -> bool {
-        debug_assert!(
-            len <= <Self as VariableWords<W>>::number_of_words(self),
-            "The length must be less than or equal to the number of words."
-        );
-        debug_assert!(
-            <Self as VariableWords<W>>::variable_words(self, len)
-                .zip(<Self as VariableWords<W>>::variable_words(self, len).skip(1))
-                .all(|(a, b)| a <= b),
-            "The array must be sorted."
-        );
+//     #[must_use]
+//     #[inline]
+//     #[allow(unsafe_code)]
+//     fn find_sorted_with_len(&self, value: W::Word, len: usize) -> bool {
+//         debug_assert!(
+//             len <= <Self as VariableWords<W>>::number_of_words(self),
+//             "The length must be less than or equal to the number of words."
+//         );
+//         debug_assert!(
+//             <Self as VariableWords<W>>::variable_words(self, len)
+//                 .zip(<Self as VariableWords<W>>::variable_words(self, len).skip(1))
+//                 .all(|(a, b)| a <= b),
+//             "The array must be sorted."
+//         );
 
-        // TODO! Actually implement a binary search!
-        match core::any::TypeId::of::<W::Word>() {
-            t if t == core::any::TypeId::of::<u8>()
-                || t == core::any::TypeId::of::<u16>()
-                || t == core::any::TypeId::of::<u32>()
-                || t == core::any::TypeId::of::<u64>() =>
-            unsafe { W::transmutative_binary_search(self.words.as_slice(), len, value).is_ok() },
-            _ => <Self as VariableWords<W>>::variable_words(self, len).any(|v| v == value),
-        }
-    }
+//         // TODO! Actually implement a binary search!
+//         match core::any::TypeId::of::<W::Word>() {
+//             t if t == core::any::TypeId::of::<u8>()
+//                 || t == core::any::TypeId::of::<u16>()
+//                 || t == core::any::TypeId::of::<u32>()
+//                 || t == core::any::TypeId::of::<u64>() =>
+//             unsafe { W::transmutative_binary_search(self.words.as_slice(), len, value).is_ok() },
+//             _ => <Self as VariableWords<W>>::variable_words(self, len).any(|v| v == value),
+//         }
+//     }
 
-    #[must_use]
-    #[inline]
-    #[allow(unsafe_code)]
-    fn sorted_insert_with_len(&mut self, value: W::Word, len: usize) -> bool {
-        debug_assert!(
-            len <= <Self as VariableWords<W>>::number_of_words(self),
-            "The length must be less than or equal to the number of words."
-        );
+//     #[must_use]
+//     #[inline]
+//     #[allow(unsafe_code)]
+//     fn sorted_insert_with_len(&mut self, value: W::Word, len: usize) -> bool {
+//         debug_assert!(
+//             len <= <Self as VariableWords<W>>::number_of_words(self),
+//             "The length must be less than or equal to the number of words."
+//         );
 
-        debug_assert!(
-            <Self as VariableWords<W>>::variable_words(self, len)
-                .zip(<Self as VariableWords<W>>::variable_words(self, len).skip(1))
-                .all(|(a, b)| a <= b),
-            "The array must be sorted."
-        );
+//         debug_assert!(
+//             <Self as VariableWords<W>>::variable_words(self, len)
+//                 .zip(<Self as VariableWords<W>>::variable_words(self, len).skip(1))
+//                 .all(|(a, b)| a <= b),
+//             "The array must be sorted."
+//         );
 
-        // TODO! Actually implement a binary search!
-        match core::any::TypeId::of::<W::Word>() {
-            t if t == core::any::TypeId::of::<u8>()
-                || t == core::any::TypeId::of::<u16>()
-                || t == core::any::TypeId::of::<u32>()
-                || t == core::any::TypeId::of::<u64>() =>
-            unsafe { W::transmutative_sorted_insert(self.words.as_mut(), len, value) },
-            _ => todo!(),
-        }
-    }
+//         // TODO! Actually implement a binary search!
+//         match core::any::TypeId::of::<W::Word>() {
+//             t if t == core::any::TypeId::of::<u8>()
+//                 || t == core::any::TypeId::of::<u16>()
+//                 || t == core::any::TypeId::of::<u32>()
+//                 || t == core::any::TypeId::of::<u64>() =>
+//             unsafe { W::transmutative_sorted_insert(self.words.as_mut(), len, value) },
+//             _ => todo!(),
+//         }
+//     }
 
-    #[must_use]
-    #[inline]
-    fn variable_words(&self, len: usize) -> Self::Iter<'_> {
-        <Self as AsRef<Array<N, PACKED, W>>>::as_ref(self).iter_values(len as u64)
-    }
-}
+//     #[must_use]
+//     #[inline]
+//     fn variable_words(&self, len: usize) -> Self::Iter<'_> {
+//         <Self as AsRef<Array<N, PACKED, W>>>::as_ref(self).iter_values(len as u64)
+//     }
+// }
 
 /// Implement the packed array registers for a specific combination of precision and bits.
 macro_rules! impl_packed_array_register_for_precision_and_bits {
@@ -622,7 +664,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                 #[cfg(feature = "precision_" $exponent)]
                 impl ArrayRegister<[<Bits $bits>]> for [<Precision $exponent>] {
                     type Array = Array<{crate::utils::ceil(usize::pow(2, $exponent), 64 / $bits)}, false, [<Bits $bits>]>;
-                    type PackedArray = Array<{crate::utils::ceil(usize::pow(2, $exponent) * $bits, 64)}, true, [<Bits $bits>]>;
+                    type Packed = Array<{crate::utils::ceil(usize::pow(2, $exponent) * $bits, 64)}, true, [<Bits $bits>]>;
                 }
 
                 #[cfg(feature = "precision_" $exponent)]

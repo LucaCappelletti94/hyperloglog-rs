@@ -31,20 +31,9 @@ macro_rules! impl_bits {
                     const NUMBER_OF_BITS: u8 = $n;
                     type Word = u8;
                     const MASK: u64 = (1 << $n) - 1;
-
-                    #[allow(unsafe_code)]
-                    unsafe fn transmutative_binary_search(_array: &[u64], _len: usize, _value: Self::Word) -> Result<usize, usize> {
-                        unimplemented!("It would be highly unusual to use this as struct marker for the number of bits.")
-                    }
-
-                    #[allow(unsafe_code)]
-                    unsafe fn transmutative_sorted_insert(_array: &mut [u64], _len: usize, _value: Self::Word) -> bool {
-                        unimplemented!("It would be highly unusual to use this as struct marker for the number of bits.")
-                    }
                 }
 
-                impl Bits for [<Bits $n>] {
-                }
+                impl Bits for [<Bits $n>] {}
             }
         )*
     };

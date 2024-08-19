@@ -50,7 +50,12 @@ impl One for f64 {
     const ONE: Self = 1.0;
     #[inline]
     fn is_one(&self) -> bool {
-        (*self - 1.0).abs() < Self::EPSILON
+        let delta = *self - 1.0;
+        if delta < 0.0 {
+            delta > -f64::EPSILON
+        } else {
+            delta < f64::EPSILON
+        }
     }
 }
 impl Zero for f64 {

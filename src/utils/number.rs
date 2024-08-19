@@ -1,6 +1,7 @@
 //! Traits regarding numbers.
 use crate::utils::{One, Zero};
 use core::fmt::{Debug, Display};
+use core::hash::Hash;
 use core::ops::{Add, AddAssign, Div, Mul, Neg, Shl, Shr, Sub, SubAssign};
 
 /// A trait for numbers.
@@ -38,7 +39,7 @@ pub trait Number:
 
 /// A trait for positive integer numbers.
 pub trait PositiveInteger:
-    Number + Eq + Into<u64> + Ord + Shl<u8, Output = Self> + Shr<u8, Output = Self>
+    Number + Eq + Into<u64> + Ord + Shl<u8, Output = Self> + Shr<u8, Output = Self> + Hash
 {
     /// The error type for the `try_from_u64` method.
     type TryFromU64Error: Debug;

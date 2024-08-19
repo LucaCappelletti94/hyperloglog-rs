@@ -38,7 +38,7 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
     ///     let mut hll = LogLogBeta::<
     ///         Precision6,
     ///         Bits5,
-    ///         <Precision6 as ArrayRegister<Bits5>>::ArrayRegister,
+    ///         <Precision6 as ArrayRegister<Bits5>>::Array,
     ///     >::default();
     ///
     ///     // Add some elements to the counter.
@@ -69,9 +69,9 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll1: PlusPlus<Precision8, Bits6, <Precision8 as ArrayRegister<Bits6>>::ArrayRegister> =
+    /// let mut hll1: PlusPlus<Precision8, Bits6, <Precision8 as ArrayRegister<Bits6>>::Array> =
     ///     Default::default();
-    /// let mut hll2: PlusPlus<Precision8, Bits6, <Precision8 as ArrayRegister<Bits6>>::ArrayRegister> =
+    /// let mut hll2: PlusPlus<Precision8, Bits6, <Precision8 as ArrayRegister<Bits6>>::Array> =
     ///     Default::default();
     ///
     /// hll1.insert(&42);
@@ -112,7 +112,8 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
         );
 
         // And we censor we just used for the index.
-        let mut censored_hash: u64 = hash | 1 << P::EXPONENT;
+        // let mut censored_hash: u64 = hash | 1 << P::EXPONENT;
+        let mut censored_hash: u64 = hash;
 
         // We need to add ones to the hash to make sure that the
         // the number of zeros we obtain afterwards is never higher

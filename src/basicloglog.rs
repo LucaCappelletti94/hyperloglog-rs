@@ -230,7 +230,7 @@ impl<
             self.harmonic_sum = f64::integer_exp2(P::EXPONENT);
             let registers = self.registers.clone();
             self.registers = R::default();
-            for composite_hash in registers.variable_words(number_of_hashes) {
+            for composite_hash in registers.iter_variable_words(number_of_hashes) {
                 debug_assert!(composite_hash != CH::Word::ZERO, "Composite hash is zero.");
 
                 let (register_value, index) = CH::decode::<P, B>(composite_hash);
@@ -254,7 +254,7 @@ impl<
     }
 
     fn iter_sorted_hashes(&self) -> Self::IterSortedHashes<'_> {
-        self.registers.variable_words(self.number_of_hashes())
+        self.registers.iter_variable_words(self.number_of_hashes())
     }
 
     fn contains<T: Hash>(&self, element: &T) -> bool {
@@ -297,10 +297,10 @@ impl<
                     self.number_of_hashes()
                 );
                 debug_assert_eq!(
-                    self.registers.variable_words(self.number_of_hashes()).count(),
+                    self.registers.iter_variable_words(self.number_of_hashes()).count(),
                     self.number_of_hashes(),
                     "Number of hashes ({}) is not equal to the number of words ({}) in the list of hashes.",
-                    self.registers.variable_words(self.number_of_hashes()).count(),
+                    self.registers.iter_variable_words(self.number_of_hashes()).count(),
                     self.number_of_hashes()
                 );
                 debug_assert!(
@@ -308,7 +308,7 @@ impl<
                     "Number of zero hashes is not zero."
                 );
                 debug_assert!(
-                    self.registers.variable_words(self.number_of_hashes()).all(|hash| hash != CH::Word::ZERO),
+                    self.registers.iter_variable_words(self.number_of_hashes()).all(|hash| hash != CH::Word::ZERO),
                     "Number of zero hashes is not zero."
                 );
                 self.dehybridize();

@@ -62,7 +62,7 @@ Found 13 outliers among 100 measurements (13.00%)
   4 (4.00%) high mild
   7 (7.00%) high severe
 
-Union LLB<P10, B6, PackedArray> + XxHash64
+Union LLB<P10, B6, Packed> + XxHash64
                         time:   [1.8511 ms 1.8515 ms 1.8520 ms]
                         change: [-78.799% -78.794% -78.789%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -70,7 +70,7 @@ Found 9 outliers among 100 measurements (9.00%)
   4 (4.00%) high mild
   5 (5.00%) high severe
 
-Union LLB<P10, B6, PackedArray> + WyHash
+Union LLB<P10, B6, Packed> + WyHash
                         time:   [1.8515 ms 1.8520 ms 1.8525 ms]
                         change: [-78.792% -78.785% -78.779%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -79,7 +79,7 @@ Found 13 outliers among 100 measurements (13.00%)
   4 (4.00%) high mild
   8 (8.00%) high severe
 
-Union LLB<P10, B8, PackedArray> + XxHash64
+Union LLB<P10, B8, Packed> + XxHash64
                         time:   [1.9383 ms 1.9386 ms 1.9390 ms]
                         change: [-78.837% -78.827% -78.815%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -87,7 +87,7 @@ Found 8 outliers among 100 measurements (8.00%)
   7 (7.00%) high mild
   1 (1.00%) high severe
 
-Union LLB<P10, B8, PackedArray> + WyHash
+Union LLB<P10, B8, Packed> + WyHash
                         time:   [1.9375 ms 1.9377 ms 1.9379 ms]
                         change: [-78.850% -78.844% -78.839%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -161,7 +161,7 @@ Found 17 outliers among 100 measurements (17.00%)
   5 (5.00%) high mild
   11 (11.00%) high severe
 
-Union PP<P10, B6, PackedArray> + XxHash64
+Union PP<P10, B6, Packed> + XxHash64
                         time:   [1.8545 ms 1.8550 ms 1.8555 ms]
                         change: [-78.805% -78.798% -78.792%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -170,7 +170,7 @@ Found 14 outliers among 100 measurements (14.00%)
   3 (3.00%) high mild
   10 (10.00%) high severe
 
-Union PP<P10, B6, PackedArray> + WyHash
+Union PP<P10, B6, Packed> + WyHash
                         time:   [1.8557 ms 1.8564 ms 1.8571 ms]
                         change: [-78.807% -78.799% -78.792%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -178,7 +178,7 @@ Found 9 outliers among 100 measurements (9.00%)
   6 (6.00%) high mild
   3 (3.00%) high severe
 
-Union PP<P10, B8, PackedArray> + XxHash64
+Union PP<P10, B8, Packed> + XxHash64
                         time:   [1.9442 ms 1.9445 ms 1.9448 ms]
                         change: [-78.831% -78.824% -78.817%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -186,7 +186,7 @@ Found 4 outliers among 100 measurements (4.00%)
   1 (1.00%) low mild
   3 (3.00%) high severe
 
-Union PP<P10, B8, PackedArray> + WyHash
+Union PP<P10, B8, Packed> + WyHash
                         time:   [1.9448 ms 1.9456 ms 1.9464 ms]
                         change: [-78.800% -78.790% -78.779%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -255,7 +255,7 @@ Union HybridLLB<P10, B8, Array> + WyHash
                         change: [-78.847% -78.838% -78.830%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridLLB<P10, B6, PackedArray> + XxHash64
+Union HybridLLB<P10, B6, Packed> + XxHash64
                         time:   [2.0096 ms 2.0102 ms 2.0109 ms]
                         change: [-77.031% -77.024% -77.016%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -263,7 +263,7 @@ Found 15 outliers among 100 measurements (15.00%)
   7 (7.00%) high mild
   8 (8.00%) high severe
 
-Union HybridLLB<P10, B6, PackedArray> + WyHash
+Union HybridLLB<P10, B6, Packed> + WyHash
                         time:   [2.0103 ms 2.0108 ms 2.0114 ms]
                         change: [-77.025% -77.018% -77.009%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -271,14 +271,14 @@ Found 9 outliers among 100 measurements (9.00%)
   6 (6.00%) high mild
   3 (3.00%) high severe
 
-Union HybridLLB<P10, B8, PackedArray> + XxHash64
+Union HybridLLB<P10, B8, Packed> + XxHash64
                         time:   [1.9397 ms 1.9402 ms 1.9408 ms]
                         change: [-78.825% -78.813% -78.800%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 4 outliers among 100 measurements (4.00%)
   4 (4.00%) high mild
 
-Union HybridLLB<P10, B8, PackedArray> + WyHash
+Union HybridLLB<P10, B8, Packed> + WyHash
                         time:   [1.9396 ms 1.9400 ms 1.9404 ms]
                         change: [-78.879% -78.873% -78.867%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -349,7 +349,7 @@ Union HybridPP<P10, B8, Array> + WyHash
 Found 6 outliers among 100 measurements (6.00%)
   6 (6.00%) high mild
 
-Union HybridPP<P10, B6, PackedArray> + XxHash64
+Union HybridPP<P10, B6, Packed> + XxHash64
                         time:   [2.0135 ms 2.0139 ms 2.0144 ms]
                         change: [-77.032% -77.026% -77.019%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -357,7 +357,7 @@ Found 12 outliers among 100 measurements (12.00%)
   5 (5.00%) high mild
   7 (7.00%) high severe
 
-Union HybridPP<P10, B6, PackedArray> + WyHash
+Union HybridPP<P10, B6, Packed> + WyHash
                         time:   [2.0118 ms 2.0120 ms 2.0123 ms]
                         change: [-77.050% -77.044% -77.040%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -365,7 +365,7 @@ Found 15 outliers among 100 measurements (15.00%)
   8 (8.00%) high mild
   7 (7.00%) high severe
 
-Union HybridPP<P10, B8, PackedArray> + XxHash64
+Union HybridPP<P10, B8, Packed> + XxHash64
                         time:   [1.9426 ms 1.9427 ms 1.9429 ms]
                         change: [-78.856% -78.850% -78.845%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -373,7 +373,7 @@ Found 10 outliers among 100 measurements (10.00%)
   6 (6.00%) high mild
   4 (4.00%) high severe
 
-Union HybridPP<P10, B8, PackedArray> + WyHash
+Union HybridPP<P10, B8, Packed> + WyHash
                         time:   [1.9442 ms 1.9445 ms 1.9447 ms]
                         change: [-78.845% -78.838% -78.832%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -430,7 +430,7 @@ Union MLE2LLB<P10, B8, Array> + WyHash
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low mild
 
-Union MLE2LLB<P10, B6, PackedArray> + XxHash64
+Union MLE2LLB<P10, B6, Packed> + XxHash64
                         time:   [110.64 ms 110.66 ms 110.67 ms]
                         change: [-83.976% -83.972% -83.969%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -439,14 +439,14 @@ Found 3 outliers among 10 measurements (30.00%)
   1 (10.00%) low mild
   1 (10.00%) high mild
 
-Union MLE2LLB<P10, B6, PackedArray> + WyHash
+Union MLE2LLB<P10, B6, Packed> + WyHash
                         time:   [182.76 ms 183.11 ms 183.56 ms]
                         change: [-74.479% -74.427% -74.363%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union MLE2LLB<P10, B8, PackedArray> + XxHash64
+Union MLE2LLB<P10, B8, Packed> + XxHash64
                         time:   [110.27 ms 110.29 ms 110.31 ms]
                         change: [-84.005% -84.000% -83.995%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -454,7 +454,7 @@ Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) low severe
   1 (10.00%) low mild
 
-Union MLE2LLB<P10, B8, PackedArray> + WyHash
+Union MLE2LLB<P10, B8, Packed> + WyHash
                         time:   [182.22 ms 182.26 ms 182.29 ms]
                         change: [-74.509% -74.503% -74.498%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -515,7 +515,7 @@ Union MLE2PP<P10, B8, Array> + WyHash
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union MLE2PP<P10, B6, PackedArray> + XxHash64
+Union MLE2PP<P10, B6, Packed> + XxHash64
                         time:   [110.76 ms 110.79 ms 110.82 ms]
                         change: [-83.966% -83.963% -83.961%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -523,19 +523,19 @@ Found 3 outliers among 10 measurements (30.00%)
   1 (10.00%) low severe
   2 (20.00%) high mild
 
-Union MLE2PP<P10, B6, PackedArray> + WyHash
+Union MLE2PP<P10, B6, Packed> + WyHash
                         time:   [182.66 ms 182.67 ms 182.68 ms]
                         change: [-74.485% -74.483% -74.480%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union MLE2PP<P10, B8, PackedArray> + XxHash64
+Union MLE2PP<P10, B8, Packed> + XxHash64
                         time:   [110.51 ms 110.52 ms 110.53 ms]
                         change: [-83.967% -83.964% -83.961%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P10, B8, PackedArray> + WyHash
+Union MLE2PP<P10, B8, Packed> + WyHash
                         time:   [182.38 ms 182.40 ms 182.42 ms]
                         change: [-74.458% -74.453% -74.448%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -585,7 +585,7 @@ Union HybridMLE2LLB<P10, B8, Array> + WyHash
                         change: [-74.499% -74.494% -74.488%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P10, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P10, B6, Packed> + XxHash64
                         time:   [110.62 ms 110.62 ms 110.63 ms]
                         change: [-83.959% -83.956% -83.953%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -593,21 +593,21 @@ Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) low mild
   1 (10.00%) high mild
 
-Union HybridMLE2LLB<P10, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P10, B6, Packed> + WyHash
                         time:   [182.58 ms 182.59 ms 182.61 ms]
                         change: [-74.488% -74.482% -74.477%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union HybridMLE2LLB<P10, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P10, B8, Packed> + XxHash64
                         time:   [110.12 ms 110.16 ms 110.18 ms]
                         change: [-84.001% -83.996% -83.992%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low mild
 
-Union HybridMLE2LLB<P10, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P10, B8, Packed> + WyHash
                         time:   [182.14 ms 182.17 ms 182.20 ms]
                         change: [-74.484% -74.479% -74.475%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -661,12 +661,12 @@ Union HybridMLE2PP<P10, B8, Array> + WyHash
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) low mild
 
-Union HybridMLE2PP<P10, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P10, B6, Packed> + XxHash64
                         time:   [110.72 ms 110.72 ms 110.73 ms]
                         change: [-83.965% -83.963% -83.962%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P10, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P10, B6, Packed> + WyHash
                         time:   [182.61 ms 182.64 ms 182.68 ms]
                         change: [-74.489% -74.483% -74.477%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -675,12 +675,12 @@ Found 4 outliers among 10 measurements (40.00%)
   1 (10.00%) high mild
   1 (10.00%) high severe
 
-Union HybridMLE2PP<P10, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P10, B8, Packed> + XxHash64
                         time:   [110.37 ms 110.41 ms 110.43 ms]
                         change: [-83.988% -83.981% -83.974%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P10, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P10, B8, Packed> + WyHash
                         time:   [182.26 ms 182.27 ms 182.29 ms]
                         change: [-74.470% -74.465% -74.461%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -791,14 +791,14 @@ Union LLB<P11, B8, Array> + WyHash
 Found 4 outliers among 100 measurements (4.00%)
   4 (4.00%) high mild
 
-Union LLB<P11, B6, PackedArray> + XxHash64
+Union LLB<P11, B6, Packed> + XxHash64
                         time:   [3.7183 ms 3.7195 ms 3.7207 ms]
                         change: [-78.789% -78.777% -78.765%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 3 outliers among 100 measurements (3.00%)
   3 (3.00%) high mild
 
-Union LLB<P11, B6, PackedArray> + WyHash
+Union LLB<P11, B6, Packed> + WyHash
                         time:   [3.7132 ms 3.7143 ms 3.7154 ms]
                         change: [-78.831% -78.820% -78.808%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -807,7 +807,7 @@ Found 6 outliers among 100 measurements (6.00%)
   4 (4.00%) high mild
   1 (1.00%) high severe
 
-Union LLB<P11, B8, PackedArray> + XxHash64
+Union LLB<P11, B8, Packed> + XxHash64
                         time:   [3.8621 ms 3.8644 ms 3.8668 ms]
                         change: [-79.244% -79.226% -79.208%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -815,7 +815,7 @@ Found 14 outliers among 100 measurements (14.00%)
   13 (13.00%) high mild
   1 (1.00%) high severe
 
-Union LLB<P11, B8, PackedArray> + WyHash
+Union LLB<P11, B8, Packed> + WyHash
                         time:   [3.8552 ms 3.8558 ms 3.8564 ms]
                         change: [-79.285% -79.275% -79.266%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -877,21 +877,21 @@ Union PP<P11, B8, Array> + WyHash
 Found 2 outliers among 100 measurements (2.00%)
   2 (2.00%) high mild
 
-Union PP<P11, B6, PackedArray> + XxHash64
+Union PP<P11, B6, Packed> + XxHash64
                         time:   [3.7262 ms 3.7382 ms 3.7600 ms]
                         change: [-78.781% -78.711% -78.555%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 3 outliers among 100 measurements (3.00%)
   3 (3.00%) high severe
 
-Union PP<P11, B6, PackedArray> + WyHash
+Union PP<P11, B6, Packed> + WyHash
                         time:   [3.7258 ms 3.7271 ms 3.7284 ms]
                         change: [-78.781% -78.771% -78.761%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 4 outliers among 100 measurements (4.00%)
   4 (4.00%) high mild
 
-Union PP<P11, B8, PackedArray> + XxHash64
+Union PP<P11, B8, Packed> + XxHash64
                         time:   [3.8635 ms 3.8640 ms 3.8645 ms]
                         change: [-79.410% -79.399% -79.390%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -900,7 +900,7 @@ Found 12 outliers among 100 measurements (12.00%)
   3 (3.00%) high mild
   7 (7.00%) high severe
 
-Union PP<P11, B8, PackedArray> + WyHash
+Union PP<P11, B8, Packed> + WyHash
                         time:   [3.8652 ms 3.8658 ms 3.8665 ms]
                         change: [-79.384% -79.376% -79.368%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -968,7 +968,7 @@ Found 11 outliers among 100 measurements (11.00%)
   1 (1.00%) high mild
   3 (3.00%) high severe
 
-Union HybridLLB<P11, B6, PackedArray> + XxHash64
+Union HybridLLB<P11, B6, Packed> + XxHash64
                         time:   [4.0001 ms 4.0006 ms 4.0011 ms]
                         change: [-77.071% -77.065% -77.060%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -976,7 +976,7 @@ Found 9 outliers among 100 measurements (9.00%)
   6 (6.00%) high mild
   3 (3.00%) high severe
 
-Union HybridLLB<P11, B6, PackedArray> + WyHash
+Union HybridLLB<P11, B6, Packed> + WyHash
                         time:   [3.9994 ms 4.0469 ms 4.1153 ms]
                         change: [-77.069% -76.798% -76.429%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -984,7 +984,7 @@ Found 7 outliers among 100 measurements (7.00%)
   2 (2.00%) high mild
   5 (5.00%) high severe
 
-Union HybridLLB<P11, B8, PackedArray> + XxHash64
+Union HybridLLB<P11, B8, Packed> + XxHash64
                         time:   [3.8607 ms 3.8611 ms 3.8616 ms]
                         change: [-79.357% -79.336% -79.319%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -993,7 +993,7 @@ Found 3 outliers among 100 measurements (3.00%)
   1 (1.00%) high mild
   1 (1.00%) high severe
 
-Union HybridLLB<P11, B8, PackedArray> + WyHash
+Union HybridLLB<P11, B8, Packed> + WyHash
                         time:   [3.8576 ms 3.8579 ms 3.8583 ms]
                         change: [-79.320% -79.307% -79.296%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -1062,22 +1062,22 @@ Found 4 outliers among 100 measurements (4.00%)
   2 (2.00%) low severe
   2 (2.00%) high mild
 
-Union HybridPP<P11, B6, PackedArray> + XxHash64
+Union HybridPP<P11, B6, Packed> + XxHash64
                         time:   [3.7546 ms 3.7561 ms 3.7576 ms]
                         change: [-78.553% -78.542% -78.532%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridPP<P11, B6, PackedArray> + WyHash
+Union HybridPP<P11, B6, Packed> + WyHash
                         time:   [3.7561 ms 3.7575 ms 3.7589 ms]
                         change: [-78.634% -78.618% -78.604%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridPP<P11, B8, PackedArray> + XxHash64
+Union HybridPP<P11, B8, Packed> + XxHash64
                         time:   [3.6001 ms 3.6009 ms 3.6018 ms]
                         change: [-80.697% -80.689% -80.682%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridPP<P11, B8, PackedArray> + WyHash
+Union HybridPP<P11, B8, Packed> + WyHash
                         time:   [3.5977 ms 3.5983 ms 3.5989 ms]
                         change: [-80.796% -80.790% -80.785%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -1124,22 +1124,22 @@ Union MLE2LLB<P11, B8, Array> + WyHash
                         change: [-80.038% -80.035% -80.031%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P11, B6, PackedArray> + XxHash64
+Union MLE2LLB<P11, B6, Packed> + XxHash64
                         time:   [814.00 ms 814.26 ms 814.49 ms]
                         change: [-77.672% -77.664% -77.658%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P11, B6, PackedArray> + WyHash
+Union MLE2LLB<P11, B6, Packed> + WyHash
                         time:   [740.00 ms 740.23 ms 740.45 ms]
                         change: [-80.041% -80.034% -80.028%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P11, B8, PackedArray> + XxHash64
+Union MLE2LLB<P11, B8, Packed> + XxHash64
                         time:   [813.37 ms 813.59 ms 813.81 ms]
                         change: [-77.674% -77.668% -77.662%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P11, B8, PackedArray> + WyHash
+Union MLE2LLB<P11, B8, Packed> + WyHash
                         time:   [739.20 ms 739.49 ms 739.78 ms]
                         change: [-80.047% -80.038% -80.031%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -1195,7 +1195,7 @@ Union MLE2PP<P11, B8, Array> + WyHash
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) low severe
 
-Union MLE2PP<P11, B6, PackedArray> + XxHash64
+Union MLE2PP<P11, B6, Packed> + XxHash64
                         time:   [814.53 ms 814.70 ms 814.85 ms]
                         change: [-77.662% -77.657% -77.653%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -1203,17 +1203,17 @@ Found 3 outliers among 10 measurements (30.00%)
   2 (20.00%) low severe
   1 (10.00%) high mild
 
-Union MLE2PP<P11, B6, PackedArray> + WyHash
+Union MLE2PP<P11, B6, Packed> + WyHash
                         time:   [740.78 ms 740.92 ms 741.04 ms]
                         change: [-80.020% -80.016% -80.013%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P11, B8, PackedArray> + XxHash64
+Union MLE2PP<P11, B8, Packed> + XxHash64
                         time:   [813.37 ms 813.51 ms 813.65 ms]
                         change: [-77.692% -77.688% -77.683%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P11, B8, PackedArray> + WyHash
+Union MLE2PP<P11, B8, Packed> + WyHash
                         time:   [739.79 ms 739.96 ms 740.10 ms]
                         change: [-80.034% -80.030% -80.026%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -1260,23 +1260,23 @@ Union HybridMLE2LLB<P11, B8, Array> + WyHash
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low mild
 
-Union HybridMLE2LLB<P11, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P11, B6, Packed> + XxHash64
                         time:   [813.66 ms 813.93 ms 814.14 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low mild
 
-Union HybridMLE2LLB<P11, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P11, B6, Packed> + WyHash
                         time:   [740.36 ms 740.45 ms 740.53 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low mild
 
-Union HybridMLE2LLB<P11, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P11, B8, Packed> + XxHash64
                         time:   [813.25 ms 813.34 ms 813.44 ms]
 Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) low mild
   1 (10.00%) high mild
 
-Union HybridMLE2LLB<P11, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P11, B8, Packed> + WyHash
                         time:   [739.70 ms 739.83 ms 739.93 ms]
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) low severe
@@ -1311,16 +1311,16 @@ Union HybridMLE2PP<P11, B8, Array> + WyHash
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low mild
 
-Union HybridMLE2PP<P11, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P11, B6, Packed> + XxHash64
                         time:   [814.05 ms 814.24 ms 814.41 ms]
 
-Union HybridMLE2PP<P11, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P11, B6, Packed> + WyHash
                         time:   [740.45 ms 740.63 ms 740.79 ms]
 
-Union HybridMLE2PP<P11, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P11, B8, Packed> + XxHash64
                         time:   [812.63 ms 812.94 ms 813.26 ms]
 
-Union HybridMLE2PP<P11, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P11, B8, Packed> + WyHash
                         time:   [739.62 ms 739.74 ms 739.85 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low mild
@@ -1411,23 +1411,23 @@ Union LLB<P12, B8, Array> + WyHash
 Found 4 outliers among 100 measurements (4.00%)
   4 (4.00%) high mild
 
-Union LLB<P12, B6, PackedArray> + XxHash64
+Union LLB<P12, B6, Packed> + XxHash64
                         time:   [7.3803 ms 7.3855 ms 7.3912 ms]
 Found 3 outliers among 100 measurements (3.00%)
   3 (3.00%) high mild
 
-Union LLB<P12, B6, PackedArray> + WyHash
+Union LLB<P12, B6, Packed> + WyHash
                         time:   [7.3573 ms 7.3607 ms 7.3643 ms]
 Found 5 outliers among 100 measurements (5.00%)
   3 (3.00%) high mild
   2 (2.00%) high severe
 
-Union LLB<P12, B8, PackedArray> + XxHash64
+Union LLB<P12, B8, Packed> + XxHash64
                         time:   [7.7573 ms 7.7627 ms 7.7685 ms]
 Found 3 outliers among 100 measurements (3.00%)
   3 (3.00%) high mild
 
-Union LLB<P12, B8, PackedArray> + WyHash
+Union LLB<P12, B8, Packed> + WyHash
                         time:   [7.7203 ms 7.7254 ms 7.7309 ms]
 Found 5 outliers among 100 measurements (5.00%)
   4 (4.00%) high mild
@@ -1473,18 +1473,18 @@ Union PP<P12, B8, Array> + WyHash
 Found 1 outliers among 100 measurements (1.00%)
   1 (1.00%) high mild
 
-Union PP<P12, B6, PackedArray> + XxHash64
+Union PP<P12, B6, Packed> + XxHash64
                         time:   [7.4330 ms 7.4426 ms 7.4524 ms]
 Found 1 outliers among 100 measurements (1.00%)
   1 (1.00%) high mild
 
-Union PP<P12, B6, PackedArray> + WyHash
+Union PP<P12, B6, Packed> + WyHash
                         time:   [7.3820 ms 7.3871 ms 7.3923 ms]
 
-Union PP<P12, B8, PackedArray> + XxHash64
+Union PP<P12, B8, Packed> + XxHash64
                         time:   [7.8095 ms 7.8204 ms 7.8316 ms]
 
-Union PP<P12, B8, PackedArray> + WyHash
+Union PP<P12, B8, Packed> + WyHash
                         time:   [7.8243 ms 7.8389 ms 7.8539 ms]
 
 Union HybridLLB<P12, B6, Vec> + XxHash64
@@ -1533,24 +1533,24 @@ Found 2 outliers among 100 measurements (2.00%)
 Union HybridLLB<P12, B8, Array> + WyHash
                         time:   [4.9192 ms 4.9249 ms 4.9305 ms]
 
-Union HybridLLB<P12, B6, PackedArray> + XxHash64
+Union HybridLLB<P12, B6, Packed> + XxHash64
                         time:   [8.0699 ms 8.0746 ms 8.0797 ms]
 Found 2 outliers among 100 measurements (2.00%)
   2 (2.00%) high mild
 
-Union HybridLLB<P12, B6, PackedArray> + WyHash
+Union HybridLLB<P12, B6, Packed> + WyHash
                         time:   [8.0117 ms 8.0152 ms 8.0190 ms]
 Found 5 outliers among 100 measurements (5.00%)
   4 (4.00%) high mild
   1 (1.00%) high severe
 
-Union HybridLLB<P12, B8, PackedArray> + XxHash64
+Union HybridLLB<P12, B8, Packed> + XxHash64
                         time:   [7.7196 ms 7.7236 ms 7.7279 ms]
 Found 7 outliers among 100 measurements (7.00%)
   5 (5.00%) high mild
   2 (2.00%) high severe
 
-Union HybridLLB<P12, B8, PackedArray> + WyHash
+Union HybridLLB<P12, B8, Packed> + WyHash
                         time:   [7.7660 ms 7.7767 ms 7.7880 ms]
 
 Union HybridPP<P12, B6, Vec> + XxHash64
@@ -1596,21 +1596,21 @@ Found 7 outliers among 100 measurements (7.00%)
   4 (4.00%) low mild
   3 (3.00%) high mild
 
-Union HybridPP<P12, B6, PackedArray> + XxHash64
+Union HybridPP<P12, B6, Packed> + XxHash64
                         time:   [7.6160 ms 7.6246 ms 7.6332 ms]
 Found 2 outliers among 100 measurements (2.00%)
   1 (1.00%) low mild
   1 (1.00%) high mild
 
-Union HybridPP<P12, B6, PackedArray> + WyHash
+Union HybridPP<P12, B6, Packed> + WyHash
                         time:   [7.5027 ms 7.5106 ms 7.5188 ms]
 Found 1 outliers among 100 measurements (1.00%)
   1 (1.00%) high mild
 
-Union HybridPP<P12, B8, PackedArray> + XxHash64
+Union HybridPP<P12, B8, Packed> + XxHash64
                         time:   [7.2093 ms 7.2176 ms 7.2258 ms]
 
-Union HybridPP<P12, B8, PackedArray> + WyHash
+Union HybridPP<P12, B8, Packed> + WyHash
                         time:   [7.2311 ms 7.2434 ms 7.2566 ms]
 Found 19 outliers among 100 measurements (19.00%)
   6 (6.00%) high mild
@@ -1653,20 +1653,20 @@ Union MLE2LLB<P12, B8, Array> + WyHash
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) high severe
 
-Union MLE2LLB<P12, B6, PackedArray> + XxHash64
+Union MLE2LLB<P12, B6, Packed> + XxHash64
                         time:   [3.3459 s 3.3484 s 3.3513 s]
 
-Union MLE2LLB<P12, B6, PackedArray> + WyHash
+Union MLE2LLB<P12, B6, Packed> + WyHash
                         time:   [3.0049 s 3.0053 s 3.0057 s]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union MLE2LLB<P12, B8, PackedArray> + XxHash64
+Union MLE2LLB<P12, B8, Packed> + XxHash64
                         time:   [3.3449 s 3.3462 s 3.3483 s]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high severe
 
-Union MLE2LLB<P12, B8, PackedArray> + WyHash
+Union MLE2LLB<P12, B8, Packed> + WyHash
                         time:   [3.0001 s 3.0029 s 3.0050 s]
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) low severe
@@ -1699,19 +1699,19 @@ Union MLE2PP<P12, B8, Array> + XxHash64
 Union MLE2PP<P12, B8, Array> + WyHash
                         time:   [2.9973 s 3.0005 s 3.0038 s]
 
-Union MLE2PP<P12, B6, PackedArray> + XxHash64
+Union MLE2PP<P12, B6, Packed> + XxHash64
                         time:   [3.3705 s 3.3708 s 3.3711 s]
 Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) low mild
   1 (10.00%) high mild
 
-Union MLE2PP<P12, B6, PackedArray> + WyHash
+Union MLE2PP<P12, B6, Packed> + WyHash
                         time:   [2.9999 s 3.0029 s 3.0057 s]
 
-Union MLE2PP<P12, B8, PackedArray> + XxHash64
+Union MLE2PP<P12, B8, Packed> + XxHash64
                         time:   [3.3688 s 3.3693 s 3.3699 s]
 
-Union MLE2PP<P12, B8, PackedArray> + WyHash
+Union MLE2PP<P12, B8, Packed> + WyHash
                         time:   [2.9964 s 2.9993 s 3.0023 s]
 
 Union HybridMLE2LLB<P12, B6, Vec> + XxHash64
@@ -1747,21 +1747,21 @@ Union HybridMLE2LLB<P12, B8, Array> + WyHash
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union HybridMLE2LLB<P12, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P12, B6, Packed> + XxHash64
                         time:   [3.1404 s 3.1411 s 3.1418 s]
 
-Union HybridMLE2LLB<P12, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P12, B6, Packed> + WyHash
                         time:   [2.7486 s 2.7503 s 2.7524 s]
 Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) low mild
   1 (10.00%) high severe
 
-Union HybridMLE2LLB<P12, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P12, B8, Packed> + XxHash64
                         time:   [3.1255 s 3.1281 s 3.1314 s]
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) high mild
 
-Union HybridMLE2LLB<P12, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P12, B8, Packed> + WyHash
                         time:   [2.7175 s 2.7188 s 2.7206 s]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high severe
@@ -1798,21 +1798,21 @@ Union HybridMLE2PP<P12, B8, Array> + WyHash
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high severe
 
-Union HybridMLE2PP<P12, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P12, B6, Packed> + XxHash64
                         time:   [3.1514 s 3.1520 s 3.1526 s]
 
-Union HybridMLE2PP<P12, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P12, B6, Packed> + WyHash
                         time:   [2.7448 s 2.7463 s 2.7482 s]
 Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) high mild
   1 (10.00%) high severe
 
-Union HybridMLE2PP<P12, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P12, B8, Packed> + XxHash64
                         time:   [3.1369 s 3.1387 s 3.1408 s]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union HybridMLE2PP<P12, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P12, B8, Packed> + WyHash
                         time:   [2.7243 s 2.7257 s 2.7275 s]
 Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) high mild
@@ -1882,21 +1882,21 @@ Union LLB<P13, B8, Array> + XxHash64
 Union LLB<P13, B8, Array> + WyHash
                         time:   [9.8856 ms 9.8958 ms 9.9060 ms]
 
-Union LLB<P13, B6, PackedArray> + XxHash64
+Union LLB<P13, B6, Packed> + XxHash64
                         time:   [16.080 ms 16.094 ms 16.109 ms]
 Found 4 outliers among 50 measurements (8.00%)
   3 (6.00%) high mild
   1 (2.00%) high severe
 
-Union LLB<P13, B6, PackedArray> + WyHash
+Union LLB<P13, B6, Packed> + WyHash
                         time:   [16.106 ms 16.120 ms 16.135 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union LLB<P13, B8, PackedArray> + XxHash64
+Union LLB<P13, B8, Packed> + XxHash64
                         time:   [14.225 ms 14.246 ms 14.266 ms]
 
-Union LLB<P13, B8, PackedArray> + WyHash
+Union LLB<P13, B8, Packed> + WyHash
                         time:   [14.524 ms 14.533 ms 14.543 ms]
 
 Union PP<P13, B6, Vec> + XxHash64
@@ -1933,21 +1933,21 @@ Union PP<P13, B8, Array> + WyHash
 Found 2 outliers among 50 measurements (4.00%)
   2 (4.00%) high mild
 
-Union PP<P13, B6, PackedArray> + XxHash64
+Union PP<P13, B6, Packed> + XxHash64
                         time:   [16.078 ms 16.091 ms 16.106 ms]
 Found 6 outliers among 50 measurements (12.00%)
   3 (6.00%) high mild
   3 (6.00%) high severe
 
-Union PP<P13, B6, PackedArray> + WyHash
+Union PP<P13, B6, Packed> + WyHash
                         time:   [16.159 ms 16.182 ms 16.205 ms]
 
-Union PP<P13, B8, PackedArray> + XxHash64
+Union PP<P13, B8, Packed> + XxHash64
                         time:   [14.681 ms 14.700 ms 14.719 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) low mild
 
-Union PP<P13, B8, PackedArray> + WyHash
+Union PP<P13, B8, Packed> + WyHash
                         time:   [14.276 ms 14.286 ms 14.298 ms]
 Found 2 outliers among 50 measurements (4.00%)
   1 (2.00%) low mild
@@ -1991,18 +1991,18 @@ Union HybridLLB<P13, B8, Array> + XxHash64
 Union HybridLLB<P13, B8, Array> + WyHash
                         time:   [9.8938 ms 9.9054 ms 9.9173 ms]
 
-Union HybridLLB<P13, B6, PackedArray> + XxHash64
+Union HybridLLB<P13, B6, Packed> + XxHash64
                         time:   [16.025 ms 16.035 ms 16.044 ms]
 
-Union HybridLLB<P13, B6, PackedArray> + WyHash
+Union HybridLLB<P13, B6, Packed> + WyHash
                         time:   [16.035 ms 16.043 ms 16.051 ms]
 
-Union HybridLLB<P13, B8, PackedArray> + XxHash64
+Union HybridLLB<P13, B8, Packed> + XxHash64
                         time:   [15.474 ms 15.493 ms 15.514 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union HybridLLB<P13, B8, PackedArray> + WyHash
+Union HybridLLB<P13, B8, Packed> + WyHash
                         time:   [15.436 ms 15.447 ms 15.459 ms]
 Found 4 outliers among 50 measurements (8.00%)
   1 (2.00%) low mild
@@ -2049,20 +2049,20 @@ Found 3 outliers among 50 measurements (6.00%)
 Union HybridPP<P13, B8, Array> + WyHash
                         time:   [10.036 ms 10.067 ms 10.098 ms]
 
-Union HybridPP<P13, B6, PackedArray> + XxHash64
+Union HybridPP<P13, B6, Packed> + XxHash64
                         time:   [15.000 ms 15.019 ms 15.039 ms]
 Found 4 outliers among 50 measurements (8.00%)
   4 (8.00%) high mild
 
-Union HybridPP<P13, B6, PackedArray> + WyHash
+Union HybridPP<P13, B6, Packed> + WyHash
                         time:   [15.011 ms 15.024 ms 15.037 ms]
 
-Union HybridPP<P13, B8, PackedArray> + XxHash64
+Union HybridPP<P13, B8, Packed> + XxHash64
                         time:   [14.442 ms 14.472 ms 14.505 ms]
 Found 9 outliers among 50 measurements (18.00%)
   9 (18.00%) high severe
 
-Union HybridPP<P13, B8, PackedArray> + WyHash
+Union HybridPP<P13, B8, Packed> + WyHash
                         time:   [14.378 ms 14.394 ms 14.410 ms]
 
 Union MLE2LLB<P13, B6, Vec> + XxHash64
@@ -2096,20 +2096,20 @@ Union MLE2LLB<P13, B8, Array> + WyHash
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union MLE2LLB<P13, B6, PackedArray> + XxHash64
+Union MLE2LLB<P13, B6, Packed> + XxHash64
                         time:   [2.9627 s 2.9692 s 2.9780 s]
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) high severe
 
-Union MLE2LLB<P13, B6, PackedArray> + WyHash
+Union MLE2LLB<P13, B6, Packed> + WyHash
                         time:   [2.6723 s 2.6727 s 2.6730 s]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low mild
 
-Union MLE2LLB<P13, B8, PackedArray> + XxHash64
+Union MLE2LLB<P13, B8, Packed> + XxHash64
                         time:   [2.9592 s 2.9595 s 2.9597 s]
 
-Union MLE2LLB<P13, B8, PackedArray> + WyHash
+Union MLE2LLB<P13, B8, Packed> + WyHash
                         time:   [2.6747 s 2.6770 s 2.6786 s]
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) low severe
@@ -2147,18 +2147,18 @@ Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) low mild
   1 (10.00%) high mild
 
-Union MLE2PP<P13, B6, PackedArray> + XxHash64
+Union MLE2PP<P13, B6, Packed> + XxHash64
                         time:   [2.9826 s 2.9831 s 2.9837 s]
 
-Union MLE2PP<P13, B6, PackedArray> + WyHash
+Union MLE2PP<P13, B6, Packed> + WyHash
                         time:   [2.6872 s 2.6899 s 2.6926 s]
 
-Union MLE2PP<P13, B8, PackedArray> + XxHash64
+Union MLE2PP<P13, B8, Packed> + XxHash64
                         time:   [2.9720 s 2.9739 s 2.9765 s]
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) high severe
 
-Union MLE2PP<P13, B8, PackedArray> + WyHash
+Union MLE2PP<P13, B8, Packed> + WyHash
                         time:   [2.6825 s 2.6830 s 2.6834 s]
 
 Union HybridMLE2LLB<P13, B6, Vec> + XxHash64
@@ -2193,19 +2193,19 @@ Union HybridMLE2LLB<P13, B8, Array> + XxHash64
 Union HybridMLE2LLB<P13, B8, Array> + WyHash
                         time:   [2.3687 s 2.3702 s 2.3716 s]
 
-Union HybridMLE2LLB<P13, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P13, B6, Packed> + XxHash64
                         time:   [2.6424 s 2.6434 s 2.6444 s]
 
-Union HybridMLE2LLB<P13, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P13, B6, Packed> + WyHash
                         time:   [2.3919 s 2.3938 s 2.3956 s]
 
-Union HybridMLE2LLB<P13, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P13, B8, Packed> + XxHash64
                         time:   [2.5385 s 2.5400 s 2.5427 s]
 Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) low mild
   1 (10.00%) high severe
 
-Union HybridMLE2LLB<P13, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P13, B8, Packed> + WyHash
                         time:   [2.3642 s 2.3651 s 2.3662 s]
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) high severe
@@ -2243,16 +2243,16 @@ Found 3 outliers among 10 measurements (30.00%)
 Union HybridMLE2PP<P13, B8, Array> + WyHash
                         time:   [2.3819 s 2.3824 s 2.3829 s]
 
-Union HybridMLE2PP<P13, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P13, B6, Packed> + XxHash64
                         time:   [2.6514 s 2.6517 s 2.6521 s]
 
-Union HybridMLE2PP<P13, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P13, B6, Packed> + WyHash
                         time:   [2.4026 s 2.4030 s 2.4034 s]
 
-Union HybridMLE2PP<P13, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P13, B8, Packed> + XxHash64
                         time:   [2.5510 s 2.5534 s 2.5559 s]
 
-Union HybridMLE2PP<P13, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P13, B8, Packed> + WyHash
                         time:   [2.3745 s 2.3758 s 2.3773 s]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
@@ -2330,21 +2330,21 @@ Found 6 outliers among 50 measurements (12.00%)
 Union LLB<P14, B8, Array> + WyHash
                         time:   [19.785 ms 19.804 ms 19.824 ms]
 
-Union LLB<P14, B6, PackedArray> + XxHash64
+Union LLB<P14, B6, Packed> + XxHash64
                         time:   [32.140 ms 32.154 ms 32.169 ms]
 
-Union LLB<P14, B6, PackedArray> + WyHash
+Union LLB<P14, B6, Packed> + WyHash
                         time:   [32.112 ms 32.125 ms 32.140 ms]
 Found 6 outliers among 50 measurements (12.00%)
   3 (6.00%) low mild
   3 (6.00%) high severe
 
-Union LLB<P14, B8, PackedArray> + XxHash64
+Union LLB<P14, B8, Packed> + XxHash64
                         time:   [28.624 ms 28.633 ms 28.642 ms]
 Found 2 outliers among 50 measurements (4.00%)
   2 (4.00%) high mild
 
-Union LLB<P14, B8, PackedArray> + WyHash
+Union LLB<P14, B8, Packed> + WyHash
                         time:   [28.628 ms 28.638 ms 28.648 ms]
 Found 2 outliers among 50 measurements (4.00%)
   1 (2.00%) low mild
@@ -2381,20 +2381,20 @@ Union PP<P14, B8, Array> + XxHash64
 Union PP<P14, B8, Array> + WyHash
                         time:   [19.668 ms 19.691 ms 19.715 ms]
 
-Union PP<P14, B6, PackedArray> + XxHash64
+Union PP<P14, B6, Packed> + XxHash64
                         time:   [32.109 ms 32.132 ms 32.156 ms]
 
-Union PP<P14, B6, PackedArray> + WyHash
+Union PP<P14, B6, Packed> + WyHash
                         time:   [32.114 ms 32.132 ms 32.150 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union PP<P14, B8, PackedArray> + XxHash64
+Union PP<P14, B8, Packed> + XxHash64
                         time:   [28.668 ms 28.676 ms 28.684 ms]
 Found 3 outliers among 50 measurements (6.00%)
   3 (6.00%) high mild
 
-Union PP<P14, B8, PackedArray> + WyHash
+Union PP<P14, B8, Packed> + WyHash
                         time:   [28.680 ms 28.694 ms 28.708 ms]
 Found 2 outliers among 50 measurements (4.00%)
   2 (4.00%) high mild
@@ -2429,19 +2429,19 @@ Found 1 outliers among 50 measurements (2.00%)
 Union HybridLLB<P14, B8, Array> + WyHash
                         time:   [19.441 ms 19.467 ms 19.496 ms]
 
-Union HybridLLB<P14, B6, PackedArray> + XxHash64
+Union HybridLLB<P14, B6, Packed> + XxHash64
                         time:   [31.504 ms 31.525 ms 31.547 ms]
 Found 6 outliers among 50 measurements (12.00%)
   5 (10.00%) high mild
   1 (2.00%) high severe
 
-Union HybridLLB<P14, B6, PackedArray> + WyHash
+Union HybridLLB<P14, B6, Packed> + WyHash
                         time:   [31.476 ms 31.494 ms 31.512 ms]
 
-Union HybridLLB<P14, B8, PackedArray> + XxHash64
+Union HybridLLB<P14, B8, Packed> + XxHash64
                         time:   [28.191 ms 28.205 ms 28.219 ms]
 
-Union HybridLLB<P14, B8, PackedArray> + WyHash
+Union HybridLLB<P14, B8, Packed> + WyHash
                         time:   [28.219 ms 28.239 ms 28.262 ms]
 Found 7 outliers among 50 measurements (14.00%)
   1 (2.00%) low mild
@@ -2482,16 +2482,16 @@ Found 8 outliers among 50 measurements (16.00%)
 Union HybridPP<P14, B8, Array> + WyHash
                         time:   [19.497 ms 19.514 ms 19.532 ms]
 
-Union HybridPP<P14, B6, PackedArray> + XxHash64
+Union HybridPP<P14, B6, Packed> + XxHash64
                         time:   [28.829 ms 28.841 ms 28.854 ms]
 
-Union HybridPP<P14, B6, PackedArray> + WyHash
+Union HybridPP<P14, B6, Packed> + WyHash
                         time:   [28.808 ms 28.818 ms 28.829 ms]
 
-Union HybridPP<P14, B8, PackedArray> + XxHash64
+Union HybridPP<P14, B8, Packed> + XxHash64
                         time:   [28.191 ms 28.201 ms 28.212 ms]
 
-Union HybridPP<P14, B8, PackedArray> + WyHash
+Union HybridPP<P14, B8, Packed> + WyHash
                         time:   [28.184 ms 28.192 ms 28.201 ms]
 
 Union MLE2LLB<P14, B6, Vec> + XxHash64
@@ -2523,18 +2523,18 @@ Union MLE2LLB<P14, B8, Array> + XxHash64
 Union MLE2LLB<P14, B8, Array> + WyHash
                         time:   [950.46 ms 950.56 ms 950.66 ms]
 
-Union MLE2LLB<P14, B6, PackedArray> + XxHash64
+Union MLE2LLB<P14, B6, Packed> + XxHash64
                         time:   [1.0483 s 1.0484 s 1.0485 s]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union MLE2LLB<P14, B6, PackedArray> + WyHash
+Union MLE2LLB<P14, B6, Packed> + WyHash
                         time:   [946.16 ms 947.34 ms 948.59 ms]
 
-Union MLE2LLB<P14, B8, PackedArray> + XxHash64
+Union MLE2LLB<P14, B8, Packed> + XxHash64
                         time:   [1.0400 s 1.0404 s 1.0409 s]
 
-Union MLE2LLB<P14, B8, PackedArray> + WyHash
+Union MLE2LLB<P14, B8, Packed> + WyHash
                         time:   [936.54 ms 936.93 ms 937.44 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
@@ -2570,18 +2570,18 @@ Union MLE2PP<P14, B8, Array> + XxHash64
 Union MLE2PP<P14, B8, Array> + WyHash
                         time:   [945.72 ms 945.81 ms 945.91 ms]
 
-Union MLE2PP<P14, B6, PackedArray> + XxHash64
+Union MLE2PP<P14, B6, Packed> + XxHash64
                         time:   [1.0478 s 1.0479 s 1.0480 s]
 
-Union MLE2PP<P14, B6, PackedArray> + WyHash
+Union MLE2PP<P14, B6, Packed> + WyHash
                         time:   [944.52 ms 944.61 ms 944.70 ms]
 
-Union MLE2PP<P14, B8, PackedArray> + XxHash64
+Union MLE2PP<P14, B8, Packed> + XxHash64
                         time:   [1.0436 s 1.0450 s 1.0460 s]
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) low severe
 
-Union MLE2PP<P14, B8, PackedArray> + WyHash
+Union MLE2PP<P14, B8, Packed> + WyHash
                         time:   [937.09 ms 937.21 ms 937.34 ms]
 
 Union HybridMLE2LLB<P14, B6, Vec> + XxHash64
@@ -2614,22 +2614,22 @@ Union HybridMLE2LLB<P14, B8, Array> + XxHash64
 Union HybridMLE2LLB<P14, B8, Array> + WyHash
                         time:   [673.62 ms 673.73 ms 673.85 ms]
 
-Union HybridMLE2LLB<P14, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P14, B6, Packed> + XxHash64
                         time:   [786.42 ms 786.53 ms 786.66 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union HybridMLE2LLB<P14, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P14, B6, Packed> + WyHash
                         time:   [747.41 ms 747.46 ms 747.51 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low mild
 
-Union HybridMLE2LLB<P14, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P14, B8, Packed> + XxHash64
                         time:   [673.12 ms 673.26 ms 673.41 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union HybridMLE2LLB<P14, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P14, B8, Packed> + WyHash
                         time:   [660.01 ms 660.15 ms 660.29 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
@@ -2660,18 +2660,18 @@ Found 1 outliers among 10 measurements (10.00%)
 Union HybridMLE2PP<P14, B8, Array> + WyHash
                         time:   [669.42 ms 670.23 ms 671.12 ms]
 
-Union HybridMLE2PP<P14, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P14, B6, Packed> + XxHash64
                         time:   [786.36 ms 787.28 ms 788.31 ms]
 
-Union HybridMLE2PP<P14, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P14, B6, Packed> + WyHash
                         time:   [746.95 ms 747.09 ms 747.27 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union HybridMLE2PP<P14, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P14, B8, Packed> + XxHash64
                         time:   [674.67 ms 675.55 ms 676.43 ms]
 
-Union HybridMLE2PP<P14, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P14, B8, Packed> + WyHash
                         time:   [661.44 ms 662.25 ms 663.10 ms]
 
 Union Tabac<P14, B6, Vec> + XxHash64
@@ -2740,18 +2740,18 @@ Union LLB<P15, B8, Array> + XxHash64
 Union LLB<P15, B8, Array> + WyHash
                         time:   [39.195 ms 39.217 ms 39.239 ms]
 
-Union LLB<P15, B6, PackedArray> + XxHash64
+Union LLB<P15, B6, Packed> + XxHash64
                         time:   [64.069 ms 64.082 ms 64.094 ms]
 
-Union LLB<P15, B6, PackedArray> + WyHash
+Union LLB<P15, B6, Packed> + WyHash
                         time:   [64.107 ms 64.121 ms 64.136 ms]
 
-Union LLB<P15, B8, PackedArray> + XxHash64
+Union LLB<P15, B8, Packed> + XxHash64
                         time:   [56.085 ms 56.105 ms 56.127 ms]
 Found 2 outliers among 50 measurements (4.00%)
   2 (4.00%) high mild
 
-Union LLB<P15, B8, PackedArray> + WyHash
+Union LLB<P15, B8, Packed> + WyHash
                         time:   [56.092 ms 56.105 ms 56.120 ms]
 Found 4 outliers among 50 measurements (8.00%)
   1 (2.00%) low mild
@@ -2792,18 +2792,18 @@ Found 2 outliers among 50 measurements (4.00%)
 Union PP<P15, B8, Array> + WyHash
                         time:   [39.225 ms 39.233 ms 39.241 ms]
 
-Union PP<P15, B6, PackedArray> + XxHash64
+Union PP<P15, B6, Packed> + XxHash64
                         time:   [64.053 ms 64.068 ms 64.084 ms]
 
-Union PP<P15, B6, PackedArray> + WyHash
+Union PP<P15, B6, Packed> + WyHash
                         time:   [64.062 ms 64.079 ms 64.097 ms]
 
-Union PP<P15, B8, PackedArray> + XxHash64
+Union PP<P15, B8, Packed> + XxHash64
                         time:   [57.838 ms 57.855 ms 57.873 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union PP<P15, B8, PackedArray> + WyHash
+Union PP<P15, B8, Packed> + WyHash
                         time:   [56.029 ms 56.041 ms 56.057 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high severe
@@ -2836,19 +2836,19 @@ Union HybridLLB<P15, B8, Array> + XxHash64
 Union HybridLLB<P15, B8, Array> + WyHash
                         time:   [38.355 ms 38.366 ms 38.377 ms]
 
-Union HybridLLB<P15, B6, PackedArray> + XxHash64
+Union HybridLLB<P15, B6, Packed> + XxHash64
                         time:   [61.833 ms 61.850 ms 61.867 ms]
 
-Union HybridLLB<P15, B6, PackedArray> + WyHash
+Union HybridLLB<P15, B6, Packed> + WyHash
                         time:   [61.873 ms 61.899 ms 61.930 ms]
 Found 4 outliers among 50 measurements (8.00%)
   3 (6.00%) high mild
   1 (2.00%) high severe
 
-Union HybridLLB<P15, B8, PackedArray> + XxHash64
+Union HybridLLB<P15, B8, Packed> + XxHash64
                         time:   [59.824 ms 59.856 ms 59.887 ms]
 
-Union HybridLLB<P15, B8, PackedArray> + WyHash
+Union HybridLLB<P15, B8, Packed> + WyHash
                         time:   [59.892 ms 59.908 ms 59.924 ms]
 
 Union HybridPP<P15, B6, Vec> + XxHash64
@@ -2881,16 +2881,16 @@ Union HybridPP<P15, B8, Array> + XxHash64
 Union HybridPP<P15, B8, Array> + WyHash
                         time:   [38.090 ms 38.099 ms 38.108 ms]
 
-Union HybridPP<P15, B6, PackedArray> + XxHash64
+Union HybridPP<P15, B6, Packed> + XxHash64
                         time:   [57.653 ms 57.673 ms 57.693 ms]
 
-Union HybridPP<P15, B6, PackedArray> + WyHash
+Union HybridPP<P15, B6, Packed> + WyHash
                         time:   [57.617 ms 57.630 ms 57.644 ms]
 
-Union HybridPP<P15, B8, PackedArray> + XxHash64
+Union HybridPP<P15, B8, Packed> + XxHash64
                         time:   [59.637 ms 59.652 ms 59.668 ms]
 
-Union HybridPP<P15, B8, PackedArray> + WyHash
+Union HybridPP<P15, B8, Packed> + WyHash
                         time:   [59.545 ms 59.555 ms 59.566 ms]
 
 Union MLE2LLB<P15, B6, Vec> + XxHash64
@@ -2919,19 +2919,19 @@ Union MLE2LLB<P15, B8, Array> + XxHash64
 Union MLE2LLB<P15, B8, Array> + WyHash
                         time:   [253.84 ms 253.94 ms 254.04 ms]
 
-Union MLE2LLB<P15, B6, PackedArray> + XxHash64
+Union MLE2LLB<P15, B6, Packed> + XxHash64
                         time:   [293.29 ms 293.32 ms 293.35 ms]
 
-Union MLE2LLB<P15, B6, PackedArray> + WyHash
+Union MLE2LLB<P15, B6, Packed> + WyHash
                         time:   [255.73 ms 255.94 ms 256.17 ms]
 
-Union MLE2LLB<P15, B8, PackedArray> + XxHash64
+Union MLE2LLB<P15, B8, Packed> + XxHash64
                         time:   [282.33 ms 282.75 ms 283.23 ms]
 Found 3 outliers among 10 measurements (30.00%)
   2 (20.00%) low mild
   1 (10.00%) high severe
 
-Union MLE2LLB<P15, B8, PackedArray> + WyHash
+Union MLE2LLB<P15, B8, Packed> + WyHash
                         time:   [244.37 ms 244.58 ms 244.81 ms]
 
 Union MLE2PP<P15, B6, Vec> + XxHash64
@@ -2968,18 +2968,18 @@ Union MLE2PP<P15, B8, Array> + WyHash
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union MLE2PP<P15, B6, PackedArray> + XxHash64
+Union MLE2PP<P15, B6, Packed> + XxHash64
                         time:   [291.33 ms 291.57 ms 291.81 ms]
 
-Union MLE2PP<P15, B6, PackedArray> + WyHash
+Union MLE2PP<P15, B6, Packed> + WyHash
                         time:   [253.40 ms 253.59 ms 253.80 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union MLE2PP<P15, B8, PackedArray> + XxHash64
+Union MLE2PP<P15, B8, Packed> + XxHash64
                         time:   [279.41 ms 279.59 ms 279.79 ms]
 
-Union MLE2PP<P15, B8, PackedArray> + WyHash
+Union MLE2PP<P15, B8, Packed> + WyHash
                         time:   [241.73 ms 241.92 ms 242.12 ms]
 
 Union HybridMLE2LLB<P15, B6, Vec> + XxHash64
@@ -3011,20 +3011,20 @@ Union HybridMLE2LLB<P15, B8, Array> + XxHash64
 Union HybridMLE2LLB<P15, B8, Array> + WyHash
                         time:   [225.63 ms 225.70 ms 225.77 ms]
 
-Union HybridMLE2LLB<P15, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P15, B6, Packed> + XxHash64
                         time:   [229.63 ms 229.65 ms 229.68 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union HybridMLE2LLB<P15, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P15, B6, Packed> + WyHash
                         time:   [230.25 ms 230.28 ms 230.32 ms]
 
-Union HybridMLE2LLB<P15, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P15, B8, Packed> + XxHash64
                         time:   [203.60 ms 203.78 ms 203.92 ms]
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) low severe
 
-Union HybridMLE2LLB<P15, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P15, B8, Packed> + WyHash
                         time:   [215.75 ms 215.86 ms 215.97 ms]
 
 Union HybridMLE2PP<P15, B6, Vec> + XxHash64
@@ -3057,20 +3057,20 @@ Found 3 outliers among 10 measurements (30.00%)
 Union HybridMLE2PP<P15, B8, Array> + WyHash
                         time:   [241.44 ms 241.78 ms 242.15 ms]
 
-Union HybridMLE2PP<P15, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P15, B6, Packed> + XxHash64
                         time:   [228.56 ms 228.68 ms 228.82 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union HybridMLE2PP<P15, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P15, B6, Packed> + WyHash
                         time:   [228.42 ms 228.66 ms 228.95 ms]
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) high severe
 
-Union HybridMLE2PP<P15, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P15, B8, Packed> + XxHash64
                         time:   [200.30 ms 200.34 ms 200.39 ms]
 
-Union HybridMLE2PP<P15, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P15, B8, Packed> + WyHash
                         time:   [212.97 ms 213.04 ms 213.13 ms]
 
 Union Tabac<P15, B6, Vec> + XxHash64
@@ -3131,21 +3131,21 @@ Union LLB<P16, B8, Array> + XxHash64
 Union LLB<P16, B8, Array> + WyHash
                         time:   [77.940 ms 77.949 ms 77.958 ms]
 
-Union LLB<P16, B6, PackedArray> + XxHash64
+Union LLB<P16, B6, Packed> + XxHash64
                         time:   [117.34 ms 117.36 ms 117.39 ms]
 
-Union LLB<P16, B6, PackedArray> + WyHash
+Union LLB<P16, B6, Packed> + WyHash
                         time:   [117.22 ms 117.24 ms 117.27 ms]
 Found 3 outliers among 50 measurements (6.00%)
   3 (6.00%) high mild
 
-Union LLB<P16, B8, PackedArray> + XxHash64
+Union LLB<P16, B8, Packed> + XxHash64
                         time:   [113.78 ms 113.81 ms 113.84 ms]
 Found 2 outliers among 50 measurements (4.00%)
   1 (2.00%) high mild
   1 (2.00%) high severe
 
-Union LLB<P16, B8, PackedArray> + WyHash
+Union LLB<P16, B8, Packed> + WyHash
                         time:   [113.74 ms 113.77 ms 113.80 ms]
 
 Union PP<P16, B6, Vec> + XxHash64
@@ -3180,20 +3180,20 @@ Union PP<P16, B8, Array> + WyHash
 Found 2 outliers among 50 measurements (4.00%)
   2 (4.00%) high mild
 
-Union PP<P16, B6, PackedArray> + XxHash64
+Union PP<P16, B6, Packed> + XxHash64
                         time:   [117.27 ms 117.30 ms 117.32 ms]
 
-Union PP<P16, B6, PackedArray> + WyHash
+Union PP<P16, B6, Packed> + WyHash
                         time:   [117.39 ms 117.42 ms 117.45 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high severe
 
-Union PP<P16, B8, PackedArray> + XxHash64
+Union PP<P16, B8, Packed> + XxHash64
                         time:   [113.89 ms 113.92 ms 113.94 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union PP<P16, B8, PackedArray> + WyHash
+Union PP<P16, B8, Packed> + WyHash
                         time:   [113.91 ms 113.93 ms 113.95 ms]
 
 Union HybridLLB<P16, B6, Vec> + XxHash64
@@ -3229,21 +3229,21 @@ Found 7 outliers among 50 measurements (14.00%)
 Union HybridLLB<P16, B8, Array> + WyHash
                         time:   [77.380 ms 77.599 ms 77.817 ms]
 
-Union HybridLLB<P16, B6, PackedArray> + XxHash64
+Union HybridLLB<P16, B6, Packed> + XxHash64
                         time:   [111.03 ms 111.08 ms 111.15 ms]
 Found 4 outliers among 50 measurements (8.00%)
   2 (4.00%) high mild
   2 (4.00%) high severe
 
-Union HybridLLB<P16, B6, PackedArray> + WyHash
+Union HybridLLB<P16, B6, Packed> + WyHash
                         time:   [111.03 ms 111.06 ms 111.10 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union HybridLLB<P16, B8, PackedArray> + XxHash64
+Union HybridLLB<P16, B8, Packed> + XxHash64
                         time:   [109.84 ms 110.11 ms 110.38 ms]
 
-Union HybridLLB<P16, B8, PackedArray> + WyHash
+Union HybridLLB<P16, B8, Packed> + WyHash
                         time:   [108.03 ms 108.06 ms 108.10 ms]
 Found 2 outliers among 50 measurements (4.00%)
   2 (4.00%) high mild
@@ -3274,19 +3274,19 @@ Found 2 outliers among 50 measurements (4.00%)
 Union HybridPP<P16, B8, Array> + WyHash
                         time:   [75.895 ms 75.928 ms 75.962 ms]
 
-Union HybridPP<P16, B6, PackedArray> + XxHash64
+Union HybridPP<P16, B6, Packed> + XxHash64
                         time:   [112.06 ms 112.09 ms 112.11 ms]
 Found 3 outliers among 50 measurements (6.00%)
   2 (4.00%) high mild
   1 (2.00%) high severe
 
-Union HybridPP<P16, B6, PackedArray> + WyHash
+Union HybridPP<P16, B6, Packed> + WyHash
                         time:   [112.27 ms 112.28 ms 112.30 ms]
 
-Union HybridPP<P16, B8, PackedArray> + XxHash64
+Union HybridPP<P16, B8, Packed> + XxHash64
                         time:   [110.29 ms 110.36 ms 110.42 ms]
 
-Union HybridPP<P16, B8, PackedArray> + WyHash
+Union HybridPP<P16, B8, Packed> + WyHash
                         time:   [109.62 ms 109.65 ms 109.68 ms]
 
 Union MLE2LLB<P16, B6, Vec> + XxHash64
@@ -3322,18 +3322,18 @@ Union MLE2LLB<P16, B8, Array> + XxHash64
 Union MLE2LLB<P16, B8, Array> + WyHash
                         time:   [424.46 ms 424.56 ms 424.66 ms]
 
-Union MLE2LLB<P16, B6, PackedArray> + XxHash64
+Union MLE2LLB<P16, B6, Packed> + XxHash64
                         time:   [420.70 ms 420.99 ms 421.25 ms]
 
-Union MLE2LLB<P16, B6, PackedArray> + WyHash
+Union MLE2LLB<P16, B6, Packed> + WyHash
                         time:   [418.95 ms 419.14 ms 419.35 ms]
 
-Union MLE2LLB<P16, B8, PackedArray> + XxHash64
+Union MLE2LLB<P16, B8, Packed> + XxHash64
                         time:   [402.81 ms 402.89 ms 403.00 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union MLE2LLB<P16, B8, PackedArray> + WyHash
+Union MLE2LLB<P16, B8, Packed> + WyHash
                         time:   [403.39 ms 403.43 ms 403.47 ms]
 Found 3 outliers among 10 measurements (30.00%)
   1 (10.00%) low severe
@@ -3366,16 +3366,16 @@ Union MLE2PP<P16, B8, Array> + XxHash64
 Union MLE2PP<P16, B8, Array> + WyHash
                         time:   [438.72 ms 438.81 ms 438.90 ms]
 
-Union MLE2PP<P16, B6, PackedArray> + XxHash64
+Union MLE2PP<P16, B6, Packed> + XxHash64
                         time:   [414.40 ms 415.53 ms 416.67 ms]
 
-Union MLE2PP<P16, B6, PackedArray> + WyHash
+Union MLE2PP<P16, B6, Packed> + WyHash
                         time:   [418.32 ms 418.38 ms 418.44 ms]
 
-Union MLE2PP<P16, B8, PackedArray> + XxHash64
+Union MLE2PP<P16, B8, Packed> + XxHash64
                         time:   [402.58 ms 402.63 ms 402.69 ms]
 
-Union MLE2PP<P16, B8, PackedArray> + WyHash
+Union MLE2PP<P16, B8, Packed> + WyHash
                         time:   [403.13 ms 403.18 ms 403.22 ms]
 
 Union HybridMLE2LLB<P16, B6, Vec> + XxHash64
@@ -3406,16 +3406,16 @@ Found 1 outliers among 10 measurements (10.00%)
 Union HybridMLE2LLB<P16, B8, Array> + WyHash
                         time:   [369.88 ms 370.03 ms 370.17 ms]
 
-Union HybridMLE2LLB<P16, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P16, B6, Packed> + XxHash64
                         time:   [378.79 ms 378.85 ms 378.92 ms]
 
-Union HybridMLE2LLB<P16, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P16, B6, Packed> + WyHash
                         time:   [378.10 ms 378.13 ms 378.16 ms]
 
-Union HybridMLE2LLB<P16, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P16, B8, Packed> + XxHash64
                         time:   [352.46 ms 352.53 ms 352.59 ms]
 
-Union HybridMLE2LLB<P16, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P16, B8, Packed> + WyHash
                         time:   [352.21 ms 352.37 ms 352.55 ms]
 
 Union HybridMLE2PP<P16, B6, Vec> + XxHash64
@@ -3448,18 +3448,18 @@ Union HybridMLE2PP<P16, B8, Array> + WyHash
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union HybridMLE2PP<P16, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P16, B6, Packed> + XxHash64
                         time:   [368.84 ms 370.32 ms 371.99 ms]
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) high mild
 
-Union HybridMLE2PP<P16, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P16, B6, Packed> + WyHash
                         time:   [357.85 ms 361.11 ms 364.67 ms]
 
-Union HybridMLE2PP<P16, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P16, B8, Packed> + XxHash64
                         time:   [336.85 ms 337.73 ms 338.52 ms]
 
-Union HybridMLE2PP<P16, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P16, B8, Packed> + WyHash
                         time:   [333.26 ms 333.41 ms 333.58 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
@@ -3537,20 +3537,20 @@ Union LLB<P17, B8, Array> + WyHash
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union LLB<P17, B6, PackedArray> + XxHash64
+Union LLB<P17, B6, Packed> + XxHash64
                         time:   [234.41 ms 234.43 ms 234.46 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union LLB<P17, B6, PackedArray> + WyHash
+Union LLB<P17, B6, Packed> + WyHash
                         time:   [234.39 ms 234.42 ms 234.44 ms]
 Found 2 outliers among 50 measurements (4.00%)
   2 (4.00%) high mild
 
-Union LLB<P17, B8, PackedArray> + XxHash64
+Union LLB<P17, B8, Packed> + XxHash64
                         time:   [222.90 ms 222.93 ms 222.96 ms]
 
-Union LLB<P17, B8, PackedArray> + WyHash
+Union LLB<P17, B8, Packed> + WyHash
                         time:   [222.96 ms 223.00 ms 223.05 ms]
 
 Union PP<P17, B6, Vec> + XxHash64
@@ -3585,20 +3585,20 @@ Found 1 outliers among 50 measurements (2.00%)
 Union PP<P17, B8, Array> + WyHash
                         time:   [155.29 ms 155.33 ms 155.36 ms]
 
-Union PP<P17, B6, PackedArray> + XxHash64
+Union PP<P17, B6, Packed> + XxHash64
                         time:   [234.34 ms 234.37 ms 234.40 ms]
 
-Union PP<P17, B6, PackedArray> + WyHash
+Union PP<P17, B6, Packed> + WyHash
                         time:   [234.32 ms 234.35 ms 234.38 ms]
 
-Union PP<P17, B8, PackedArray> + XxHash64
+Union PP<P17, B8, Packed> + XxHash64
                         time:   [222.85 ms 222.87 ms 222.90 ms]
 Found 5 outliers among 50 measurements (10.00%)
   1 (2.00%) low mild
   3 (6.00%) high mild
   1 (2.00%) high severe
 
-Union PP<P17, B8, PackedArray> + WyHash
+Union PP<P17, B8, Packed> + WyHash
                         time:   [222.88 ms 222.90 ms 222.93 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high severe
@@ -3637,21 +3637,21 @@ Found 7 outliers among 50 measurements (14.00%)
 Union HybridLLB<P17, B8, Array> + WyHash
                         time:   [146.10 ms 146.20 ms 146.31 ms]
 
-Union HybridLLB<P17, B6, PackedArray> + XxHash64
+Union HybridLLB<P17, B6, Packed> + XxHash64
                         time:   [213.89 ms 213.95 ms 214.01 ms]
 Found 8 outliers among 50 measurements (16.00%)
   7 (14.00%) low mild
   1 (2.00%) high mild
 
-Union HybridLLB<P17, B6, PackedArray> + WyHash
+Union HybridLLB<P17, B6, Packed> + WyHash
                         time:   [213.91 ms 213.98 ms 214.05 ms]
 
-Union HybridLLB<P17, B8, PackedArray> + XxHash64
+Union HybridLLB<P17, B8, Packed> + XxHash64
                         time:   [208.59 ms 212.44 ms 217.47 ms]
 Found 5 outliers among 50 measurements (10.00%)
   5 (10.00%) high severe
 
-Union HybridLLB<P17, B8, PackedArray> + WyHash
+Union HybridLLB<P17, B8, Packed> + WyHash
                         time:   [209.68 ms 215.55 ms 222.92 ms]
 Found 6 outliers among 50 measurements (12.00%)
   6 (12.00%) high severe
@@ -3688,20 +3688,20 @@ Found 1 outliers among 50 measurements (2.00%)
 Union HybridPP<P17, B8, Array> + WyHash
                         time:   [145.62 ms 145.66 ms 145.70 ms]
 
-Union HybridPP<P17, B6, PackedArray> + XxHash64
+Union HybridPP<P17, B6, Packed> + XxHash64
                         time:   [213.61 ms 213.64 ms 213.68 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union HybridPP<P17, B6, PackedArray> + WyHash
+Union HybridPP<P17, B6, Packed> + WyHash
                         time:   [212.52 ms 212.56 ms 212.60 ms]
 Found 2 outliers among 50 measurements (4.00%)
   2 (4.00%) high mild
 
-Union HybridPP<P17, B8, PackedArray> + XxHash64
+Union HybridPP<P17, B8, Packed> + XxHash64
                         time:   [207.27 ms 207.32 ms 207.36 ms]
 
-Union HybridPP<P17, B8, PackedArray> + WyHash
+Union HybridPP<P17, B8, Packed> + WyHash
                         time:   [207.05 ms 207.08 ms 207.10 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high severe
@@ -3734,18 +3734,18 @@ Union MLE2LLB<P17, B8, Array> + XxHash64
 Union MLE2LLB<P17, B8, Array> + WyHash
                         time:   [784.81 ms 784.93 ms 785.05 ms]
 
-Union MLE2LLB<P17, B6, PackedArray> + XxHash64
+Union MLE2LLB<P17, B6, Packed> + XxHash64
                         time:   [736.49 ms 736.59 ms 736.69 ms]
 
-Union MLE2LLB<P17, B6, PackedArray> + WyHash
+Union MLE2LLB<P17, B6, Packed> + WyHash
                         time:   [735.28 ms 735.32 ms 735.36 ms]
 
-Union MLE2LLB<P17, B8, PackedArray> + XxHash64
+Union MLE2LLB<P17, B8, Packed> + XxHash64
                         time:   [722.43 ms 722.49 ms 722.56 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union MLE2LLB<P17, B8, PackedArray> + WyHash
+Union MLE2LLB<P17, B8, Packed> + WyHash
                         time:   [721.45 ms 721.51 ms 721.57 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low mild
@@ -3785,19 +3785,19 @@ Union MLE2PP<P17, B8, Array> + WyHash
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union MLE2PP<P17, B6, PackedArray> + XxHash64
+Union MLE2PP<P17, B6, Packed> + XxHash64
                         time:   [735.96 ms 735.99 ms 736.03 ms]
 
-Union MLE2PP<P17, B6, PackedArray> + WyHash
+Union MLE2PP<P17, B6, Packed> + WyHash
                         time:   [734.78 ms 734.83 ms 734.89 ms]
 Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) low mild
   1 (10.00%) high mild
 
-Union MLE2PP<P17, B8, PackedArray> + XxHash64
+Union MLE2PP<P17, B8, Packed> + XxHash64
                         time:   [709.42 ms 709.82 ms 710.25 ms]
 
-Union MLE2PP<P17, B8, PackedArray> + WyHash
+Union MLE2PP<P17, B8, Packed> + WyHash
                         time:   [690.26 ms 692.45 ms 694.94 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
@@ -3833,20 +3833,20 @@ Union HybridMLE2LLB<P17, B8, Array> + XxHash64
 Union HybridMLE2LLB<P17, B8, Array> + WyHash
                         time:   [540.83 ms 540.98 ms 541.14 ms]
 
-Union HybridMLE2LLB<P17, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P17, B6, Packed> + XxHash64
                         time:   [549.39 ms 550.70 ms 552.99 ms]
 Found 3 outliers among 10 measurements (30.00%)
   1 (10.00%) low mild
   1 (10.00%) high mild
   1 (10.00%) high severe
 
-Union HybridMLE2LLB<P17, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P17, B6, Packed> + WyHash
                         time:   [548.86 ms 549.34 ms 549.85 ms]
 
-Union HybridMLE2LLB<P17, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P17, B8, Packed> + XxHash64
                         time:   [497.40 ms 497.61 ms 497.86 ms]
 
-Union HybridMLE2LLB<P17, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P17, B8, Packed> + WyHash
                         time:   [495.99 ms 496.13 ms 496.31 ms]
 Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) high mild
@@ -3884,16 +3884,16 @@ Found 1 outliers among 10 measurements (10.00%)
 Union HybridMLE2PP<P17, B8, Array> + WyHash
                         time:   [522.63 ms 522.82 ms 523.00 ms]
 
-Union HybridMLE2PP<P17, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P17, B6, Packed> + XxHash64
                         time:   [548.44 ms 548.67 ms 548.92 ms]
 
-Union HybridMLE2PP<P17, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P17, B6, Packed> + WyHash
                         time:   [547.02 ms 547.19 ms 547.36 ms]
 
-Union HybridMLE2PP<P17, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P17, B8, Packed> + XxHash64
                         time:   [496.57 ms 496.68 ms 496.79 ms]
 
-Union HybridMLE2PP<P17, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P17, B8, Packed> + WyHash
                         time:   [494.82 ms 495.09 ms 495.47 ms]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high severe
@@ -3971,19 +3971,19 @@ Found 2 outliers among 50 measurements (4.00%)
 Union LLB<P18, B8, Array> + WyHash
                         time:   [310.15 ms 310.20 ms 310.24 ms]
 
-Union LLB<P18, B6, PackedArray> + XxHash64
+Union LLB<P18, B6, Packed> + XxHash64
                         time:   [468.23 ms 468.28 ms 468.33 ms]
 
-Union LLB<P18, B6, PackedArray> + WyHash
+Union LLB<P18, B6, Packed> + WyHash
                         time:   [468.18 ms 468.23 ms 468.28 ms]
 
-Union LLB<P18, B8, PackedArray> + XxHash64
+Union LLB<P18, B8, Packed> + XxHash64
                         time:   [445.23 ms 445.48 ms 445.92 ms]
 Found 2 outliers among 50 measurements (4.00%)
   1 (2.00%) low mild
   1 (2.00%) high severe
 
-Union LLB<P18, B8, PackedArray> + WyHash
+Union LLB<P18, B8, Packed> + WyHash
                         time:   [445.11 ms 445.14 ms 445.16 ms]
 Found 2 outliers among 50 measurements (4.00%)
   2 (4.00%) low mild
@@ -4024,22 +4024,22 @@ Found 5 outliers among 50 measurements (10.00%)
 Union PP<P18, B8, Array> + WyHash
                         time:   [310.01 ms 310.04 ms 310.07 ms]
 
-Union PP<P18, B6, PackedArray> + XxHash64
+Union PP<P18, B6, Packed> + XxHash64
                         time:   [468.04 ms 468.11 ms 468.18 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high severe
 
-Union PP<P18, B6, PackedArray> + WyHash
+Union PP<P18, B6, Packed> + WyHash
                         time:   [467.92 ms 467.96 ms 468.00 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union PP<P18, B8, PackedArray> + XxHash64
+Union PP<P18, B8, Packed> + XxHash64
                         time:   [444.94 ms 445.09 ms 445.36 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high severe
 
-Union PP<P18, B8, PackedArray> + WyHash
+Union PP<P18, B8, Packed> + WyHash
                         time:   [444.96 ms 444.99 ms 445.02 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
@@ -4078,21 +4078,21 @@ Union HybridLLB<P18, B8, Array> + WyHash
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) low mild
 
-Union HybridLLB<P18, B6, PackedArray> + XxHash64
+Union HybridLLB<P18, B6, Packed> + XxHash64
                         time:   [372.05 ms 372.25 ms 372.47 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union HybridLLB<P18, B6, PackedArray> + WyHash
+Union HybridLLB<P18, B6, Packed> + WyHash
                         time:   [368.51 ms 368.63 ms 368.79 ms]
 Found 4 outliers among 50 measurements (8.00%)
   1 (2.00%) high mild
   3 (6.00%) high severe
 
-Union HybridLLB<P18, B8, PackedArray> + XxHash64
+Union HybridLLB<P18, B8, Packed> + XxHash64
                         time:   [301.60 ms 301.73 ms 301.86 ms]
 
-Union HybridLLB<P18, B8, PackedArray> + WyHash
+Union HybridLLB<P18, B8, Packed> + WyHash
                         time:   [302.37 ms 302.83 ms 303.32 ms]
 
 Union HybridPP<P18, B6, Vec> + XxHash64
@@ -4131,20 +4131,20 @@ Union HybridPP<P18, B8, Array> + WyHash
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union HybridPP<P18, B6, PackedArray> + XxHash64
+Union HybridPP<P18, B6, Packed> + XxHash64
                         time:   [352.88 ms 352.99 ms 353.10 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union HybridPP<P18, B6, PackedArray> + WyHash
+Union HybridPP<P18, B6, Packed> + WyHash
                         time:   [348.62 ms 348.71 ms 348.80 ms]
 Found 1 outliers among 50 measurements (2.00%)
   1 (2.00%) high mild
 
-Union HybridPP<P18, B8, PackedArray> + XxHash64
+Union HybridPP<P18, B8, Packed> + XxHash64
                         time:   [287.40 ms 287.52 ms 287.63 ms]
 
-Union HybridPP<P18, B8, PackedArray> + WyHash
+Union HybridPP<P18, B8, Packed> + WyHash
                         time:   [287.36 ms 287.47 ms 287.58 ms]
 
 Union MLE2LLB<P18, B6, Vec> + XxHash64
@@ -4183,20 +4183,20 @@ Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) high mild
   1 (10.00%) high severe
 
-Union MLE2LLB<P18, B6, PackedArray> + XxHash64
+Union MLE2LLB<P18, B6, Packed> + XxHash64
                         time:   [1.3626 s 1.3631 s 1.3636 s]
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union MLE2LLB<P18, B6, PackedArray> + WyHash
+Union MLE2LLB<P18, B6, Packed> + WyHash
                         time:   [1.3615 s 1.3753 s 1.3946 s]
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) high severe
 
-Union MLE2LLB<P18, B8, PackedArray> + XxHash64
+Union MLE2LLB<P18, B8, Packed> + XxHash64
                         time:   [1.3891 s 1.3974 s 1.4066 s]
 
-Union MLE2LLB<P18, B8, PackedArray> + WyHash
+Union MLE2LLB<P18, B8, Packed> + WyHash
                         time:   [1.3598 s 1.3601 s 1.3605 s]
 Found 3 outliers among 10 measurements (30.00%)
   2 (20.00%) low mild
@@ -4238,16 +4238,16 @@ Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) low severe
   1 (10.00%) low mild
 
-Union MLE2PP<P18, B6, PackedArray> + XxHash64
+Union MLE2PP<P18, B6, Packed> + XxHash64
                         time:   [1.3616 s 1.3617 s 1.3617 s]
 
-Union MLE2PP<P18, B6, PackedArray> + WyHash
+Union MLE2PP<P18, B6, Packed> + WyHash
                         time:   [1.3607 s 1.3609 s 1.3610 s]
 
-Union MLE2PP<P18, B8, PackedArray> + XxHash64
+Union MLE2PP<P18, B8, Packed> + XxHash64
                         time:   [1.3569 s 1.3570 s 1.3571 s]
 
-Union MLE2PP<P18, B8, PackedArray> + WyHash
+Union MLE2PP<P18, B8, Packed> + WyHash
                         time:   [1.3561 s 1.3563 s 1.3564 s]
 
 Union HybridMLE2LLB<P18, B6, Vec> + XxHash64
@@ -4283,16 +4283,16 @@ Union HybridMLE2LLB<P18, B8, Array> + XxHash64
 Union HybridMLE2LLB<P18, B8, Array> + WyHash
                         time:   [578.70 ms 578.80 ms 578.90 ms]
 
-Union HybridMLE2LLB<P18, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P18, B6, Packed> + XxHash64
                         time:   [788.30 ms 788.38 ms 788.46 ms]
 
-Union HybridMLE2LLB<P18, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P18, B6, Packed> + WyHash
                         time:   [788.99 ms 789.24 ms 789.49 ms]
 
-Union HybridMLE2LLB<P18, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P18, B8, Packed> + XxHash64
                         time:   [593.56 ms 593.64 ms 593.73 ms]
 
-Union HybridMLE2LLB<P18, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P18, B8, Packed> + WyHash
                         time:   [588.67 ms 588.78 ms 588.88 ms]
 
 Union HybridMLE2PP<P18, B6, Vec> + XxHash64
@@ -4326,16 +4326,16 @@ Found 3 outliers among 10 measurements (30.00%)
   1 (10.00%) low mild
   2 (20.00%) high severe
 
-Union HybridMLE2PP<P18, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P18, B6, Packed> + XxHash64
                         time:   [789.54 ms 789.81 ms 790.08 ms]
 
-Union HybridMLE2PP<P18, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P18, B6, Packed> + WyHash
                         time:   [789.52 ms 789.67 ms 789.83 ms]
 
-Union HybridMLE2PP<P18, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P18, B8, Packed> + XxHash64
                         time:   [592.59 ms 592.68 ms 592.80 ms]
 
-Union HybridMLE2PP<P18, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P18, B8, Packed> + WyHash
                         time:   [590.33 ms 590.43 ms 590.54 ms]
 
 Union Tabac<P18, B6, Vec> + XxHash64
@@ -4421,14 +4421,14 @@ Union LLB<P4, B8, Array> + WyHash
                         change: [-79.455% -79.397% -79.339%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union LLB<P4, B6, PackedArray> + XxHash64
+Union LLB<P4, B6, Packed> + XxHash64
                         time:   [30.720 µs 30.748 µs 30.779 µs]
                         change: [-78.294% -78.270% -78.244%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 3 outliers among 100 measurements (3.00%)
   3 (3.00%) high mild
 
-Union LLB<P4, B6, PackedArray> + WyHash
+Union LLB<P4, B6, Packed> + WyHash
                         time:   [31.362 µs 31.365 µs 31.368 µs]
                         change: [-77.885% -77.859% -77.837%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4436,7 +4436,7 @@ Found 4 outliers among 100 measurements (4.00%)
   2 (2.00%) low mild
   2 (2.00%) high mild
 
-Union LLB<P4, B8, PackedArray> + XxHash64
+Union LLB<P4, B8, Packed> + XxHash64
                         time:   [29.491 µs 29.493 µs 29.496 µs]
                         change: [-78.135% -78.111% -78.092%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4446,7 +4446,7 @@ Found 6 outliers among 100 measurements (6.00%)
   2 (2.00%) high mild
   1 (1.00%) high severe
 
-Union LLB<P4, B8, PackedArray> + WyHash
+Union LLB<P4, B8, Packed> + WyHash
                         time:   [29.495 µs 29.498 µs 29.501 µs]
                         change: [-78.393% -78.305% -78.224%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4528,7 +4528,7 @@ Found 9 outliers among 100 measurements (9.00%)
   2 (2.00%) high mild
   2 (2.00%) high severe
 
-Union PP<P4, B6, PackedArray> + XxHash64
+Union PP<P4, B6, Packed> + XxHash64
                         time:   [35.440 µs 35.447 µs 35.454 µs]
                         change: [-74.471% -74.181% -73.996%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4536,14 +4536,14 @@ Found 2 outliers among 100 measurements (2.00%)
   1 (1.00%) low mild
   1 (1.00%) high mild
 
-Union PP<P4, B6, PackedArray> + WyHash
+Union PP<P4, B6, Packed> + WyHash
                         time:   [35.152 µs 35.158 µs 35.165 µs]
                         change: [-74.964% -74.564% -74.263%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 3 outliers among 100 measurements (3.00%)
   3 (3.00%) high mild
 
-Union PP<P4, B8, PackedArray> + XxHash64
+Union PP<P4, B8, Packed> + XxHash64
                         time:   [33.686 µs 33.691 µs 33.697 µs]
                         change: [-74.857% -74.847% -74.839%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4552,7 +4552,7 @@ Found 5 outliers among 100 measurements (5.00%)
   2 (2.00%) low mild
   2 (2.00%) high mild
 
-Union PP<P4, B8, PackedArray> + WyHash
+Union PP<P4, B8, Packed> + WyHash
                         time:   [33.363 µs 33.367 µs 33.371 µs]
                         change: [-75.098% -75.091% -75.085%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4631,7 +4631,7 @@ Found 8 outliers among 100 measurements (8.00%)
   4 (4.00%) low mild
   3 (3.00%) high mild
 
-Union HybridLLB<P4, B6, PackedArray> + XxHash64
+Union HybridLLB<P4, B6, Packed> + XxHash64
                         time:   [39.337 µs 39.343 µs 39.349 µs]
                         change: [-78.820% -78.812% -78.805%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4640,7 +4640,7 @@ Found 7 outliers among 100 measurements (7.00%)
   4 (4.00%) high mild
   2 (2.00%) high severe
 
-Union HybridLLB<P4, B6, PackedArray> + WyHash
+Union HybridLLB<P4, B6, Packed> + WyHash
                         time:   [39.321 µs 39.329 µs 39.336 µs]
                         change: [-78.866% -78.842% -78.826%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4648,7 +4648,7 @@ Found 3 outliers among 100 measurements (3.00%)
   2 (2.00%) high mild
   1 (1.00%) high severe
 
-Union HybridLLB<P4, B8, PackedArray> + XxHash64
+Union HybridLLB<P4, B8, Packed> + XxHash64
                         time:   [36.172 µs 36.181 µs 36.190 µs]
                         change: [-78.831% -78.819% -78.808%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4657,7 +4657,7 @@ Found 5 outliers among 100 measurements (5.00%)
   1 (1.00%) high mild
   2 (2.00%) high severe
 
-Union HybridLLB<P4, B8, PackedArray> + WyHash
+Union HybridLLB<P4, B8, Packed> + WyHash
                         time:   [36.192 µs 36.199 µs 36.205 µs]
                         change: [-78.797% -78.790% -78.782%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4741,7 +4741,7 @@ Found 3 outliers among 100 measurements (3.00%)
   1 (1.00%) low severe
   2 (2.00%) high mild
 
-Union HybridPP<P4, B6, PackedArray> + XxHash64
+Union HybridPP<P4, B6, Packed> + XxHash64
                         time:   [38.561 µs 38.567 µs 38.572 µs]
                         change: [-78.837% -78.783% -78.752%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4751,7 +4751,7 @@ Found 5 outliers among 100 measurements (5.00%)
   2 (2.00%) high mild
   1 (1.00%) high severe
 
-Union HybridPP<P4, B6, PackedArray> + WyHash
+Union HybridPP<P4, B6, Packed> + WyHash
                         time:   [38.582 µs 38.591 µs 38.600 µs]
                         change: [-78.766% -78.755% -78.743%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4760,7 +4760,7 @@ Found 6 outliers among 100 measurements (6.00%)
   2 (2.00%) high mild
   3 (3.00%) high severe
 
-Union HybridPP<P4, B8, PackedArray> + XxHash64
+Union HybridPP<P4, B8, Packed> + XxHash64
                         time:   [36.206 µs 36.208 µs 36.210 µs]
                         change: [-78.657% -78.633% -78.618%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4770,7 +4770,7 @@ Found 8 outliers among 100 measurements (8.00%)
   2 (2.00%) high mild
   2 (2.00%) high severe
 
-Union HybridPP<P4, B8, PackedArray> + WyHash
+Union HybridPP<P4, B8, Packed> + WyHash
                         time:   [36.215 µs 36.218 µs 36.221 µs]
                         change: [-78.563% -78.554% -78.546%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4826,24 +4826,24 @@ Union MLE2LLB<P4, B8, Array> + WyHash
                         change: [-79.069% -79.027% -78.987%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P4, B6, PackedArray> + XxHash64
+Union MLE2LLB<P4, B6, Packed> + XxHash64
                         time:   [3.2456 ms 3.2460 ms 3.2464 ms]
                         change: [-79.022% -79.015% -79.008%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P4, B6, PackedArray> + WyHash
+Union MLE2LLB<P4, B6, Packed> + WyHash
                         time:   [3.2608 ms 3.2614 ms 3.2618 ms]
                         change: [-78.991% -78.963% -78.941%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) low severe
 
-Union MLE2LLB<P4, B8, PackedArray> + XxHash64
+Union MLE2LLB<P4, B8, Packed> + XxHash64
                         time:   [3.2547 ms 3.2550 ms 3.2553 ms]
                         change: [-78.953% -78.948% -78.942%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P4, B8, PackedArray> + WyHash
+Union MLE2LLB<P4, B8, Packed> + WyHash
                         time:   [3.2380 ms 3.2386 ms 3.2393 ms]
                         change: [-79.073% -79.065% -79.058%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4898,22 +4898,22 @@ Union MLE2PP<P4, B8, Array> + WyHash
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) high severe
 
-Union MLE2PP<P4, B6, PackedArray> + XxHash64
+Union MLE2PP<P4, B6, Packed> + XxHash64
                         time:   [3.2242 ms 3.2353 ms 3.2399 ms]
                         change: [-79.241% -79.214% -79.178%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P4, B6, PackedArray> + WyHash
+Union MLE2PP<P4, B6, Packed> + WyHash
                         time:   [3.2396 ms 3.2503 ms 3.2552 ms]
                         change: [-79.140% -79.111% -79.078%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P4, B8, PackedArray> + XxHash64
+Union MLE2PP<P4, B8, Packed> + XxHash64
                         time:   [3.2484 ms 3.2494 ms 3.2499 ms]
                         change: [-79.085% -79.079% -79.073%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P4, B8, PackedArray> + WyHash
+Union MLE2PP<P4, B8, Packed> + WyHash
                         time:   [3.2295 ms 3.2384 ms 3.2436 ms]
                         change: [-79.214% -79.189% -79.156%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4969,17 +4969,17 @@ Union HybridMLE2LLB<P4, B8, Array> + WyHash
                         change: [-78.906% -78.900% -78.894%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P4, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P4, B6, Packed> + XxHash64
                         time:   [3.2647 ms 3.2652 ms 3.2659 ms]
                         change: [-78.951% -78.939% -78.929%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P4, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P4, B6, Packed> + WyHash
                         time:   [3.2514 ms 3.2518 ms 3.2522 ms]
                         change: [-78.979% -78.973% -78.967%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P4, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P4, B8, Packed> + XxHash64
                         time:   [3.2531 ms 3.2535 ms 3.2538 ms]
                         change: [-79.444% -79.153% -78.969%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -4987,7 +4987,7 @@ Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) low severe
   1 (10.00%) low mild
 
-Union HybridMLE2LLB<P4, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P4, B8, Packed> + WyHash
                         time:   [3.2487 ms 3.2495 ms 3.2505 ms]
                         change: [-78.955% -78.946% -78.938%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5043,24 +5043,24 @@ Union HybridMLE2PP<P4, B8, Array> + WyHash
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low mild
 
-Union HybridMLE2PP<P4, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P4, B6, Packed> + XxHash64
                         time:   [3.2435 ms 3.2512 ms 3.2544 ms]
                         change: [-79.067% -79.031% -78.993%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P4, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P4, B6, Packed> + WyHash
                         time:   [3.2574 ms 3.2617 ms 3.2634 ms]
                         change: [-78.996% -78.952% -78.921%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P4, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P4, B8, Packed> + XxHash64
                         time:   [3.2582 ms 3.2586 ms 3.2588 ms]
                         change: [-78.891% -78.877% -78.867%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low severe
 
-Union HybridMLE2PP<P4, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P4, B8, Packed> + WyHash
                         time:   [3.2407 ms 3.2409 ms 3.2411 ms]
                         change: [-79.027% -79.022% -79.017%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5179,7 +5179,7 @@ Union LLB<P5, B8, Array> + WyHash
                         change: [-78.959% -78.919% -78.872%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union LLB<P5, B6, PackedArray> + XxHash64
+Union LLB<P5, B6, Packed> + XxHash64
                         time:   [62.647 µs 62.649 µs 62.652 µs]
                         change: [-78.896% -78.889% -78.881%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5187,7 +5187,7 @@ Found 3 outliers among 100 measurements (3.00%)
   1 (1.00%) low severe
   2 (2.00%) high severe
 
-Union LLB<P5, B6, PackedArray> + WyHash
+Union LLB<P5, B6, Packed> + WyHash
                         time:   [62.658 µs 62.660 µs 62.662 µs]
                         change: [-79.572% -79.242% -78.988%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5195,7 +5195,7 @@ Found 4 outliers among 100 measurements (4.00%)
   2 (2.00%) low mild
   2 (2.00%) high mild
 
-Union LLB<P5, B8, PackedArray> + XxHash64
+Union LLB<P5, B8, Packed> + XxHash64
                         time:   [60.311 µs 60.314 µs 60.319 µs]
                         change: [-78.460% -78.441% -78.424%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5204,7 +5204,7 @@ Found 5 outliers among 100 measurements (5.00%)
   2 (2.00%) high mild
   2 (2.00%) high severe
 
-Union LLB<P5, B8, PackedArray> + WyHash
+Union LLB<P5, B8, Packed> + WyHash
                         time:   [60.310 µs 60.312 µs 60.314 µs]
                         change: [-78.381% -78.377% -78.374%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5281,7 +5281,7 @@ Found 4 outliers among 100 measurements (4.00%)
   1 (1.00%) high mild
   1 (1.00%) high severe
 
-Union PP<P5, B6, PackedArray> + XxHash64
+Union PP<P5, B6, Packed> + XxHash64
                         time:   [60.964 µs 60.966 µs 60.969 µs]
                         change: [-78.962% -78.940% -78.923%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5290,14 +5290,14 @@ Found 5 outliers among 100 measurements (5.00%)
   2 (2.00%) high mild
   2 (2.00%) high severe
 
-Union PP<P5, B6, PackedArray> + WyHash
+Union PP<P5, B6, Packed> + WyHash
                         time:   [60.979 µs 60.982 µs 60.985 µs]
                         change: [-78.917% -78.912% -78.907%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 1 outliers among 100 measurements (1.00%)
   1 (1.00%) high mild
 
-Union PP<P5, B8, PackedArray> + XxHash64
+Union PP<P5, B8, Packed> + XxHash64
                         time:   [59.632 µs 59.635 µs 59.639 µs]
                         change: [-78.672% -78.667% -78.663%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5307,7 +5307,7 @@ Found 6 outliers among 100 measurements (6.00%)
   2 (2.00%) high mild
   2 (2.00%) high severe
 
-Union PP<P5, B8, PackedArray> + WyHash
+Union PP<P5, B8, Packed> + WyHash
                         time:   [59.665 µs 59.675 µs 59.691 µs]
                         change: [-78.667% -78.661% -78.655%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5387,14 +5387,14 @@ Found 3 outliers among 100 measurements (3.00%)
   1 (1.00%) low severe
   2 (2.00%) high mild
 
-Union HybridLLB<P5, B6, PackedArray> + XxHash64
+Union HybridLLB<P5, B6, Packed> + XxHash64
                         time:   [70.552 µs 70.557 µs 70.562 µs]
                         change: [-77.958% -77.949% -77.942%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 1 outliers among 100 measurements (1.00%)
   1 (1.00%) low mild
 
-Union HybridLLB<P5, B6, PackedArray> + WyHash
+Union HybridLLB<P5, B6, Packed> + WyHash
                         time:   [70.893 µs 70.921 µs 70.945 µs]
                         change: [-77.925% -77.901% -77.879%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5402,7 +5402,7 @@ Found 6 outliers among 100 measurements (6.00%)
   3 (3.00%) low severe
   3 (3.00%) low mild
 
-Union HybridLLB<P5, B8, PackedArray> + XxHash64
+Union HybridLLB<P5, B8, Packed> + XxHash64
                         time:   [65.517 µs 65.520 µs 65.523 µs]
                         change: [-78.882% -78.874% -78.868%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5411,7 +5411,7 @@ Found 4 outliers among 100 measurements (4.00%)
   1 (1.00%) high mild
   2 (2.00%) high severe
 
-Union HybridLLB<P5, B8, PackedArray> + WyHash
+Union HybridLLB<P5, B8, Packed> + WyHash
                         time:   [65.518 µs 65.522 µs 65.526 µs]
                         change: [-78.942% -78.865% -78.823%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5489,7 +5489,7 @@ Found 6 outliers among 100 measurements (6.00%)
   2 (2.00%) high mild
   2 (2.00%) high severe
 
-Union HybridPP<P5, B6, PackedArray> + XxHash64
+Union HybridPP<P5, B6, Packed> + XxHash64
                         time:   [65.572 µs 65.578 µs 65.583 µs]
                         change: [-78.915% -78.908% -78.903%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5497,7 +5497,7 @@ Found 2 outliers among 100 measurements (2.00%)
   1 (1.00%) low mild
   1 (1.00%) high severe
 
-Union HybridPP<P5, B6, PackedArray> + WyHash
+Union HybridPP<P5, B6, Packed> + WyHash
                         time:   [65.634 µs 65.637 µs 65.639 µs]
                         change: [-78.937% -78.909% -78.893%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5506,7 +5506,7 @@ Found 3 outliers among 100 measurements (3.00%)
   1 (1.00%) high mild
   1 (1.00%) high severe
 
-Union HybridPP<P5, B8, PackedArray> + XxHash64
+Union HybridPP<P5, B8, Packed> + XxHash64
                         time:   [62.847 µs 62.850 µs 62.852 µs]
                         change: [-80.710% -80.705% -80.701%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5514,7 +5514,7 @@ Found 3 outliers among 100 measurements (3.00%)
   1 (1.00%) low severe
   2 (2.00%) high severe
 
-Union HybridPP<P5, B8, PackedArray> + WyHash
+Union HybridPP<P5, B8, Packed> + WyHash
                         time:   [62.838 µs 62.841 µs 62.843 µs]
                         change: [-80.718% -80.715% -80.712%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5566,22 +5566,22 @@ Union MLE2LLB<P5, B8, Array> + WyHash
                         change: [-78.820% -78.797% -78.773%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P5, B6, PackedArray> + XxHash64
+Union MLE2LLB<P5, B6, Packed> + XxHash64
                         time:   [3.4257 ms 3.4308 ms 3.4347 ms]
                         change: [-78.441% -78.419% -78.396%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P5, B6, PackedArray> + WyHash
+Union MLE2LLB<P5, B6, Packed> + WyHash
                         time:   [3.4308 ms 3.4340 ms 3.4390 ms]
                         change: [-78.379% -78.359% -78.341%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P5, B8, PackedArray> + XxHash64
+Union MLE2LLB<P5, B8, Packed> + XxHash64
                         time:   [3.4298 ms 3.4323 ms 3.4348 ms]
                         change: [-78.370% -78.351% -78.332%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P5, B8, PackedArray> + WyHash
+Union MLE2LLB<P5, B8, Packed> + WyHash
                         time:   [3.4263 ms 3.4282 ms 3.4309 ms]
                         change: [-78.401% -78.386% -78.369%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5640,22 +5640,22 @@ Union MLE2PP<P5, B8, Array> + WyHash
                         change: [-78.365% -78.343% -78.321%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P5, B6, PackedArray> + XxHash64
+Union MLE2PP<P5, B6, Packed> + XxHash64
                         time:   [3.4306 ms 3.4352 ms 3.4379 ms]
                         change: [-78.458% -78.435% -78.410%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P5, B6, PackedArray> + WyHash
+Union MLE2PP<P5, B6, Packed> + WyHash
                         time:   [3.4377 ms 3.4414 ms 3.4438 ms]
                         change: [-78.346% -78.327% -78.309%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P5, B8, PackedArray> + XxHash64
+Union MLE2PP<P5, B8, Packed> + XxHash64
                         time:   [3.4497 ms 3.4529 ms 3.4561 ms]
                         change: [-78.218% -78.196% -78.173%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P5, B8, PackedArray> + WyHash
+Union MLE2PP<P5, B8, Packed> + WyHash
                         time:   [3.4342 ms 3.4359 ms 3.4368 ms]
                         change: [-79.026% -78.744% -78.561%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5710,22 +5710,22 @@ Union HybridMLE2LLB<P5, B8, Array> + WyHash
                         change: [-78.469% -78.449% -78.433%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P5, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P5, B6, Packed> + XxHash64
                         time:   [3.4540 ms 3.4552 ms 3.4565 ms]
                         change: [-78.281% -78.271% -78.260%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P5, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P5, B6, Packed> + WyHash
                         time:   [3.4508 ms 3.4523 ms 3.4537 ms]
                         change: [-78.280% -78.269% -78.258%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P5, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P5, B8, Packed> + XxHash64
                         time:   [3.4418 ms 3.4440 ms 3.4473 ms]
                         change: [-78.297% -78.280% -78.264%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P5, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P5, B8, Packed> + WyHash
                         time:   [3.4467 ms 3.4479 ms 3.4496 ms]
                         change: [-78.320% -78.306% -78.294%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5774,24 +5774,24 @@ Union HybridMLE2PP<P5, B8, Array> + WyHash
                         change: [-78.038% -78.032% -78.026%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P5, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P5, B6, Packed> + XxHash64
                         time:   [3.4520 ms 3.4529 ms 3.4540 ms]
                         change: [-78.262% -78.252% -78.242%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P5, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P5, B6, Packed> + WyHash
                         time:   [3.4402 ms 3.4412 ms 3.4418 ms]
                         change: [-78.273% -78.262% -78.252%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P5, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P5, B8, Packed> + XxHash64
                         time:   [3.4493 ms 3.4500 ms 3.4507 ms]
                         change: [-78.487% -78.456% -78.434%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union HybridMLE2PP<P5, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P5, B8, Packed> + WyHash
                         time:   [3.4384 ms 3.4403 ms 3.4416 ms]
                         change: [-78.487% -78.474% -78.462%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5907,7 +5907,7 @@ Found 2 outliers among 100 measurements (2.00%)
   1 (1.00%) high mild
   1 (1.00%) high severe
 
-Union LLB<P6, B6, PackedArray> + XxHash64
+Union LLB<P6, B6, Packed> + XxHash64
                         time:   [119.75 µs 119.76 µs 119.77 µs]
                         change: [-79.183% -78.945% -78.793%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5916,7 +5916,7 @@ Found 4 outliers among 100 measurements (4.00%)
   2 (2.00%) high mild
   1 (1.00%) high severe
 
-Union LLB<P6, B6, PackedArray> + WyHash
+Union LLB<P6, B6, Packed> + WyHash
                         time:   [119.74 µs 119.75 µs 119.77 µs]
                         change: [-79.110% -78.923% -78.813%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5924,7 +5924,7 @@ Found 4 outliers among 100 measurements (4.00%)
   3 (3.00%) high mild
   1 (1.00%) high severe
 
-Union LLB<P6, B8, PackedArray> + XxHash64
+Union LLB<P6, B8, Packed> + XxHash64
                         time:   [115.52 µs 115.53 µs 115.55 µs]
                         change: [-78.567% -78.542% -78.521%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -5933,7 +5933,7 @@ Found 9 outliers among 100 measurements (9.00%)
   3 (3.00%) high mild
   5 (5.00%) high severe
 
-Union LLB<P6, B8, PackedArray> + WyHash
+Union LLB<P6, B8, Packed> + WyHash
                         time:   [115.52 µs 115.54 µs 115.55 µs]
                         change: [-78.890% -78.700% -78.561%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6007,7 +6007,7 @@ Found 5 outliers among 100 measurements (5.00%)
   3 (3.00%) low mild
   2 (2.00%) high mild
 
-Union PP<P6, B6, PackedArray> + XxHash64
+Union PP<P6, B6, Packed> + XxHash64
                         time:   [119.61 µs 119.62 µs 119.64 µs]
                         change: [-78.541% -78.537% -78.533%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6015,7 +6015,7 @@ Found 5 outliers among 100 measurements (5.00%)
   2 (2.00%) high mild
   3 (3.00%) high severe
 
-Union PP<P6, B6, PackedArray> + WyHash
+Union PP<P6, B6, Packed> + WyHash
                         time:   [119.65 µs 119.67 µs 119.68 µs]
                         change: [-78.550% -78.535% -78.524%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6023,7 +6023,7 @@ Found 6 outliers among 100 measurements (6.00%)
   3 (3.00%) high mild
   3 (3.00%) high severe
 
-Union PP<P6, B8, PackedArray> + XxHash64
+Union PP<P6, B8, Packed> + XxHash64
                         time:   [115.05 µs 115.07 µs 115.09 µs]
                         change: [-78.605% -78.595% -78.586%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6031,7 +6031,7 @@ Found 3 outliers among 100 measurements (3.00%)
   2 (2.00%) high mild
   1 (1.00%) high severe
 
-Union PP<P6, B8, PackedArray> + WyHash
+Union PP<P6, B8, Packed> + WyHash
                         time:   [115.08 µs 115.10 µs 115.12 µs]
                         change: [-78.578% -78.573% -78.568%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6104,7 +6104,7 @@ Found 3 outliers among 100 measurements (3.00%)
   1 (1.00%) low mild
   2 (2.00%) high mild
 
-Union HybridLLB<P6, B6, PackedArray> + XxHash64
+Union HybridLLB<P6, B6, Packed> + XxHash64
                         time:   [126.78 µs 126.82 µs 126.88 µs]
                         change: [-78.806% -78.794% -78.782%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6112,14 +6112,14 @@ Found 11 outliers among 100 measurements (11.00%)
   10 (10.00%) high mild
   1 (1.00%) high severe
 
-Union HybridLLB<P6, B6, PackedArray> + WyHash
+Union HybridLLB<P6, B6, Packed> + WyHash
                         time:   [126.70 µs 126.72 µs 126.73 µs]
                         change: [-78.804% -78.799% -78.793%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 2 outliers among 100 measurements (2.00%)
   2 (2.00%) high mild
 
-Union HybridLLB<P6, B8, PackedArray> + XxHash64
+Union HybridLLB<P6, B8, Packed> + XxHash64
                         time:   [121.65 µs 121.66 µs 121.68 µs]
                         change: [-78.534% -78.526% -78.519%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6128,7 +6128,7 @@ Found 8 outliers among 100 measurements (8.00%)
   4 (4.00%) high mild
   3 (3.00%) high severe
 
-Union HybridLLB<P6, B8, PackedArray> + WyHash
+Union HybridLLB<P6, B8, Packed> + WyHash
                         time:   [121.65 µs 121.66 µs 121.68 µs]
                         change: [-78.541% -78.536% -78.532%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6202,14 +6202,14 @@ Found 9 outliers among 100 measurements (9.00%)
   6 (6.00%) high mild
   3 (3.00%) high severe
 
-Union HybridPP<P6, B6, PackedArray> + XxHash64
+Union HybridPP<P6, B6, Packed> + XxHash64
                         time:   [122.94 µs 122.95 µs 122.97 µs]
                         change: [-78.858% -78.853% -78.848%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 4 outliers among 100 measurements (4.00%)
   4 (4.00%) high mild
 
-Union HybridPP<P6, B6, PackedArray> + WyHash
+Union HybridPP<P6, B6, Packed> + WyHash
                         time:   [122.95 µs 122.96 µs 122.98 µs]
                         change: [-78.908% -78.902% -78.896%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6218,7 +6218,7 @@ Found 12 outliers among 100 measurements (12.00%)
   8 (8.00%) high mild
   3 (3.00%) high severe
 
-Union HybridPP<P6, B8, PackedArray> + XxHash64
+Union HybridPP<P6, B8, Packed> + XxHash64
                         time:   [119.29 µs 119.31 µs 119.32 µs]
                         change: [-78.705% -78.698% -78.692%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6226,7 +6226,7 @@ Found 6 outliers among 100 measurements (6.00%)
   4 (4.00%) high mild
   2 (2.00%) high severe
 
-Union HybridPP<P6, B8, PackedArray> + WyHash
+Union HybridPP<P6, B8, Packed> + WyHash
                         time:   [119.35 µs 119.37 µs 119.39 µs]
                         change: [-78.695% -78.687% -78.679%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6276,12 +6276,12 @@ Union MLE2LLB<P6, B8, Array> + WyHash
                         change: [-78.751% -78.700% -78.667%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P6, B6, PackedArray> + XxHash64
+Union MLE2LLB<P6, B6, Packed> + XxHash64
                         time:   [3.6396 ms 3.6405 ms 3.6409 ms]
                         change: [-78.630% -78.620% -78.610%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P6, B6, PackedArray> + WyHash
+Union MLE2LLB<P6, B6, Packed> + WyHash
                         time:   [3.6274 ms 3.6282 ms 3.6293 ms]
                         change: [-78.739% -78.728% -78.714%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6289,12 +6289,12 @@ Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) low mild
   1 (10.00%) high severe
 
-Union MLE2LLB<P6, B8, PackedArray> + XxHash64
+Union MLE2LLB<P6, B8, Packed> + XxHash64
                         time:   [3.6121 ms 3.6136 ms 3.6150 ms]
                         change: [-78.770% -78.759% -78.748%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P6, B8, PackedArray> + WyHash
+Union MLE2LLB<P6, B8, Packed> + WyHash
                         time:   [3.5928 ms 3.5939 ms 3.5950 ms]
                         change: [-79.036% -79.027% -79.016%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6348,17 +6348,17 @@ Found 3 outliers among 10 measurements (30.00%)
   2 (20.00%) low mild
   1 (10.00%) high mild
 
-Union MLE2PP<P6, B6, PackedArray> + XxHash64
+Union MLE2PP<P6, B6, Packed> + XxHash64
                         time:   [3.6690 ms 3.6699 ms 3.6710 ms]
                         change: [-78.502% -78.490% -78.478%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P6, B6, PackedArray> + WyHash
+Union MLE2PP<P6, B6, Packed> + WyHash
                         time:   [3.6819 ms 3.6831 ms 3.6841 ms]
                         change: [-78.386% -78.376% -78.366%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P6, B8, PackedArray> + XxHash64
+Union MLE2PP<P6, B8, Packed> + XxHash64
                         time:   [3.6553 ms 3.6562 ms 3.6572 ms]
                         change: [-78.548% -78.526% -78.507%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6366,7 +6366,7 @@ Found 3 outliers among 10 measurements (30.00%)
   2 (20.00%) low severe
   1 (10.00%) high mild
 
-Union MLE2PP<P6, B8, PackedArray> + WyHash
+Union MLE2PP<P6, B8, Packed> + WyHash
                         time:   [3.6608 ms 3.6624 ms 3.6637 ms]
                         change: [-78.489% -78.475% -78.462%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6423,12 +6423,12 @@ Union HybridMLE2LLB<P6, B8, Array> + WyHash
                         change: [-78.705% -78.695% -78.685%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P6, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P6, B6, Packed> + XxHash64
                         time:   [3.6549 ms 3.6563 ms 3.6576 ms]
                         change: [-78.535% -78.525% -78.515%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P6, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P6, B6, Packed> + WyHash
                         time:   [3.6555 ms 3.6561 ms 3.6572 ms]
                         change: [-78.579% -78.568% -78.558%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6437,12 +6437,12 @@ Found 3 outliers among 10 measurements (30.00%)
   1 (10.00%) low mild
   1 (10.00%) high severe
 
-Union HybridMLE2LLB<P6, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P6, B8, Packed> + XxHash64
                         time:   [3.6249 ms 3.6264 ms 3.6280 ms]
                         change: [-78.621% -78.599% -78.581%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P6, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P6, B8, Packed> + WyHash
                         time:   [3.6182 ms 3.6200 ms 3.6225 ms]
                         change: [-78.669% -78.653% -78.631%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6489,24 +6489,24 @@ Union HybridMLE2PP<P6, B8, Array> + WyHash
                         change: [-79.059% -79.044% -79.027%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P6, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P6, B6, Packed> + XxHash64
                         time:   [3.6107 ms 3.6120 ms 3.6132 ms]
                         change: [-78.879% -78.868% -78.858%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P6, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P6, B6, Packed> + WyHash
                         time:   [3.5819 ms 3.5830 ms 3.5840 ms]
                         change: [-79.049% -79.039% -79.028%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union HybridMLE2PP<P6, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P6, B8, Packed> + XxHash64
                         time:   [3.5646 ms 3.5658 ms 3.5668 ms]
                         change: [-79.145% -79.129% -79.111%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P6, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P6, B8, Packed> + WyHash
                         time:   [3.5570 ms 3.5598 ms 3.5613 ms]
                         change: [-79.108% -79.090% -79.073%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6627,14 +6627,14 @@ Found 3 outliers among 100 measurements (3.00%)
   1 (1.00%) high mild
   2 (2.00%) high severe
 
-Union LLB<P7, B6, PackedArray> + XxHash64
+Union LLB<P7, B6, Packed> + XxHash64
                         time:   [240.18 µs 240.27 µs 240.36 µs]
                         change: [-79.090% -79.074% -79.059%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 1 outliers among 100 measurements (1.00%)
   1 (1.00%) high mild
 
-Union LLB<P7, B6, PackedArray> + WyHash
+Union LLB<P7, B6, Packed> + WyHash
                         time:   [240.26 µs 240.39 µs 240.54 µs]
                         change: [-79.090% -79.078% -79.065%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6642,7 +6642,7 @@ Found 8 outliers among 100 measurements (8.00%)
   7 (7.00%) high mild
   1 (1.00%) high severe
 
-Union LLB<P7, B8, PackedArray> + XxHash64
+Union LLB<P7, B8, Packed> + XxHash64
                         time:   [237.24 µs 237.28 µs 237.32 µs]
                         change: [-78.719% -78.666% -78.616%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6650,7 +6650,7 @@ Found 20 outliers among 100 measurements (20.00%)
   19 (19.00%) low severe
   1 (1.00%) high severe
 
-Union LLB<P7, B8, PackedArray> + WyHash
+Union LLB<P7, B8, Packed> + WyHash
                         time:   [237.34 µs 238.11 µs 239.51 µs]
                         change: [-78.194% -78.050% -77.783%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6721,7 +6721,7 @@ Found 7 outliers among 100 measurements (7.00%)
   4 (4.00%) high mild
   2 (2.00%) high severe
 
-Union PP<P7, B6, PackedArray> + XxHash64
+Union PP<P7, B6, Packed> + XxHash64
                         time:   [241.74 µs 241.82 µs 241.92 µs]
                         change: [-78.830% -78.821% -78.812%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6729,7 +6729,7 @@ Found 11 outliers among 100 measurements (11.00%)
   10 (10.00%) high mild
   1 (1.00%) high severe
 
-Union PP<P7, B6, PackedArray> + WyHash
+Union PP<P7, B6, Packed> + WyHash
                         time:   [241.84 µs 241.90 µs 241.97 µs]
                         change: [-78.855% -78.833% -78.816%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6737,7 +6737,7 @@ Found 11 outliers among 100 measurements (11.00%)
   10 (10.00%) high mild
   1 (1.00%) high severe
 
-Union PP<P7, B8, PackedArray> + XxHash64
+Union PP<P7, B8, Packed> + XxHash64
                         time:   [238.14 µs 238.15 µs 238.17 µs]
                         change: [-78.642% -78.636% -78.630%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6746,7 +6746,7 @@ Found 9 outliers among 100 measurements (9.00%)
   3 (3.00%) high mild
   5 (5.00%) high severe
 
-Union PP<P7, B8, PackedArray> + WyHash
+Union PP<P7, B8, Packed> + WyHash
                         time:   [237.39 µs 237.67 µs 237.88 µs]
                         change: [-78.584% -78.527% -78.466%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6816,7 +6816,7 @@ Found 9 outliers among 100 measurements (9.00%)
   2 (2.00%) high mild
   1 (1.00%) high severe
 
-Union HybridLLB<P7, B6, PackedArray> + XxHash64
+Union HybridLLB<P7, B6, Packed> + XxHash64
                         time:   [267.15 µs 267.20 µs 267.26 µs]
                         change: [-77.195% -77.166% -77.137%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6824,12 +6824,12 @@ Found 4 outliers among 100 measurements (4.00%)
   3 (3.00%) high mild
   1 (1.00%) high severe
 
-Union HybridLLB<P7, B6, PackedArray> + WyHash
+Union HybridLLB<P7, B6, Packed> + WyHash
                         time:   [267.23 µs 267.30 µs 267.39 µs]
                         change: [-77.310% -77.252% -77.206%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridLLB<P7, B8, PackedArray> + XxHash64
+Union HybridLLB<P7, B8, Packed> + XxHash64
                         time:   [257.44 µs 257.46 µs 257.48 µs]
                         change: [-76.951% -76.946% -76.942%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6837,7 +6837,7 @@ Found 3 outliers among 100 measurements (3.00%)
   1 (1.00%) high mild
   2 (2.00%) high severe
 
-Union HybridLLB<P7, B8, PackedArray> + WyHash
+Union HybridLLB<P7, B8, Packed> + WyHash
                         time:   [257.52 µs 257.54 µs 257.56 µs]
                         change: [-77.035% -77.003% -76.974%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6914,7 +6914,7 @@ Found 2 outliers among 100 measurements (2.00%)
   1 (1.00%) low mild
   1 (1.00%) high severe
 
-Union HybridPP<P7, B6, PackedArray> + XxHash64
+Union HybridPP<P7, B6, Packed> + XxHash64
                         time:   [267.13 µs 267.18 µs 267.27 µs]
                         change: [-77.128% -77.071% -77.038%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6922,7 +6922,7 @@ Found 8 outliers among 100 measurements (8.00%)
   2 (2.00%) high mild
   6 (6.00%) high severe
 
-Union HybridPP<P7, B6, PackedArray> + WyHash
+Union HybridPP<P7, B6, Packed> + WyHash
                         time:   [267.12 µs 267.13 µs 267.14 µs]
                         change: [-77.064% -77.056% -77.050%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6931,7 +6931,7 @@ Found 6 outliers among 100 measurements (6.00%)
   3 (3.00%) high mild
   2 (2.00%) high severe
 
-Union HybridPP<P7, B8, PackedArray> + XxHash64
+Union HybridPP<P7, B8, Packed> + XxHash64
                         time:   [257.86 µs 257.88 µs 257.91 µs]
                         change: [-76.825% -76.817% -76.811%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6939,7 +6939,7 @@ Found 10 outliers among 100 measurements (10.00%)
   5 (5.00%) high mild
   5 (5.00%) high severe
 
-Union HybridPP<P7, B8, PackedArray> + WyHash
+Union HybridPP<P7, B8, Packed> + WyHash
                         time:   [257.65 µs 257.67 µs 257.70 µs]
                         change: [-76.912% -76.893% -76.881%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -6996,7 +6996,7 @@ Union MLE2LLB<P7, B8, Array> + WyHash
                         change: [-78.964% -78.957% -78.950%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P7, B6, PackedArray> + XxHash64
+Union MLE2LLB<P7, B6, Packed> + XxHash64
                         time:   [70.032 ms 70.038 ms 70.046 ms]
                         change: [-79.116% -79.108% -79.102%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7004,17 +7004,17 @@ Found 2 outliers among 10 measurements (20.00%)
   1 (10.00%) low mild
   1 (10.00%) high mild
 
-Union MLE2LLB<P7, B6, PackedArray> + WyHash
+Union MLE2LLB<P7, B6, Packed> + WyHash
                         time:   [69.546 ms 69.556 ms 69.568 ms]
                         change: [-78.902% -78.895% -78.890%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P7, B8, PackedArray> + XxHash64
+Union MLE2LLB<P7, B8, Packed> + XxHash64
                         time:   [70.029 ms 70.061 ms 70.094 ms]
                         change: [-79.123% -79.115% -79.107%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P7, B8, PackedArray> + WyHash
+Union MLE2LLB<P7, B8, Packed> + WyHash
                         time:   [69.508 ms 69.522 ms 69.533 ms]
                         change: [-78.939% -78.932% -78.927%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7069,22 +7069,22 @@ Union MLE2PP<P7, B8, Array> + WyHash
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) high severe
 
-Union MLE2PP<P7, B6, PackedArray> + XxHash64
+Union MLE2PP<P7, B6, Packed> + XxHash64
                         time:   [70.027 ms 70.037 ms 70.053 ms]
                         change: [-79.152% -79.146% -79.140%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P7, B6, PackedArray> + WyHash
+Union MLE2PP<P7, B6, Packed> + WyHash
                         time:   [69.547 ms 69.558 ms 69.569 ms]
                         change: [-78.896% -78.894% -78.891%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P7, B8, PackedArray> + XxHash64
+Union MLE2PP<P7, B8, Packed> + XxHash64
                         time:   [70.018 ms 70.030 ms 70.043 ms]
                         change: [-79.115% -79.108% -79.103%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P7, B8, PackedArray> + WyHash
+Union MLE2PP<P7, B8, Packed> + WyHash
                         time:   [69.544 ms 69.564 ms 69.582 ms]
                         change: [-78.930% -78.921% -78.913%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7133,22 +7133,22 @@ Union HybridMLE2LLB<P7, B8, Array> + WyHash
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low severe
 
-Union HybridMLE2LLB<P7, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P7, B6, Packed> + XxHash64
                         time:   [70.014 ms 70.029 ms 70.046 ms]
                         change: [-79.145% -79.136% -79.128%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P7, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P7, B6, Packed> + WyHash
                         time:   [69.558 ms 69.568 ms 69.582 ms]
                         change: [-78.925% -78.919% -78.913%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P7, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P7, B8, Packed> + XxHash64
                         time:   [69.939 ms 69.967 ms 69.998 ms]
                         change: [-79.163% -79.155% -79.145%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P7, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P7, B8, Packed> + WyHash
                         time:   [69.503 ms 69.530 ms 69.552 ms]
                         change: [-78.937% -78.931% -78.924%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7198,12 +7198,12 @@ Union HybridMLE2PP<P7, B8, Array> + WyHash
                         change: [-78.956% -78.950% -78.942%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P7, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P7, B6, Packed> + XxHash64
                         time:   [69.932 ms 69.966 ms 70.001 ms]
                         change: [-79.151% -79.139% -79.127%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P7, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P7, B6, Packed> + WyHash
                         time:   [69.503 ms 69.522 ms 69.534 ms]
                         change: [-78.918% -78.910% -78.902%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7211,12 +7211,12 @@ Found 3 outliers among 10 measurements (30.00%)
   1 (10.00%) low severe
   2 (20.00%) high severe
 
-Union HybridMLE2PP<P7, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P7, B8, Packed> + XxHash64
                         time:   [69.951 ms 69.986 ms 70.020 ms]
                         change: [-79.156% -79.146% -79.135%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P7, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P7, B8, Packed> + WyHash
                         time:   [69.460 ms 69.490 ms 69.523 ms]
                         change: [-78.937% -78.929% -78.920%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7334,7 +7334,7 @@ Found 7 outliers among 100 measurements (7.00%)
   4 (4.00%) high mild
   2 (2.00%) high severe
 
-Union LLB<P8, B6, PackedArray> + XxHash64
+Union LLB<P8, B6, Packed> + XxHash64
                         time:   [472.35 µs 472.37 µs 472.39 µs]
                         change: [-78.855% -78.851% -78.847%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7342,7 +7342,7 @@ Found 5 outliers among 100 measurements (5.00%)
   3 (3.00%) high mild
   2 (2.00%) high severe
 
-Union LLB<P8, B6, PackedArray> + WyHash
+Union LLB<P8, B6, Packed> + WyHash
                         time:   [472.39 µs 472.42 µs 472.44 µs]
                         change: [-78.951% -78.940% -78.931%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7351,7 +7351,7 @@ Found 7 outliers among 100 measurements (7.00%)
   3 (3.00%) high mild
   3 (3.00%) high severe
 
-Union LLB<P8, B8, PackedArray> + XxHash64
+Union LLB<P8, B8, Packed> + XxHash64
                         time:   [491.97 µs 492.01 µs 492.06 µs]
                         change: [-78.841% -78.831% -78.822%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7360,7 +7360,7 @@ Found 11 outliers among 100 measurements (11.00%)
   5 (5.00%) high mild
   5 (5.00%) high severe
 
-Union LLB<P8, B8, PackedArray> + WyHash
+Union LLB<P8, B8, Packed> + WyHash
                         time:   [492.25 µs 492.28 µs 492.30 µs]
                         change: [-78.825% -78.818% -78.813%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7439,7 +7439,7 @@ Found 9 outliers among 100 measurements (9.00%)
   3 (3.00%) high mild
   1 (1.00%) high severe
 
-Union PP<P8, B6, PackedArray> + XxHash64
+Union PP<P8, B6, Packed> + XxHash64
                         time:   [473.94 µs 473.97 µs 474.00 µs]
                         change: [-78.803% -78.799% -78.795%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7448,7 +7448,7 @@ Found 13 outliers among 100 measurements (13.00%)
   5 (5.00%) high mild
   7 (7.00%) high severe
 
-Union PP<P8, B6, PackedArray> + WyHash
+Union PP<P8, B6, Packed> + WyHash
                         time:   [473.93 µs 473.95 µs 473.99 µs]
                         change: [-78.803% -78.799% -78.795%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7457,7 +7457,7 @@ Found 5 outliers among 100 measurements (5.00%)
   3 (3.00%) high mild
   1 (1.00%) high severe
 
-Union PP<P8, B8, PackedArray> + XxHash64
+Union PP<P8, B8, Packed> + XxHash64
                         time:   [494.12 µs 494.15 µs 494.18 µs]
                         change: [-78.806% -78.799% -78.795%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7465,7 +7465,7 @@ Found 2 outliers among 100 measurements (2.00%)
   1 (1.00%) low severe
   1 (1.00%) high severe
 
-Union PP<P8, B8, PackedArray> + WyHash
+Union PP<P8, B8, Packed> + WyHash
                         time:   [494.25 µs 494.28 µs 494.31 µs]
                         change: [-78.801% -78.794% -78.789%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7540,7 +7540,7 @@ Found 2 outliers among 100 measurements (2.00%)
   1 (1.00%) low mild
   1 (1.00%) high mild
 
-Union HybridLLB<P8, B6, PackedArray> + XxHash64
+Union HybridLLB<P8, B6, Packed> + XxHash64
                         time:   [526.22 µs 526.27 µs 526.32 µs]
                         change: [-76.730% -76.723% -76.717%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7549,7 +7549,7 @@ Found 10 outliers among 100 measurements (10.00%)
   4 (4.00%) high mild
   2 (2.00%) high severe
 
-Union HybridLLB<P8, B6, PackedArray> + WyHash
+Union HybridLLB<P8, B6, Packed> + WyHash
                         time:   [514.07 µs 514.10 µs 514.13 µs]
                         change: [-77.249% -77.243% -77.237%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7558,7 +7558,7 @@ Found 5 outliers among 100 measurements (5.00%)
   3 (3.00%) high mild
   1 (1.00%) high severe
 
-Union HybridLLB<P8, B8, PackedArray> + XxHash64
+Union HybridLLB<P8, B8, Packed> + XxHash64
                         time:   [496.19 µs 496.22 µs 496.26 µs]
                         change: [-78.860% -78.850% -78.842%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7567,7 +7567,7 @@ Found 8 outliers among 100 measurements (8.00%)
   5 (5.00%) high mild
   2 (2.00%) high severe
 
-Union HybridLLB<P8, B8, PackedArray> + WyHash
+Union HybridLLB<P8, B8, Packed> + WyHash
                         time:   [495.97 µs 496.01 µs 496.05 µs]
                         change: [-78.891% -78.887% -78.883%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7647,7 +7647,7 @@ Found 16 outliers among 100 measurements (16.00%)
   6 (6.00%) high mild
   5 (5.00%) high severe
 
-Union HybridPP<P8, B6, PackedArray> + XxHash64
+Union HybridPP<P8, B6, Packed> + XxHash64
                         time:   [515.24 µs 515.26 µs 515.29 µs]
                         change: [-77.248% -77.239% -77.230%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7657,7 +7657,7 @@ Found 12 outliers among 100 measurements (12.00%)
   5 (5.00%) high mild
   2 (2.00%) high severe
 
-Union HybridPP<P8, B6, PackedArray> + WyHash
+Union HybridPP<P8, B6, Packed> + WyHash
                         time:   [515.31 µs 515.33 µs 515.36 µs]
                         change: [-77.230% -77.224% -77.220%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7666,7 +7666,7 @@ Found 5 outliers among 100 measurements (5.00%)
   2 (2.00%) low mild
   2 (2.00%) high mild
 
-Union HybridPP<P8, B8, PackedArray> + XxHash64
+Union HybridPP<P8, B8, Packed> + XxHash64
                         time:   [496.90 µs 496.94 µs 496.98 µs]
                         change: [-78.885% -78.876% -78.868%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7674,7 +7674,7 @@ Found 5 outliers among 100 measurements (5.00%)
   1 (1.00%) low severe
   4 (4.00%) high mild
 
-Union HybridPP<P8, B8, PackedArray> + WyHash
+Union HybridPP<P8, B8, Packed> + WyHash
                         time:   [496.79 µs 496.82 µs 496.85 µs]
                         change: [-78.878% -78.871% -78.866%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7730,28 +7730,28 @@ Union MLE2LLB<P8, B8, Array> + WyHash
                         change: [-79.255% -79.245% -79.237%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P8, B6, PackedArray> + XxHash64
+Union MLE2LLB<P8, B6, Packed> + XxHash64
                         time:   [101.51 ms 101.93 ms 102.24 ms]
                         change: [-79.005% -78.965% -78.909%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) high severe
 
-Union MLE2LLB<P8, B6, PackedArray> + WyHash
+Union MLE2LLB<P8, B6, Packed> + WyHash
                         time:   [98.789 ms 98.852 ms 99.022 ms]
                         change: [-79.293% -79.262% -79.211%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high severe
 
-Union MLE2LLB<P8, B8, PackedArray> + XxHash64
+Union MLE2LLB<P8, B8, Packed> + XxHash64
                         time:   [101.51 ms 101.78 ms 101.96 ms]
                         change: [-78.991% -78.961% -78.933%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) high mild
 
-Union MLE2LLB<P8, B8, PackedArray> + WyHash
+Union MLE2LLB<P8, B8, Packed> + WyHash
                         time:   [98.800 ms 98.848 ms 98.893 ms]
                         change: [-79.294% -79.287% -79.279%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7807,24 +7807,24 @@ Union MLE2PP<P8, B8, Array> + WyHash
                         change: [-79.292% -79.285% -79.277%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P8, B6, PackedArray> + XxHash64
+Union MLE2PP<P8, B6, Packed> + XxHash64
                         time:   [101.50 ms 101.50 ms 101.51 ms]
                         change: [-79.064% -79.056% -79.048%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low severe
 
-Union MLE2PP<P8, B6, PackedArray> + WyHash
+Union MLE2PP<P8, B6, Packed> + WyHash
                         time:   [98.755 ms 98.770 ms 98.790 ms]
                         change: [-79.324% -79.314% -79.305%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P8, B8, PackedArray> + XxHash64
+Union MLE2PP<P8, B8, Packed> + XxHash64
                         time:   [101.36 ms 101.38 ms 101.40 ms]
                         change: [-79.068% -79.062% -79.055%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P8, B8, PackedArray> + WyHash
+Union MLE2PP<P8, B8, Packed> + WyHash
                         time:   [99.453 ms 99.473 ms 99.521 ms]
                         change: [-79.161% -79.147% -79.131%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7878,24 +7878,24 @@ Union HybridMLE2LLB<P8, B8, Array> + WyHash
                         change: [-79.322% -79.316% -79.311%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P8, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P8, B6, Packed> + XxHash64
                         time:   [101.48 ms 101.49 ms 101.50 ms]
                         change: [-79.030% -79.023% -79.015%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P8, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P8, B6, Packed> + WyHash
                         time:   [99.250 ms 99.462 ms 99.547 ms]
                         change: [-79.281% -79.225% -79.172%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P8, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P8, B8, Packed> + XxHash64
                         time:   [101.46 ms 101.48 ms 101.49 ms]
                         change: [-79.037% -79.027% -79.018%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) high mild
 
-Union HybridMLE2LLB<P8, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P8, B8, Packed> + WyHash
                         time:   [98.685 ms 98.708 ms 98.727 ms]
                         change: [-79.309% -79.303% -79.296%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -7949,24 +7949,24 @@ Union HybridMLE2PP<P8, B8, Array> + WyHash
 Found 1 outliers among 10 measurements (10.00%)
   1 (10.00%) low mild
 
-Union HybridMLE2PP<P8, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P8, B6, Packed> + XxHash64
                         time:   [101.47 ms 101.48 ms 101.49 ms]
                         change: [-79.055% -79.048% -79.040%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P8, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P8, B6, Packed> + WyHash
                         time:   [98.764 ms 99.103 ms 99.364 ms]
                         change: [-79.316% -79.286% -79.246%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 2 outliers among 10 measurements (20.00%)
   2 (20.00%) high severe
 
-Union HybridMLE2PP<P8, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P8, B8, Packed> + XxHash64
                         time:   [102.18 ms 102.19 ms 102.19 ms]
                         change: [-78.846% -78.837% -78.829%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P8, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P8, B8, Packed> + WyHash
                         time:   [98.599 ms 98.625 ms 98.638 ms]
                         change: [-79.284% -79.274% -79.265%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8083,7 +8083,7 @@ Found 9 outliers among 100 measurements (9.00%)
   2 (2.00%) high mild
   7 (7.00%) high severe
 
-Union LLB<P9, B6, PackedArray> + XxHash64
+Union LLB<P9, B6, Packed> + XxHash64
                         time:   [930.74 µs 930.81 µs 930.89 µs]
                         change: [-78.861% -78.856% -78.851%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8092,7 +8092,7 @@ Found 4 outliers among 100 measurements (4.00%)
   1 (1.00%) high mild
   2 (2.00%) high severe
 
-Union LLB<P9, B6, PackedArray> + WyHash
+Union LLB<P9, B6, Packed> + WyHash
                         time:   [930.72 µs 930.82 µs 930.94 µs]
                         change: [-78.857% -78.849% -78.843%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8101,7 +8101,7 @@ Found 6 outliers among 100 measurements (6.00%)
   1 (1.00%) high mild
   4 (4.00%) high severe
 
-Union LLB<P9, B8, PackedArray> + XxHash64
+Union LLB<P9, B8, Packed> + XxHash64
                         time:   [973.18 µs 973.99 µs 974.92 µs]
                         change: [-78.874% -78.846% -78.823%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8109,7 +8109,7 @@ Found 12 outliers among 100 measurements (12.00%)
   3 (3.00%) high mild
   9 (9.00%) high severe
 
-Union LLB<P9, B8, PackedArray> + WyHash
+Union LLB<P9, B8, Packed> + WyHash
                         time:   [972.70 µs 972.97 µs 973.31 µs]
                         change: [-78.830% -78.817% -78.800%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8186,7 +8186,7 @@ Found 5 outliers among 100 measurements (5.00%)
   4 (4.00%) high mild
   1 (1.00%) high severe
 
-Union PP<P9, B6, PackedArray> + XxHash64
+Union PP<P9, B6, Packed> + XxHash64
                         time:   [933.68 µs 933.70 µs 933.73 µs]
                         change: [-78.816% -78.804% -78.794%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8194,7 +8194,7 @@ Found 4 outliers among 100 measurements (4.00%)
   1 (1.00%) low severe
   3 (3.00%) high mild
 
-Union PP<P9, B6, PackedArray> + WyHash
+Union PP<P9, B6, Packed> + WyHash
                         time:   [933.73 µs 933.83 µs 933.95 µs]
                         change: [-78.798% -78.794% -78.791%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8202,14 +8202,14 @@ Found 4 outliers among 100 measurements (4.00%)
   1 (1.00%) high mild
   3 (3.00%) high severe
 
-Union PP<P9, B8, PackedArray> + XxHash64
+Union PP<P9, B8, Packed> + XxHash64
                         time:   [976.17 µs 976.43 µs 976.70 µs]
                         change: [-78.811% -78.805% -78.800%] (p = 0.00 < 0.05)
                         Performance has improved.
 Found 5 outliers among 100 measurements (5.00%)
   5 (5.00%) high mild
 
-Union PP<P9, B8, PackedArray> + WyHash
+Union PP<P9, B8, Packed> + WyHash
                         time:   [976.62 µs 977.34 µs 978.12 µs]
                         change: [-78.802% -78.794% -78.786%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8282,7 +8282,7 @@ Found 17 outliers among 100 measurements (17.00%)
   1 (1.00%) high mild
   16 (16.00%) high severe
 
-Union HybridLLB<P9, B6, PackedArray> + XxHash64
+Union HybridLLB<P9, B6, Packed> + XxHash64
                         time:   [1.0116 ms 1.0117 ms 1.0119 ms]
                         change: [-77.115% -77.103% -77.092%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8292,7 +8292,7 @@ Found 8 outliers among 100 measurements (8.00%)
   3 (3.00%) high mild
   2 (2.00%) high severe
 
-Union HybridLLB<P9, B6, PackedArray> + WyHash
+Union HybridLLB<P9, B6, Packed> + WyHash
                         time:   [1.0116 ms 1.0117 ms 1.0118 ms]
                         change: [-77.162% -77.147% -77.135%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8300,7 +8300,7 @@ Found 7 outliers among 100 measurements (7.00%)
   5 (5.00%) high mild
   2 (2.00%) high severe
 
-Union HybridLLB<P9, B8, PackedArray> + XxHash64
+Union HybridLLB<P9, B8, Packed> + XxHash64
                         time:   [977.60 µs 978.24 µs 978.90 µs]
                         change: [-78.823% -78.814% -78.804%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8308,7 +8308,7 @@ Found 10 outliers among 100 measurements (10.00%)
   3 (3.00%) high mild
   7 (7.00%) high severe
 
-Union HybridLLB<P9, B8, PackedArray> + WyHash
+Union HybridLLB<P9, B8, Packed> + WyHash
                         time:   [977.19 µs 977.73 µs 978.39 µs]
                         change: [-78.808% -78.801% -78.793%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8386,7 +8386,7 @@ Found 6 outliers among 100 measurements (6.00%)
   4 (4.00%) high mild
   1 (1.00%) high severe
 
-Union HybridPP<P9, B6, PackedArray> + XxHash64
+Union HybridPP<P9, B6, Packed> + XxHash64
                         time:   [1.0142 ms 1.0143 ms 1.0143 ms]
                         change: [-77.212% -77.171% -77.140%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8394,7 +8394,7 @@ Found 2 outliers among 100 measurements (2.00%)
   1 (1.00%) low mild
   1 (1.00%) high mild
 
-Union HybridPP<P9, B6, PackedArray> + WyHash
+Union HybridPP<P9, B6, Packed> + WyHash
                         time:   [1.0140 ms 1.0140 ms 1.0141 ms]
                         change: [-77.158% -77.151% -77.144%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8403,7 +8403,7 @@ Found 5 outliers among 100 measurements (5.00%)
   1 (1.00%) high mild
   3 (3.00%) high severe
 
-Union HybridPP<P9, B8, PackedArray> + XxHash64
+Union HybridPP<P9, B8, Packed> + XxHash64
                         time:   [979.35 µs 979.54 µs 979.75 µs]
                         change: [-78.813% -78.806% -78.800%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8413,7 +8413,7 @@ Found 16 outliers among 100 measurements (16.00%)
   4 (4.00%) high mild
   9 (9.00%) high severe
 
-Union HybridPP<P9, B8, PackedArray> + WyHash
+Union HybridPP<P9, B8, Packed> + WyHash
                         time:   [978.98 µs 979.07 µs 979.17 µs]
                         change: [-78.819% -78.814% -78.810%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8465,22 +8465,22 @@ Union MLE2LLB<P9, B8, Array> + WyHash
                         change: [-77.710% -77.681% -77.651%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P9, B6, PackedArray> + XxHash64
+Union MLE2LLB<P9, B6, Packed> + XxHash64
                         time:   [98.851 ms 98.906 ms 98.960 ms]
                         change: [-78.296% -78.285% -78.273%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P9, B6, PackedArray> + WyHash
+Union MLE2LLB<P9, B6, Packed> + WyHash
                         time:   [100.13 ms 100.16 ms 100.21 ms]
                         change: [-77.750% -77.739% -77.728%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P9, B8, PackedArray> + XxHash64
+Union MLE2LLB<P9, B8, Packed> + XxHash64
                         time:   [98.777 ms 98.817 ms 98.852 ms]
                         change: [-78.204% -78.193% -78.182%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2LLB<P9, B8, PackedArray> + WyHash
+Union MLE2LLB<P9, B8, Packed> + WyHash
                         time:   [100.00 ms 100.07 ms 100.19 ms]
                         change: [-77.655% -77.632% -77.606%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8527,22 +8527,22 @@ Union MLE2PP<P9, B8, Array> + WyHash
                         change: [-77.749% -77.736% -77.723%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P9, B6, PackedArray> + XxHash64
+Union MLE2PP<P9, B6, Packed> + XxHash64
                         time:   [98.828 ms 98.871 ms 98.911 ms]
                         change: [-78.252% -78.240% -78.228%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P9, B6, PackedArray> + WyHash
+Union MLE2PP<P9, B6, Packed> + WyHash
                         time:   [100.20 ms 100.26 ms 100.32 ms]
                         change: [-77.662% -77.649% -77.636%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P9, B8, PackedArray> + XxHash64
+Union MLE2PP<P9, B8, Packed> + XxHash64
                         time:   [98.686 ms 98.741 ms 98.794 ms]
                         change: [-78.201% -78.187% -78.172%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union MLE2PP<P9, B8, PackedArray> + WyHash
+Union MLE2PP<P9, B8, Packed> + WyHash
                         time:   [100.06 ms 100.12 ms 100.19 ms]
                         change: [-77.714% -77.700% -77.688%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8589,22 +8589,22 @@ Union HybridMLE2LLB<P9, B8, Array> + WyHash
                         change: [-77.646% -77.630% -77.616%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P9, B6, PackedArray> + XxHash64
+Union HybridMLE2LLB<P9, B6, Packed> + XxHash64
                         time:   [98.872 ms 98.910 ms 98.944 ms]
                         change: [-78.273% -78.262% -78.252%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P9, B6, PackedArray> + WyHash
+Union HybridMLE2LLB<P9, B6, Packed> + WyHash
                         time:   [100.17 ms 100.22 ms 100.26 ms]
                         change: [-77.711% -77.697% -77.683%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P9, B8, PackedArray> + XxHash64
+Union HybridMLE2LLB<P9, B8, Packed> + XxHash64
                         time:   [98.689 ms 98.739 ms 98.778 ms]
                         change: [-78.238% -78.226% -78.213%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2LLB<P9, B8, PackedArray> + WyHash
+Union HybridMLE2LLB<P9, B8, Packed> + WyHash
                         time:   [100.02 ms 100.07 ms 100.13 ms]
                         change: [-77.694% -77.683% -77.671%] (p = 0.00 < 0.05)
                         Performance has improved.
@@ -8649,22 +8649,22 @@ Union HybridMLE2PP<P9, B8, Array> + WyHash
                         change: [-77.778% -77.746% -77.724%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P9, B6, PackedArray> + XxHash64
+Union HybridMLE2PP<P9, B6, Packed> + XxHash64
                         time:   [98.749 ms 98.802 ms 98.851 ms]
                         change: [-78.288% -78.277% -78.266%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P9, B6, PackedArray> + WyHash
+Union HybridMLE2PP<P9, B6, Packed> + WyHash
                         time:   [100.15 ms 100.20 ms 100.24 ms]
                         change: [-77.701% -77.690% -77.679%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P9, B8, PackedArray> + XxHash64
+Union HybridMLE2PP<P9, B8, Packed> + XxHash64
                         time:   [98.632 ms 98.673 ms 98.718 ms]
                         change: [-78.269% -78.261% -78.252%] (p = 0.00 < 0.05)
                         Performance has improved.
 
-Union HybridMLE2PP<P9, B8, PackedArray> + WyHash
+Union HybridMLE2PP<P9, B8, Packed> + WyHash
                         time:   [100.02 ms 100.06 ms 100.13 ms]
                         change: [-77.700% -77.688% -77.676%] (p = 0.00 < 0.05)
                         Performance has improved.

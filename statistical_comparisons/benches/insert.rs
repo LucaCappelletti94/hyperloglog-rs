@@ -30,9 +30,9 @@ macro_rules! bench_cardinality {
         paste::item! {
             fn [<bench_plusplus_insert_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
                 insert_bencher::<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>(b);
-                insert_bencher::<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>(b);
+                insert_bencher::<PlusPlus<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>(b);
                 insert_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>>(b);
-                insert_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
+                insert_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>>(b);
             }
         }
     };

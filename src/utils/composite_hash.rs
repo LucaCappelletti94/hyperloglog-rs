@@ -19,6 +19,78 @@ pub trait CompositeHash: VariableWord {
     fn decode<P: Precision, B: Bits>(hash: Self::Word) -> (u8, P::NumberOfRegisters);
 }
 
+impl CompositeHash for u8 {
+    fn encode<P: Precision, B: Bits>(
+        register: u8,
+        index: P::NumberOfRegisters,
+        hash: u64,
+    ) -> Self::Word {
+        assert!(P::EXPONENT + B::NUMBER_OF_BITS <= 8);
+        debug_assert!(index.to_usize() < (1 << P::EXPONENT));
+        debug_assert!(register > 0);
+
+        // Since the index is extracted from the low part of the hash, we censor the low part of the hash.
+        let mut hash = (hash >> P::EXPONENT) as u8;
+        // Next, we censor the B leftmost bits of the hash, and we replace them with the register.
+        hash <<= B::NUMBER_OF_BITS;
+        hash >>= B::NUMBER_OF_BITS;
+        hash |= (register as u8) << (8 - B::NUMBER_OF_BITS);
+        // Similarly, we censor the rightmost bits of the hash, and we replace them with the index.
+        hash >>= P::EXPONENT;
+        hash <<= P::EXPONENT;
+        hash |= u8::try_from(index.to_usize()).unwrap();
+
+        hash
+    }
+
+    fn decode<P: Precision, B: Bits>(hash: Self::Word) -> (u8, P::NumberOfRegisters) {
+        assert!(P::EXPONENT + B::NUMBER_OF_BITS <= 8);
+        // We extract the index from the rightmost bits of the hash.
+        let index =
+            P::NumberOfRegisters::try_from_u64(u64::from(hash & ((1 << P::EXPONENT) - 1))).unwrap();
+        // Next, we extract the register from the leftmost bits of the hash.
+        let register = u8::try_from(hash >> (8 - B::NUMBER_OF_BITS)).unwrap();
+
+        (register, index)
+    }
+}
+
+impl CompositeHash for u16 {
+    fn encode<P: Precision, B: Bits>(
+        register: u8,
+        index: P::NumberOfRegisters,
+        hash: u64,
+    ) -> Self::Word {
+        assert!(P::EXPONENT + B::NUMBER_OF_BITS <= 16);
+        debug_assert!(index.to_usize() < (1 << P::EXPONENT));
+        debug_assert!(register > 0);
+
+        // Since the index is extracted from the low part of the hash, we censor the low part of the hash.
+        let mut hash = (hash >> P::EXPONENT) as u16;
+        // Next, we censor the B leftmost bits of the hash, and we replace them with the register.
+        hash <<= B::NUMBER_OF_BITS;
+        hash >>= B::NUMBER_OF_BITS;
+        hash |= (register as u16) << (16 - B::NUMBER_OF_BITS);
+        // Similarly, we censor the rightmost bits of the hash, and we replace them with the index.
+        hash >>= P::EXPONENT;
+        hash <<= P::EXPONENT;
+        hash |= u16::try_from(index.to_usize()).unwrap();
+
+        hash
+    }
+
+    fn decode<P: Precision, B: Bits>(hash: Self::Word) -> (u8, P::NumberOfRegisters) {
+        assert!(P::EXPONENT + B::NUMBER_OF_BITS <= 16);
+        // We extract the index from the rightmost bits of the hash.
+        let index =
+            P::NumberOfRegisters::try_from_u64(u64::from(hash & ((1 << P::EXPONENT) - 1))).unwrap();
+        // Next, we extract the register from the leftmost bits of the hash.
+        let register = u8::try_from(hash >> (16 - B::NUMBER_OF_BITS)).unwrap();
+
+        (register, index)
+    }
+}
+
 impl CompositeHash for u32 {
     fn encode<P: Precision, B: Bits>(
         register: u8,
@@ -26,11 +98,11 @@ impl CompositeHash for u32 {
         hash: u64,
     ) -> Self::Word {
         assert!(P::EXPONENT + B::NUMBER_OF_BITS <= 32);
-        debug_assert!(index.to_usize() < (1 << P::EXPONENT));   
+        debug_assert!(index.to_usize() < (1 << P::EXPONENT));
         debug_assert!(register > 0);
 
         // Since the index is extracted from the low part of the hash, we censor the low part of the hash.
-        let mut hash = u32::try_from(hash >> 32).unwrap();
+        let mut hash = (hash >> P::EXPONENT) as u32;
         // Next, we censor the B leftmost bits of the hash, and we replace them with the register.
         hash <<= B::NUMBER_OF_BITS;
         hash >>= B::NUMBER_OF_BITS;
@@ -62,7 +134,7 @@ impl CompositeHash for u64 {
         mut hash: u64,
     ) -> Self::Word {
         assert!(P::EXPONENT + B::NUMBER_OF_BITS <= 64);
-        debug_assert!(index.to_usize() < (1 << P::EXPONENT));   
+        debug_assert!(index.to_usize() < (1 << P::EXPONENT));
         debug_assert!(register > 0);
 
         // Next, we censor the B leftmost bits of the hash, and we replace them with the register.
@@ -92,15 +164,19 @@ impl CompositeHash for u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core::hash::Hash;
-    use core::hash::Hasher;
     use crate::prelude::*;
     use crate::{
         prelude::{Bits, Precision},
         utils::{iter_random_values, splitmix64},
     };
+    use core::hash::Hash;
+    use core::hash::Hasher;
 
     fn test_composite_hash<H: CompositeHash, P: Precision, B: Bits>() {
+        if P::EXPONENT + B::NUMBER_OF_BITS > H::NUMBER_OF_BITS {
+            return;
+        }
+
         let maximal_register = (1 << B::NUMBER_OF_BITS) - 1;
         let maximal_index = (1 << P::EXPONENT) - 1;
 
@@ -146,11 +222,13 @@ mod tests {
     macro_rules! test_composite_hash_precisions {
         ($hash:ty, $($precision:expr),*) => {
             $(
-                test_composite_hash!($hash, $precision, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6, Bits7, Bits8);
+                test_composite_hash!($hash, $precision, Bits4, Bits5, Bits6);
             )*
         };
     }
 
+    test_composite_hash_precisions!(u8, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
+    test_composite_hash_precisions!(u16, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
     test_composite_hash_precisions!(u32, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
     test_composite_hash_precisions!(u64, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
 }

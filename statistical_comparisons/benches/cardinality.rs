@@ -53,7 +53,7 @@ macro_rules! bench_cardinality {
             }
 
             fn [<bench_pluspluspackedarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                cardinality_bencher::<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>(b);
+                cardinality_bencher::<PlusPlus<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>(b);
             }
 
             fn [<bench_betaarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
@@ -61,7 +61,7 @@ macro_rules! bench_cardinality {
             }
 
             fn [<bench_betapackedarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                cardinality_bencher::<LogLogBeta<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>(b);
+                cardinality_bencher::<LogLogBeta<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>(b);
             }
 
             fn [<bench_hybridplusplusarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
@@ -69,7 +69,7 @@ macro_rules! bench_cardinality {
             }
 
             fn [<bench_hybridpluspluspackedarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                cardinality_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
+                cardinality_bencher::<Hybrid<PlusPlus<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>>(b);
             }
 
             fn [<bench_hybridbetaarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
@@ -77,7 +77,7 @@ macro_rules! bench_cardinality {
             }
 
             fn [<bench_hybridbetapackedarray_cardinality_ $precision:lower _ $bits:lower _ $hasher:lower>] (b: &mut Criterion) {
-                cardinality_bencher::<Hybrid<LogLogBeta<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister, $hasher>>>(b);
+                cardinality_bencher::<Hybrid<LogLogBeta<$precision, $bits, <$precision as PackedRegister<$bits>>::PackedRegister, $hasher>>>(b);
             }
         }
     };

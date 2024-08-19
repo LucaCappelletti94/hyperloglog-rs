@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [".", "statistical_comparisons", "statistical_comparisons/macro_test_utils"]
+members = [".", "evaluate_composite_hash", "statistical_comparisons", "statistical_comparisons/macro_test_utils"]
 
 [package]
 name = "hyperloglog-rs"
@@ -42,7 +42,7 @@ serde_json = "1.0"
 wyhash = "0.5.0"
 
 [features]
-default = ["serde", "mem_dbg", "low_precisions", "mle", "beta", "plusplus"]
+default = ["low_precisions", "beta", "plusplus"]
 beta = []
 precomputed_beta = ["beta"]
 plusplus = []
@@ -115,4 +115,7 @@ overflow-checks = false   # Disable integer overflow checks.
 debug = false            # Include debug info.
 debug-assertions = false  # Enables debug assertions.
 opt-level = 3
-codegen-units = 1
+
+[[bench]]
+name = "array"
+harness = false

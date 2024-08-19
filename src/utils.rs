@@ -10,27 +10,27 @@
 //! - `word_from_registers<const NUMBER_OF_BITS_PER_REGISTER: usize>(registers: &[u32]) -> u32`: Converts an array
 //!   of HLL registers into a single 32-bit word.
 
+mod composite_hash;
 mod constants;
 mod hasher_type;
+mod matrix;
 mod number;
 mod random;
-mod variable_words;
 mod variable_word;
-mod composite_hash;
-mod matrix;
+mod variable_words;
 
+pub use composite_hash::CompositeHash;
 pub use constants::*;
 pub use hasher_type::HasherType;
-pub(crate) use number::{FloatOps, Number, PositiveInteger};
-pub use variable_word::VariableWord;
-pub use composite_hash::CompositeHash;
-pub use random::*;
-pub use variable_words::VariableWords;
 pub use matrix::Matrix;
+pub(crate) use number::{FloatOps, Number, PositiveInteger};
+pub use random::*;
+pub use variable_word::VariableWord;
+pub use variable_words::VariableWords;
 
 #[cfg(feature = "std")]
 /// Trait for an object with a name.
-pub trait Named: Default {
+pub trait Named {
     /// Returns the name of the object.
     fn name(&self) -> String;
 }

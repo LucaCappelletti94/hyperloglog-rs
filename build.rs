@@ -241,8 +241,10 @@ fn get_integer_biases_and_estimates(precision: usize) -> (Vec<i32>, Vec<u32>) {
     (biases, estimates)
 }
 
+#[cfg(feature = "beta")]
 include!("./beta.rs");
 
+#[cfg(feature = "beta")]
 fn get_beta(precision: usize) -> [f64; 8] {
     BETAS[precision - 4]
 }

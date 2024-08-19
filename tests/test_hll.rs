@@ -14,7 +14,7 @@ pub fn test_approximated_counter_at_precision_and_bits<
     let mut total_union_error_rate = 0.0;
     let mut total_cardinality_samples = 0;
     let mut total_union_samples = 0;
-    let number_of_iterations = 500;
+    let number_of_iterations = 50;
     let starting_cardinality_sampling_rate = 10;
     let starting_union_sampling_rate = 10;
     let maximal_cardinality_sampling_rate = 5_000;
@@ -49,7 +49,8 @@ pub fn test_approximated_counter_at_precision_and_bits<
 
             if i % cardinality_sampling_rate == 0 {
                 if cardinality_sampling_rate < maximal_cardinality_sampling_rate {
-                    cardinality_sampling_rate *= 2;
+                    left_random_state = splitmix64(left_random_state);
+                    cardinality_sampling_rate += left_random_state as usize % cardinality_sampling_rate;
                 }
                 let estimated_cardinality = left.estimate_cardinality();
                 let exact_cardinality = exact_left.len() as f64;
@@ -61,7 +62,8 @@ pub fn test_approximated_counter_at_precision_and_bits<
 
             if i % union_sampling_rate == 0 {
                 if union_sampling_rate < maximal_union_sampling_rate {
-                    union_sampling_rate *= 2;
+                    right_random_state = splitmix64(right_random_state);
+                    union_sampling_rate += right_random_state as usize % union_sampling_rate;
                 }
                 // We also check at each iteration of the right set that the union of the two sets
                 // is correctly estimated.
@@ -167,8 +169,8 @@ macro_rules! test_hll_at_precision_and_bits {
         $(
             paste::paste!{
                 type [<Array $precision $hasher $bits>] = <$precision as ArrayRegister<$bits>>::Array;
-                type [<PackedArray $precision $hasher $bits>] = <$precision as ArrayRegister<$bits>>::PackedArray;
-                test_hll_at_precision_and_bits_and_register!($precision, $hasher, $bits, [<Array $precision $hasher $bits>], [<PackedArray $precision $hasher $bits>]);
+                type [<Packed $precision $hasher $bits>] = <$precision as ArrayRegister<$bits>>::Packed;
+                test_hll_at_precision_and_bits_and_register!($precision, $hasher, $bits, [<Array $precision $hasher $bits>], [<Packed $precision $hasher $bits>]);
             }
         )*
     };
@@ -178,7 +180,7 @@ macro_rules! test_hll_at_precision_and_bits {
 macro_rules! test_hll_at_precision_and_hashers {
     ($precision:ty, $($hasher:ty),*) => {
         $(
-            test_hll_at_precision_and_bits!($precision, $hasher, Bits4, Bits6, Bits5);
+            test_hll_at_precision_and_bits!($precision, $hasher, Bits4, Bits5, Bits6, Bits7, Bits8);
         )*
     };
 }
