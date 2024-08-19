@@ -2,6 +2,8 @@
 use crate::basicloglog::BasicLogLog;
 use crate::hll_impl;
 use crate::prelude::*;
+
+#[cfg(feature = "std")]
 use core::any::type_name;
 
 #[cfg(feature = "std")]

@@ -4,7 +4,8 @@
 use super::PositiveInteger;
 use core::fmt::Debug;
 
-// mod u40;
+mod word_u40;
+pub use word_u40::u40;
 
 /// Trait marker for the variable word.
 pub trait VariableWord: Send + Sync + Clone + Copy + Debug + Default {
@@ -37,11 +38,17 @@ impl VariableWord for u16 {
 impl VariableWord for u32 {
     const NUMBER_OF_BITS: u8 = 32;
     type Word = u32;
-    const MASK: u64 = 0xFFFFFFFF;
+    const MASK: u64 = 0xFFFF_FFFF;
+}
+
+impl VariableWord for u40 {
+    const NUMBER_OF_BITS: u8 = 40;
+    type Word = u40;
+    const MASK: u64 = 0xFF_FFFF_FFFF;
 }
 
 impl VariableWord for u64 {
     const NUMBER_OF_BITS: u8 = 64;
     type Word = u64;
-    const MASK: u64 = 0xFFFFFFFFFFFFFFFF;
+    const MASK: u64 = 0xFFFF_FFFF_FFFF_FFFF;
 }

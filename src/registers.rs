@@ -71,10 +71,10 @@ pub trait Registers<P: Precision, B: Bits>:
 }
 
 #[cfg(test)]
+#[cfg(feature = "std")]
 mod tests {
     use super::*;
 
-    #[cfg(feature = "std")]
     fn test_register_iterator<P: Precision, B: Bits, R: Registers<P, B>>() {
         let mut registers = R::default();
         let collected_values = registers.iter_registers().collect::<Vec<_>>();
@@ -105,7 +105,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "std")]
     fn test_registers_self_consistency<P: Precision + ArrayRegister<B>, B: Bits>() {
         let iterations = 50;
         let mut random_state = splitmix64(324564567865354);

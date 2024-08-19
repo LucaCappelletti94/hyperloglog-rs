@@ -292,11 +292,11 @@ where
 }
 
 #[cfg(test)]
+#[cfg(feature = "std")]
 mod tests {
     use super::*;
 
     #[test]
-    #[cfg(feature = "std")]
     fn test_unique_values_from_sorted_iterators() {
         let number_of_iterations = 10;
         let mut random_state = splitmix64(3456789456776543);
@@ -360,7 +360,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "std")]
     /// This test populates two hybrid counters, of which one is populated up until
     /// it saturates and is no longer in hybrid mode. The union of the two counters
     /// is then estimated, and is expected to be within the error rate defined by the
@@ -514,7 +513,6 @@ mod tests {
 
     test_mixed_hybrid_union_from_exponents!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
 
-    #[cfg(feature = "std")]
     /// This test populates two hybrid counters, of which one is populated up until
     /// it saturates and is no longer in hybrid mode. The union of the two counters
     /// is then estimated, and is expected to be within the error rate defined by the
@@ -651,7 +649,6 @@ mod tests {
         4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
     );
 
-    #[cfg(feature = "std")]
     fn test_only_hybrid_union<
         P: Precision + ArrayRegister<Bits6>,
         H: Hybridazable
@@ -761,13 +758,13 @@ mod tests {
             $(
                 paste::item! {
                     #[test]
-                    #[cfg(all(feature = "precision_" $exponent, feature = "std"))]
+                    #[cfg(feature = "precision_" $exponent)]
                     fn [<test_only_hybrid_plusplus_union_ $exponent>]() {
                         test_only_hybrid_union::<[<Precision $exponent>], PlusPlus<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>>();
                     }
 
                     #[test]
-                    #[cfg(all(feature = "precision_" $exponent, feature = "std"))]
+                    #[cfg(feature = "precision_" $exponent)]
                     fn [<test_only_hybrid_beta_union_ $exponent>]() {
                         test_only_hybrid_union::<[<Precision $exponent>], LogLogBeta<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>>();
                     }

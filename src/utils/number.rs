@@ -2,7 +2,7 @@
 use crate::utils::{One, Zero};
 use core::fmt::{Debug, Display};
 use core::hash::Hash;
-use core::ops::{Add, AddAssign, Div, Mul, Neg, Shl, Shr, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Div, Mul, Neg, Shl, Shr, Sub, BitAnd, BitAndAssign, SubAssign, BitOrAssign, BitOr};
 
 /// A trait for numbers.
 pub trait Number:
@@ -39,7 +39,7 @@ pub trait Number:
 
 /// A trait for positive integer numbers.
 pub trait PositiveInteger:
-    Number + Eq + Into<u64> + Ord + Shl<u8, Output = Self> + Shr<u8, Output = Self> + Hash
+    Number + Eq + Into<u64> + BitAnd + BitAndAssign + BitOr + BitOrAssign + Ord + Shl<u8, Output = Self> + Shr<u8, Output = Self> + Hash
 {
     /// The error type for the `try_from_u64` method.
     type TryFromU64Error: Debug;

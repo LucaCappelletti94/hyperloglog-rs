@@ -25,7 +25,7 @@ pub use hasher_type::HasherType;
 pub use matrix::Matrix;
 pub(crate) use number::{FloatOps, Number, PositiveInteger};
 pub use random::*;
-pub use variable_word::VariableWord;
+pub use variable_word::{VariableWord, u40};
 pub use variable_words::VariableWords;
 
 #[cfg(feature = "std")]

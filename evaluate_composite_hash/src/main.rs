@@ -141,7 +141,7 @@ fn main() {
     );
 
     let mut reports: Vec<CollisionReport> = vec![];
-    test_collision_rate!(progress_bar, reports, u8, u16, u32, u64);
+    test_collision_rate!(progress_bar, reports, u8, u16, u32, u40, u64);
 
     // We write the reports to a CSV using csv and serde.
 
