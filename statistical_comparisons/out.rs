@@ -73,7 +73,7 @@ pub mod cardinality {
         progress_bar
             .set_style(
                 ProgressStyle::default_bar()
-                    .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
+                    .template("[{elapsed_precise} | {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
                     .unwrap()
                     .progress_chars("##-"),
             );
@@ -232,7 +232,7 @@ pub mod union {
         progress_bar
             .set_style(
                 ProgressStyle::default_bar()
-                    .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
+                    .template("[{elapsed_precise} | {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
                     .unwrap()
                     .progress_chars("##-"),
             );
@@ -4738,7 +4738,7 @@ pub mod utils {
             .set_style(
                 indicatif::ProgressStyle::default_bar()
                     .template(
-                        "Transposing: [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}",
+                        "Transposing: [{elapsed_precise} | {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}",
                     )
                     .unwrap()
                     .progress_chars("##-"),
@@ -4776,7 +4776,7 @@ pub mod utils {
             .set_style(
                 indicatif::ProgressStyle::default_bar()
                     .template(
-                        "Writing CSV: [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}",
+                        "Writing CSV: [{elapsed_precise} | {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}",
                     )
                     .unwrap()
                     .progress_chars("##-"),
@@ -4892,7 +4892,7 @@ pub mod utils {
             .set_style(
                 indicatif::ProgressStyle::default_bar()
                     .template(
-                        "Running tests: [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}",
+                        "Running tests: [{elapsed_precise} | {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}",
                     )
                     .unwrap()
                     .progress_chars("##-"),

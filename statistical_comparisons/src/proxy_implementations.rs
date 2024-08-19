@@ -82,8 +82,7 @@ pub struct TabacHLLPlusPlus<P: Precision> {
 impl<P: Precision> Default for TabacHLLPlusPlus<P> {
     fn default() -> Self {
         Self {
-            estimator: TabacHyperLogLogPlus::new(P::EXPONENT, RandomState::default())
-                .unwrap(),
+            estimator: TabacHyperLogLogPlus::new(P::EXPONENT, RandomState::default()).unwrap(),
             _precision: PhantomData,
         }
     }
@@ -191,7 +190,7 @@ impl<P: Precision> hyperloglog_rs::prelude::Named for TabacHLL<P> {
 #[cfg(feature = "std")]
 impl<P: Precision> hyperloglog_rs::prelude::Named for AlecHLL<P> {
     fn name(&self) -> String {
-        assert_eq!({P::EXPONENT}, self.estimator.precision());
+        assert_eq!({ P::EXPONENT }, self.estimator.precision());
 
         format!("SA<P{}, B6, Vec> + XxHash64", self.estimator.precision())
     }
@@ -265,12 +264,18 @@ impl<P: Precision> ExtendableApproximatedSet<u64> for AlecHLL<P> {
 }
 
 impl<const P: usize> Estimator<f64> for SimpleHLL<P> {
-    #[expect(clippy::cast_precision_loss, reason = "We do not expect to exceeed 2**54 in set cardinality in our tests.")]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
+    )]
     fn estimate_cardinality(&self) -> f64 {
         self.estimator.count() as f64
     }
 
-    #[expect(clippy::cast_precision_loss, reason = "We do not expect to exceeed 2**54 in set cardinality in our tests.")]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
+    )]
     fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.merge(&other.estimator);
@@ -283,12 +288,18 @@ impl<const P: usize> Estimator<f64> for SimpleHLL<P> {
 }
 
 impl<H: HasherType, const P: usize, const B: usize> Estimator<f64> for CloudFlareHLL<P, B, H> {
-    #[expect(clippy::cast_precision_loss, reason = "We do not expect to exceeed 2**54 in set cardinality in our tests.")]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
+    )]
     fn estimate_cardinality(&self) -> f64 {
         self.estimator.estimate() as f64
     }
 
-    #[expect(clippy::cast_precision_loss, reason = "We do not expect to exceeed 2**54 in set cardinality in our tests.")]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
+    )]
     fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.merge(&other.estimator);
@@ -301,12 +312,18 @@ impl<H: HasherType, const P: usize, const B: usize> Estimator<f64> for CloudFlar
 }
 
 impl<S: Clone + hypertwobits::h2b::Sketch + Send + Sync> Estimator<f64> for HyperTwoBits<S> {
-    #[expect(clippy::cast_precision_loss, reason = "We do not expect to exceeed 2**54 in set cardinality in our tests.")]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
+    )]
     fn estimate_cardinality(&self) -> f64 {
         self.estimator.count() as f64
     }
 
-    #[expect(clippy::cast_precision_loss, reason = "We do not expect to exceeed 2**54 in set cardinality in our tests.")]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
+    )]
     fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.merge(other.estimator.clone());
@@ -319,12 +336,18 @@ impl<S: Clone + hypertwobits::h2b::Sketch + Send + Sync> Estimator<f64> for Hype
 }
 
 impl<S: Clone + hypertwobits::h3b::Sketch + Send + Sync> Estimator<f64> for HyperThreeBits<S> {
-    #[expect(clippy::cast_precision_loss, reason = "We do not expect to exceeed 2**54 in set cardinality in our tests.")] 
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
+    )]
     fn estimate_cardinality(&self) -> f64 {
         self.estimator.count() as f64
     }
 
-    #[expect(clippy::cast_precision_loss, reason = "We do not expect to exceeed 2**54 in set cardinality in our tests.")]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
+    )]
     fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.merge(other.estimator.clone());
@@ -337,12 +360,18 @@ impl<S: Clone + hypertwobits::h3b::Sketch + Send + Sync> Estimator<f64> for Hype
 }
 
 impl<P: Precision> Estimator<f64> for SourMash<P> {
-    #[expect(clippy::cast_precision_loss, reason = "We do not expect to exceeed 2**54 in set cardinality in our tests.")]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
+    )]
     fn estimate_cardinality(&self) -> f64 {
         self.estimator.cardinality() as f64
     }
 
-    #[expect(clippy::cast_precision_loss, reason = "We do not expect to exceeed 2**54 in set cardinality in our tests.")]
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
+    )]
     fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         self.estimator.union(&other.estimator) as f64
     }

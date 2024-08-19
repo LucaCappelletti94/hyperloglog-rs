@@ -18,7 +18,7 @@ pub(crate) fn write_csv<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: 
 
     progress_bar.set_style(
         ProgressStyle::default_bar()
-            .template("Writing CSV: [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
+            .template("Writing CSV: [{elapsed_precise} | {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
             .unwrap()
             .progress_chars("##-"),
     );

@@ -1,15 +1,15 @@
 //! This module contains the code to generate the reports for the cardinality and union tests.
 use std::collections::HashSet;
 
+use crate::csv_utils::{read_csv, write_csv};
 use crate::estimation_tests::{cardinality_test, union_test};
-use crate::csv_utils::{write_csv, read_csv};
 use crate::{
     estimation_tests::{ErrorReport, PerformanceReport},
     traits::TransparentMemSize,
 };
-use indicatif::ProgressIterator;
 use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
+use indicatif::ProgressIterator;
 use strum::IntoEnumIterator;
 
 fn prepare_reports<S, T1, T2>(test_for_hashset: T1, test: T2, test_name: &str)
@@ -50,15 +50,17 @@ where
 
     // We filter the entries, so to be able to provide a loading bar that
     // only includes entry we actually process.
-    let entries = entries.filter(|entry| {
-        let path = format!("reports/{test_name}/{}.csv.gz", entry.name());
-        !std::path::Path::new(&path).exists()
-    }).filter(|entry|{
-        // If the test name is "cardinality", we exclude all models whose
-        // name contains the word "MLE", as we solely have the joint union
-        // estimation to evaluate from the MLE models at this time.
-        !(test_name == "cardinality" && entry.name().contains("MLE"))
-    });
+    let entries = entries
+        .filter(|entry| {
+            let path = format!("reports/{test_name}/{}.csv.gz", entry.name());
+            !std::path::Path::new(&path).exists()
+        })
+        .filter(|entry| {
+            // If the test name is "cardinality", we exclude all models whose
+            // name contains the word "MLE", as we solely have the joint union
+            // estimation to evaluate from the MLE models at this time.
+            !(test_name == "cardinality" && entry.name().contains("MLE"))
+        });
 
     // We clone the iterator and compute the actual number of entries.
     let number_of_entries = entries.clone().count();
@@ -69,12 +71,14 @@ where
 
     let multi_progress = MultiProgress::new();
 
-    let entries_progress_bar = multi_progress.add(indicatif::ProgressBar::new(number_of_entries as u64));
+    let entries_progress_bar =
+        multi_progress.add(indicatif::ProgressBar::new(number_of_entries as u64));
     entries_progress_bar.set_style(
         indicatif::ProgressStyle::default_bar()
             .template(&format!(
                 "{test_name}: [{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>7}}/{{len:7}}"
-            )).unwrap()
+            ))
+            .unwrap()
             .progress_chars("##-"),
     );
 

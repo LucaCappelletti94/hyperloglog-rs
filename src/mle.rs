@@ -26,7 +26,10 @@ impl<H, const ERROR: i32> From<H> for MLE<H, ERROR> {
 }
 
 #[cfg(feature = "std")]
-impl<const ERROR: i32, H: Named> Named for MLE<H, ERROR> {
+impl<const ERROR: i32, H: Named> Named for MLE<H, ERROR>
+where
+    Self: Default,
+{
     #[inline]
     fn name(&self) -> String {
         format!("MLE{}{}", ERROR, self.counter.name())
@@ -58,7 +61,7 @@ fn mle_union_cardinality<
     let mut union_harmonic_sum = f64::ZERO;
     let mut union_zeros = P::NumberOfRegisters::ZERO;
 
-    for (left_register, right_register) in left.registers().iter_registers_zipped(right.registers())
+    for [left_register, right_register] in left.registers().iter_registers_zipped(right.registers())
     {
         let larger_register = match left_register.cmp(&right_register) {
             Ordering::Less => {

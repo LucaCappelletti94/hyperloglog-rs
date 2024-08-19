@@ -262,19 +262,19 @@ macro_rules! test_hyper_spheres_by_precision_and_sizes {
             paste::paste! {
                 #[test]
                 fn [<test_plusplus_hyper_spheres_sketch_ $hasher:lower _ $precision:lower _ $bits:lower _left_ $left _right_ $right>]() {
-                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>, $left, $right>();
+                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::Array, $hasher>, $left, $right>();
                 }
                 #[test]
                 fn [<test_beta_hyper_spheres_sketch_ $hasher:lower _ $precision:lower _ $bits:lower _left_ $left _right_ $right>]() {
-                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>, $left, $right>();
+                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::Array, $hasher>, $left, $right>();
                 }
                 #[test]
                 fn [<test_hybrid_plusplus_hyper_spheres_sketch_ $hasher:lower _ $precision:lower _ $bits:lower _left_ $left _right_ $right>]() {
-                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, Hybrid<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>, $left, $right>();
+                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, Hybrid<PlusPlus<$precision, $bits, <$precision as ArrayRegister<$bits>>::Array, $hasher>>, $left, $right>();
                 }
                 #[test]
                 fn [<test_hybrid_beta_hyper_spheres_sketch_ $hasher:lower _ $precision:lower _ $bits:lower _left_ $left _right_ $right>]() {
-                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, Hybrid<LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister, $hasher>>, $left, $right>();
+                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, Hybrid<LogLogBeta<$precision, $bits, <$precision as ArrayRegister<$bits>>::Array, $hasher>>, $left, $right>();
                 }
             }
         )+

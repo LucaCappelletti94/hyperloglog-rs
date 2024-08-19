@@ -55,10 +55,10 @@ macro_rules! hll_impl {
             where
                 D: serde::Deserializer<'de>,
             {
-                let mut registers: R = R::zeroed();
+                let mut registers: R = R::default();
                 let visitor = $crate::serde::RegisterVisitor::<u8>::new(1 << P::EXPONENT);
                 let mut iter = deserializer.deserialize_seq(visitor)?.into_iter();
-                registers.apply(|_| iter.next().unwrap());
+                registers.apply_to_registers(|_| iter.next().unwrap());
                 debug_assert_eq!(iter.next(), None);
                 Ok(Self::from_registers(registers))
             }
@@ -170,10 +170,10 @@ macro_rules! hll_impl {
             }
         }
 
-        impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B> + Words>
-            Hybridazable for $counter
+        impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B> + VariableWords<CH>, CH: CompositeHash>
+            Hybridazable<CH> for $counter
         {
-            type IterSortedHashes<'words> = core::iter::Take<R::WordIter<'words>> where Self: 'words;
+            type IterSortedHashes<'words> = <R as VariableWords<CH>>::Iter<'words> where Self: 'words, CH: 'words;
 
             #[inline]
             fn is_hybrid(&self) -> bool {

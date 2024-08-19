@@ -166,8 +166,8 @@ macro_rules! test_hll_at_precision_and_bits {
     ($precision:ty, $hasher:ty, $($bits:ty),*) => {
         $(
             paste::paste!{
-                type [<Array $precision $hasher $bits>] = <$precision as ArrayRegister<$bits>>::ArrayRegister;
-                type [<PackedArray $precision $hasher $bits>] = <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister;
+                type [<Array $precision $hasher $bits>] = <$precision as ArrayRegister<$bits>>::Array;
+                type [<PackedArray $precision $hasher $bits>] = <$precision as ArrayRegister<$bits>>::PackedArray;
                 test_hll_at_precision_and_bits_and_register!($precision, $hasher, $bits, [<Array $precision $hasher $bits>], [<PackedArray $precision $hasher $bits>]);
             }
         )*
@@ -178,7 +178,7 @@ macro_rules! test_hll_at_precision_and_bits {
 macro_rules! test_hll_at_precision_and_hashers {
     ($precision:ty, $($hasher:ty),*) => {
         $(
-            test_hll_at_precision_and_bits!($precision, $hasher, Bits6, Bits5);
+            test_hll_at_precision_and_bits!($precision, $hasher, Bits4, Bits6, Bits5);
         )*
     };
 }

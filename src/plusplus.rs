@@ -92,7 +92,7 @@ mod tests {
         let mut hll = PlusPlus::<
             Precision5,
             Bits6,
-            <Precision5 as ArrayRegister<Bits6>>::ArrayRegister,
+            <Precision5 as ArrayRegister<Bits6>>::Array,
             twox_hash::XxHash64,
         >::default();
         hll.extend(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -112,13 +112,13 @@ mod tests {
         let mut hll1 = PlusPlus::<
             Precision5,
             Bits6,
-            <Precision5 as ArrayRegister<Bits6>>::ArrayRegister,
+            <Precision5 as ArrayRegister<Bits6>>::Array,
             twox_hash::XxHash64,
         >::default();
         let mut hll2 = PlusPlus::<
             Precision5,
             Bits6,
-            <Precision5 as ArrayRegister<Bits6>>::ArrayRegister,
+            <Precision5 as ArrayRegister<Bits6>>::Array,
             twox_hash::XxHash64,
         >::default();
 

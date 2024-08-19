@@ -1,7 +1,7 @@
 //! Submodule loading all of the reports for a given task, one by one to avoid an excessive memory peak,
 //! and then running the statistical tests.
-use core::{f64, fmt};
-use std::fmt::Display;
+use core::f64;
+use serde::Serializer;
 use std::iter::Sum;
 use std::ops::Div;
 
@@ -12,41 +12,19 @@ use rayon::prelude::*;
 use stattest::test::StatisticalTest;
 use stattest::test::WilcoxonWTest;
 
-#[derive(Debug, PartialEq, Copy, serde::Deserialize, Clone, serde::Serialize)]
-enum Outcome {
-    /// When the first approach is better than the second.
-    First,
-    /// When the second approach is better than the first.
-    Second,
-    /// When the approaches are statistically equivalent.
-    Tied,
-    /// When the test failed.
-    Failed,
-}
-
-impl Display for Outcome {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Outcome::First => write!(f, "First"),
-            Outcome::Second => write!(f, "Second"),
-            Outcome::Tied => write!(f, "Tied"),
-            Outcome::Failed => write!(f, "Failed"),
-        }
-    }
+fn float_formatter<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&format!("{value:.4}"))
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct WilcoxonTestResult {
     first_approach_name: String,
     second_approach_name: String,
+    #[serde(serialize_with = "float_formatter")]
     p_value: f64,
-    outcome: Outcome,
-    first_memsize: usize,
-    first_mean: f64,
-    first_std: f64,
-    second_memsize: usize,
-    second_mean: f64,
-    second_std: f64,
 }
 
 #[derive(Debug)]
@@ -56,6 +34,56 @@ struct ReportInformations {
     mean_absolute_error: f64,
     std_absolute_error: f64,
     name: String,
+}
+
+impl ReportInformations {
+    fn from_path(path: &std::path::Path, memory_normalized: bool) -> Self {
+        let path: &str = path.to_str().unwrap();
+        let reports: Vec<ErrorReport> = read_csv(path).unwrap();
+        let approach_name = path
+            .split('/')
+            .last()
+            .unwrap()
+            .split('.')
+            .next()
+            .unwrap()
+            .to_owned();
+
+        let absolute_errors = if memory_normalized {
+            reports
+                .iter()
+                .map(|report| {
+                    report.error().max(f64::from(f32::EPSILON))
+                        * f64::from(u32::try_from(report.memory_requirement()).unwrap())
+                })
+                .collect::<Vec<f64>>()
+        } else {
+            reports.iter().map(ErrorReport::error).collect::<Vec<f64>>()
+        };
+
+        let mean_memory_requirements = mean(reports.iter().map(ErrorReport::memory_requirement));
+        let mean_absolute_error = mean(absolute_errors.iter().copied());
+        let std_absolute_error = standard_deviation(&absolute_errors, mean_absolute_error);
+
+        ReportInformations {
+            absolute_errors,
+            mean_memory_requirements,
+            mean_absolute_error,
+            std_absolute_error,
+            name: approach_name,
+        }
+    }
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+struct ModelPerformance {
+    name: String,
+    mean_absolute_error: f64,
+    std_absolute_error: f64,
+    mean_memory_requirements: usize,
+    number_of_wins: usize,
+    number_of_losses: usize,
+    number_of_draws: usize,
 }
 
 fn standard_deviation(values: &[f64], mean: f64) -> f64 {
@@ -74,6 +102,119 @@ where
     // The values are always less than `u32::MAX`, so we can safely convert them.
     let number_of_values = T::try_from(u32::try_from(values.len()).unwrap()).unwrap();
     values.sum::<T>() / number_of_values
+}
+
+/// Runs the Wilcoxon test and writes the results to a CSV file, alongside the win-loss-draw statistics.
+fn wilcoxon_test(mut reports: Vec<ReportInformations>, feature_name: &str) {
+    // We sort the reports by approach name, so that later when we update the
+    // number of wins, losses and draws, we can find the correct approach quickly
+    // by using a binary search.
+    reports.par_sort_unstable_by(|a, b| a.name.cmp(&b.name));
+
+    let progress_bar = indicatif::ProgressBar::new(reports.len() as u64);
+
+    progress_bar.set_style(
+        indicatif::ProgressStyle::default_bar()
+            .template("Preparing tasks: [{elapsed_precise} | {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
+            .unwrap()
+            .progress_chars("##-"),
+    );
+
+    // Next, we prepare the tasks to run by pre-rendering the test tuples to evaluate.
+    let tasks: Vec<(&ReportInformations, &ReportInformations)> = reports
+        .par_iter()
+        .enumerate()
+        .progress_with(progress_bar)
+        .flat_map(|(i, report)| {
+            reports[1 + i..]
+                .par_iter()
+                .map(move |inner_report| (report, inner_report))
+        })
+        .collect();
+
+    let progress_bar = indicatif::ProgressBar::new(tasks.len() as u64);
+
+    progress_bar.set_style(
+        indicatif::ProgressStyle::default_bar()
+            .template(
+                "Running Wilcoxon tests: [{elapsed_precise} | {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}",
+            )
+            .unwrap()
+            .progress_chars("##-"),
+    );
+
+    let results = tasks
+        .par_iter()
+        .progress_with(progress_bar)
+        .map(|(left, right)| {
+            let w_test = WilcoxonWTest::paired(&left.absolute_errors, &right.absolute_errors);
+
+            WilcoxonTestResult {
+                first_approach_name: left.name.clone(),
+                second_approach_name: right.name.clone(),
+                p_value: w_test.map_or(f64::NAN, |w| w.p_value()),
+            }
+        })
+        .collect::<Vec<WilcoxonTestResult>>();
+
+    write_csv(
+        results.iter(),
+        &format!("reports/{feature_name}_wilcoxon.csv.gz"),
+    );
+
+    // We create a set of reports of model performance with the same order as the reports.
+    let mut models_performance = reports
+        .into_iter()
+        .map(|report| ModelPerformance {
+            name: report.name,
+            mean_absolute_error: report.mean_absolute_error,
+            std_absolute_error: report.std_absolute_error,
+            mean_memory_requirements: report.mean_memory_requirements,
+            number_of_wins: 0,
+            number_of_losses: 0,
+            number_of_draws: 0,
+        })
+        .collect::<Vec<ModelPerformance>>();
+
+    // We now compute the number of wins, losses and draws for each approach.
+    for result in results {
+        let left = models_performance
+            .binary_search_by(|r| r.name.cmp(&result.first_approach_name))
+            .unwrap();
+        let right = models_performance
+            .binary_search_by(|r| r.name.cmp(&result.second_approach_name))
+            .unwrap();
+
+        if result.p_value < 0.01 {
+            let left_mean = models_performance[left].mean_absolute_error;
+            let right_mean = models_performance[right].mean_absolute_error;
+
+            if left_mean < right_mean {
+                models_performance[left].number_of_wins += 1;
+                models_performance[right].number_of_losses += 1;
+            } else {
+                models_performance[left].number_of_losses += 1;
+                models_performance[right].number_of_wins += 1;
+            }
+        } else {
+            models_performance[left].number_of_draws += 1;
+            models_performance[right].number_of_draws += 1;
+        }
+    }
+
+    // We sort the model performance by the number of wins, and then by the number of losses.
+    models_performance.sort_unstable_by(|a, b| {
+        a.number_of_wins
+            .cmp(&b.number_of_wins)
+            .then_with(|| a.number_of_losses.cmp(&b.number_of_losses))
+            .reverse()
+    });
+
+    // We write the model performance to a CSV file.
+    write_csv(
+        models_performance.iter(),
+        &format!("reports/{feature_name}_performance.csv"),
+    );
 }
 
 /// Runs a cartesian (`NxN`) Paired Signed-rank Wilcoxon test on the reports of a given feature.
@@ -103,7 +244,7 @@ pub fn cartesian_wilcoxon_test(feature_name: &str) {
 
     progress_bar.set_style(
         indicatif::ProgressStyle::default_bar()
-            .template("Loading reports: [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
+            .template("Loading reports: [{elapsed_precise} | {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
             .unwrap()
             .progress_chars("##-"),
     );
@@ -112,94 +253,29 @@ pub fn cartesian_wilcoxon_test(feature_name: &str) {
     let reports: Vec<ReportInformations> = report_paths
         .par_iter()
         .progress_with(progress_bar)
-        .map(|path| {
-            let approach_name = path.file_stem().unwrap().to_str().unwrap();
-            let path: &str = path.to_str().unwrap();
-            let report: Vec<ErrorReport> = read_csv(path).unwrap();
-            let absolute_errors = report.iter().map(ErrorReport::error).collect::<Vec<f64>>();
-            let absolute_errors_mean = mean(absolute_errors.iter().copied());
-            let mean_memory = mean(report.iter().map(ErrorReport::memory_requirement));
-            let std_error = standard_deviation(&absolute_errors, absolute_errors_mean);
-
-            ReportInformations {
-                absolute_errors,
-                mean_memory_requirements: mean_memory,
-                mean_absolute_error: absolute_errors_mean,
-                std_absolute_error: std_error,
-                name: approach_name.to_string(),
-            }
-        })
+        .map(|path| ReportInformations::from_path(path, false))
         .collect::<Vec<ReportInformations>>();
 
-    let progress_bar = indicatif::ProgressBar::new(reports.len() as u64);
+    wilcoxon_test(reports, feature_name);
+
+    let progress_bar = indicatif::ProgressBar::new(report_paths.len() as u64);
 
     progress_bar.set_style(
         indicatif::ProgressStyle::default_bar()
-            .template("Preparing tasks: [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
+            .template("Loading memory normalized reports: [{elapsed_precise} | {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
             .unwrap()
             .progress_chars("##-"),
     );
 
-    // Next, we prepare the tasks to run by pre-rendering the test tuples to evaluate.
-    let tasks: Vec<(&ReportInformations, &ReportInformations)> = reports
-        .par_iter()
-        .enumerate()
-        .progress_with(progress_bar)
-        .flat_map(|(i, report)| {
-            reports[1 + i..]
-                .par_iter()
-                .map(move |inner_report| (report, inner_report))
-        })
-        .collect();
-
-    let progress_bar = indicatif::ProgressBar::new(tasks.len() as u64);
-
-    progress_bar.set_style(
-        indicatif::ProgressStyle::default_bar()
-            .template(
-                "Running Wilcoxon tests: [{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}",
-            )
-            .unwrap()
-            .progress_chars("##-"),
-    );
-
-    let results = tasks
+    // First, we load all of the reports in parallel.
+    let memory_normalized_reports: Vec<ReportInformations> = report_paths
         .par_iter()
         .progress_with(progress_bar)
-        .map(|(left, right)| {
-            let w_test = WilcoxonWTest::paired(&left.absolute_errors, &right.absolute_errors);
+        .map(|path| ReportInformations::from_path(path, true))
+        .collect::<Vec<ReportInformations>>();
 
-            let outcome = if let Ok(w_test) = w_test {
-                if w_test.p_value() < 0.05 {
-                    if left.mean_absolute_error < right.mean_absolute_error {
-                        Outcome::First
-                    } else {
-                        Outcome::Second
-                    }
-                } else {
-                    Outcome::Tied
-                }
-            } else {
-                Outcome::Failed
-            };
-
-            WilcoxonTestResult {
-                first_approach_name: left.name.clone(),
-                second_approach_name: right.name.clone(),
-                p_value: w_test.map_or(f64::NAN, |w| w.p_value()),
-                outcome,
-                first_memsize: left.mean_memory_requirements,
-                first_mean: left.mean_absolute_error,
-                first_std: left.std_absolute_error,
-                second_memsize: right.mean_memory_requirements,
-                second_mean: right.mean_absolute_error,
-                second_std: right.std_absolute_error,
-            }
-        })
-        .collect::<Vec<WilcoxonTestResult>>();
-
-    write_csv(
-        results.into_iter(),
-        &format!("reports/{feature_name}_wilcoxon.csv"),
+    wilcoxon_test(
+        memory_normalized_reports,
+        &format!("{feature_name}_memory_normalized"),
     );
 }

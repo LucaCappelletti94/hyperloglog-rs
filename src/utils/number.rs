@@ -125,7 +125,7 @@ macro_rules! impl_positive_integer_number {
     };
 }
 
-impl_positive_integer_number!(u8, u16, u32);
+impl_positive_integer_number!(u8, u16, u32, u64);
 
 impl FloatOps for f64 {
     #[must_use]

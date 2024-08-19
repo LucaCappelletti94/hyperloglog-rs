@@ -48,9 +48,9 @@ pub(crate) fn cardinality_test<
     estimator: &H,
     multi_progress: Option<&indicatif::MultiProgress>,
 ) -> Vec<PerformanceReport> {
-    let number_of_vectors = 2_000_u64;
+    let number_of_vectors = 1_000_u64;
     let minimum_sample_interval = 5_u64;
-    let maximum_sample_interval = 10_000_u64;
+    let maximum_sample_interval = 20_000_u64;
     let random_state = splitmix64(9_516_748_163_234_878_233_u64);
 
     let estimator_name = estimator.name();
@@ -107,9 +107,9 @@ pub(crate) fn union_test<
     estimator: &H,
     multi_progress: Option<&indicatif::MultiProgress>,
 ) -> Vec<PerformanceReport> {
-    let number_of_vectors = 2_000_u64;
+    let number_of_vectors = 1_000_u64;
     let minimum_sample_interval = 5_u64;
-    let maximum_sample_interval = 10_000_u64;
+    let maximum_sample_interval = 20_000_u64;
     let left_random_state = splitmix64(5_647_315_671_326_798_672_u64);
     let right_random_state = splitmix64(4_457_567_787_334_878_233_u64);
 

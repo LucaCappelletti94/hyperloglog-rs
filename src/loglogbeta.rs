@@ -91,7 +91,7 @@ mod tests {
         let mut hll = LogLogBeta::<
             Precision5,
             Bits6,
-            <Precision5 as ArrayRegister<Bits6>>::ArrayRegister,
+            <Precision5 as ArrayRegister<Bits6>>::Array,
         >::default();
         hll.extend(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         let estimate: f64 = hll.estimate_cardinality();
@@ -110,12 +110,12 @@ mod tests {
         let mut hll1 = LogLogBeta::<
             Precision5,
             Bits6,
-            <Precision5 as ArrayRegister<Bits6>>::ArrayRegister,
+            <Precision5 as ArrayRegister<Bits6>>::Array,
         >::default();
         let mut hll2 = LogLogBeta::<
             Precision5,
             Bits6,
-            <Precision5 as ArrayRegister<Bits6>>::ArrayRegister,
+            <Precision5 as ArrayRegister<Bits6>>::Array,
         >::default();
 
         for _ in 0..iterations {

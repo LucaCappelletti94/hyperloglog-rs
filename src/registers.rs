@@ -3,12 +3,10 @@
 use core::fmt::Debug;
 
 use crate::prelude::*;
-use crate::utils::{FloatOps, Number, One, Words, Zero};
-mod array;
+use crate::utils::{FloatOps, Number, Zero};
 mod packed_array;
 
-pub use array::{ArrayRegister, AllArrays};
-pub use packed_array::{PackedArray, PackedArrayRegister, AllPackedArrays};
+pub use packed_array::{AllArrays, Array, ArrayRegister};
 
 /// Trait for a register word.
 pub(super) trait RegisterWord<B: Bits> {
@@ -16,8 +14,6 @@ pub(super) trait RegisterWord<B: Bits> {
     const LOWER_REGISTER_MASK: Self;
     /// The number of bits in the word.
     const NUMBER_OF_BITS: u8;
-    /// The number of registers in the word.
-    const NUMBER_OF_REGISTERS_IN_WORD: u8 = Self::NUMBER_OF_BITS / B::NUMBER_OF_BITS;
 }
 
 impl<B: Bits> RegisterWord<B> for u64 {
@@ -25,35 +21,17 @@ impl<B: Bits> RegisterWord<B> for u64 {
     const NUMBER_OF_BITS: u8 = 64;
 }
 
-/// Extracts the register from one or more words at the given offset.
-///
-/// # Arguments
-/// * `word` - The word array from which the register is to be extracted.
-/// * `offset` - The offset at which the register starts.
-fn extract_register_from_word<B: Bits, const N: usize>(word: [u64; N], offset: u8) -> [u8; N]
-where
-    u64: RegisterWord<B>,
-{
-    debug_assert!(
-        offset + B::NUMBER_OF_BITS <= u64::NUMBER_OF_BITS,
-        "The offset is too large."
-    );
-    let mut registers = [0_u8; N];
-    for i in 0..N {
-        registers[i] = u8::try_from((word[i] >> offset) & u64::LOWER_REGISTER_MASK).unwrap();
-    }
-    registers
-}
-
 /// Trait marker for the registers.
-pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug + Send + Sync {
+pub trait Registers<P: Precision, B: Bits>:
+    Eq + PartialEq + Clone + Debug + Send + Sync + Default
+{
     /// Iterator over the registers.
     type Iter<'register>: Iterator<Item = u8>
     where
         Self: 'register;
 
     /// Iterator over the registers zipped with another set of registers.
-    type IterZipped<'registers>: Iterator<Item = (u8, u8)>
+    type IterZipped<'registers>: Iterator<Item = [u8; 2]>
     where
         Self: 'registers;
 
@@ -70,12 +48,9 @@ pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug + Sen
     fn get_harmonic_sum_and_zeros(&self, other: &Self) -> (f64, P::NumberOfRegisters);
 
     /// Applies a function to each register.
-    fn apply<F>(&mut self, f: F)
+    fn apply_to_registers<F>(&mut self, f: F)
     where
         F: FnMut(u8) -> u8;
-
-    /// Returns a new instance of the registers with all the values set to zero.
-    fn zeroed() -> Self;
 
     /// Updates the register at the given index with the given value,
     /// if the value is greater than the current value in the register.
@@ -92,7 +67,7 @@ pub trait Registers<P: Precision, B: Bits>: Eq + PartialEq + Clone + Debug + Sen
     fn get_register(&self, index: P::NumberOfRegisters) -> u8;
 
     /// Clears the registers to zero.
-    fn clear(&mut self);
+    fn clear_registers(&mut self);
 }
 
 #[cfg(test)]
@@ -101,7 +76,7 @@ mod tests {
 
     #[cfg(feature = "std")]
     fn test_register_iterator<P: Precision, B: Bits, R: Registers<P, B>>() {
-        let mut registers = R::zeroed();
+        let mut registers = R::default();
         let collected_values = registers.iter_registers().collect::<Vec<_>>();
         assert_eq!(
             P::NumberOfRegisters::try_from_u64(collected_values.len() as u64).unwrap(),
@@ -131,45 +106,158 @@ mod tests {
     }
 
     #[cfg(feature = "std")]
-    fn test_registers_self_consistency<
-        P: Precision + ArrayRegister<B> + PackedArrayRegister<B>,
-        B: Bits,
-    >() {
+    fn test_registers_self_consistency<P: Precision + ArrayRegister<B>, B: Bits>() {
         let iterations = 50;
         let mut random_state = splitmix64(324564567865354);
         let mut index_random_state = splitmix64(324566754567865354);
-        let mut packed_registers = <P as PackedArrayRegister<B>>::PackedArrayRegister::zeroed();
-        let mut array_registers = <P as ArrayRegister<B>>::ArrayRegister::zeroed();
+        let mut packed_registers = <P as ArrayRegister<B>>::PackedArray::default();
+        let mut array_registers = <P as ArrayRegister<B>>::Array::default();
+        let mut reference = vec![0_u8; 1 << P::EXPONENT];
 
         let maximal_register_value = <u64 as RegisterWord<B>>::LOWER_REGISTER_MASK;
 
-        for _ in 0..iterations {
+        // We check that the arrays are full of zeros.
+        assert!(packed_registers.iter_registers().all(|value| value == 0));
+        assert!(array_registers.iter_registers().all(|value| value == 0));
+
+        // We check that if we call get_register on all index we get zeros.
+        for index in 0..(1 << P::EXPONENT) {
+            let index = P::NumberOfRegisters::try_from_u64(index).unwrap();
+            assert_eq!(packed_registers.get_register(index), 0);
+            assert_eq!(array_registers.get_register(index), 0);
+        }
+
+        for i in 0..iterations {
             random_state = splitmix64(random_state);
             index_random_state = splitmix64(index_random_state);
 
-            for (index, value) in
-                iter_random_values(1_000_000, Some(1 << P::EXPONENT), random_state).zip(
-                    iter_random_values(
+            for (j, (index, value)) in
+                iter_random_values(1_000_000, Some(1 << P::EXPONENT), random_state)
+                    .zip(iter_random_values(
                         1_000_000,
                         Some(maximal_register_value.into()),
                         random_state,
-                    ),
-                )
+                    ))
+                    .enumerate()
             {
+                let index_usize = index as usize;
                 let index: P::NumberOfRegisters =
                     P::NumberOfRegisters::try_from_u64(index).unwrap();
                 let value: u8 = u8::try_from(value).unwrap();
 
+                // We expect that the values at index are the same in both packed and array registers.
+                assert_eq!(
+                    packed_registers.get_register(index),
+                    array_registers.get_register(index),
+                    "Registers are dis-aligned at index {}, at inner iteration {} and outer iteration {}. Expected value {}.",
+                    index, j, i, reference[index_usize]
+                );
+
+                // We retrieve the values immediately before and after the change and we verify that they
+                // have not been changed.
+                let prev_value_packed = (index_usize > 0)
+                    .then(|| packed_registers.get_register(index - P::NumberOfRegisters::ONE));
+                let next_value_packed = (index_usize < (1 << P::EXPONENT))
+                    .then(|| packed_registers.get_register(index + P::NumberOfRegisters::ONE));
+
+                let prev_value_array = (index_usize > 0)
+                    .then(|| array_registers.get_register(index - P::NumberOfRegisters::ONE));
+                let next_value_array = (index_usize < (1 << P::EXPONENT))
+                    .then(|| array_registers.get_register(index + P::NumberOfRegisters::ONE));
+
                 // We set the values in all of the registers, and we check that the values are consistent.
                 let old_value_packed = packed_registers.set_greater(index, value);
                 let old_value_array = array_registers.set_greater(index, value);
-                assert_eq!(old_value_packed, old_value_array);
+                reference[index_usize] = reference[index_usize].max(value);
+
+                assert_eq!(
+                    old_value_packed, old_value_array,
+                    "Failed while trying to set index {} with value {}.",
+                    index, value
+                );
+
+                // Then, we check that the before and after values have not been changed.
+                if let Some(old_value) = prev_value_array {
+                    assert_eq!(
+                        old_value,
+                        array_registers.get_register(index - P::NumberOfRegisters::ONE),
+                        "Failed while trying to set index {} with value {} - Reference value {}.",
+                        index,
+                        value,
+                        reference[index_usize - 1]
+                    );
+                }
+                if let Some(old_value) = next_value_array {
+                    assert_eq!(
+                        old_value,
+                        array_registers.get_register(index + P::NumberOfRegisters::ONE),
+                        "Failed while trying to set index {} with value {} - Reference value {}.",
+                        index,
+                        value,
+                        reference[index_usize + 1]
+                    );
+                }
+                if let Some(old_value) = prev_value_packed {
+                    assert_eq!(
+                        old_value,
+                        packed_registers.get_register(index - P::NumberOfRegisters::ONE),
+                        "Failed while trying to set index {} with value {} - Reference value {}.",
+                        index,
+                        value,
+                        reference[index_usize - 1]
+                    );
+                }
+                if let Some(old_value) = next_value_packed {
+                    assert_eq!(
+                        old_value,
+                        packed_registers.get_register(index + P::NumberOfRegisters::ONE),
+                        "Failed while trying to set index {} with value {} - Reference value {}.",
+                        index,
+                        value,
+                        reference[index_usize + 1]
+                    );
+                }
 
                 let largest_value = old_value_array.1;
+
+                assert_eq!(
+                    packed_registers.get_register(index),
+                    array_registers.get_register(index)
+                );
 
                 // We check that the values are consistent with the get method.
                 assert_eq!(array_registers.get_register(index), largest_value);
                 assert_eq!(packed_registers.get_register(index), largest_value);
+            }
+
+            // We check that the iterator works as expected.
+            for (index, value) in array_registers.iter_registers().enumerate() {
+                assert_eq!(
+                    value,
+                    array_registers
+                        .get_register(P::NumberOfRegisters::try_from_u64(index as u64).unwrap()),
+                    "Failed at index {}.",
+                    index
+                );
+                assert_eq!(
+                    value, reference[index],
+                    "Failed at index {}. Expected value {}.",
+                    index, reference[index]
+                );
+            }
+            for (index, value) in packed_registers.iter_registers().enumerate() {
+                assert_eq!(
+                    value,
+                    packed_registers
+                        .get_register(P::NumberOfRegisters::try_from_u64(index as u64).unwrap()),
+                    "Failed at index {}.",
+                    index
+                );
+                assert_eq!(
+                    value, reference[index],
+                    "Failed at index {}. Expected value {}.",
+                    index, reference[index]
+                );
             }
 
             for index in 0..(1 << P::EXPONENT) {
@@ -197,13 +285,13 @@ mod tests {
                     #[test]
                     #[cfg(feature = "std")]
                     fn [< test_array_register_iterator_ $precision:lower _and_ $bits:lower _bits >]() {
-                        test_register_iterator::<$precision, $bits, <$precision as ArrayRegister<$bits>>::ArrayRegister>();
+                        test_register_iterator::<$precision, $bits, <$precision as ArrayRegister<$bits>>::Array>();
                     }
 
                     #[test]
                     #[cfg(feature = "std")]
                     fn [< test_packed_array_register_iterator_ $precision:lower _and_ $bits:lower _bits >]() {
-                        test_register_iterator::<$precision, $bits, <$precision as PackedArrayRegister<$bits>>::PackedArrayRegister>();
+                        test_register_iterator::<$precision, $bits, <$precision as ArrayRegister<$bits>>::PackedArray>();
                     }
                 }
             )*

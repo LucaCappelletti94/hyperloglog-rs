@@ -1,5 +1,5 @@
-use std::collections::HashSet;
 use mem_dbg::MemSize;
+use std::collections::HashSet;
 
 /// A variant on the `MemSize` trait where the size of the
 /// enum is skipped from the calculation. It always follow

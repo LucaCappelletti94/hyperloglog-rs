@@ -3,18 +3,21 @@
 use crate::prelude::*;
 use core::cmp::Ordering;
 use core::hash::Hash;
+use core::marker::PhantomData;
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A struct representing the hybrid for approximate set cardinality estimation,
 /// where the hash values are kept explicit up until they fit into the registers.
-pub struct Hybrid<H> {
+pub struct Hybrid<H, CH=u32> {
     /// The inner counter.
     inner: H,
+    /// The type of the composite hash to employ.
+    composite_hash: PhantomData<CH>,
 }
 
-impl<H: Hybridazable> Default for Hybrid<H>
+impl<H: Hybridazable<CH>, CH: CompositeHash> Default for Hybrid<H, CH>
 where
     H: Default,
 {
@@ -22,13 +25,14 @@ where
     fn default() -> Self {
         Self {
             inner: H::new_hybrid(),
+            composite_hash: PhantomData,
         }
     }
 }
 
-impl<H: Hybridazable> Hybridazable for Hybrid<H>
+impl<H: Hybridazable<CH>, CH: CompositeHash> Hybridazable<CH> for Hybrid<H, CH>
 where
-    H: Hybridazable,
+    H: Hybridazable<CH>,
 {
     type IterSortedHashes<'words> = H::IterSortedHashes<'words> where Self: 'words;
 
@@ -48,6 +52,11 @@ where
     }
 
     #[inline]
+    fn iter_sorted_hashes(&self) -> Self::IterSortedHashes<'_> {
+        self.inner.iter_sorted_hashes()
+    }
+
+    #[inline]
     fn number_of_hashes(&self) -> usize {
         self.inner.number_of_hashes()
     }
@@ -63,11 +72,6 @@ where
     }
 
     #[inline]
-    fn iter_sorted_hashes(&self) -> Self::IterSortedHashes<'_> {
-        self.inner.iter_sorted_hashes()
-    }
-
-    #[inline]
     fn contains<T: Hash>(&self, element: &T) -> bool {
         self.inner.contains(element)
     }
@@ -78,23 +82,23 @@ where
     }
 }
 
-impl<H: PartialEq> PartialEq<Self> for Hybrid<H> {
+impl<H: PartialEq, CH> PartialEq<Self> for Hybrid<H, CH> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
-impl<H: PartialEq<H>> PartialEq<H> for Hybrid<H> {
+impl<H: PartialEq<H>, CH> PartialEq<H> for Hybrid<H, CH> {
     #[inline]
     fn eq(&self, other: &H) -> bool {
         &self.inner == other
     }
 }
 
-impl<H: Eq> Eq for Hybrid<H> {}
+impl<H: Eq, CH> Eq for Hybrid<H, CH> {}
 
-impl<H: SetProperties + Hybridazable> SetProperties for Hybrid<H> {
+impl<H: SetProperties + Hybridazable<CH>, CH: CompositeHash> SetProperties for Hybrid<H, CH> {
     #[inline]
     fn is_empty(&self) -> bool {
         if self.is_hybrid() {
@@ -114,7 +118,7 @@ impl<H: SetProperties + Hybridazable> SetProperties for Hybrid<H> {
     }
 }
 
-impl<T: Hash, H: ApproximatedSet<T> + Hybridazable> ApproximatedSet<T> for Hybrid<H> {
+impl<T: Hash, H: ApproximatedSet<T> + Hybridazable<CH>, CH: CompositeHash> ApproximatedSet<T> for Hybrid<H, CH> {
     #[inline]
     fn may_contain(&self, element: &T) -> bool {
         if self.is_hybrid() {
@@ -125,15 +129,15 @@ impl<T: Hash, H: ApproximatedSet<T> + Hybridazable> ApproximatedSet<T> for Hybri
     }
 }
 
-impl<H: MutableSet + Hybridazable> MutableSet for Hybrid<H> {
+impl<H: MutableSet + Hybridazable<CH>, CH: CompositeHash> MutableSet for Hybrid<H, CH> {
     #[inline]
     fn clear(&mut self) {
         self.inner.clear_words();
     }
 }
 
-impl<T: Hash, H: ExtendableApproximatedSet<T> + Hybridazable> ExtendableApproximatedSet<T>
-    for Hybrid<H>
+impl<T: Hash, H: ExtendableApproximatedSet<T> + Hybridazable<CH>, CH: CompositeHash> ExtendableApproximatedSet<T>
+    for Hybrid<H, CH>
 {
     #[inline]
     fn insert(&mut self, element: &T) -> bool {
@@ -197,10 +201,11 @@ fn unique_values_from_sorted_iterators<T: Ord, I: Iterator<Item = T>, J: Iterato
 }
 
 /// Trait for a struct that can be used in the hybrid approach.
-pub trait Hybridazable: Default {
+pub trait Hybridazable<CH: CompositeHash=u32>: Default {
     /// The type of the iterator over the sorted hashes.
-    type IterSortedHashes<'words>: Iterator<Item = u64>
+    type IterSortedHashes<'words>: Iterator<Item = CH::Word>
     where
+        CH: 'words,
         Self: 'words;
 
     /// De-hybridize the struct, i.e., convert it to a register-based counter.
@@ -233,16 +238,16 @@ pub trait Hybridazable: Default {
 }
 
 #[cfg(feature = "std")]
-impl<H: Named> Named for Hybrid<H> {
+impl<H: Named + Hybridazable<CH>, CH: CompositeHash + Named> Named for Hybrid<H, CH> {
     #[inline]
     fn name(&self) -> String {
-        format!("Hybrid{}", self.inner.name())
+        format!("Hybrid{}{}", CH::default().name(), self.inner.name())
     }
 }
 
-impl<H: Clone + Estimator<f64> + Hybridazable + Default> Estimator<f64> for Hybrid<H>
+impl<H: Clone + Estimator<f64> + Hybridazable<CH> + Default, CH: CompositeHash> Estimator<f64> for Hybrid<H, CH>
 where
-    Hybrid<H>: Default,
+    Hybrid<H, CH>: Default,
 {
     #[inline]
     fn estimate_cardinality(&self) -> f64 {
@@ -325,7 +330,7 @@ mod tests {
             PlusPlus<
                 Precision10,
                 Bits6,
-                <Precision10 as ArrayRegister<Bits6>>::ArrayRegister,
+                <Precision10 as ArrayRegister<Bits6>>::Array,
                 twox_hash::XxHash64,
             >,
         > = Default::default();
@@ -494,13 +499,13 @@ mod tests {
                     #[test]
                     #[cfg(all(feature = "precision_" $exponent, feature = "std"))]
                     fn [<test_mixed_plusplus_hybrid_union_ $exponent>]() {
-                        test_mixed_hybrid_union::<[<Precision $exponent>], PlusPlus<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::ArrayRegister, twox_hash::XxHash64>>();
+                        test_mixed_hybrid_union::<[<Precision $exponent>], PlusPlus<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>>();
                     }
 
                     #[test]
                     #[cfg(all(feature = "precision_" $exponent, feature = "std"))]
                     fn [<test_mixed_beta_hybrid_union_ $exponent>]() {
-                        test_mixed_hybrid_union::<[<Precision $exponent>], LogLogBeta<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::ArrayRegister, twox_hash::XxHash64>>();
+                        test_mixed_hybrid_union::<[<Precision $exponent>], LogLogBeta<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>>();
                     }
                 }
             )*
@@ -516,7 +521,7 @@ mod tests {
     /// provided precision.
     fn test_randomized_hybrid_union<
         P: Precision + ArrayRegister<Bits6>,
-        H: Hybridazable
+        H: Hybridazable<u64>
             + HyperLogLog<P, Bits6, twox_hash::XxHash64>
             + Estimator<f64>
             + Default
@@ -524,11 +529,11 @@ mod tests {
             + core::fmt::Debug,
     >()
     where
-        Hybrid<H>: Default + Estimator<f64>,
+        Hybrid<H, u64>: Default + Estimator<f64>,
     {
         use std::collections::HashSet;
-        let mut hybrid_left = Hybrid::<H>::default();
-        let mut hybrid_right = Hybrid::<H>::default();
+        let mut hybrid_left = Hybrid::<H, u64>::default();
+        let mut hybrid_right = Hybrid::<H, u64>::default();
         let mut left_normal_counter: H = Default::default();
         let mut right_normal_counter: H = Default::default();
 
@@ -552,6 +557,11 @@ mod tests {
             right_normal_counter.clear();
             let mut sampling_rate = starting_union_sampling_rate;
 
+            assert!(hybrid_left.is_hybrid());
+            assert!(hybrid_right.is_hybrid());
+            assert_eq!(hybrid_left.number_of_hashes(), 0);
+            assert_eq!(hybrid_right.number_of_hashes(), 0);
+
             // Next, we populate the other counter, filling it up to
             // at most the number of elements needed for saturation.
             // This guarantees that the union of the two counters
@@ -561,10 +571,19 @@ mod tests {
                     hybrid_left.insert(&element);
                     left_set.insert(element);
                     left_normal_counter.insert(&element);
+
+                    if hybrid_left.is_hybrid() {
+                        assert_eq!(hybrid_left.number_of_hashes(), left_set.len());
+                    }
+
                 } else {
                     hybrid_right.insert(&element);
                     right_set.insert(element);
                     right_normal_counter.insert(&element);
+
+                    if hybrid_right.is_hybrid() {
+                        assert_eq!(hybrid_right.number_of_hashes(), right_set.len());
+                    }
                 }
 
                 if i % sampling_rate == 0 {
@@ -615,13 +634,13 @@ mod tests {
                     #[test]
                     #[cfg(all(feature = "precision_" $exponent, feature = "std"))]
                     fn [<test_randomized_mixed_plusplus_hybrid_union_ $exponent>]() {
-                        test_randomized_hybrid_union::<[<Precision $exponent>], PlusPlus<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::ArrayRegister, twox_hash::XxHash64>>();
+                        test_randomized_hybrid_union::<[<Precision $exponent>], PlusPlus<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>>();
                     }
 
                     #[test]
                     #[cfg(all(feature = "precision_" $exponent, feature = "std"))]
                     fn [<test_randomized_mixed_beta_hybrid_union_ $exponent>]() {
-                        test_randomized_hybrid_union::<[<Precision $exponent>], LogLogBeta<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::ArrayRegister, twox_hash::XxHash64>>();
+                        test_randomized_hybrid_union::<[<Precision $exponent>], LogLogBeta<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>>();
                     }
                 }
             )*
@@ -744,13 +763,13 @@ mod tests {
                     #[test]
                     #[cfg(all(feature = "precision_" $exponent, feature = "std"))]
                     fn [<test_only_hybrid_plusplus_union_ $exponent>]() {
-                        test_only_hybrid_union::<[<Precision $exponent>], PlusPlus<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::ArrayRegister, twox_hash::XxHash64>>();
+                        test_only_hybrid_union::<[<Precision $exponent>], PlusPlus<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>>();
                     }
 
                     #[test]
                     #[cfg(all(feature = "precision_" $exponent, feature = "std"))]
                     fn [<test_only_hybrid_beta_union_ $exponent>]() {
-                        test_only_hybrid_union::<[<Precision $exponent>], LogLogBeta<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::ArrayRegister, twox_hash::XxHash64>>();
+                        test_only_hybrid_union::<[<Precision $exponent>], LogLogBeta<[<Precision $exponent>], Bits6, <[<Precision $exponent>] as ArrayRegister<Bits6>>::Array, twox_hash::XxHash64>>();
                     }
                 }
             )*

@@ -14,17 +14,23 @@ mod constants;
 mod hasher_type;
 mod number;
 mod random;
-mod words;
+mod variable_words;
+mod variable_word;
+mod composite_hash;
+mod matrix;
 
 pub use constants::*;
 pub use hasher_type::HasherType;
 pub(crate) use number::{FloatOps, Number, PositiveInteger};
+pub use variable_word::VariableWord;
+pub use composite_hash::CompositeHash;
 pub use random::*;
-pub use words::Words;
+pub use variable_words::VariableWords;
+pub use matrix::Matrix;
 
 #[cfg(feature = "std")]
 /// Trait for an object with a name.
-pub trait Named {
+pub trait Named: Default {
     /// Returns the name of the object.
     fn name(&self) -> String;
 }

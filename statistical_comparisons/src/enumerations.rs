@@ -1,6 +1,9 @@
 //! This module contains the enumerations used in the benchmarks.
 
-use crate::proxy_implementations::{CloudFlareHLL, HyperThreeBits, HyperTwoBits, RustHLL, AlecHLL, SimpleHLL, TabacHLL, TabacHLLPlusPlus};
+use crate::proxy_implementations::{
+    AlecHLL, CloudFlareHLL, HyperThreeBits, HyperTwoBits, RustHLL, SimpleHLL, TabacHLL,
+    TabacHLLPlusPlus,
+};
 use crate::traits::TransparentMemSize;
 use hyperloglog_rs::prelude::*;
 use hypertwobits::h2b::{
@@ -15,9 +18,11 @@ use macro_test_utils::{Estimator, ExtendableApproximatedSet, Named, TransparentM
 use mem_dbg::MemSize;
 use strum_macros::EnumIter;
 
-
 #[allow(missing_docs)]
-#[expect(clippy::large_enum_variant, reason = "The enum is large due to the use of generics, but these are benchmarks and is to be expected.")]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "The enum is large due to the use of generics, but these are benchmarks and is to be expected."
+)]
 #[derive(Clone, Named, ExtendableApproximatedSet, Estimator, TransparentMemSize, EnumIter)]
 /// Enumerations will all `HyperTwo` variants we
 /// take into consideration for the benchmarks.
@@ -39,7 +44,10 @@ pub enum HyperTwoVariants {
 }
 
 #[allow(missing_docs)]
-#[expect(clippy::type_complexity, reason = "The type is complex due to the use of generics, but these are benchmarks and is to be expected.")]
+#[expect(
+    clippy::type_complexity,
+    reason = "The type is complex due to the use of generics, but these are benchmarks and is to be expected."
+)]
 #[derive(Clone, Named, ExtendableApproximatedSet, Estimator, TransparentMemSize, EnumIter)]
 /// Enumerations will all `HyperLogLog` variants we
 /// take into consideration for the benchmarks.

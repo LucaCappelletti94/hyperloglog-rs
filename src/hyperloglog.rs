@@ -92,7 +92,7 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
     fn may_contain_all(&self, rhs: &Self) -> bool {
         self.registers()
             .iter_registers_zipped(rhs.registers())
-            .all(|(left_register, right_register)| left_register >= right_register)
+            .all(|[left_register, right_register]| left_register >= right_register)
     }
 
     #[must_use]
