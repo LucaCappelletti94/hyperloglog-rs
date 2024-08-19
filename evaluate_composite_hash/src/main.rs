@@ -116,7 +116,7 @@ macro_rules! test_composite_hash {
 macro_rules! test_composite_hash_precisions {
     ($progress_bar:ident, $reports:ident, $hash:ty, $($precision:expr),*) => {
         $(
-            test_composite_hash!($progress_bar, $reports, $hash, $precision, Bits3, Bits4, Bits5, Bits6);
+            test_composite_hash!($progress_bar, $reports, $hash, $precision, Bits4, Bits5, Bits6);
         )*
     };
 }
