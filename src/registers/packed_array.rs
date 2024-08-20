@@ -55,25 +55,58 @@ use crate::prelude::Precision8;
 #[cfg(feature = "precision_9")]
 use crate::prelude::Precision9;
 
+#[allow(unsafe_code)]
+#[inline]
 /// Extracts the register from one or more words at the given offset.
 ///
 /// # Arguments
 /// * `word` - The word array from which the register is to be extracted.
-/// * `offset` - The offset at which the register starts.
+/// * `offset` - The offset (from the right) at which the register starts.
+///
+/// # Implementative details
+/// We store the values starting from the left-side of the word, so the offset is the number of bits
+/// from the right side of the word at which the register starts. We then shift the word to the right
+/// by the offset and apply a mask to extract the register.
+///
+/// # Safety
+/// This method uses an unsafe conversion from `u64` to `V::Word`, as we do not check
+/// whether the value extracted from the word is a valid value for the register type.
+/// This is okay because we apply a mask to the value, and it is not possible for the
+/// value we cast to be greater than the mask.
 fn extract_value_from_word<V: VariableWord>(word: u64, offset: u8) -> V::Word {
     debug_assert!(
         offset + V::NUMBER_OF_BITS <= 64,
         "The offset ({offset} + {}) should be less than or equal to 64",
         V::NUMBER_OF_BITS,
     );
-    V::Word::try_from_u64((word >> offset) & V::MASK).unwrap()
+    unsafe { V::Word::unchecked_from_u64((word >> (64 - V::NUMBER_OF_BITS - offset)) & V::MASK) }
 }
 
+#[inline]
+/// We insert the value into the word at the given offset.
+///
+/// # Arguments
+/// * `word` - The word in which the value is to be inserted.
+/// * `offset` - The offset (from the right) at which the value is to be inserted.
+/// * `value` - The value to be inserted.
+fn insert_value_into_word<V: VariableWord>(word: &mut u64, offset: u8, value: u64) {
+    debug_assert!(
+        offset + V::NUMBER_OF_BITS <= 64,
+        "The offset ({offset} + {}) should be less than or equal to 64",
+        V::NUMBER_OF_BITS,
+    );
+
+    let flipped_offset = 64 - V::NUMBER_OF_BITS - offset;
+    *word &= !(V::MASK << flipped_offset);
+    *word |= value << flipped_offset;
+}
+
+#[inline]
 /// Extracts the register from one or more words at the given offset.
 ///
 /// # Arguments
 /// * `word` - The word array from which the register is to be extracted.
-/// * `offset` - The offset at which the register starts.
+/// * `offset` - The offset (from the right) at which the register starts.
 fn extract_value_from_words<V: VariableWord, const N: usize>(
     words: [u64; N],
     offset: u8,
@@ -85,28 +118,68 @@ fn extract_value_from_words<V: VariableWord, const N: usize>(
     values
 }
 
-fn insert_value_into_word<V: VariableWord>(word: &mut u64, offset: u8, value: u64) {
-    *word &= !(V::MASK << offset);
-    *word |= value << offset;
+#[cfg(test)]
+/// Test module for the [`extract_value_from_word`], [`extract_value_from_words`] and [`insert_value_into_word`] functions.
+mod test_extract_value_from_word {
+    use super::*;
+    use crate::prelude::*;
+    use hyperloglog_derive::test_variable_words;
+
+    #[test_variable_words]
+    /// Test the extraction of a V::Word from an u64 word.
+    fn test_extract_value_from_word<V: VariableWord>() {
+        let mut word = 0_u64;
+        // We sample 250 random values of the word.
+        for value in iter_random_values::<V>(V::MASK.min(200), None, None) {
+            // For each word, we iter all possible offset values.
+            for offset in 0_u8..=(64_u8 - V::NUMBER_OF_BITS) {
+                insert_value_into_word::<V>(&mut word, offset, value.into());
+                assert_eq!(
+                    extract_value_from_word::<V>(word, offset),
+                    value,
+                    "The value extracted from the word {} at offset {} should be equal to the value {}",
+                    word,
+                    offset,
+                    value
+                );
+            }
+        }
+    }
 }
 
+#[inline]
+#[allow(unsafe_code)]
 /// Returns the number of bits in the upper and lower value of a bridge value.
-const fn value_from_bridge<V: VariableWord>(lower_word: u64, upper_word: u64, offset: u8) -> u64 {
+///
+/// # Arguments
+/// * `lower_word` - The lower word of the bridge value.
+/// * `upper_word` - The upper word of the bridge value.
+/// * `offset` - The offset (from the right) of the bridge value.
+///
+/// # Safety
+/// * The method converts in an unchecked manner the value from a `u64` to a `V::Word`.
+fn extract_bridge_value_from_word<V: VariableWord>(
+    lower_word: u64,
+    upper_word: u64,
+    offset: u8,
+) -> V::Word {
     debug_assert!(offset != 0, "Offset should be greater than 0");
     debug_assert!(offset != 64, "Offset should be less than 64");
     debug_assert!(
         offset > 64 - V::NUMBER_OF_BITS,
         "Offset should be greater than 64 - V::NUMBER_OF_BITS"
     );
-    let number_of_bits_in_lower_value: u8 = 64 - offset;
-    let number_of_bits_in_upper_value = V::NUMBER_OF_BITS - number_of_bits_in_lower_value;
-    let upper_value_mask: u64 = (1 << number_of_bits_in_upper_value) - 1;
 
-    let lower_value = lower_word >> offset;
+    let number_of_high_bits_in_lower_value: u8 = 64 - offset;
+    let number_of_low_bits_in_upper_value = V::NUMBER_OF_BITS - number_of_high_bits_in_lower_value;
+    let higher_bits_mask = V::MASK >> number_of_low_bits_in_upper_value;
 
-    let upper_value = upper_word & upper_value_mask;
+    let higher_bits = (lower_word & higher_bits_mask) << number_of_low_bits_in_upper_value;
+    let lower_bits = upper_word >> (64 - number_of_low_bits_in_upper_value);
 
-    (upper_value << number_of_bits_in_lower_value) | lower_value
+    let word = higher_bits | lower_bits;
+
+    unsafe { V::Word::unchecked_from_u64(word) }
 }
 
 /// Extracts a bridge register from a starting word and an ending word.
@@ -115,29 +188,11 @@ fn extract_bridge_value_from_words<V: VariableWord, const N: usize>(
     upper_word: [u64; N],
     offset: u8,
 ) -> [V::Word; N] {
-    debug_assert!(
-        offset + V::NUMBER_OF_BITS > 64,
-        "Offset + bits ({} + {}) should be greater than {}",
-        offset,
-        V::NUMBER_OF_BITS,
-        64
-    );
-    debug_assert!(offset <= 64, "Offset {} should be less than {}", offset, 64);
     let mut values = [V::Word::ZERO; N];
     for i in 0..N {
-        values[i] =
-            V::Word::try_from_u64(value_from_bridge::<V>(lower_word[i], upper_word[i], offset))
-                .unwrap();
+        values[i] = extract_bridge_value_from_word::<V>(lower_word[i], upper_word[i], offset);
     }
     values
-}
-
-fn extract_bridge_value_from_word<V: VariableWord>(
-    lower_word: u64,
-    upper_word: u64,
-    offset: u8,
-) -> V::Word {
-    extract_bridge_value_from_words::<V, 1>([lower_word], [upper_word], offset)[0]
 }
 
 fn insert_bridge_value_into_word<V: VariableWord>(
@@ -156,13 +211,54 @@ fn insert_bridge_value_into_word<V: VariableWord>(
 
     debug_assert!(offset < 64, "Offset {} should be less than {}", offset, 64);
 
+    let number_of_lower_bits = V::NUMBER_OF_BITS + offset - 64;
+    let lower_bits_mask = (1 << number_of_lower_bits) - 1;
+    let higher_bits_mask = V::MASK >> number_of_lower_bits;
+    let lower_bits = value & lower_bits_mask;
+    let higher_bits = value >> number_of_lower_bits;
+
     // First, we clear the bits that will be replaced by the new value.
-    *lower_word &= !(V::MASK << offset);
+    *lower_word &= !higher_bits_mask;
     // Then, we insert the lower part of the new value.
-    *lower_word |= value << offset;
+    *lower_word |= higher_bits;
     // We do the same for the upper part of the new value.
-    *upper_word &= !(V::MASK >> (64 - offset));
-    *upper_word |= value >> (64 - offset);
+    *upper_word &= !(lower_bits_mask << (64 - number_of_lower_bits));
+    *upper_word |= lower_bits << (64 - number_of_lower_bits);
+}
+
+#[cfg(test)]
+/// Test module for the [`extract_bridge_value_from_word`], [`extract_bridge_value_from_words`] and [`insert_bridge_value_into_word`] functions.
+mod test_extract_bridge_value_from_word {
+    use super::*;
+    use crate::prelude::*;
+    use hyperloglog_derive::test_variable_words;
+
+    #[test_variable_words]
+    /// Test the extraction of a V::Word from an u64 word.
+    fn test_extract_bridge_value_from_word<V: VariableWord>() {
+        let mut lower_word = 0_u64;
+        let mut upper_word = 0_u64;
+        // We sample 250 random values of the word.
+        for value in iter_random_values::<V>(V::MASK.min(200), None, None) {
+            // For each value, we iter all possible offset values.
+            for offset in (65_u8 - V::NUMBER_OF_BITS)..64_u8 {
+                insert_bridge_value_into_word::<V>(
+                    &mut lower_word,
+                    &mut upper_word,
+                    offset,
+                    value.into(),
+                );
+                assert_eq!(
+                    extract_bridge_value_from_words::<V, 2>([lower_word, lower_word], [upper_word, upper_word], offset),
+                    [value, value],
+                    "The value extracted from the word {} at offset {} should be equal to the value {}",
+                    lower_word,
+                    offset,
+                    value
+                );
+            }
+        }
+    }
 }
 
 /// Iterator over the registers of two packed arrays.
@@ -195,13 +291,17 @@ impl<A, const M: usize> ArrayIter<A, M> {
             value_index: 0,
             word_offset: 0,
             word_index: 0,
-            column: arrays.column(0),
+            column: if N == 0 {
+                [u64::ZERO; M]
+            } else {
+                arrays.column(0)
+            },
             arrays,
         }
     }
 }
 
-/// Implementation of the Iterator trait for [`ArrayIter`].
+/// Implementation of the `Iterator` trait for [`ArrayIter`].
 impl<'array, const PACKED: bool, const N: usize, const M: usize, V: VariableWord> Iterator
     for ArrayIter<&'array Array<N, PACKED, V>, M>
 {
@@ -230,7 +330,6 @@ impl<'array, const PACKED: bool, const N: usize, const M: usize, V: VariableWord
                 self.word_offset = V::NUMBER_OF_BITS - (64 - self.word_offset);
                 values
             } else {
-                debug_assert!(self.word_offset + V::NUMBER_OF_BITS <= 64, "While iterating on an object of type {}, the offset ({} + {}) should be less than or equal to 64", core::any::type_name::<Self>(), self.word_offset, V::NUMBER_OF_BITS);
                 let values = extract_value_from_words::<V, M>(self.column, self.word_offset);
                 self.word_offset += V::NUMBER_OF_BITS;
                 if self.value_index < self.total_values
@@ -245,6 +344,17 @@ impl<'array, const PACKED: bool, const N: usize, const M: usize, V: VariableWord
             },
         )
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining_values = self.total_values - self.value_index;
+        (remaining_values as usize, Some(remaining_values as usize))
+    }
+}
+
+/// Implementation of the `ExactSizeIterator` trait for [`ArrayIter`].
+impl<'array, const PACKED: bool, const N: usize, const M: usize, V: VariableWord> ExactSizeIterator
+    for ArrayIter<&'array Array<N, PACKED, V>, M>
+{
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -275,39 +385,9 @@ impl<
     #[inline]
     #[allow(unsafe_code)]
     fn as_ref(&self) -> &Array<N, PACKED1, V1> {
-        unsafe { &*(self as *const Array<N, PACKED2, V2> as *const Array<N, PACKED1, V1>) }
+        unsafe { core::mem::transmute(self) }
     }
 }
-
-macro_rules! impl_as_ref_mut {
-    ($($typ:ty),*) => {
-        $(
-            impl<const N: usize, const PACKED: bool, V2> AsRef<[$typ]>
-                for Array<N, PACKED, V2>
-            {
-                #[inline]
-                #[allow(unsafe_code)]
-                fn as_ref(&self) -> &[$typ] {
-                    let words_u64: &[u64] = self.words.as_ref();
-                    unsafe { core::slice::from_raw_parts(words_u64.as_ptr() as *const $typ, words_u64.len() * core::mem::size_of::<u64>() / core::mem::size_of::<$typ>()) }
-                }
-            }
-
-            impl<const N: usize, const PACKED: bool, V2> AsMut<[$typ]>
-                for Array<N, PACKED, V2>
-            {
-                #[inline]
-                #[allow(unsafe_code)]
-                fn as_mut(&mut self) -> &mut [$typ] {
-                    let words_u64: &mut [u64] = self.words.as_mut();
-                    unsafe { core::slice::from_raw_parts_mut(words_u64.as_mut_ptr() as *mut $typ, words_u64.len() * core::mem::size_of::<u64>() / core::mem::size_of::<$typ>()) }
-                }
-            }
-        )*
-    };
-}
-
-impl_as_ref_mut!(u8, u16, u32, u64);
 
 impl<
         const N: usize,
@@ -324,12 +404,104 @@ impl<
     }
 }
 
+macro_rules! impl_as_ref_mut {
+    ($($typ:ty),*) => {
+        $(
+            impl<const N: usize, const PACKED: bool, V2> AsRef<[$typ]>
+                for Array<N, PACKED, V2>
+            {
+                #[inline]
+                #[allow(unsafe_code)]
+                fn as_ref(&self) -> &[$typ] {
+                    let words_u64: &[u64] = self.words.as_ref();
+                    unsafe { core::slice::from_raw_parts(words_u64.as_ptr() as *const $typ, words_u64.len() * 8 / core::mem::size_of::<$typ>()) }
+                }
+            }
+
+            impl<const N: usize, const PACKED: bool, V2> AsMut<[$typ]>
+                for Array<N, PACKED, V2>
+            {
+                #[inline]
+                #[allow(unsafe_code)]
+                fn as_mut(&mut self) -> &mut [$typ] {
+                    let words_u64: &mut [u64] = self.words.as_mut();
+                    unsafe { core::slice::from_raw_parts_mut(words_u64.as_mut_ptr() as *mut $typ, words_u64.len() * 8 / core::mem::size_of::<$typ>()) }
+                }
+            }
+        )*
+    };
+}
+
+impl_as_ref_mut!(u8, u16, u32, u64);
+
+macro_rules! impl_as_bytes_ref_mut {
+    ($($number:expr),*) => {
+        $(
+            impl<const N: usize, const PACKED: bool, V2> AsRef<[[u8; $number]]>
+                for Array<N, PACKED, V2>
+            {
+                #[inline]
+                #[allow(unsafe_code)]
+                fn as_ref(&self) -> &[[u8; $number]] {
+                    let words_u64: &[u64] = self.words.as_ref();
+                    unsafe { core::slice::from_raw_parts(words_u64.as_ptr() as *const [u8; $number], words_u64.len() * 8 / $number) }
+                }
+            }
+
+            impl<const N: usize, const PACKED: bool, V2> AsMut<[[u8; $number]]>
+                for Array<N, PACKED, V2>
+            {
+                #[inline]
+                #[allow(unsafe_code)]
+                fn as_mut(&mut self) -> &mut [[u8; $number]] {
+                    let words_u64: &mut [u64] = self.words.as_mut();
+                    unsafe { core::slice::from_raw_parts_mut(words_u64.as_mut_ptr() as *mut [u8; $number], words_u64.len() * 8 / $number) }
+                }
+            }
+        )*
+    };
+}
+
+impl_as_bytes_ref_mut!(3, 5, 6, 7);
+
 impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     #[inline]
     fn iter_values(&self, len: u64) -> Map<ArrayIter<&Self, 1>, fn([V::Word; 1]) -> V::Word> {
         ArrayIter::new([self], len).map(|values| values[0])
     }
+}
 
+#[cfg(test)]
+mod test_iter_values {
+    use super::*;
+    use crate::prelude::*;
+    use hyperloglog_derive::test_array;
+
+    #[test_array]
+    /// Test the extraction of a V::Word from an u64 word.
+    fn test_iter_values<const M: usize, const N: usize, const PACKED: bool, V: VariableWord>(
+        reference: [V::Word; M],
+    ) {
+        let mut array = Array::<N, PACKED, V>::default();
+
+        // We populate the array with the values from the reference.
+        for (i, value) in reference.iter().enumerate() {
+            array.set(i as u64, *value);
+        }
+
+        let iter: Map<
+            ArrayIter<&Array<N, PACKED, V>, 1>,
+            fn([<V as VariableWord>::Word; 1]) -> <V as VariableWord>::Word,
+        > = array.iter_values(M as u64);
+        assert_eq!(iter.len(), M, "The iterator should have a length of {}", M);
+
+        for (i, (reference_value, array_value)) in reference.iter().zip(iter).enumerate() {
+            assert_eq!(reference_value, &array_value, "The value ({array_value}) extracted from position ({i}) should be equal to the reference value ({reference_value}).");
+        }
+    }
+}
+
+impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     #[inline]
     fn iter_values_zipped<'words>(
         &'words self,
@@ -338,15 +510,102 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     ) -> ArrayIter<&'_ Self, 2> {
         ArrayIter::new([self, other], len)
     }
+}
 
+#[cfg(test)]
+mod test_iter_values_zipped {
+    use super::*;
+    use crate::prelude::*;
+    use hyperloglog_derive::test_array;
+
+    #[test_array]
+    /// Test the extraction of a V::Word from an u64 word.
+    fn test_iter_values_zipped<
+        const M: usize,
+        const N: usize,
+        const PACKED: bool,
+        V: VariableWord,
+    >(
+        reference: [V::Word; M],
+    ) {
+        let mut array = Array::<N, PACKED, V>::default();
+        let mut rev_array = Array::<N, PACKED, V>::default();
+
+        // We populate an array with the values from the reference, and
+        // we populate the reverse array with the values in reverse order.
+        for (i, value) in reference.iter().enumerate() {
+            array.set(i as u64, *value);
+            rev_array.set((M - 1 - i) as u64, *value);
+        }
+
+        let iter: ArrayIter<&Array<N, PACKED, V>, 2> =
+            array.iter_values_zipped(&rev_array, M as u64);
+        let swapped_iter: ArrayIter<&Array<N, PACKED, V>, 2> =
+            rev_array.iter_values_zipped(&array, M as u64);
+        assert_eq!(iter.len(), M, "The iterator should have a length of {}", M);
+        assert_eq!(
+            swapped_iter.len(),
+            M,
+            "The iterator should have a length of {}",
+            M
+        );
+
+        for (i, (reference_values, (array_value, swapped_array_value))) in (reference
+            .iter()
+            .copied()
+            .zip(reference.iter().copied().rev())
+            .map(|(a, b)| [a, b]))
+        .zip(iter.zip(swapped_iter))
+        .enumerate()
+        {
+            let swapped_reference = [reference_values[1], reference_values[0]];
+            assert_eq!(reference_values, array_value, "The value ({array_value:?}) extracted from position ({i}) should be equal to the reference value ({reference_values:?}).");
+            assert_eq!(swapped_reference, swapped_array_value, "The value ({swapped_array_value:?}) extracted from position ({i}) should be equal to the reference value ({reference_values:?}).");
+        }
+    }
+}
+
+impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     /// Clears the packed array of registers.
     #[inline]
     fn clear(&mut self) {
-        for word in self.words.iter_mut() {
-            *word = u64::ZERO;
+        self.words.fill(0_u64);
+    }
+}
+
+#[cfg(test)]
+mod test_clear_array {
+    use super::*;
+    use crate::prelude::*;
+    use hyperloglog_derive::test_array;
+
+    #[test_array]
+    /// Test the extraction of a V::Word from an u64 word.
+    fn test_clear_array<const M: usize, const N: usize, const PACKED: bool, V: VariableWord>(
+        reference: [V::Word; M],
+    ) {
+        let mut array = Array::<N, PACKED, V>::default();
+
+        // We populate the array with the values from the reference.
+        for (i, value) in reference.iter().enumerate() {
+            array.set(i as u64, *value);
+        }
+
+        // We clear the array.
+        array.clear();
+
+        // We check that all the values in the array are zero.
+        for i in 0..M {
+            assert_eq!(
+                array.get(i as u64),
+                V::Word::ZERO,
+                "The value at position ({i}) should be zero."
+            );
         }
     }
+}
 
+impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     #[inline]
     /// Returns whether a given offset is a bridge offset.
     const fn is_bridge_offset(offset: u8) -> bool {
@@ -356,7 +615,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     }
 
     #[inline]
-    /// Returns whether the packed array has padding for a given length.
+    /// Returns whether the array has padding for a given length.
     const fn has_padding(len: u64) -> bool {
         if PACKED {
             len * V::NUMBER_OF_BITS_U64 < N as u64 * 64
@@ -366,8 +625,25 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     }
 
     #[inline]
+    /// Returns the number of values in the array.
+    const fn number_of_values() -> u64 {
+        if PACKED {
+            N as u64 * 64 / V::NUMBER_OF_BITS_U64
+        } else {
+            N as u64 * V::NUMBER_OF_ENTRIES_U64
+        }
+    }
+
+    #[inline]
     /// Returns the value stored at the given index.
     fn get(&self, index: u64) -> V::Word {
+        debug_assert!(
+            index < Self::number_of_values(),
+            "The index {index} should be less than {} (the number of registers) in an object of type {}",
+            N as u64 * V::NUMBER_OF_ENTRIES_U64,
+            core::any::type_name::<Self>()
+        );
+
         // We determine the word which contains the value and the position of the value,
         // taking into account the bridge values.
         let (word_index, relative_value_offset) = split_index::<PACKED, V>(index);
@@ -391,6 +667,29 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
             )
         } else {
             extract_value_from_word::<V>(self.words[word_index], relative_value_offset)
+        }
+    }
+
+    #[inline]
+    /// Set the value at the given index.
+    ///
+    /// # Arguments
+    /// * `index` - The index at which the value is to be set.
+    /// * `value` - The value to be set.
+    pub fn set(&mut self, index: u64, value: V::Word) {
+        let (word_index, relative_value_offset) = split_index::<PACKED, V>(index);
+
+        if Self::is_bridge_offset(relative_value_offset) {
+            let (low, high) = self.words.split_at_mut(word_index + 1);
+            let low = &mut low[word_index];
+            let high = &mut high[0];
+            insert_bridge_value_into_word::<V>(low, high, relative_value_offset, value.into());
+        } else {
+            insert_value_into_word::<V>(
+                &mut self.words[word_index],
+                relative_value_offset,
+                value.into(),
+            );
         }
     }
 
@@ -558,7 +857,7 @@ pub trait AllArrays:
 /// Extracts the word position and the relative register offset from the packed index.
 const fn split_packed_index<V: VariableWord>(index: u64) -> (usize, u8) {
     let absolute_register_offset: u64 = V::NUMBER_OF_BITS_U64 * index;
-    let word_index: u64 = absolute_register_offset / 64;
+    let word_index: u64 = absolute_register_offset >> 6;
     let relative_register_offset = (absolute_register_offset - word_index * 64) as u8;
     (word_index as usize, relative_register_offset)
 }
@@ -571,6 +870,69 @@ const fn split_not_packed_index<V: VariableWord>(index: u64) -> (usize, u8) {
     (word_index as usize, relative_register_offset)
 }
 
+#[cfg(test)]
+/// Test module for the [`split_packed_index`] and [`split_not_packed_index`] functions.
+mod test_split_index {
+    use super::*;
+    use crate::prelude::*;
+    use hyperloglog_derive::test_variable_words;
+
+    #[test_variable_words]
+    /// Test the extraction of the word index and the relative register offset from the packed index.
+    fn test_split_packed_index<V: VariableWord>() {
+        let minimum_index = 0_u64;
+        // The maximal precision is 18, so the maximum number of registers is 2^18,
+        // hence the maximum index is 2^18 - 1.
+        let maximum_index = 1_u64 << 18;
+        // We iter all possible values of the index.
+        for index in minimum_index..maximum_index {
+            let expected_word_index = (V::NUMBER_OF_BITS_U64 * index) / 64;
+            let expected_relative_register_offset = (V::NUMBER_OF_BITS_U64 * index) % 64;
+            let (word_index, relative_register_offset) = split_packed_index::<V>(index);
+            assert_eq!(
+                word_index, expected_word_index as usize,
+                "The word index {} should be equal to the word index {}",
+                word_index, expected_word_index
+            );
+            assert_eq!(
+                relative_register_offset,
+                expected_relative_register_offset as u8,
+                "The relative register offset {} should be equal to the relative register offset {}",
+                relative_register_offset,
+                expected_relative_register_offset
+            );
+        }
+    }
+
+    #[test_variable_words]
+    /// Test the extraction of the word index and the relative register offset from the non-packed index.
+    fn test_split_not_packed_index<V: VariableWord>() {
+        let minimum_index = 0_u64;
+        // The maximal precision is 18, so the maximum number of registers is 2^18,
+        // hence the maximum index is 2^18 - 1.
+        let maximum_index = 1_u64 << 18;
+        // We iter all possible values of the index.
+        for index in minimum_index..maximum_index {
+            let expected_word_index = index / V::NUMBER_OF_ENTRIES_U64;
+            let expected_relative_register_offset =
+                (index % V::NUMBER_OF_ENTRIES_U64) as u8 * V::NUMBER_OF_BITS;
+            let (word_index, relative_register_offset) = split_not_packed_index::<V>(index);
+            assert_eq!(
+                word_index, expected_word_index as usize,
+                "The word index {} should be equal to the word index {}",
+                word_index, expected_word_index
+            );
+            assert_eq!(
+                relative_register_offset,
+                expected_relative_register_offset as u8,
+                "The relative register offset {} should be equal to the relative register offset {}",
+                relative_register_offset,
+                expected_relative_register_offset
+            );
+        }
+    }
+}
+
 const fn split_index<const PACKED: bool, V: VariableWord>(index: u64) -> (usize, u8) {
     if PACKED {
         split_packed_index::<V>(index)
@@ -578,83 +940,6 @@ const fn split_index<const PACKED: bool, V: VariableWord>(index: u64) -> (usize,
         split_not_packed_index::<V>(index)
     }
 }
-
-// impl<const PACKED: bool, const N: usize, W: VariableWord, V: VariableWord> VariableWords<W>
-//     for Array<N, PACKED, V>
-// where
-//     <W as VariableWord>::Word: 'static,
-// {
-//     type Iter<'words> = Map<ArrayIter<&'words Array<N, PACKED, W>, 1>, fn([W::Word; 1]) -> W::Word> where Self: 'words, W: 'words;
-
-//     #[must_use]
-//     #[inline]
-//     fn number_of_words(&self) -> usize {
-//         if PACKED {
-//             N * 64 / W::NUMBER_OF_BITS_U64 as usize
-//         } else {
-//             N * W::NUMBER_OF_ENTRIES_U64 as usize
-//         }
-//     }
-
-//     #[must_use]
-//     #[inline]
-//     #[allow(unsafe_code)]
-//     fn find_sorted_with_len(&self, value: W::Word, len: usize) -> bool {
-//         debug_assert!(
-//             len <= <Self as VariableWords<W>>::number_of_words(self),
-//             "The length must be less than or equal to the number of words."
-//         );
-//         debug_assert!(
-//             <Self as VariableWords<W>>::variable_words(self, len)
-//                 .zip(<Self as VariableWords<W>>::variable_words(self, len).skip(1))
-//                 .all(|(a, b)| a <= b),
-//             "The array must be sorted."
-//         );
-
-//         // TODO! Actually implement a binary search!
-//         match core::any::TypeId::of::<W::Word>() {
-//             t if t == core::any::TypeId::of::<u8>()
-//                 || t == core::any::TypeId::of::<u16>()
-//                 || t == core::any::TypeId::of::<u32>()
-//                 || t == core::any::TypeId::of::<u64>() =>
-//             unsafe { W::transmutative_binary_search(self.words.as_slice(), len, value).is_ok() },
-//             _ => <Self as VariableWords<W>>::variable_words(self, len).any(|v| v == value),
-//         }
-//     }
-
-//     #[must_use]
-//     #[inline]
-//     #[allow(unsafe_code)]
-//     fn sorted_insert_with_len(&mut self, value: W::Word, len: usize) -> bool {
-//         debug_assert!(
-//             len <= <Self as VariableWords<W>>::number_of_words(self),
-//             "The length must be less than or equal to the number of words."
-//         );
-
-//         debug_assert!(
-//             <Self as VariableWords<W>>::variable_words(self, len)
-//                 .zip(<Self as VariableWords<W>>::variable_words(self, len).skip(1))
-//                 .all(|(a, b)| a <= b),
-//             "The array must be sorted."
-//         );
-
-//         // TODO! Actually implement a binary search!
-//         match core::any::TypeId::of::<W::Word>() {
-//             t if t == core::any::TypeId::of::<u8>()
-//                 || t == core::any::TypeId::of::<u16>()
-//                 || t == core::any::TypeId::of::<u32>()
-//                 || t == core::any::TypeId::of::<u64>() =>
-//             unsafe { W::transmutative_sorted_insert(self.words.as_mut(), len, value) },
-//             _ => todo!(),
-//         }
-//     }
-
-//     #[must_use]
-//     #[inline]
-//     fn variable_words(&self, len: usize) -> Self::Iter<'_> {
-//         <Self as AsRef<Array<N, PACKED, W>>>::as_ref(self).iter_values(len as u64)
-//     }
-// }
 
 /// Implement the packed array registers for a specific combination of precision and bits.
 macro_rules! impl_packed_array_register_for_precision_and_bits {

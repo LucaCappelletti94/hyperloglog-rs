@@ -18,7 +18,7 @@ fn insert_bencher<
     b.bench_function(format!("Insert {}", H::default().name()).as_str(), |b| {
         b.iter(|| {
             let mut hll: H = Default::default();
-            for i in iter_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
+            for i in iter_var_len_random_values(NUMBER_OF_ELEMENTS, None, RANDOM_STATE) {
                 hll.insert(black_box(&i));
             }
         })

@@ -4,7 +4,7 @@ use core::fmt::{Debug, Display};
 use core::hash::Hash;
 use core::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, Div, Mul, Neg, Not, Shl, Shr, Sub,
-    SubAssign,
+    SubAssign, Rem
 };
 
 /// A trait for numbers.
@@ -51,6 +51,7 @@ pub trait PositiveInteger:
     + BitOr
     + BitOrAssign
     + Ord
+    + Rem<Output = Self>
     + Shl<u8, Output = Self>
     + Shr<u8, Output = Self>
     + Hash
@@ -106,8 +107,8 @@ macro_rules! impl_number {
             impl Number for $t {
                 #[inline(always)]
                 fn saturating_zero_sub(self, other: Self) -> Self {
-                    debug_assert!(self >= Self::ZERO);
-                    debug_assert!(other >= Self::ZERO);
+                    debug_assert!(self >= Self::ZERO, "The first number must be positive, got: {}", self);
+                    debug_assert!(other >= Self::ZERO, "The second number must be positive, got: {}", other);
                     if self < other {
                         Self::ZERO
                     } else {
@@ -178,33 +179,30 @@ impl FloatOps for f64 {
 #[cfg(test)]
 mod test_integer_exp2_minus {
     use super::*;
-    use crate::prelude::maximal_multeplicity;
 
     #[test]
     fn test_integer_exp2_minus() {
         // At the most, we create registers with 6 bits, which
         // means that the maximum values is 2^7 - 1 = 127.
-        for precision in 4..=16 {
-            for bits in 1..=6 {
-                for register_value in 0..=maximal_multeplicity(precision, bits) {
-                    assert_eq!(
-                        2.0_f64.powf(-(register_value as f64)),
-                        f64::integer_exp2_minus(register_value as u8),
-                        "Expected: 2^(-{}), Got: {}",
-                        register_value,
-                        f64::integer_exp2_minus(register_value as u8)
-                    );
-                    assert_eq!(
-                        f64::from_bits(
-                            u64::max_value().wrapping_sub(u64::from(register_value as u64)) << 54
-                                >> 2
-                        ),
-                        f64::integer_exp2_minus(register_value as u8),
-                        "Expected: 2^(-{}), Got: {}",
-                        register_value,
-                        f64::integer_exp2_minus(register_value as u8)
-                    );
-                }
+        for bits in 1..=8 {
+            for register_value in 0..(1 << bits) {
+                assert_eq!(
+                    2.0_f64.powf(-(register_value as f64)),
+                    f64::integer_exp2_minus(register_value as u8),
+                    "Expected: 2^(-{}), Got: {}",
+                    register_value,
+                    f64::integer_exp2_minus(register_value as u8)
+                );
+                assert_eq!(
+                    f64::from_bits(
+                        u64::max_value().wrapping_sub(u64::from(register_value as u64)) << 54
+                            >> 2
+                    ),
+                    f64::integer_exp2_minus(register_value as u8),
+                    "Expected: 2^(-{}), Got: {}",
+                    register_value,
+                    f64::integer_exp2_minus(register_value as u8)
+                );
             }
         }
     }

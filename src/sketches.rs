@@ -59,7 +59,11 @@ pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
             });
 
         let mut right_difference_cardinality_vector = [N::ZERO; R];
-        let mut euc: EstimatedUnionCardinalities<N> = EstimatedUnionCardinalities { left:N::ZERO, right:N::ZERO, union:N::ZERO };
+        let mut euc: EstimatedUnionCardinalities<N> = EstimatedUnionCardinalities {
+            left: N::ZERO,
+            right: N::ZERO,
+            union: N::ZERO,
+        };
         let mut last_left_difference = N::ZERO;
 
         // Populate the overlap cardinality matrix.
@@ -85,7 +89,9 @@ pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
                 } else {
                     delta
                 };
+
                 comulative_row += differential_overlap_cardinality_matrix[i][j];
+                debug_assert!(comulative_row >= N::ZERO, "Expected comulative_row to be larger than zero, but it is not. Got: comulative_row: {comulative_row:?}, delta: {delta:?}");
 
                 // We always set the value of the right difference so that the
                 // last time we write this will necessarily be with the last
@@ -261,7 +267,12 @@ struct EstimatedUnionCardinalities<F> {
 impl<F: Number> EstimatedUnionCardinalities<F> {
     /// Returns the estimated cardinality of the intersection of the two sets.
     fn get_intersection_cardinality(&self) -> F {
-        self.left + self.right - self.union
+        let intersection = self.left + self.right - self.union;
+        debug_assert!(
+            intersection >= F::ZERO,
+            "Expected intersection to be larger than zero, but it is not. Got: intersection: {intersection:?}."
+        );
+        intersection
     }
 
     /// Returns the estimated cardinality of the left set minus the right set.

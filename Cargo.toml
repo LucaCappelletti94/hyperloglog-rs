@@ -41,6 +41,7 @@ serde_json = "1.0"
 [dev-dependencies]
 serde_json = "1.0"
 wyhash = "0.5.0"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
 default = ["low_precisions", "beta", "plusplus"]
@@ -118,5 +119,5 @@ debug-assertions = false  # Enables debug assertions.
 opt-level = 3
 
 [[bench]]
-name = "array"
+name = "unique_count_from_sorted_iterators"
 harness = false

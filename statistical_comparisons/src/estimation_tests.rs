@@ -80,7 +80,7 @@ pub(crate) fn cardinality_test<
 
             let mut current_sample_rate = minimum_sample_interval;
 
-            for (i, element) in iter_random_values(2_000_000, None, random_state).enumerate() {
+            for (i, element) in iter_var_len_random_values(2_000_000, None, random_state).enumerate() {
                 estimator.insert(&element);
 
                 if u64::try_from(i).unwrap() % current_sample_rate == 0 {
@@ -144,8 +144,8 @@ pub(crate) fn union_test<
                 right_random_state.wrapping_mul(thread_number + 1),
             ));
 
-            let mut left_iter = iter_random_values(2_000_000, Some(1_000_000), left_random_state);
-            let mut right_iter = iter_random_values(2_000_000, Some(1_000_000), right_random_state);
+            let mut left_iter = iter_var_len_random_values(2_000_000, Some(1_000_000), left_random_state);
+            let mut right_iter = iter_var_len_random_values(2_000_000, Some(1_000_000), right_random_state);
 
             let mut current_sample_rate = minimum_sample_interval;
 

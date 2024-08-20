@@ -25,7 +25,7 @@ where
         reason = "This is an adapter trait for tests."
     )]
     #[expect(clippy::as_conversions, reason = "There are no better options.")]
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+    fn estimate_union_cardinality_with_cardinalities(&self, other: &Self, _: f64, _: f64) -> f64 {
         self.union(other).count() as f64
     }
 
@@ -38,11 +38,6 @@ where
     fn estimate_cardinality(&self) -> f64 {
         self.len() as f64
     }
-
-    #[inline]
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
-    }
 }
 
 impl<I, S: Default + Send + Sync + BuildHasher> Estimator<usize> for HashSet<I, S>
@@ -50,18 +45,18 @@ where
     I: Eq + Hash + Send + Sync,
 {
     #[inline]
-    fn estimate_union_cardinality(&self, other: &Self) -> usize {
+    fn estimate_union_cardinality_with_cardinalities(
+        &self,
+        other: &Self,
+        _: usize,
+        _: usize,
+    ) -> usize {
         self.union(other).count()
     }
 
     #[inline]
     fn estimate_cardinality(&self) -> usize {
         self.len()
-    }
-
-    #[inline]
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
     }
 }
 

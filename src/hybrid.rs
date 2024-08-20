@@ -10,7 +10,7 @@ use core::marker::PhantomData;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A struct representing the hybrid for approximate set cardinality estimation,
 /// where the hash values are kept explicit up until they fit into the registers.
-pub struct Hybrid<H, CH=u32> {
+pub struct Hybrid<H, CH = u32> {
     /// The inner counter.
     inner: H,
     /// The type of the composite hash to employ.
@@ -102,7 +102,9 @@ impl<H: PartialEq<H>, CH> PartialEq<H> for Hybrid<H, CH> {
 
 impl<H: Eq, CH> Eq for Hybrid<H, CH> {}
 
-impl<H: SetProperties + Hybridazable<CH>, CH: CompositeHash<H::P, H::B>> SetProperties for Hybrid<H, CH> {
+impl<H: SetProperties + Hybridazable<CH>, CH: CompositeHash<H::P, H::B>> SetProperties
+    for Hybrid<H, CH>
+{
     #[inline]
     fn is_empty(&self) -> bool {
         if self.is_hybrid() {
@@ -122,7 +124,11 @@ impl<H: SetProperties + Hybridazable<CH>, CH: CompositeHash<H::P, H::B>> SetProp
     }
 }
 
-impl<T: Hash, H: ApproximatedSet<T> + Hybridazable<CH>, CH: CompositeHash<H::P, H::B>> ApproximatedSet<T> for Hybrid<H, CH> where CH:  {
+impl<T: Hash, H: ApproximatedSet<T> + Hybridazable<CH>, CH: CompositeHash<H::P, H::B>>
+    ApproximatedSet<T> for Hybrid<H, CH>
+where
+    CH:,
+{
     #[inline]
     fn may_contain(&self, element: &T) -> bool {
         if self.is_hybrid() {
@@ -140,8 +146,11 @@ impl<H: MutableSet + Hybridazable<CH>, CH: CompositeHash<H::P, H::B>> MutableSet
     }
 }
 
-impl<T: Hash, H: ExtendableApproximatedSet<T> + Hybridazable<CH>, CH: CompositeHash<H::P, H::B>> ExtendableApproximatedSet<T>
-    for Hybrid<H, CH>
+impl<
+        T: Hash,
+        H: ExtendableApproximatedSet<T> + Hybridazable<CH>,
+        CH: CompositeHash<H::P, H::B>,
+    > ExtendableApproximatedSet<T> for Hybrid<H, CH>
 {
     #[inline]
     fn insert(&mut self, element: &T) -> bool {
@@ -166,48 +175,37 @@ impl<T: Hash, H: ExtendableApproximatedSet<T> + Hybridazable<CH>, CH: CompositeH
 /// of the two sets is at most the sum of the number of unique values in each set,
 /// so at most 2**16 unique values. We can thus use a u32 to represent the number
 /// of unique values.
-fn unique_values_from_sorted_iterators<T: Ord, I: Iterator<Item = T>, J: Iterator<Item = T>>(
+pub fn unique_count_from_sorted_iterators<T: Ord, I: ExactSizeIterator<Item = T>, J: ExactSizeIterator<Item = T>>(
     mut left: I,
     mut right: J,
 ) -> u32 {
-    let mut count = u32::ZERO;
+    let mut intersection = u32::ZERO;
+    let left_length = left.len() as u32;
+    let right_length = right.len() as u32;
     let mut maybe_left_value = left.next();
     let mut maybe_right_value = right.next();
-    while let Some(ord) = maybe_left_value.as_ref().and_then(|left_value| {
-        maybe_right_value
-            .as_ref()
-            .map(|right_value| left_value.cmp(right_value))
-    }) {
-        count += u32::ONE;
-        match ord {
-            Ordering::Less => {
-                maybe_left_value = left.next();
-            }
-            Ordering::Greater => {
-                maybe_right_value = right.next();
-            }
-            Ordering::Equal => {
-                maybe_left_value = left.next();
-                maybe_right_value = right.next();
-            }
+    while let (Some(left_value), Some(right_value)) =
+        (maybe_left_value.as_ref(), maybe_right_value.as_ref())
+    {
+        let cmp = left_value.cmp(right_value);
+
+        intersection += u32::from(cmp == Ordering::Equal);
+
+        if cmp == Ordering::Equal || cmp == Ordering::Less {
+            maybe_left_value = left.next();
+        }
+        if cmp == Ordering::Equal || cmp == Ordering::Greater {
+            maybe_right_value = right.next();
         }
     }
 
-    if maybe_left_value.is_some() {
-        count += u32::ONE;
-    }
-
-    if maybe_right_value.is_some() {
-        count += u32::ONE;
-    }
-
-    count + u32::try_from(left.count()).unwrap() + u32::try_from(right.count()).unwrap()
+    left_length + right_length - intersection
 }
 
 /// Trait for a struct that can be used in the hybrid approach.
 pub trait Hybridazable<CH: CompositeHash<Self::P, Self::B>>: Default {
     /// The type of the iterator over the sorted hashes.
-    type IterSortedHashes<'words>: Iterator<Item = CH::Word>
+    type IterSortedHashes<'words>: ExactSizeIterator<Item = CH::Word>
     where
         CH: 'words,
         Self: 'words;
@@ -253,7 +251,8 @@ impl<H: Named, CH: Default + Named> Named for Hybrid<H, CH> {
     }
 }
 
-impl<H: Clone + Estimator<f64> + Hybridazable<CH> + Default, CH: CompositeHash<H::P, H::B>> Estimator<f64> for Hybrid<H, CH>
+impl<H: Clone + Estimator<f64> + Hybridazable<CH> + Default, CH: CompositeHash<H::P, H::B>>
+    Estimator<f64> for Hybrid<H, CH>
 where
     Hybrid<H, CH>: Default,
 {
@@ -277,13 +276,18 @@ where
     }
 
     #[inline]
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+    fn estimate_union_cardinality_with_cardinalities(
+        &self,
+        other: &Self,
+        self_cardinality: f64,
+        other_cardinality: f64,
+    ) -> f64 {
         match (self.is_hybrid(), other.is_hybrid()) {
             (true, true) => {
                 // In the case where both counters are in hybrid mode, we can
                 // simply iterate on the two sorted hash arrays and determine the number
                 // of unique hashes.
-                f64::from(unique_values_from_sorted_iterators(
+                f64::from(unique_count_from_sorted_iterators(
                     self.iter_sorted_hashes(),
                     other.iter_sorted_hashes(),
                 ))
@@ -291,10 +295,22 @@ where
             (true, false) => {
                 let mut copy = self.clone();
                 copy.dehybridize();
-                copy.estimate_union_cardinality(other)
+                copy.estimate_union_cardinality_with_cardinalities(
+                    other,
+                    self_cardinality,
+                    other_cardinality,
+                )
             }
-            (false, true) => other.estimate_union_cardinality(self),
-            (false, false) => self.inner.estimate_union_cardinality(&other.inner),
+            (false, true) => other.estimate_union_cardinality_with_cardinalities(
+                self,
+                self_cardinality,
+                other_cardinality,
+            ),
+            (false, false) => self.inner.estimate_union_cardinality_with_cardinalities(
+                &other.inner,
+                self_cardinality,
+                other_cardinality,
+            ),
         }
     }
 }
@@ -305,20 +321,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_unique_values_from_sorted_iterators() {
+    fn test_unique_count_from_sorted_iterators() {
         let number_of_iterations = 10;
         let mut random_state = splitmix64(3456789456776543);
 
         for _ in 0..number_of_iterations {
             random_state = splitmix64(random_state);
-            let mut left = iter_random_values(1000, None, random_state).collect::<Vec<_>>();
+            let mut left = iter_var_len_random_values::<u64>(0, 1000, None, Some(random_state))
+                .collect::<Vec<_>>();
             left.sort();
             random_state = splitmix64(random_state);
-            let mut right = iter_random_values(1000, None, random_state).collect::<Vec<_>>();
+            let mut right = iter_var_len_random_values::<u64>(0, 1000, None, Some(random_state))
+                .collect::<Vec<_>>();
             right.sort();
 
             let unique_values =
-                unique_values_from_sorted_iterators(left.iter().cloned(), right.iter().cloned());
+                unique_count_from_sorted_iterators(left.iter().cloned(), right.iter().cloned());
             let unique_values_set = u32::try_from(
                 left.iter()
                     .chain(right.iter())
@@ -354,7 +372,7 @@ mod tests {
             let mut exact_set = std::collections::HashSet::new();
             let mut random_state = splitmix64(3456789456776543);
 
-            for element in iter_random_values(1000, None, random_state) {
+            for element in iter_var_len_random_values::<u64>(0, 1000, None, Some(random_state)) {
                 random_state = splitmix64(random_state);
                 hybrid.insert(&element);
                 exact_set.insert(element);

@@ -8,7 +8,7 @@
 mod basicloglog;
 mod bits;
 mod estimator;
-mod hybrid;
+pub mod hybrid;
 mod hyperloglog;
 mod hyperloglog_macro;
 #[cfg(feature = "beta")]

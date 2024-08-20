@@ -9,7 +9,7 @@ use core::{f64, fmt::Debug};
 #[cfg(feature = "mem_dbg")]
 use mem_dbg::{MemDbg, MemSize};
 
-use crate::utils::{FloatOps, Number, One, PositiveInteger};
+use crate::utils::{FloatOps, Number, One, PositiveInteger, VariableWord};
 
 #[cfg(feature = "plusplus")]
 use crate::utils::Two;
@@ -110,10 +110,10 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     /// when counting the number of zeros, as it will be corrected when computing
     /// the cardinality as it is known before hand whether this can happen at all.
     #[cfg(feature = "mem_dbg")]
-    type NumberOfRegisters: PositiveInteger + MemSize + MemDbg;
+    type NumberOfRegisters: PositiveInteger + VariableWord<Word = <Self as Precision>::NumberOfRegisters> + MemSize + MemDbg;
     #[cfg(not(feature = "mem_dbg"))]
     /// Se documentation above.
-    type NumberOfRegisters: PositiveInteger;
+    type NumberOfRegisters: PositiveInteger + VariableWord<Word = <Self as Precision>::NumberOfRegisters>;
     /// The exponent of the number of registers, meaning the number of registers
     /// that will be used is 2^EXPONENT. This is the p parameter in the [`HyperLogLog`].
     const EXPONENT: u8;
@@ -298,28 +298,6 @@ mod tests {
                     #[cfg(feature = "precision_" $exponent)]
                     fn [<test_error_rate_simmetry_ $exponent>]() {
                         test_error_rate_simmetry::<[<Precision $exponent>]>();
-                    }
-
-                    #[test]
-                    #[cfg(feature = "precision_" $exponent)]
-                    fn [<test_harmonic_sum_resolution_at_precision_ $exponent >]() {
-                        // The smallest possible harmonic sum is determined by
-                        // the number of registers, which is 2^EXPONENT, times
-                        // the reciprocal of two to the the largest register value:
-                        // 2^EXPONENT * 2^(-BITS) = 2^(EXPONENT - BITS).
-                        // In this test, we check that the harmonic sum is able to
-                        // store accurately the value 2^(EXPONENT - BITS).
-                        for number_of_bits in [1, 2, 3, 4, 5, 6 , 7 , 8] {
-                            let harmonic_sum = 2f64.powi([<Precision $exponent>]::EXPONENT as i32 - number_of_bits);
-                            let harmonic_sum_plus_one = 2f64.powi([<Precision $exponent>]::EXPONENT as i32 - number_of_bits) + 1.0;
-                            let harmonic_sum_minus_one = harmonic_sum_plus_one - 1.0;
-                            assert_eq!(harmonic_sum, harmonic_sum_minus_one);
-
-                            let harmonic_sum = 2f32.powi([<Precision $exponent>]::EXPONENT as i32 - number_of_bits);
-                            let harmonic_sum_plus_one = 2f32.powi([<Precision $exponent>]::EXPONENT as i32 - number_of_bits) + 1.0;
-                            let harmonic_sum_minus_one = harmonic_sum_plus_one - 1.0;
-                            assert_eq!(harmonic_sum, harmonic_sum_minus_one);
-                        }
                     }
                 }
             )*

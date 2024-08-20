@@ -44,17 +44,33 @@ pub trait Estimator<F: Number>: Sized + Send + Sync {
     fn estimate_cardinality(&self) -> F;
 
     /// Returns an estimate of two [`HyperLogLog`] counters union cardinality.
-    fn estimate_union_cardinality(&self, other: &Self) -> F;
+    fn estimate_union_cardinality_with_cardinalities(
+        &self,
+        other: &Self,
+        self_cardinality: F,
+        other_cardinality: F,
+    ) -> F;
+
+    /// Returns an estimate of two [`HyperLogLog`] counters union cardinality.
+    fn estimate_union_cardinality(&self, other: &Self) -> F {
+        self.estimate_union_cardinality_with_cardinalities(
+            other,
+            self.estimate_cardinality(),
+            other.estimate_cardinality(),
+        )
+    }
 
     /// Returns whether the union estimate is currently non-deterministic.
-    fn is_union_estimate_non_deterministic(&self, other: &Self) -> bool;
+    fn is_union_estimate_non_deterministic(&self, _: &Self) -> bool {
+        false
+    }
 
     #[inline]
     /// Returns an estimate of the intersection cardinality between two counters.
     fn estimate_intersection_cardinality(&self, other: &Self) -> F {
         let self_cardinality = self.estimate_cardinality();
         let other_cardinality = other.estimate_cardinality();
-        let union_cardinality = self.estimate_union_cardinality(other);
+        let union_cardinality = self.estimate_union_cardinality_with_cardinalities(other, self_cardinality, other_cardinality);
 
         // We apply correction to the union cardinality to get the intersection cardinality.
         if self_cardinality + other_cardinality < union_cardinality {
@@ -69,7 +85,7 @@ pub trait Estimator<F: Number>: Sized + Send + Sync {
     fn estimate_jaccard_index(&self, other: &Self) -> F {
         let self_cardinality = self.estimate_cardinality();
         let other_cardinality = other.estimate_cardinality();
-        let union_cardinality = self.estimate_union_cardinality(other);
+        let union_cardinality = self.estimate_union_cardinality_with_cardinalities(other, self_cardinality, other_cardinality);
 
         // We apply correction to the union cardinality to get the intersection cardinality.
         if self_cardinality + other_cardinality < union_cardinality || union_cardinality.is_zero() {

@@ -79,7 +79,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> BasicLogLog<
     ) -> bool {
         // Count leading zeros.
         debug_assert!(
-            new_register_value < 1 << B::NUMBER_OF_BITS,
+            new_register_value <= u8::try_from(B::MASK).unwrap(),
             "Register value is too large."
         );
         debug_assert!(
@@ -359,7 +359,7 @@ impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>> SetPropertie
         // is equal to 2^(exponent - max_multiplicity).
         self.harmonic_sum
             <= f64::integer_exp2_minus_signed(
-                i8::try_from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS)).unwrap()
+                i8::try_from(1 << B::NUMBER_OF_BITS).unwrap()
                     - i8::try_from(P::EXPONENT).unwrap()
                     - 1,
             )

@@ -11,6 +11,8 @@ use wyhash::WyHash;
 #[derive(Serialize, Deserialize)]
 /// Struct to store the collision report.
 struct CollisionReport {
+    /// HLL theoretical error at this precision.
+    hll_error: f64,
     /// Average normalized number of elements that are missing in the set of composite hashes.
     mean_collision_rate: f64,
     /// Average number of elements that are missing in the set of composite hashes.
@@ -89,6 +91,7 @@ where
     let mean_number_of_collisions = total_number_of_collisions as f64 / number_of_iterations as f64;
 
     Some(CollisionReport {
+        hll_error: P::error_rate(),
         mean_collision_rate,
         mean_number_of_collisions,
         number_of_elements,
@@ -147,7 +150,7 @@ fn main() {
     test_composite_hash!(progress_bar, reports, u16, 11, Bits4, Bits5);
     test_composite_hash!(progress_bar, reports, u16, 12, Bits4);
 
-    test_collision_rate!(progress_bar, reports, u32, u40, u48, u56, u64);
+    test_collision_rate!(progress_bar, reports, u24, u32, u40, u48, u56, u64);
 
     // We write the reports to a CSV using csv and serde.
 

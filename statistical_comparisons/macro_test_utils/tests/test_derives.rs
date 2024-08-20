@@ -24,10 +24,6 @@ impl Estimator<f64> for TestNamedA {
     fn estimate_union_cardinality(&self, _other: &Self) -> f64 {
         0.0
     }
-
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
-    }
 }
 
 #[derive(Default)]
@@ -52,10 +48,6 @@ impl Estimator<f64> for TestNamedB {
 
     fn estimate_union_cardinality(&self, _other: &Self) -> f64 {
         0.0
-    }
-
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
     }
 }
 

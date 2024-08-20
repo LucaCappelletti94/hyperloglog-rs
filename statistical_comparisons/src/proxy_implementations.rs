@@ -281,10 +281,6 @@ impl<const P: usize> Estimator<f64> for SimpleHLL<P> {
         copy.estimator.merge(&other.estimator);
         copy.estimator.count() as f64
     }
-
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
-    }
 }
 
 impl<H: HasherType, const P: usize, const B: usize> Estimator<f64> for CloudFlareHLL<P, B, H> {
@@ -304,10 +300,6 @@ impl<H: HasherType, const P: usize, const B: usize> Estimator<f64> for CloudFlar
         let mut copy = self.clone();
         copy.estimator.merge(&other.estimator);
         copy.estimator.estimate() as f64
-    }
-
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        true
     }
 }
 
@@ -329,10 +321,6 @@ impl<S: Clone + hypertwobits::h2b::Sketch + Send + Sync> Estimator<f64> for Hype
         copy.estimator.merge(other.estimator.clone());
         copy.estimator.count() as f64
     }
-
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
-    }
 }
 
 impl<S: Clone + hypertwobits::h3b::Sketch + Send + Sync> Estimator<f64> for HyperThreeBits<S> {
@@ -353,10 +341,6 @@ impl<S: Clone + hypertwobits::h3b::Sketch + Send + Sync> Estimator<f64> for Hype
         copy.estimator.merge(other.estimator.clone());
         copy.estimator.count() as f64
     }
-
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
-    }
 }
 
 impl<P: Precision> Estimator<f64> for SourMash<P> {
@@ -375,10 +359,6 @@ impl<P: Precision> Estimator<f64> for SourMash<P> {
     fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         self.estimator.union(&other.estimator) as f64
     }
-
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
-    }
 }
 
 impl<P: Precision> Estimator<f64> for RustHLL<P> {
@@ -390,10 +370,6 @@ impl<P: Precision> Estimator<f64> for RustHLL<P> {
         let mut copy = self.clone();
         copy.estimator.merge(&other.estimator);
         copy.estimator.len()
-    }
-
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
     }
 }
 
@@ -407,10 +383,6 @@ impl<P: Precision> Estimator<f64> for TabacHLLPlusPlus<P> {
         copy.estimator.merge(&other.estimator).unwrap();
         copy.estimator.count()
     }
-
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
-    }
 }
 
 impl<P: Precision> Estimator<f64> for TabacHLL<P> {
@@ -423,10 +395,6 @@ impl<P: Precision> Estimator<f64> for TabacHLL<P> {
         copy.estimator.merge(&self.estimator).unwrap();
         copy.estimator.count()
     }
-
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
-    }
 }
 
 impl<P: Precision> Estimator<f64> for AlecHLL<P> {
@@ -438,9 +406,5 @@ impl<P: Precision> Estimator<f64> for AlecHLL<P> {
         let mut copy = self.clone();
         copy.estimator.union(&other.estimator);
         copy.estimator.len()
-    }
-
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        false
     }
 }

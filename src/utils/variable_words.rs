@@ -1,12 +1,12 @@
 //! Submodule for words-arrays
-use super::VariableWord;
-use core::iter::Copied;
+use super::{u24, u40, u48, u56, VariableWord};
+use core::iter::{Copied, Map};
 use core::slice::Iter;
 
 /// Trait for arrays of words.
 pub trait VariableWords<W: VariableWord> {
     /// The type of the iterator over the words.
-    type Iter<'words>: Iterator<Item = W::Word>
+    type Iter<'words>: ExactSizeIterator<Item = W::Word>
     where
         W: 'words,
         Self: 'words;
@@ -27,14 +27,50 @@ pub trait VariableWords<W: VariableWord> {
 }
 
 /// Trait for arrays of words.
-pub trait Words<W: VariableWord>: AsRef<[W::Word]> + AsMut<[W::Word]> {}
-impl<T: AsRef<[u8]> + AsMut<[u8]>> Words<u8> for T {}
-impl<T: AsRef<[u16]> + AsMut<[u16]>> Words<u16> for T {}
-impl<T: AsRef<[u32]> + AsMut<[u32]>> Words<u32> for T {}
-impl<T: AsRef<[u64]> + AsMut<[u64]>> Words<u64> for T {}
+pub trait Words<W: VariableWord>:
+    AsRef<[<Self as Words<W>>::SliceType]> + AsMut<[<Self as Words<W>>::SliceType]>
+where
+    W::Word: From<<Self as Words<W>>::SliceType>,
+    W::Word: Into<<Self as Words<W>>::SliceType>,
+{
+    type SliceType: Ord + Copy;
+}
+impl<T: AsRef<[u8]> + AsMut<[u8]>> Words<u8> for T {
+    type SliceType = u8;
+}
+impl<T: AsRef<[u16]> + AsMut<[u16]>> Words<u16> for T {
+    type SliceType = u16;
+}
+impl<T: AsRef<[[u8; 3]]> + AsMut<[[u8; 3]]>> Words<u24> for T {
+    type SliceType = [u8; 3];
+}
+impl<T: AsRef<[u32]> + AsMut<[u32]>> Words<u32> for T {
+    type SliceType = u32;
+}
+impl<T: AsRef<[[u8; 5]]> + AsMut<[[u8; 5]]>> Words<u40> for T {
+    type SliceType = [u8; 5];
+}
+impl<T: AsRef<[[u8; 6]]> + AsMut<[[u8; 6]]>> Words<u48> for T {
+    type SliceType = [u8; 6];
+}
+impl<T: AsRef<[[u8; 7]]> + AsMut<[[u8; 7]]>> Words<u56> for T {
+    type SliceType = [u8; 7];
+}
+impl<T: AsRef<[u64]> + AsMut<[u64]>> Words<u64> for T {
+    type SliceType = u64;
+}
 
-impl<WS: Words<W>, W: VariableWord> VariableWords<W> for WS {
-    type Iter<'words> = Copied<Iter<'words, W::Word>> where Self: 'words, W: 'words;
+impl<WS: Words<W>, W: VariableWord> VariableWords<W> for WS
+where
+    W::Word: From<<Self as Words<W>>::SliceType>,
+    W::Word: Into<<Self as Words<W>>::SliceType>,
+{
+    type Iter<'words> = Map<
+        Copied<Iter<'words, <Self as Words<W>>::SliceType>>,
+        fn(<Self as Words<W>>::SliceType) -> W::Word,
+    > where
+        W: 'words,
+        Self: 'words;
 
     fn number_of_words(&self) -> usize {
         self.as_ref().len()
@@ -49,7 +85,8 @@ impl<WS: Words<W>, W: VariableWord> VariableWords<W> for WS {
             self.as_ref()[0..len].windows(2).all(|w| w[0] < w[1]),
             "The array must be strictly sorted, i.e. sorted with no duplicates."
         );
-        self.as_ref()[0..len].binary_search(&value).is_ok()
+        let slice_type: <Self as Words<W>>::SliceType = value.into();
+        self.as_ref()[0..len].binary_search(&slice_type).is_ok()
     }
 
     fn sorted_insert_with_len(&mut self, value: W::Word, len: usize) -> bool {
@@ -64,11 +101,12 @@ impl<WS: Words<W>, W: VariableWord> VariableWords<W> for WS {
             "The array must be strictly sorted, i.e. sorted with no duplicates."
         );
 
-        match self.as_mut()[0..len].binary_search(&value) {
+        let slice_type: <Self as Words<W>>::SliceType = value.into();
+        match self.as_mut()[0..len].binary_search(&slice_type) {
             Ok(_) => false,
             Err(index) => {
                 self.as_mut()[index..=len].rotate_right(1);
-                self.as_mut()[index] = value;
+                self.as_mut()[index] = slice_type;
                 true
             }
         }
@@ -78,7 +116,7 @@ impl<WS: Words<W>, W: VariableWord> VariableWords<W> for WS {
     where
         W: 'words,
     {
-        self.as_ref()[0..len].iter().copied()
+        self.as_ref()[0..len].iter().copied().map(W::Word::from)
     }
 }
 

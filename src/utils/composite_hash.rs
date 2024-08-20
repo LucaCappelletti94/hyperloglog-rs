@@ -64,12 +64,6 @@ macro_rules! impl_composite_hash_all_bits {
     };
 }
 
-macro_rules! impl_composite_hash_everything {
-    ($w:ty) => {
-        impl_composite_hash_all_bits!($w, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-    };
-}
-
 impl_composite_hash!(
     u8,
     (4, Bits4),
@@ -118,8 +112,28 @@ impl_composite_hash!(
     (15, Bits1)
 );
 
-impl_composite_hash_everything!(u32);
-impl_composite_hash_everything!(u40);
-impl_composite_hash_everything!(u48);
-impl_composite_hash_everything!(u56);
-impl_composite_hash_everything!(u64);
+impl_composite_hash_all_bits!(u24, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
+
+impl_composite_hash!(
+    u24,
+    (17, Bits7),
+    (17, Bits6),
+    (17, Bits5),
+    (17, Bits4),
+    (17, Bits3),
+    (17, Bits2),
+    (17, Bits1),
+    (18, Bits6),
+    (18, Bits5),
+    (18, Bits4),
+    (18, Bits3),
+    (18, Bits2),
+    (18, Bits1)
+);
+
+
+impl<P: Precision, B: Bits> CompositeHash<P, B> for u32 {}
+impl<P: Precision, B: Bits> CompositeHash<P, B> for u40 {}
+impl<P: Precision, B: Bits> CompositeHash<P, B> for u48 {}
+impl<P: Precision, B: Bits> CompositeHash<P, B> for u56 {}
+impl<P: Precision, B: Bits> CompositeHash<P, B> for u64 {}

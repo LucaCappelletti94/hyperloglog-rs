@@ -18,6 +18,7 @@ mod number;
 mod random;
 mod variable_word;
 mod variable_words;
+mod as_bytes;
 
 pub use composite_hash::CompositeHash;
 pub use constants::*;
@@ -25,7 +26,8 @@ pub use hasher_type::HasherType;
 pub use matrix::Matrix;
 pub(crate) use number::{FloatOps, Number, PositiveInteger};
 pub use random::*;
-pub use variable_word::{VariableWord, u40, u48, u56};
+pub use as_bytes::AsBytes;
+pub use variable_word::{VariableWord, u24, u40, u48, u56};
 pub use variable_words::VariableWords;
 
 #[cfg(feature = "std")]
@@ -71,25 +73,6 @@ impl Named for u64 {
 /// * `denominator` - The denominator of the division.
 pub(crate) const fn ceil(numerator: usize, denominator: usize) -> usize {
     (numerator + denominator - 1) / denominator
-}
-
-#[inline]
-/// Returns the maximal multiplicity of the registers given the precision and the number of bits.
-pub(crate) const fn maximal_multeplicity(precision: u8, bits: u8) -> u8 {
-    debug_assert!(
-        precision >= 4,
-        "The precision must be greater than or equal to 4."
-    );
-    debug_assert!(
-        precision <= 18,
-        "The precision must be less than or equal to 16."
-    );
-
-    if bits < 6 {
-        1 << bits
-    } else {
-        64 - precision
-    }
 }
 
 #[inline]

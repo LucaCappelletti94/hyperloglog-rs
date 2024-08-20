@@ -120,13 +120,13 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
         // than the maximal value that may be represented in a register
         // with BITS bits.
         if B::NUMBER_OF_BITS < 6_u8 {
-            censored_hash |= 1 << (64_u8 - ((u8::ONE << B::NUMBER_OF_BITS) - u8::ONE));
+            censored_hash |= 1_u64 << 64_u64 - B::MASK;
         }
 
         let register_value = u8::try_from(censored_hash.leading_zeros() + 1).unwrap();
 
         debug_assert!(
-            register_value <= (1 << B::NUMBER_OF_BITS) - 1,
+            register_value <= u8::try_from(B::MASK).unwrap(),
             "The register value {} must be less than or equal to the maximum register value {}.",
             register_value,
             (1 << B::NUMBER_OF_BITS) - 1

@@ -24,7 +24,7 @@ fn cardinality_bencher<
         .map(|_| {
             let mut counter = H::default();
             random_state = splitmix64(random_state);
-            for value in iter_random_values(NUMBER_OF_ELEMENTS, None, random_state) {
+            for value in iter_var_len_random_values(NUMBER_OF_ELEMENTS, None, random_state) {
                 counter.insert(&value);
             }
             counter

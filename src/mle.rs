@@ -46,18 +46,15 @@ fn mle_union_cardinality<
 >(
     left: &H,
     right: &H,
+    left_cardinality: f64,
+    right_cardinality: f64,
     estimate: fn(f64, P::NumberOfRegisters) -> f64,
 ) -> f64 {
-    let mut left_multiplicities_larger =
-        vec![f64::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
-    let mut left_multiplicities_smaller =
-        vec![f64::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
-    let mut right_multiplicities_larger =
-        vec![f64::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
-    let mut right_multiplicities_smaller =
-        vec![f64::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
-    let mut joint_multiplicities =
-        vec![f64::ZERO; usize::from(maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS))];
+    let mut left_multiplicities_larger = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
+    let mut left_multiplicities_smaller = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
+    let mut right_multiplicities_larger = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
+    let mut right_multiplicities_smaller = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
+    let mut joint_multiplicities = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
     let mut union_harmonic_sum = f64::ZERO;
     let mut union_zeros = P::NumberOfRegisters::ZERO;
 
@@ -86,10 +83,7 @@ fn mle_union_cardinality<
     }
 
     // We get the best estimates from HyperLogLog++
-    let union_cardinality_estimate = estimate(union_harmonic_sum, union_zeros);
-
-    let left_cardinality_estimate = left.estimate_cardinality();
-    let right_cardinality_estimate = right.estimate_cardinality();
+    let union_cardinality = estimate(union_harmonic_sum, union_zeros);
 
     // If the sum of the number of registers equal to zero, i.e.
     // the first value in the multiplicities vectors, is equal
@@ -99,15 +93,12 @@ fn mle_union_cardinality<
         return f64::ZERO;
     }
 
-    let intersection: f64 = (left_cardinality_estimate + right_cardinality_estimate
-        - union_cardinality_estimate)
-        .max(f64::EPSILON);
+    let intersection: f64 =
+        (left_cardinality + right_cardinality - union_cardinality).max(f64::EPSILON);
 
-    let left_difference: f64 =
-        (union_cardinality_estimate - right_cardinality_estimate).max(f64::EPSILON);
+    let left_difference: f64 = (union_cardinality - right_cardinality).max(f64::EPSILON);
 
-    let right_difference: f64 =
-        (union_cardinality_estimate - left_cardinality_estimate).max(f64::EPSILON);
+    let right_difference: f64 = (union_cardinality - left_cardinality).max(f64::EPSILON);
 
     let relative_error_limit = 10.0_f64.powi(-ERROR) / f64::integer_exp2(P::EXPONENT).sqrt();
 
@@ -121,7 +112,7 @@ fn mle_union_cardinality<
     };
 
     // We precompute q and q+1 for reference.
-    let q_plus_one: u8 = maximal_multeplicity(P::EXPONENT, B::NUMBER_OF_BITS) - 1;
+    let q_plus_one: u8 = (1 << B::NUMBER_OF_BITS) - 1;
     let q: u8 = q_plus_one - 1;
 
     // We initialize the vectors for the Adam optimizer.
@@ -302,10 +293,17 @@ where
     }
 
     #[inline]
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+    fn estimate_union_cardinality_with_cardinalities(
+        &self,
+        other: &Self,
+        self_cardinality: f64,
+        other_cardinality: f64,
+    ) -> f64 {
         mle_union_cardinality::<P, B, Hasher, LogLogBeta<P, B, R, Hasher>, ERROR>(
             &self.counter,
             &other.counter,
+            self_cardinality,
+            other_cardinality,
             P::beta_estimate,
         )
     }
@@ -327,10 +325,17 @@ where
     }
 
     #[inline]
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+    fn estimate_union_cardinality_with_cardinalities(
+        &self,
+        other: &Self,
+        self_cardinality: f64,
+        other_cardinality: f64,
+    ) -> f64 {
         mle_union_cardinality::<P, B, Hasher, PlusPlus<P, B, R, Hasher>, ERROR>(
             &self.counter,
             &other.counter,
+            self_cardinality,
+            other_cardinality,
             P::plusplus_estimate,
         )
     }
