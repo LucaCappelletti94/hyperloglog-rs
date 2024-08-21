@@ -17,7 +17,7 @@ use sourmash::sketch::hyperloglog::HyperLogLog as SourMashHyperLogLog;
 use std::marker::PhantomData;
 use streaming_algorithms::HyperLogLog as SAHyperLogLog;
 
-pub trait HasherBuilderAssociated: HasherType + MemSize{
+pub trait HasherBuilderAssociated: HasherType + MemSize {
     type Builder: BuildHasher + Default + Clone + Send + Sync + MemSize;
 }
 
@@ -38,8 +38,8 @@ impl HasherBuilderAssociated for ahash::AHasher {
 }
 
 #[derive(Debug, Clone, Default, MemDbg, MemSize)]
-pub struct SimpleHLL<const P: usize> {
-    estimator: SimpleHyperLogLog<P>,
+pub struct SimpleHLL<H: HasherType, const P: usize> {
+    estimator: SimpleHyperLogLog<H, P>,
 }
 
 #[derive(Debug, Clone, Default, MemDbg, MemSize)]
@@ -49,12 +49,12 @@ pub struct CloudFlareHLL<const P: usize, const B: usize, H: HasherType> {
 
 #[derive(Debug, Clone, Default, MemDbg, MemSize)]
 pub struct HyperTwoBits<S: hypertwobits::h2b::Sketch, H: HasherBuilderAssociated> {
-    estimator: H2B<S, H::Builder>
+    estimator: H2B<S, H::Builder>,
 }
 
 #[derive(Debug, Clone, Default, MemDbg, MemSize)]
 pub struct HyperThreeBits<S: hypertwobits::h3b::Sketch, H: HasherBuilderAssociated> {
-    estimator: H3B<S, H::Builder>
+    estimator: H3B<S, H::Builder>,
 }
 
 #[derive(Debug, Clone, MemDbg, MemSize)]
@@ -114,7 +114,6 @@ pub struct TabacHLL<P: Precision, H: HasherBuilderAssociated> {
     _precision: PhantomData<P>,
 }
 
-
 impl<P: Precision, H: HasherBuilderAssociated> Default for TabacHLL<P, H> {
     fn default() -> Self {
         Self {
@@ -140,30 +139,34 @@ impl<P: Precision> Default for AlecHLL<P> {
 }
 
 #[cfg(feature = "std")]
-impl<const P: usize> hyperloglog_rs::prelude::Named for SimpleHLL<P> {
+impl<H: HasherType, const P: usize> hyperloglog_rs::prelude::Named for SimpleHLL<H, P> {
     fn name(&self) -> String {
-        format!("SHLL<P{P}, B8, Vec>")
+        format!("SHLL<P{P}, B8, Vec> + {}", core::any::type_name::<H>())
     }
 }
 
 #[cfg(feature = "std")]
-impl<S: hypertwobits::h2b::Sketch, H: HasherBuilderAssociated> hyperloglog_rs::prelude::Named for HyperTwoBits<S, H> {
+impl<S: hypertwobits::h2b::Sketch, H: HasherBuilderAssociated> hyperloglog_rs::prelude::Named
+    for HyperTwoBits<S, H>
+{
     fn name(&self) -> String {
         format!(
             "H2B<{}> + {}",
-            std::any::type_name::<S>().split("::").last().unwrap(),
-            std::any::type_name::<H>().split("::").last().unwrap()
+            core::any::type_name::<S>().split("::").last().unwrap(),
+            core::any::type_name::<H>().split("::").last().unwrap()
         )
     }
 }
 
 #[cfg(feature = "std")]
-impl<S: hypertwobits::h3b::Sketch, H: HasherBuilderAssociated> hyperloglog_rs::prelude::Named for HyperThreeBits<S, H> {
+impl<S: hypertwobits::h3b::Sketch, H: HasherBuilderAssociated> hyperloglog_rs::prelude::Named
+    for HyperThreeBits<S, H>
+{
     fn name(&self) -> String {
         format!(
             "H3B<{}> + {}",
-            std::any::type_name::<S>().split("::").last().unwrap(),
-            std::any::type_name::<H>().split("::").last().unwrap()
+            core::any::type_name::<S>().split("::").last().unwrap(),
+            core::any::type_name::<H>().split("::").last().unwrap()
         )
     }
 }
@@ -184,7 +187,7 @@ impl<H: HasherType, const P: usize, const B: usize> hyperloglog_rs::prelude::Nam
             "CF<P{}, B{}, Mix> + {}",
             P,
             B,
-            std::any::type_name::<H>().split("::").last().unwrap()
+            core::any::type_name::<H>().split("::").last().unwrap()
         )
     }
 }
@@ -204,7 +207,7 @@ impl<P: Precision, H: HasherBuilderAssociated> hyperloglog_rs::prelude::Named
         format!(
             "TabacPP<P{}, B6, Vec> + {}",
             P::EXPONENT,
-            std::any::type_name::<H>().split("::").last().unwrap()
+            core::any::type_name::<H>().split("::").last().unwrap()
         )
     }
 }
@@ -215,7 +218,7 @@ impl<H: HasherBuilderAssociated, P: Precision> hyperloglog_rs::prelude::Named fo
         format!(
             "Tabac<P{}, B6, Vec> + {}",
             P::EXPONENT,
-            std::any::type_name::<H>().split("::").last().unwrap()
+            core::any::type_name::<H>().split("::").last().unwrap()
         )
     }
 }
@@ -229,21 +232,25 @@ impl<P: Precision> hyperloglog_rs::prelude::Named for AlecHLL<P> {
     }
 }
 
-impl<const P: usize> ExtendableApproximatedSet<u64> for SimpleHLL<P> {
+impl<H: HasherType, const P: usize> ExtendableApproximatedSet<u64> for SimpleHLL<H, P> {
     fn insert(&mut self, item: &u64) -> bool {
         self.estimator.add_object(item);
         true
     }
 }
 
-impl<S: hypertwobits::h2b::Sketch, H: HasherBuilderAssociated> ExtendableApproximatedSet<u64> for HyperTwoBits<S, H> {
+impl<S: hypertwobits::h2b::Sketch, H: HasherBuilderAssociated> ExtendableApproximatedSet<u64>
+    for HyperTwoBits<S, H>
+{
     fn insert(&mut self, item: &u64) -> bool {
         self.estimator.insert(item);
         true
     }
 }
 
-impl<S: hypertwobits::h3b::Sketch, H: HasherBuilderAssociated> ExtendableApproximatedSet<u64> for HyperThreeBits<S, H> {
+impl<S: hypertwobits::h3b::Sketch, H: HasherBuilderAssociated> ExtendableApproximatedSet<u64>
+    for HyperThreeBits<S, H>
+{
     fn insert(&mut self, item: &u64) -> bool {
         self.estimator.insert(item);
         true
@@ -298,7 +305,7 @@ impl<P: Precision> ExtendableApproximatedSet<u64> for AlecHLL<P> {
     }
 }
 
-impl<const P: usize> Estimator<f64> for SimpleHLL<P> {
+impl<H: HasherType, const P: usize> Estimator<f64> for SimpleHLL<H, P> {
     #[expect(
         clippy::cast_precision_loss,
         reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
@@ -350,7 +357,9 @@ impl<H: HasherType, const P: usize, const B: usize> Estimator<f64> for CloudFlar
     }
 }
 
-impl<S: Clone + hypertwobits::h2b::Sketch + Send + Sync, H: HasherBuilderAssociated> Estimator<f64> for HyperTwoBits<S, H> {
+impl<S: Clone + hypertwobits::h2b::Sketch + Send + Sync, H: HasherBuilderAssociated> Estimator<f64>
+    for HyperTwoBits<S, H>
+{
     #[expect(
         clippy::cast_precision_loss,
         reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
@@ -376,7 +385,9 @@ impl<S: Clone + hypertwobits::h2b::Sketch + Send + Sync, H: HasherBuilderAssocia
     }
 }
 
-impl<S: Clone + hypertwobits::h3b::Sketch + Send + Sync, H: HasherBuilderAssociated> Estimator<f64> for HyperThreeBits<S, H> {
+impl<S: Clone + hypertwobits::h3b::Sketch + Send + Sync, H: HasherBuilderAssociated> Estimator<f64>
+    for HyperThreeBits<S, H>
+{
     #[expect(
         clippy::cast_precision_loss,
         reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."

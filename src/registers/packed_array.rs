@@ -712,6 +712,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     }
 
     #[inline]
+    #[allow(unsafe_code)]
     /// Applies a function to the value at the given index.
     ///
     /// # Arguments
@@ -720,14 +721,18 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     ///
     /// # Returns
     /// The previous value at the given index and the new value.
-    fn set_apply<F>(&mut self, index: usize, ops: F) -> (V::Word, V::Word)
+    /// 
+    /// # Safety
+    /// This method accesses values in the underlying array without checking whether the index is valid,
+    /// as it is guaranteed to be valid by the split_index method.
+    pub fn set_apply<F>(&mut self, index: usize, ops: F) -> (V::Word, V::Word)
     where
         F: Fn(V::Word) -> V::Word,
     {
         let (word_index, relative_value_offset) = split_index::<PACKED, V>(index);
 
         if Self::is_bridge_offset(relative_value_offset) {
-            let (low, high) = self.words.split_at_mut(word_index + 1);
+            let (low, high) = unsafe {self.words.split_at_mut_unchecked(word_index + 1)};
             let low = &mut low[word_index];
             let high = &mut high[0];
             let value = extract_bridge_value_from_word::<V>(*low, *high, relative_value_offset);

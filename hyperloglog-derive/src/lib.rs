@@ -546,7 +546,7 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
             #[inline]
             #[must_use]
             fn name(&self) -> String {
-                "#name".to_owned()
+                stringify!(#name).to_string()
             }
         }
     };
@@ -812,3 +812,5 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Convert the expanded code into a token stream
     TokenStream::from(expanded)
 }
+
+

@@ -14,7 +14,7 @@ cardinality-estimator = {git = "https://github.com/LucaCappelletti94/cardinality
 rust-hyperloglog = {git = "https://github.com/LucaCappelletti94/rust-hyperloglog.git", branch = "updated_siphasher", package = "hyperloglog", features = ["mem_dbg"]}
 sourmash = {git="https://github.com/LucaCappelletti94/sourmash.git", features = ["mem_dbg"], branch = "latest_merged"}
 hypertwobits = {git="https://github.com/LucaCappelletti94/hypertwobits.git", features = ["mem_dbg"], branch="main"}
-simple_hll = {git="https://github.com/LucaCappelletti94/simple_hll.git", features = ["mem_dbg"], branch="main"}
+simple_hll = {git="https://github.com/LucaCappelletti94/simple_hll.git", features = ["mem_dbg"], branch="hasher"}
 stattest = {git = "https://github.com/LucaCappelletti94/stattest", branch = "faster_wilcoxon"}
 csv = "1.3.0"
 wyhash = {git="https://github.com/LucaCappelletti94/wyhash-rs", branch="merged", features=["mem_dbg"]}

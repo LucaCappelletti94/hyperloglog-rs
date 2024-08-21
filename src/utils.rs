@@ -71,7 +71,7 @@ impl Named for u64 {
 /// # Arguments
 /// * `numerator` - The numerator of the division.
 /// * `denominator` - The denominator of the division.
-pub(crate) const fn ceil(numerator: usize, denominator: usize) -> usize {
+pub const fn ceil(numerator: usize, denominator: usize) -> usize {
     (numerator + denominator - 1) / denominator
 }
 

@@ -294,16 +294,15 @@ fn mle_union_cardinality<
 
             let yjoint_right_zleft = y_register[2] * z_register[0] * y_register[1];
             let yjoint_left_zright = y_register[2] * z_register[1] * y_register[0];
-            let yjointleft = y_register[2] * y_register[0];
-            let yjointright = y_register[2] * y_register[1];
             let zj_plus_yjoint_zright = z_register[2] + y_register[2] * z_register[1];
             let zj_plus_yjoint_zlr = z_register[2] + y_register[2] * z_register[0] * z_register[1];
             let reciprocal_zj_plus_yjoint_zlr = f64::ONE / zj_plus_yjoint_zlr;
 
             let left_reciprocal = left_smaller_k
-                * (y_register[2] * y_register[0] / (z_register[2] + y_register[2] * z_register[0]) - f64::ONE);
-            let right_reciprocal =
-                right_smaller_k * (yjointright / zj_plus_yjoint_zright - f64::ONE);
+                * (y_register[2] * y_register[0] / (z_register[2] + y_register[2] * z_register[0])
+                    - f64::ONE);
+            let right_reciprocal = right_smaller_k
+                * (y_register[2] * y_register[1] / zj_plus_yjoint_zright - f64::ONE);
 
             let delta = [
                 left_reciprocal
@@ -315,7 +314,8 @@ fn mle_union_cardinality<
                 left_reciprocal
                     + right_reciprocal
                     + joint_k
-                        * ((yjointleft + yjoint_right_zleft) * reciprocal_zj_plus_yjoint_zlr
+                        * ((y_register[2] * y_register[0] + yjoint_right_zleft)
+                            * reciprocal_zj_plus_yjoint_zlr
                             - f64::ONE),
             ];
 
@@ -472,7 +472,7 @@ impl<const N: usize> Default for Adam<N> {
             first_moments: [0.0; N],
             second_moments: [0.0; N],
             time: 0,
-            learning_rate: 0.01,
+            learning_rate: 0.1,
             first_order_decay_factor: 0.9,
             second_order_decay_factor: 0.999,
         }

@@ -133,3 +133,7 @@ harness = false
 [[bench]]
 name = "hybrid"
 harness = false
+
+[[bench]]
+name = "array"
+harness = false

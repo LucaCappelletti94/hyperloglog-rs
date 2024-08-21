@@ -49,9 +49,10 @@ pub(crate) fn cardinality_test<
     multi_progress: Option<&indicatif::MultiProgress>,
 ) -> Vec<PerformanceReport> {
     let number_of_vectors = 1_000_u64;
-    let minimum_sample_interval = 5_u64;
-    let maximum_sample_interval = 20_000_u64;
-    let random_state = splitmix64(9_516_748_163_234_878_233_u64);
+    let number_of_elements = 1_000_000;
+    let sample_interval = number_of_elements / 1_000;
+    let sequence_random_state = splitmix64(9_516_748_163_234_878_233_u64);
+    let sample_index_random_state = splitmix64(234_878_239_9_516_748_163_u64);
 
     let estimator_name = estimator.name();
 
@@ -73,23 +74,22 @@ pub(crate) fn cardinality_test<
             progress_bar
         })
         .flat_map(|thread_number| {
-            let mut random_state =
-                splitmix64(splitmix64(random_state.wrapping_mul(thread_number + 1)));
+            let sequence_random_state =
+                splitmix64(splitmix64(sequence_random_state.wrapping_mul(thread_number + 1)));
+            let mut sample_index_random_state =
+                splitmix64(splitmix64(sample_index_random_state.wrapping_mul(thread_number + 1)));
             let mut performance_reports = Vec::new();
             let mut estimator = estimator.clone();
-
-            let mut current_sample_rate = minimum_sample_interval;
+            let mut next_sample_index = sample_interval;
 
             for (i, element) in
-                iter_random_values::<u64>(2_000_000, None, Some(random_state)).enumerate()
+                iter_random_values::<u64>(number_of_elements, None, Some(sequence_random_state)).enumerate()
             {
                 estimator.insert(&element);
 
-                if u64::try_from(i).unwrap() % current_sample_rate == 0 {
-                    if current_sample_rate < maximum_sample_interval {
-                        random_state = splitmix64(random_state);
-                        current_sample_rate += random_state % current_sample_rate;
-                    }
+                if next_sample_index == i as u64{
+                    sample_index_random_state = splitmix64(sample_index_random_state);
+                    next_sample_index += sample_index_random_state % sample_interval;
 
                     performance_reports.push(PerformanceReport {
                         prediction: estimator.estimate_cardinality(),
