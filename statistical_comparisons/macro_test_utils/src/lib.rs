@@ -1,6 +1,5 @@
 //! Provides a procedural macro to implement all of the methods of a trait for an enum
 //! of single-fielded variants, all of which impleent the trait.
-//! 
 
 use proc_macro::TokenStream;
 use quote::quote;
@@ -53,7 +52,6 @@ pub fn my_trait_derive(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-
 
 #[proc_macro_derive(ExtendableApproximatedSet)]
 pub fn extendable_approximated_set_derive(input: TokenStream) -> TokenStream {
@@ -123,7 +121,7 @@ pub fn estimator_derive(input: TokenStream) -> TokenStream {
     // Generate match arms for each variant of the enum
     let mut estimate_cardinality = Vec::new();
     let mut estimate_union_cardinality = Vec::new();
-    let mut is_union_estimate_non_deterministic = Vec::new();
+    let mut estimate_union_cardinality_with_cardinalities = Vec::new();
 
     data_enum.variants.iter().for_each(|variant| {
         let variant_name = &variant.ident;
@@ -142,8 +140,8 @@ pub fn estimator_derive(input: TokenStream) -> TokenStream {
             (#name::#variant_name(inner), #name::#variant_name(other)) => inner.estimate_union_cardinality(other),
         });
 
-        is_union_estimate_non_deterministic.push(quote! {
-            (#name::#variant_name(inner), #name::#variant_name(other)) => inner.is_union_estimate_non_deterministic(other),
+        estimate_union_cardinality_with_cardinalities.push(quote! {
+            (#name::#variant_name(inner), #name::#variant_name(other)) => inner.estimate_union_cardinality_with_cardinalities(other, cardinality, other_cardinality),
         });
     });
 
@@ -157,17 +155,17 @@ pub fn estimator_derive(input: TokenStream) -> TokenStream {
                     #(#estimate_cardinality)*
                 }
             }
-        
+
+            fn estimate_union_cardinality_with_cardinalities(&self, other: &Self, cardinality: f64, other_cardinality: f64) -> f64 {
+                match (self, other) {
+                    #(#estimate_union_cardinality_with_cardinalities)*
+                    _ => panic!("Union cardinality with cardinalities not defined for these variants."),
+                }
+            }
+
             fn estimate_union_cardinality(&self, other: &Self) -> f64 {
                 match (self, other) {
                     #(#estimate_union_cardinality)*
-                    _ => panic!("Union cardinality not defined for these variants."),
-                }
-            }
-        
-            fn is_union_estimate_non_deterministic(&self, other: &Self) -> bool {
-                match (self, other) {
-                    #(#is_union_estimate_non_deterministic)*
                     _ => panic!("Union cardinality not defined for these variants."),
                 }
             }

@@ -8,22 +8,48 @@ use crate::prelude::*;
 /// Trait for a composite hash.
 pub trait CompositeHash<P: Precision, B: Bits>: VariableWord {
     /// The number of bits in the composite hash.
-    const OFFSET: u8 = Self::NUMBER_OF_BITS - B::NUMBER_OF_BITS;
+    const OFFSET: u8 = Self::NUMBER_OF_BITS - B::NUMBER_OF_BITS - P::EXPONENT;
+    /// The mask for to only keep the bits used for the padding.
+    const PADDING_MASK: u64 = (1 << Self::OFFSET) - 1;
 
     #[allow(unsafe_code)]
     /// Encode the hash from the provided register value, index and the original unsplitted hash.
-    fn encode(register: u8, hash: u64) -> Self::Word {
+    ///
+    /// # Arguments
+    /// * `register` - The register value to be encoded.
+    /// * `hash` - The original hash to be encoded.
+    ///
+    /// # Implementation
+    /// The hash we receive is expected to be in the following form:
+    ///
+    /// ```text
+    /// | bits used for the leading zeros count | potentially unused bits | bits used for the index |
+    /// ```
+    ///
+    /// We need to ensure that the higher bits are the bits of the index, as we will
+    /// sort the hashes and the index needs to be the primary sorting key. Next, we
+    /// want to sort by the number of leading zeros, followed by any eventual unused bits.
+    /// The resulting hash therefore, will be in the following form:
+    ///
+    /// ```text
+    /// | bits used for the index | number of leading zeros | potentially unused bits |
+    /// ```
+    fn encode(register: u8, index: P::NumberOfRegisters, hash: u64) -> Self::Word {
         debug_assert!(register > 0);
+        debug_assert!(u64::from(register) <= B::MASK);
+        debug_assert!(index < P::NUMBER_OF_REGISTERS);
 
-        // We convert the hash into the word
-        let mut hash = unsafe { Self::Word::unchecked_from_u64(hash & Self::MASK) };
+        // We remove the portion used for the index and apply the padding mask,
+        // which ensures that now only the bits used for the padding (if any) are kept.
+        let mut hash = (hash >> P::EXPONENT) & Self::PADDING_MASK;
 
-        // We remove the highers B bits from the hash which will be
-        // replaced by the register value.
-        hash &= !(unsafe { Self::Word::unchecked_from_u64(B::MASK) } << Self::OFFSET);
-        hash |= Self::Word::from(register) << Self::OFFSET;
+        // Next, we place the index in the rightmost bits of the hash.
+        hash |= index.into() << (Self::NUMBER_OF_BITS - P::EXPONENT);
 
-        hash
+        // Next, we place the register in the rightmost bits of the hash, minus the bits used for the index.
+        hash |= u64::from(register) << Self::OFFSET;
+
+        unsafe { Self::unchecked_from_u64(hash) }
     }
 
     #[allow(unsafe_code)]
@@ -31,20 +57,18 @@ pub trait CompositeHash<P: Precision, B: Bits>: VariableWord {
     fn decode(hash: Self::Word) -> (u8, P::NumberOfRegisters) {
         // We extract the index from the rightmost bits of the hash.
         let index = unsafe {
-            P::NumberOfRegisters::unchecked_from_u64(<Self::Word as Into<u64>>::into(
-                hash & ((Self::Word::ONE << P::EXPONENT) - Self::Word::ONE),
-            ))
+            P::NumberOfRegisters::unchecked_from_u64(
+                (hash >> (Self::NUMBER_OF_BITS - P::EXPONENT)).into(),
+            )
         };
-        // Next, we extract the register from the leftmost bits of the hash.
-        let register = unsafe {
-            u8::unchecked_from_u64(<Self::Word as Into<u64>>::into(hash) >> Self::OFFSET)
-        };
+        // Next, we extract the register from the rightmost bits of the hash, minus the bits used for the index.
+        let register = unsafe { u8::unchecked_from_u64((hash >> Self::OFFSET).into() & B::MASK) };
 
         (register, index)
     }
 }
 
-/// Macro to implement the appropriate CompositeHash trait for a given type.
+/// Macro to implement the appropriate [`CompositeHash`] trait for a given type.
 macro_rules! impl_composite_hash {
     ($w:ty, $(($exponent:expr, $bits:ty)),*) => {
         $(
@@ -131,9 +155,52 @@ impl_composite_hash!(
     (18, Bits1)
 );
 
-
 impl<P: Precision, B: Bits> CompositeHash<P, B> for u32 {}
 impl<P: Precision, B: Bits> CompositeHash<P, B> for u40 {}
 impl<P: Precision, B: Bits> CompositeHash<P, B> for u48 {}
 impl<P: Precision, B: Bits> CompositeHash<P, B> for u56 {}
 impl<P: Precision, B: Bits> CompositeHash<P, B> for u64 {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hyperloglog_derive::test_all_precisions_and_bits;
+
+    fn test_composite_hash_for_word<P: Precision, B: Bits<Word = u8>, W: CompositeHash<P, B>>() {
+        let data_type = core::any::type_name::<W>();
+        for ((pseudo_hash, register), index) in iter_random_values::<u64>(1_000, None, None)
+            .zip(iter_random_values::<B>(1_000, None, None))
+            .zip(iter_random_values::<P::NumberOfRegisters>(
+                1_000,
+                Some(P::NUMBER_OF_REGISTERS),
+                None,
+            ))
+        {
+            let register = register.max(1);
+            let composed_hash: W::Word = W::encode(register, index, pseudo_hash);
+            let (decoded_register, decoded_index) = W::decode(composed_hash);
+            assert!(
+                decoded_register > 0,
+                "{data_type}) Failed to decode register - register must be greater than 0"
+            );
+            assert!(
+                u64::from(decoded_register) < B::MASK,
+                "{data_type}) Failed to decode index - index must be less than the mask"
+            );
+            assert_eq!(
+                register, decoded_register,
+                "{data_type}) Failed to decode register"
+            );
+            assert_eq!(index, decoded_index, "{data_type}) Failed to decode index");
+        }
+    }
+
+    #[test_all_precisions_and_bits]
+    fn test_composite_hash<P: Precision, B: Bits<Word = u8>>() {
+        test_composite_hash_for_word::<P, B, u32>();
+        test_composite_hash_for_word::<P, B, u40>();
+        test_composite_hash_for_word::<P, B, u48>();
+        test_composite_hash_for_word::<P, B, u56>();
+        test_composite_hash_for_word::<P, B, u64>();
+    }
+}

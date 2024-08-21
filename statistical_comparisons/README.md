@@ -8,6 +8,7 @@ To run the statistical comparisons for quality of the estimation, use the follow
 
 ```bash
 RUSTFLAGS='-C target-cpu=native' cargo run --release
+RUSTFLAGS='-C target-cpu=native' cargo run --release --features std_ln
 RUSTFLAGS='-C target-cpu=native' cargo run --release --features precomputed_beta
 RUSTFLAGS='-C target-cpu=native' cargo run --release --features integer_plusplus
 RUSTFLAGS='-C target-cpu=native' cargo run --release --features plusplus_kmeans

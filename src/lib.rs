@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
+#![deny(unconditional_recursion)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![cfg_attr(not(feature = "std"), no_std)]

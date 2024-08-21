@@ -1,6 +1,6 @@
 //! Benchmarks to evaluate improvements on the unique_count_from_sorted_iterators function.
 
-use criterion::{criterion_group, criterion_main, Criterion, black_box};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use hyperloglog_rs::hybrid::unique_count_from_sorted_iterators;
 use hyperloglog_rs::prelude::{iter_var_len_random_values, splitmix64};
 
@@ -12,13 +12,21 @@ fn bench_unique_count_from_sorted_iterators(b: &mut Criterion) {
     let entries: Vec<(Vec<u32>, Vec<u32>)> = (0..200)
         .map(|_| {
             random_state = splitmix64(random_state);
-            let mut a =
-                iter_var_len_random_values::<u32>(0, maximal_possible_size, None, Some(random_state))
-                    .collect::<Vec<u32>>();
+            let mut a = iter_var_len_random_values::<u32>(
+                0,
+                maximal_possible_size,
+                None,
+                Some(random_state),
+            )
+            .collect::<Vec<u32>>();
             random_state = splitmix64(random_state);
-            let mut b =
-                iter_var_len_random_values::<u32>(0, maximal_possible_size, None, Some(random_state))
-                    .collect::<Vec<u32>>();
+            let mut b = iter_var_len_random_values::<u32>(
+                0,
+                maximal_possible_size,
+                None,
+                Some(random_state),
+            )
+            .collect::<Vec<u32>>();
             a.sort();
             b.sort();
 
@@ -36,7 +44,6 @@ fn bench_unique_count_from_sorted_iterators(b: &mut Criterion) {
 
     group.finish();
 }
-
 
 criterion_group!(benches, bench_unique_count_from_sorted_iterators);
 

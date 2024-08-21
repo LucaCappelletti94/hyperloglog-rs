@@ -9,7 +9,7 @@ use core::any::type_name;
 #[cfg(feature = "std")]
 use crate::utils::Named;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 /// A struct implementing the [`LogLogBeta`] algorithm.
 pub struct LogLogBeta<
@@ -40,12 +40,14 @@ impl<P: Precision + Named, B: Bits + Named, R: Registers<P, B> + Named, Hasher: 
     #[inline]
     fn name(&self) -> String {
         #[cfg(feature = "precomputed_beta")]
-        let model_name = "LLPB";
+        let estimator_name = "LLPB";
         #[cfg(not(feature = "precomputed_beta"))]
-        let model_name = "LLB";
+        let estimator_name = "LLB";
+        #[cfg(feature = "std_ln")]
+        let estimator_name = format!("{estimator_name}-std-ln");
 
         format!(
-            "{model_name}<{}, {}, {}> + {}",
+            "{estimator_name}<{}, {}, {}> + {}",
             P::default().name(),
             B::default().name(),
             self.registers().name(),
@@ -54,10 +56,58 @@ impl<P: Precision + Named, B: Bits + Named, R: Registers<P, B> + Named, Hasher: 
     }
 }
 
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperLogLog
+    for LogLogBeta<P, B, R, Hasher>
+{
+    type Registers = R;
+    type Precision = P;
+    type Bits = B;
+    type Hasher = Hasher;
+
+    #[inline]
+    fn registers(&self) -> &Self::Registers {
+        self.counter.registers()
+    }
+
+    #[inline]
+    fn get_number_of_zero_registers(&self) -> <P as Precision>::NumberOfRegisters {
+        self.counter.get_number_of_zero_registers()
+    }
+
+    #[inline]
+    fn get_register(&self, index: P::NumberOfRegisters) -> u8 {
+        self.counter.get_register(index)
+    }
+
+    #[inline]
+    fn harmonic_sum(&self) -> f64 {
+        self.counter.harmonic_sum()
+    }
+
+    #[inline]
+    fn from_registers(registers: R) -> Self {
+        Self {
+            counter: HyperLogLog::from_registers(registers),
+        }
+    }
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Correction
+    for LogLogBeta<P, B, R, Hasher>
+{
+    #[inline]
+    fn correction(
+        harmonic_sum: f64,
+        number_of_zero_registers: <Self::Precision as Precision>::NumberOfRegisters,
+    ) -> f64 {
+        P::plusplus_estimate(harmonic_sum, number_of_zero_registers)
+    }
+}
+
 impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Estimator<f64>
     for LogLogBeta<P, B, R, Hasher>
 where
-    Self: HyperLogLog<P, B, Hasher>,
+    Self: HyperLogLog<Precision = P, Bits = B, Registers = R, Hasher = Hasher>,
 {
     #[inline]
     fn estimate_cardinality(&self) -> f64 {

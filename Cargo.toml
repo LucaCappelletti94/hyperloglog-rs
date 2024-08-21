@@ -41,13 +41,21 @@ serde_json = "1.0"
 [dev-dependencies]
 serde_json = "1.0"
 wyhash = "0.5.0"
+ahash = "0.8.11"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
-default = ["low_precisions", "beta", "plusplus"]
+default = ["low_precisions", "beta", "plusplus", "zero_count_correction", "precomputed_beta"]
 beta = []
 precomputed_beta = ["beta"]
 plusplus = []
+# Whether to use the STD's ln function or using a lookup table.
+# Enabling this feature will make the library not compile in no_std environments.
+std_ln = [
+    "std",
+]
+# Whether to use the low-cardinality correction based on zero-counts or not.
+zero_count_correction = []
 # Whether to use local interpolation or kmeans in plus plus bias correction.
 plusplus_kmeans = ["plusplus"]
 # Whether to use integer or floating point biases and estimates.
@@ -120,4 +128,8 @@ opt-level = 3
 
 [[bench]]
 name = "unique_count_from_sorted_iterators"
+harness = false
+
+[[bench]]
+name = "hybrid"
 harness = false

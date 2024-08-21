@@ -4,15 +4,6 @@
 /// Implements the [`HyperLogLog`] trait for a given counter.
 macro_rules! hll_impl {
     ($counter:ty) => {
-        impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Default for $counter {
-            #[inline]
-            fn default() -> Self {
-                Self {
-                    counter: Default::default(),
-                }
-            }
-        }
-
         impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> PartialEq for $counter {
             #[inline]
             fn eq(&self, other: &Self) -> bool {
@@ -35,7 +26,7 @@ macro_rules! hll_impl {
         impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> serde::Serialize
             for $counter
         {
-            #[inline(always)]
+            #[inline]
             fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
                 use serde::ser::SerializeSeq;
                 let mut seq = serializer.serialize_seq(Some(1 << P::EXPONENT))?;
@@ -75,60 +66,6 @@ macro_rules! hll_impl {
             }
         }
 
-        impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType>
-            HyperLogLog<P, B, Hasher> for $counter
-        {
-            type Registers = R;
-
-            #[inline]
-            fn registers(&self) -> &Self::Registers {
-                self.counter.registers()
-            }
-
-            #[inline]
-            fn get_number_of_zero_registers(&self) -> <P as Precision>::NumberOfRegisters {
-                self.counter.get_number_of_zero_registers()
-            }
-
-            #[inline]
-            fn get_register(&self, index: P::NumberOfRegisters) -> u8 {
-                self.counter.get_register(index)
-            }
-
-            #[inline]
-            fn harmonic_sum(&self) -> f64
-            {
-                self.counter.harmonic_sum()
-            }
-
-            #[inline]
-            fn from_registers(registers: R) -> Self {
-                Self {
-                    counter: HyperLogLog::from_registers(registers),
-                }
-            }
-        }
-
-
-
-        impl<
-                P: Precision,
-                B: Bits,
-                Hasher: HasherType,
-                R: Registers<P, B>,
-            > SetProperties for $counter
-        {
-            #[inline(always)]
-            fn is_empty(&self) -> bool {
-                self.counter.is_empty()
-            }
-
-            #[inline(always)]
-            fn is_full(&self) -> bool {
-                self.counter.is_full()
-            }
-        }
-
         impl<
                 P: Precision,
                 B: Bits,
@@ -136,7 +73,7 @@ macro_rules! hll_impl {
                 R: Registers<P, B>,
             > MutableSet for $counter
         {
-            #[inline(always)]
+            #[inline]
             fn clear(&mut self) {
                 self.counter.clear()
             }
@@ -148,23 +85,9 @@ macro_rules! hll_impl {
                 Hasher: HasherType,
                 R: Registers<P, B>,
                 T: core::hash::Hash,
-            > ApproximatedSet<T> for $counter
-        {
-            #[inline(always)]
-            fn may_contain(&self, element: &T) -> bool {
-                self.counter.may_contain(element)
-            }
-        }
-
-        impl<
-                P: Precision,
-                B: Bits,
-                Hasher: HasherType,
-                R: Registers<P, B>,
-                T: core::hash::Hash,
             > ExtendableApproximatedSet<T> for $counter
         {
-            #[inline(always)]
+            #[inline]
             fn insert(&mut self, element: &T) -> bool {
                 self.counter.insert(element)
             }
@@ -173,14 +96,7 @@ macro_rules! hll_impl {
         impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B> + VariableWords<CH>, CH: CompositeHash<P, B>>
             Hybridazable<CH> for $counter
         {
-            type IterSortedHashes<'words> = <R as VariableWords<CH>>::Iter<'words> where Self: 'words, CH: 'words;
-            type P = P;
-            type B = B;
-
-            #[inline]
-            fn is_hybrid(&self) -> bool {
-                self.counter.is_hybrid()
-            }
+            type IterSortedHashes<'words> = <R as VariableWords<CH>>::Words<'words> where Self: 'words, CH: 'words;
 
             #[inline]
             fn dehybridize(&mut self) {
@@ -195,13 +111,18 @@ macro_rules! hll_impl {
             }
 
             #[inline]
-            fn number_of_hashes(&self) -> usize {
-                self.counter.number_of_hashes()
+            fn is_hybrid(&self) -> bool {
+                self.counter.is_hybrid()
             }
 
             #[inline]
             fn capacity(&self) -> usize {
                 self.counter.capacity()
+            }
+
+            #[inline]
+            fn number_of_hashes(&self) -> usize {
+                self.counter.number_of_hashes()
             }
 
             #[inline]

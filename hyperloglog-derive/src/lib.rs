@@ -63,9 +63,9 @@ impl From<Type> for WordType {
             Type::Path(type_path) => {
                 let segment = type_path.path.segments.first().unwrap();
                 let ident = &segment.ident;
-                if ident.to_string() == "u32" {
+                if *ident == "u32" {
                     WordType::U32
-                } else if ident.to_string() == "u64" {
+                } else if *ident == "u64" {
                     WordType::U64
                 } else {
                     panic!("The word type must be either u32 or u64");
@@ -125,14 +125,21 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
             const NUMBER_OF_BITS: u8 = #number_of_bits;
             const MASK: u64 = #mask;
             type Word = Self;
+
+            #[inline]
+            #[allow(unsafe_code)]
+            unsafe fn unchecked_from_u64(value: u64) -> Self::Word {
+                debug_assert!(value <= <Self as crate::prelude::VariableWord>::MASK, "The value is too large for the number.");
+                Self(value as #field_type)
+            }
         }
 
-        impl crate::prelude::AsBytes for #name {
+        impl crate::prelude::ToBytes for #name {
             type Bytes = [u8; #number_of_bits_usize / 8];
 
             #[inline]
             #[must_use]
-            fn as_bytes(self) -> Self::Bytes {
+            fn to_bytes(self) -> Self::Bytes {
                 self.into()
             }
         }
@@ -187,7 +194,7 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
             #[inline]
             #[must_use]
             fn sub(self, rhs: Self) -> Self::Output {
-                Self((self.0.wrapping_sub(rhs.0)) & (<Self as crate::prelude::VariableWord>::MASK as #field_type))
+                Self(self.0 - rhs.0)
             }
         }
 
@@ -409,12 +416,6 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
 
             #[inline]
             #[must_use]
-            unsafe fn unchecked_from_u64(value: u64) -> Self {
-                Self(value as #field_type)
-            }
-
-            #[inline]
-            #[must_use]
             fn to_usize(self) -> usize {
                 self.0 as usize
             }
@@ -450,14 +451,6 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl Clone for #name {
-            #[inline]
-            #[must_use]
-            fn clone(&self) -> Self {
-                Self(self.0)
-            }
-        }
-
         impl Copy for #name {}
 
         impl core::fmt::Debug for #name {
@@ -477,6 +470,14 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
                 } else {
                     Ok(Self(value as #field_type))
                 }
+            }
+        }
+
+        impl From<bool> for #name {
+            #[inline]
+            #[must_use]
+            fn from(value: bool) -> Self {
+                Self(#field_type::from(value))
             }
         }
 
@@ -691,17 +692,13 @@ pub fn test_all_precisions_and_bits(_attr: TokenStream, item: TokenStream) -> To
         let precision_exponent = i + 4;
         (bits).iter().flat_map(move |bit| {
             let test_fn_name = Ident::new(
-                &format!(
-                    "{fn_name}_{precision}_{bit}",
-                )
-                .to_lowercase(),
+                &format!("{fn_name}_{precision}_{bit}",).to_lowercase(),
                 fn_name.span(),
             );
 
             // For each precision, we need to check whether the feature precision_{exponent} is enabled
             let precision_flag = format!("precision_{precision_exponent}");
-            let feature_constraints =
-                vec![quote! { #[cfg(feature = #precision_flag)] }];
+            let feature_constraints = vec![quote! { #[cfg(feature = #precision_flag)] }];
 
             quote! {
                 #[test]
@@ -724,7 +721,6 @@ pub fn test_all_precisions_and_bits(_attr: TokenStream, item: TokenStream) -> To
     TokenStream::from(expanded)
 }
 
-
 #[proc_macro_attribute]
 pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Parse the input token stream (the function we're deriving for)
@@ -743,6 +739,7 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let hashers = vec![
         Ident::new("XxHash", fn_name.span()),
         Ident::new("WyHash", fn_name.span()),
+        Ident::new("AHasher", fn_name.span()),
     ];
 
     // Generate the test functions
@@ -783,7 +780,6 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     if fn_name.to_string().contains("beta") {
                         feature_constraints.push(quote! { #[cfg(feature = "beta")] });
                     }
-                    
                     if packed {
                         quote! {
                             #[test]

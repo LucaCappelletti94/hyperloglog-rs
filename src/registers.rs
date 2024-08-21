@@ -3,7 +3,7 @@
 use core::fmt::Debug;
 
 use crate::prelude::*;
-use crate::utils::{FloatOps, Number, Zero};
+use crate::utils::{FloatOps, Zero};
 mod packed_array;
 
 pub use packed_array::{AllArrays, Array, ArrayRegister};
@@ -26,12 +26,12 @@ pub trait Registers<P: Precision, B: Bits>:
     Eq + PartialEq + Clone + Debug + Send + Sync + Default
 {
     /// Iterator over the registers.
-    type Iter<'register>: Iterator<Item = u8>
+    type Iter<'register>: ExactSizeIterator<Item = u8>
     where
         Self: 'register;
 
     /// Iterator over the registers zipped with another set of registers.
-    type IterZipped<'registers>: Iterator<Item = [u8; 2]>
+    type IterZipped<'registers>: ExactSizeIterator<Item = [u8; 2]>
     where
         Self: 'registers;
 

@@ -9,7 +9,7 @@ use core::{f64, fmt::Debug};
 #[cfg(feature = "mem_dbg")]
 use mem_dbg::{MemDbg, MemSize};
 
-use crate::utils::{FloatOps, Number, One, PositiveInteger, VariableWord};
+use crate::utils::{FloatOps, Number, One, PositiveInteger, ToF64, VariableWord};
 
 #[cfg(feature = "plusplus")]
 use crate::utils::Two;
@@ -23,12 +23,15 @@ include!(concat!(env!("OUT_DIR"), "/number_of_registers.rs"));
 #[cfg(feature = "plusplus")]
 include!(concat!(env!("OUT_DIR"), "/weights.rs"));
 
-#[cfg(feature = "plusplus")]
+#[cfg(feature = "zero_count_correction")]
 include!(concat!(env!("OUT_DIR"), "/linear_count_zeros.rs"));
 
-#[cfg(any(
-    all(feature = "beta", not(feature = "precomputed_beta")),
-    feature = "plusplus"
+#[cfg(all(
+    not(feature = "std_ln"),
+    any(
+        all(feature = "beta", not(feature = "precomputed_beta")),
+        feature = "plusplus"
+    )
 ))]
 include!(concat!(env!("OUT_DIR"), "/ln_values.rs"));
 
@@ -39,9 +42,9 @@ include!(concat!(env!("OUT_DIR"), "/beta.rs"));
 include!(concat!(env!("OUT_DIR"), "/beta_horner.rs"));
 
 #[cfg(feature = "plusplus_kmeans")]
-fn kmeans_bias<const N: usize, V: PartialOrd + Number + Two, W: Number>(
-    estimates: &'static [V; N],
-    biases: &'static [W; N],
+fn kmeans_bias<V: PartialOrd + Number + Two, W: Number>(
+    estimates: &'static [V],
+    biases: &'static [W],
     estimate: V,
 ) -> f64
 where
@@ -53,7 +56,7 @@ where
         - 1;
 
     let mut min = if index > 6 { index - 6 } else { 0 };
-    let mut max = core::cmp::min(index + 6, N);
+    let mut max = core::cmp::min(index + 6, estimates.len());
 
     while max - min != 6 {
         let (min_val, max_val) = (estimates[min], estimates[max - 1]);
@@ -69,9 +72,9 @@ where
 #[cfg(feature = "plusplus")]
 /// Computes the bias correction factor for the estimate using either
 /// the k-means algorithm or the simpler linear interpolation.
-fn bias<const N: usize, V: PartialOrd + Two + Number, W: Number>(
-    estimates: &'static [V; N],
-    biases: &'static [W; N],
+fn bias<V: PartialOrd + Two + Number, W: Number>(
+    estimates: &'static [V],
+    biases: &'static [W],
     estimate: V,
 ) -> f64
 where
@@ -88,8 +91,8 @@ where
             return f64::from(biases[0]);
         }
 
-        if index == N {
-            return f64::from(biases[N - 1]);
+        if index == estimates.len() {
+            return f64::from(biases[estimates.len() - 1]);
         }
 
         let x0 = f64::from(estimates[index - 1]);
@@ -110,10 +113,16 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     /// when counting the number of zeros, as it will be corrected when computing
     /// the cardinality as it is known before hand whether this can happen at all.
     #[cfg(feature = "mem_dbg")]
-    type NumberOfRegisters: PositiveInteger + VariableWord<Word = <Self as Precision>::NumberOfRegisters> + MemSize + MemDbg;
+    type NumberOfRegisters: PositiveInteger
+        + ToF64
+        + VariableWord<Word = <Self as Precision>::NumberOfRegisters>
+        + MemSize
+        + MemDbg;
     #[cfg(not(feature = "mem_dbg"))]
     /// Se documentation above.
-    type NumberOfRegisters: PositiveInteger + VariableWord<Word = <Self as Precision>::NumberOfRegisters>;
+    type NumberOfRegisters: PositiveInteger
+        + ToF64
+        + VariableWord<Word = <Self as Precision>::NumberOfRegisters>;
     /// The exponent of the number of registers, meaning the number of registers
     /// that will be used is 2^EXPONENT. This is the p parameter in the [`HyperLogLog`].
     const EXPONENT: u8;
@@ -140,30 +149,107 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
 
     /// The alpha constant for the precision, used in the estimation of the cardinality.
     const ALPHA: f64;
+    #[cfg(all(feature = "beta", not(feature = "precomputed_beta")))]
+    /// Beta constants for the LogLog-Beta bias correction.
+    const BETA: [f64; 8];
 
-    #[cfg(feature = "plusplus")]
+    #[cfg(feature = "precomputed_beta")]
+    /// Returns the precomputed beta value for the given number of zero registers.
+    fn const_beta_horner(number_of_zero_registers: Self::NumberOfRegisters) -> f64;
+
+    #[cfg(feature = "zero_count_correction")]
     /// The number of zero registers over which the counter should switch to the linear counting.
     const LINEAR_COUNT_ZEROS: Self::NumberOfRegisters;
+    #[cfg(all(feature = "plusplus", not(feature = "integer_plusplus")))]
+    /// The estimate centroids for the [`PlusPlus`] bias correction.
+    const ESTIMATES: &'static [f64];
+    #[cfg(all(feature = "plusplus", not(feature = "integer_plusplus")))]
+    /// The bias values for the [`PlusPlus`] bias correction.
+    const BIASES: &'static [f64];
+    #[cfg(all(feature = "plusplus", feature = "integer_plusplus"))]
+    /// The estimate centroids for the [`PlusPlus`] bias correction.
+    const ESTIMATES: &'static [u32];
+    #[cfg(all(feature = "plusplus", feature = "integer_plusplus"))]
+    /// The bias values for the [`PlusPlus`] bias correction.
+    const BIASES: &'static [i32];
 
     #[cfg(feature = "beta")]
+    #[inline]
     /// Computes LogLog-Beta estimate bias correction using Horner's method.
     ///
     /// Paper: <https://arxiv.org/pdf/1612.02284.pdf>
     /// Wikipedia: <https://en.wikipedia.org/wiki/Horner%27s_method>
-    fn beta_estimate(harmonic_sum: f64, number_of_zero_registers: Self::NumberOfRegisters) -> f64;
+    fn beta_estimate(harmonic_sum: f64, number_of_zero_registers: Self::NumberOfRegisters) -> f64 {
+        #[cfg(feature = "zero_count_correction")]
+        if number_of_zero_registers >= Self::LINEAR_COUNT_ZEROS {
+            return Self::small_correction(number_of_zero_registers);
+        }
+        #[cfg(not(feature = "precomputed_beta"))]
+        let beta_horner = {
+            #[cfg(not(feature = "std_ln"))]
+            let number_of_zero_registers_ln = LN_VALUES[1 + number_of_zero_registers.to_usize()];
+            #[cfg(feature = "std_ln")]
+            let number_of_zero_registers_ln = f64::ln_1p(number_of_zero_registers.to_f64());
+            let mut res = f64::ZERO;
+            for i in (1..8).rev() {
+                res = res * number_of_zero_registers_ln + Self::BETA[i];
+            }
+            res * number_of_zero_registers_ln + Self::BETA[0] * number_of_zero_registers.to_f64()
+        };
 
-    #[cfg(feature = "plusplus")]
+        #[cfg(feature = "precomputed_beta")]
+        let beta_horner = Self::const_beta_horner(number_of_zero_registers);
+
+        Self::ALPHA
+            * f64::integer_exp2(Self::EXPONENT)
+            * (f64::integer_exp2(Self::EXPONENT) - number_of_zero_registers.to_f64())
+            / (harmonic_sum + beta_horner)
+            + 0.5
+    }
+
     /// Computes the small correction factor for the estimate.
-    fn small_correction(number_of_zero_registers: Self::NumberOfRegisters) -> f64;
+    #[inline]
+    #[cfg(feature = "zero_count_correction")]
+    fn small_correction(number_of_zero_registers: Self::NumberOfRegisters) -> f64 {
+        #[cfg(not(feature = "std_ln"))]
+        return f64::integer_exp2(Self::EXPONENT)
+            * (f64::from(Self::EXPONENT) * core::f64::consts::LN_2
+                - LN_VALUES[number_of_zero_registers.to_usize()]);
+        #[cfg(feature = "std_ln")]
+        return f64::integer_exp2(Self::EXPONENT)
+            * f64::ln_1p(
+                (f64::integer_exp2(Self::EXPONENT) - number_of_zero_registers.to_f64())
+                    / number_of_zero_registers.to_f64(),
+            );
+    }
 
+    #[must_use]
+    #[inline]
     #[cfg(feature = "plusplus")]
-    /// Computes the bias correction factor for the estimate.
-    fn bias(estimate: f64) -> f64;
+    #[cfg_attr(
+        feature = "integer_plusplus",
+        expect(clippy::cast_sign_loss, reason = "Cardinality is always positive.")
+    )]
+    #[cfg_attr(
+        feature = "integer_plusplus",
+        expect(
+            clippy::cast_possible_truncation,
+            reason = "Bias is only applied to values smaller than 2**21."
+        )
+    )]
+    /// Computes the bias correction factor for the estimate using the [`PlusPlus`] algorithm.
+    fn bias(estimate: f64) -> f64 {
+        #[cfg(not(feature = "integer_plusplus"))]
+        return bias(Self::ESTIMATES, Self::BIASES, estimate);
+        #[cfg(feature = "integer_plusplus")]
+        return bias(Self::ESTIMATES, Self::BIASES, estimate as u32);
+    }
 
     #[cfg(feature = "plusplus")]
     #[inline]
-    /// Computes the estimate of the cardinality using the `LogLog++` algorithm.
+    /// Computes the estimate of the cardinality using the [`PlusPlus`] algorithm.
     fn plusplus_estimate(harmonic_sum: f64, number_of_zeros: Self::NumberOfRegisters) -> f64 {
+        #[cfg(feature = "zero_count_correction")]
         if number_of_zeros >= Self::LINEAR_COUNT_ZEROS {
             return Self::small_correction(number_of_zeros);
         }
@@ -205,65 +291,24 @@ macro_rules! impl_precision {
                 const EXPONENT: u8 = $exponent;
                 const NUMBER_OF_REGISTERS: Self::NumberOfRegisters = [<NumberOfRegisters $exponent>]::ONE << $exponent;
                 const ALPHA: f64 = [<ALPHA_ $exponent>];
+                #[cfg(all(feature = "beta", not(feature = "precomputed_beta")))]
+                const BETA: [f64; 8] = [<BETA_ $exponent>];
+                #[cfg(feature = "precomputed_beta")]
+                fn const_beta_horner(number_of_zero_registers: Self::NumberOfRegisters) -> f64 {
+                    [<BETA_HORNER_ $exponent>][number_of_zero_registers.to_usize()]
+                }
 
-                #[cfg(feature = "plusplus")]
+                #[cfg(feature = "zero_count_correction")]
                 const LINEAR_COUNT_ZEROS: Self::NumberOfRegisters = [<LINEAR_COUNT_ZEROS_ $exponent>];
 
-                #[inline]
-                #[cfg(feature = "plusplus")]
-                #[cfg_attr(feature = "integer_plusplus", expect(clippy::cast_sign_loss, reason="Cardinality is always positive."))]
-                #[cfg_attr(feature = "integer_plusplus", expect(clippy::cast_possible_truncation, reason="Bias is only applied to values smaller than 2**21."))]
-                fn bias(estimate: f64) -> f64 {
-                    #[cfg(not(feature = "integer_plusplus"))]
-                    return bias(
-                        &[<ESTIMATES_ $exponent>],
-                        &[<BIAS_ $exponent>],
-                        estimate
-                    );
-                    #[cfg(feature = "integer_plusplus")]
-                    return bias(
-                        &[<ESTIMATES_ $exponent>],
-                        &[<BIAS_ $exponent>],
-                        estimate as u32
-                    );
-                }
-
-                /// Computes LogLog-Beta estimate bias correction using Horner's method.
-                ///
-                /// Paper: https://arxiv.org/pdf/1612.02284.pdf
-                /// Wikipedia: https://en.wikipedia.org/wiki/Horner%27s_method
-                #[inline]
-                #[cfg(feature = "beta")]
-                fn beta_estimate(harmonic_sum: f64, number_of_zero_registers: Self::NumberOfRegisters) -> f64 {
-                    if number_of_zero_registers >= [<LINEAR_COUNT_ZEROS_ $exponent>] {
-                        return Self::small_correction(number_of_zero_registers);
-                    }
-                    #[cfg(not(feature = "precomputed_beta"))]
-                    let beta_horner = {
-                        let number_of_zero_registers_ln = LN_VALUES[1 + usize::try_from(number_of_zero_registers).unwrap()];
-                        let mut res = f64::ZERO;
-                        for i in (1..8).rev() {
-                            res = res * number_of_zero_registers_ln + [<BETA_ $exponent>][i];
-                        }
-                        res * number_of_zero_registers_ln + [<BETA_ $exponent>][0] *  f64::from(number_of_zero_registers)
-                    };
-
-                    #[cfg(feature = "precomputed_beta")]
-                    let beta_horner = [<BETA_HORNER_ $exponent>][usize::try_from(number_of_zero_registers).unwrap()];
-
-                    [<ALPHA_ $exponent>]
-                        * f64::integer_exp2(Self::EXPONENT)
-                        * (f64::integer_exp2(Self::EXPONENT) - f64::from(number_of_zero_registers))
-                        / (harmonic_sum + beta_horner)
-                        + 0.5
-                }
-
-                #[inline(always)]
-                #[cfg(feature = "plusplus")]
-                fn small_correction(number_of_zero_registers: Self::NumberOfRegisters) -> f64 {
-                    f64::integer_exp2(Self::EXPONENT)
-                        * (f64::from(Self::EXPONENT) * core::f64::consts::LN_2 - LN_VALUES[usize::try_from(number_of_zero_registers).unwrap()])
-                }
+                #[cfg(all(feature = "plusplus", not(feature = "integer_plusplus")))]
+                const ESTIMATES: &'static [f64] = &[<ESTIMATES_ $exponent>];
+                #[cfg(all(feature = "plusplus", not(feature = "integer_plusplus")))]
+                const BIASES: &'static [f64] = &[<BIAS_ $exponent>];
+                #[cfg(all(feature = "plusplus", feature = "integer_plusplus"))]
+                const ESTIMATES: &'static [u32] = &[<ESTIMATES_ $exponent>];
+                #[cfg(all(feature = "plusplus", feature = "integer_plusplus"))]
+                const BIASES: &'static [i32] = &[<BIAS_ $exponent>];
             }
         }
     };
@@ -290,7 +335,9 @@ mod tests {
         assert_eq!(exponent as u8, P::EXPONENT);
     }
 
-    macro_rules! test_error_rate_simmetry {
+    /// Macro rule to generate test to verify that the estimates are sorted in ascending order
+    /// for a given precision.
+    macro_rules! test_estimates_sorted {
         ($($exponent:expr),*) => {
             $(
                 paste::paste! {
@@ -299,19 +346,7 @@ mod tests {
                     fn [<test_error_rate_simmetry_ $exponent>]() {
                         test_error_rate_simmetry::<[<Precision $exponent>]>();
                     }
-                }
-            )*
-        };
-    }
 
-    test_error_rate_simmetry!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
-
-    /// Macro rule to generate test to verify that the estimates are sorted in ascending order
-    /// for a given precision.
-    macro_rules! test_estimates_sorted {
-        ($($exponent:expr),*) => {
-            $(
-                paste::paste! {
                     #[test]
                     #[cfg(all(feature = "precision_" $exponent, feature="plusplus"))]
                     fn [<test_estimates_sorted_ $exponent>]() {

@@ -1,3 +1,4 @@
+use ahash::AHasher;
 use hyperloglog_derive::test_estimator;
 use hyperloglog_rs::prelude::*;
 use twox_hash::XxHash;
@@ -139,6 +140,28 @@ fn test_mle_beta<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
 }
 
 #[test_estimator]
+#[cfg(feature = "mle")]
+fn test_hybrid_mle_plusplus<
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B> + VariableWords<u32>,
+    H: HasherType,
+>() {
+    test_approximated_counter_at_precision_and_bits::<P, Hybrid<MLE<PlusPlus<P, B, R, H>>>>();
+}
+
+#[test_estimator]
+#[cfg(feature = "mle")]
+fn test_hybrid_mle_beta<
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B> + VariableWords<u32>,
+    H: HasherType,
+>() {
+    test_approximated_counter_at_precision_and_bits::<P, Hybrid<MLE<LogLogBeta<P, B, R, H>>>>();
+}
+
+#[test_estimator]
 fn test_hybrid_plusplus<
     P: Precision,
     B: Bits,
@@ -181,26 +204,44 @@ fn test_hybrid_beta<
 fn test_hybrid_plusplus_low_bits_hash() {
     test_approximated_counter_at_precision_and_bits::<
         Precision4,
-        Hybrid<PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Array, XxHash>, u8>,
+        Hybrid<
+            PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Array, XxHash>,
+            u8,
+        >,
     >();
     test_approximated_counter_at_precision_and_bits::<
         Precision4,
-        Hybrid<PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Array, XxHash>, u16>,
+        Hybrid<
+            PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Array, XxHash>,
+            u16,
+        >,
     >();
     test_approximated_counter_at_precision_and_bits::<
         Precision4,
-        Hybrid<PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Array, XxHash>, u24>,
+        Hybrid<
+            PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Array, XxHash>,
+            u24,
+        >,
     >();
     test_approximated_counter_at_precision_and_bits::<
         Precision4,
-        Hybrid<PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Packed, XxHash>, u8>,
+        Hybrid<
+            PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Packed, XxHash>,
+            u8,
+        >,
     >();
     test_approximated_counter_at_precision_and_bits::<
         Precision4,
-        Hybrid<PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Packed, XxHash>, u16>,
+        Hybrid<
+            PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Packed, XxHash>,
+            u16,
+        >,
     >();
     test_approximated_counter_at_precision_and_bits::<
         Precision4,
-        Hybrid<PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Packed, XxHash>, u24>,
+        Hybrid<
+            PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Packed, XxHash>,
+            u24,
+        >,
     >();
 }

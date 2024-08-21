@@ -44,7 +44,7 @@ where
     let number_of_elements: u64 =
         (1_u64 << P::EXPONENT) * B::NUMBER_OF_BITS_U64 / H::NUMBER_OF_BITS_U64;
 
-    let number_of_iterations = 500_000;
+    let number_of_iterations = 100_000;
 
     let (total_collision_rate, total_number_of_collisions) = (0..number_of_iterations)
         .into_par_iter()
@@ -67,11 +67,25 @@ where
                 let (register, index) =
                     PlusPlus::<P, B, <P as ArrayRegister<B>>::Packed, WyHash>::split_hash(hash);
 
-                let encoded = H::encode(register, hash);
+                let encoded = H::encode(register, index, hash);
                 let (decoded_register, decoded_index) = H::decode(encoded);
 
-                assert_eq!(register, decoded_register, "Failure at precision {}, bits {} and hash {}", P::EXPONENT, B::NUMBER_OF_BITS, H::NUMBER_OF_BITS);
-                assert_eq!(index, decoded_index, "Failure at precision {}, bits {} and hash {}", P::EXPONENT, B::NUMBER_OF_BITS, H::NUMBER_OF_BITS);
+                assert_eq!(
+                    register,
+                    decoded_register,
+                    "Failure at precision {}, bits {} and hash {}",
+                    P::EXPONENT,
+                    B::NUMBER_OF_BITS,
+                    H::NUMBER_OF_BITS
+                );
+                assert_eq!(
+                    index,
+                    decoded_index,
+                    "Failure at precision {}, bits {} and hash {}",
+                    P::EXPONENT,
+                    B::NUMBER_OF_BITS,
+                    H::NUMBER_OF_BITS
+                );
 
                 // We insert the composite hash in the hashset.
                 hashset_composite.insert(encoded);

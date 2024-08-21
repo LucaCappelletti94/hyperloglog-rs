@@ -31,6 +31,14 @@ macro_rules! impl_bits {
                     const NUMBER_OF_BITS: u8 = $n;
                     type Word = u8;
                     const MASK: u64 = (1 << $n) - 1;
+
+                    #[inline]
+                    #[allow(unsafe_code)]
+                    #[expect(clippy::cast_possible_truncation, reason = "The value is guaranteed to be less than 256")]
+                    unsafe fn unchecked_from_u64(value: u64) -> Self::Word {
+                        debug_assert!(value <= <Self as crate::prelude::VariableWord>::MASK, "The value is too large for the number.");
+                        value as u8
+                    }
                 }
 
                 impl Bits for [<Bits $n>] {}

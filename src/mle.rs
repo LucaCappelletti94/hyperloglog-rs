@@ -1,11 +1,11 @@
 //! Struct marker MLE.
 
-use crate::hll_impl;
 use crate::prelude::*;
 use core::cmp::Ordering;
-use core::f64;
+use core::hash::Hash;
+use core::ops::{Add, Mul, Sub};
 
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, Hash, Default, Eq, PartialEq)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 /// A struct representing the Maximum Likelihood Estimation.
 pub struct MLE<H, const ERROR: i32 = 2> {
@@ -13,10 +13,126 @@ pub struct MLE<H, const ERROR: i32 = 2> {
     counter: H,
 }
 
-hll_impl!(MLE<LogLogBeta<P, B, R, Hasher>, 2>);
-hll_impl!(MLE<LogLogBeta<P, B, R, Hasher>, 3>);
-hll_impl!(MLE<PlusPlus<P, B, R, Hasher>, 2>);
-hll_impl!(MLE<PlusPlus<P, B, R, Hasher>, 3>);
+impl<H: ExtendableApproximatedSet<T>, T: Hash, const ERROR: i32> ExtendableApproximatedSet<T>
+    for MLE<H, ERROR>
+{
+    #[inline]
+    fn insert(&mut self, element: &T) -> bool {
+        self.counter.insert(element)
+    }
+}
+
+impl<H: Hybridazable<CH>, CH: CompositeHash<H::Precision, H::Bits>, const ERROR: i32>
+    Hybridazable<CH> for MLE<H, ERROR>
+{
+    type IterSortedHashes<'words> = H::IterSortedHashes<'words> where Self: 'words, CH: 'words;
+
+    #[inline]
+    fn dehybridize(&mut self) {
+        self.counter.dehybridize();
+    }
+
+    #[inline]
+    fn is_hybrid(&self) -> bool {
+        self.counter.is_hybrid()
+    }
+
+    #[inline]
+    fn capacity(&self) -> usize {
+        self.counter.capacity()
+    }
+
+    #[inline]
+    fn new_hybrid() -> Self {
+        Self {
+            counter: Hybridazable::new_hybrid(),
+        }
+    }
+
+    #[inline]
+    fn number_of_hashes(&self) -> usize {
+        self.counter.number_of_hashes()
+    }
+
+    #[inline]
+    fn contains<T: core::hash::Hash>(&self, element: &T) -> bool {
+        Hybridazable::contains(&self.counter, element)
+    }
+
+    #[inline]
+    fn clear_words(&mut self) {
+        self.counter.clear_words();
+    }
+
+    #[inline]
+    fn iter_sorted_hashes(&self) -> Self::IterSortedHashes<'_> {
+        self.counter.iter_sorted_hashes()
+    }
+
+    #[inline]
+    fn hybrid_insert<T: core::hash::Hash>(&mut self, element: &T) -> bool {
+        self.counter.hybrid_insert(element)
+    }
+}
+
+impl<H: BitOr<Output = H>, const ERROR: i32> BitOr for MLE<H, ERROR> {
+    type Output = Self;
+
+    #[inline]
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self {
+            counter: self.counter | rhs.counter,
+        }
+    }
+}
+
+impl<H: BitOrAssign, const ERROR: i32> BitOrAssign for MLE<H, ERROR> {
+    #[inline]
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.counter |= rhs.counter;
+    }
+}
+
+impl<H: MutableSet, const ERROR: i32> MutableSet for MLE<H, ERROR> {
+    #[inline]
+    fn clear(&mut self) {
+        self.counter.clear();
+    }
+}
+
+impl<H: HyperLogLog, const ERROR: i32> HyperLogLog for MLE<H, ERROR> {
+    type Registers = H::Registers;
+    type Precision = H::Precision;
+    type Bits = H::Bits;
+    type Hasher = H::Hasher;
+
+    #[inline]
+    fn registers(&self) -> &Self::Registers {
+        self.counter.registers()
+    }
+
+    #[inline]
+    fn get_number_of_zero_registers(&self) -> <H::Precision as Precision>::NumberOfRegisters {
+        self.counter.get_number_of_zero_registers()
+    }
+
+    #[inline]
+    fn get_register(&self, index: <H::Precision as Precision>::NumberOfRegisters) -> u8 {
+        self.counter.get_register(index)
+    }
+
+    #[inline]
+    fn harmonic_sum(&self) -> f64 {
+        self.counter.harmonic_sum()
+    }
+
+    #[inline]
+    fn from_registers(registers: H::Registers) -> Self {
+        Self {
+            counter: HyperLogLog::from_registers(registers),
+        }
+    }
+}
 
 impl<H, const ERROR: i32> From<H> for MLE<H, ERROR> {
     #[inline]
@@ -40,12 +156,10 @@ where
 fn mle_union_cardinality<
     P: Precision,
     B: Bits,
-    Hasher: HasherType,
-    H: HyperLogLog<P, B, Hasher> + Estimator<f64>,
+    I: ExactSizeIterator<Item = [u8; 2]>,
     const ERROR: i32,
 >(
-    left: &H,
-    right: &H,
+    registers: I,
     left_cardinality: f64,
     right_cardinality: f64,
     estimate: fn(f64, P::NumberOfRegisters) -> f64,
@@ -58,28 +172,24 @@ fn mle_union_cardinality<
     let mut union_harmonic_sum = f64::ZERO;
     let mut union_zeros = P::NumberOfRegisters::ZERO;
 
-    for [left_register, right_register] in left.registers().iter_registers_zipped(right.registers())
-    {
-        let larger_register = match left_register.cmp(&right_register) {
-            Ordering::Less => {
-                left_multiplicities_smaller[usize::from(left_register)] += f64::ONE;
-                right_multiplicities_larger[usize::from(right_register)] += f64::ONE;
-                right_register
-            }
-            Ordering::Greater => {
-                left_multiplicities_larger[usize::from(left_register)] += f64::ONE;
-                right_multiplicities_smaller[usize::from(right_register)] += f64::ONE;
-                left_register
-            }
-            Ordering::Equal => {
-                // If left register is equal to right register
-                joint_multiplicities[usize::from(left_register)] += f64::ONE;
-                left_register
-            }
+    for [left_register, right_register] in registers {
+        let cmp = left_register.cmp(&right_register);
+
+        let larger_register = if cmp == Ordering::Greater || cmp == Ordering::Equal {
+            left_register
+        } else {
+            right_register
         };
+        let left_register = usize::from(left_register);
+        let right_register = usize::from(right_register);
+        left_multiplicities_smaller[left_register] += f64::from(cmp == Ordering::Less);
+        right_multiplicities_larger[right_register] += f64::from(cmp == Ordering::Less);
+        left_multiplicities_larger[left_register] += f64::from(cmp == Ordering::Greater);
+        right_multiplicities_smaller[right_register] += f64::from(cmp == Ordering::Greater);
+        joint_multiplicities[left_register] += f64::from(cmp == Ordering::Equal);
 
         union_harmonic_sum += f64::integer_exp2_minus(larger_register);
-        union_zeros += P::NumberOfRegisters::from_bool(larger_register.is_zero());
+        union_zeros += P::NumberOfRegisters::from(larger_register.is_zero());
     }
 
     // We get the best estimates from HyperLogLog++
@@ -104,11 +214,25 @@ fn mle_union_cardinality<
 
     // we introdce the following expressions to simplify the computation
     // of the gradient.
-    let x = |phi: f64, two_to_minus_register: f64| -> f64 { phi.exp() * two_to_minus_register };
+    let x = |phi: [f64; 3], two_to_minus_register: f64| -> [f64; 3] {
+        [
+            (phi[0].exp() * two_to_minus_register).max(f64::EPSILON),
+            (phi[1].exp() * two_to_minus_register).max(f64::EPSILON),
+            (phi[2].exp() * two_to_minus_register).max(f64::EPSILON),
+        ]
+    };
 
-    let yz = |x: f64| -> (f64, f64) {
-        let exp_m1 = (-x).exp_m1();
-        (f64::ONE + exp_m1, -exp_m1)
+    let yz = |x: [f64; 3]| -> ([f64; 3], [f64; 3]) {
+        let exp_m1 = [(-x[0]).exp_m1(), (-x[1]).exp_m1(), (-x[2]).exp_m1()];
+
+        (
+            [
+                (f64::ONE + exp_m1[0]).max(f64::EPSILON),
+                (f64::ONE + exp_m1[1]).max(f64::EPSILON),
+                (f64::ONE + exp_m1[2]).max(f64::EPSILON),
+            ],
+            [-exp_m1[0], -exp_m1[1], -exp_m1[2]],
+        )
     };
 
     // We precompute q and q+1 for reference.
@@ -125,83 +249,42 @@ fn mle_union_cardinality<
 
     let mut optimizer: Adam<3> = Adam::default();
 
-    let left_number_of_zeros =
-        left_multiplicities_smaller[0] + left_multiplicities_larger[0] + joint_multiplicities[0];
-    let right_number_of_zeros =
-        right_multiplicities_smaller[0] + right_multiplicities_larger[0] + joint_multiplicities[0];
-    let intersection_number_of_zeros =
-        right_multiplicities_smaller[0] + left_multiplicities_smaller[0] + joint_multiplicities[0];
+    let zeros_0: [f64; 3] = [
+        left_multiplicities_smaller[0] + left_multiplicities_larger[0] + joint_multiplicities[0],
+        right_multiplicities_smaller[0] + right_multiplicities_larger[0] + joint_multiplicities[0],
+        right_multiplicities_smaller[0] + left_multiplicities_smaller[0] + joint_multiplicities[0],
+    ];
 
-    let left_number_of_saturated_registers =
-        left_multiplicities_larger[left_multiplicities_larger.len() - 1];
-    let right_number_of_saturated_registers =
-        right_multiplicities_larger[right_multiplicities_larger.len() - 1];
-    let intersection_number_of_saturated_registers =
-        joint_multiplicities[joint_multiplicities.len() - 1];
+    let zeros_q: [f64; 3] = [
+        left_multiplicities_larger[usize::from(q_plus_one)],
+        right_multiplicities_larger[usize::from(q_plus_one)],
+        joint_multiplicities[usize::from(q_plus_one)],
+    ];
 
     let two_to_zero: f64 = f64::integer_exp2_minus(P::EXPONENT);
     let two_to_minus_q: f64 = f64::integer_exp2_minus(P::EXPONENT + q);
 
     for _ in 0_u16..10_000_u16 {
-        let x_left_0 = x(phis[0], two_to_zero);
-        let x_right_0 = x(phis[1], two_to_zero);
-        let x_joint_0 = x(phis[2], two_to_zero);
-        let x_left_q = x(phis[0], two_to_minus_q);
-        let (y_left_q, z_left_q) = yz(x_left_q);
-        let x_right_q = x(phis[1], two_to_minus_q);
-        let (y_right_q, z_right_q) = yz(x_right_q);
-        let x_joint_q = x(phis[2], two_to_minus_q);
-        let (y_joint_q, z_joint_q) = yz(x_joint_q);
+        let x_0 = x(phis, two_to_zero);
+        let x_q = x(phis, two_to_minus_q);
+        let (y_q, z_q) = yz(x_q);
 
-        let denominator = f64::ONE / (z_joint_q + y_joint_q * z_left_q * z_right_q);
+        let denominator = f64::ONE / (z_q[2] + y_q[2] * z_q[0] * z_q[1]);
 
-        let xl_yl_q = x_left_q * y_left_q;
-        let xr_yr_q = x_right_q * y_right_q;
-        let xj_yjoint_q = x_joint_q * y_joint_q;
-        let shared_factor =
-            if intersection_number_of_saturated_registers > f64::ZERO && y_joint_q > f64::EPSILON {
-                intersection_number_of_saturated_registers * y_joint_q * denominator
-            } else {
-                f64::ZERO
-            };
+        let y_q_saturated = y_q.ew_mul(zeros_q[2]);
 
-        gradients[0] = if xl_yl_q > f64::EPSILON {
-            xl_yl_q * (shared_factor * z_right_q + left_number_of_saturated_registers / z_left_q)
-        } else {
-            f64::ZERO
-        };
-        gradients[0] -= left_number_of_zeros * x_left_0;
+        gradients[0] = y_q_saturated[2] * denominator * z_q[1] + zeros_q[0] / z_q[0];
 
-        gradients[1] = if xr_yr_q > f64::EPSILON {
-            xr_yr_q * (shared_factor * z_left_q + right_number_of_saturated_registers / z_right_q)
-        } else {
-            f64::ZERO
-        };
+        gradients[1] = y_q_saturated[2] * denominator * z_q[0] + zeros_q[1] / z_q[1];
 
-        gradients[1] -= right_number_of_zeros * x_right_0;
-
-        gradients[2] = if intersection_number_of_saturated_registers > f64::ZERO
-            && xj_yjoint_q > f64::EPSILON
-            && denominator.is_finite()
-        {
-            intersection_number_of_saturated_registers
-                * xj_yjoint_q
-                * (y_left_q + z_left_q * y_right_q)
-                * denominator
-        } else {
-            f64::ZERO
-        };
-        gradients[2] -= intersection_number_of_zeros * x_joint_0;
+        gradients[2] = y_q_saturated[0] * denominator + y_q_saturated[1] * z_q[0];
+        gradients = (gradients.ew_mul(y_q.ew_mul(z_q))).ew_sub(zeros_0.ew_mul(x_0));
 
         (1..q_plus_one).for_each(|register_value| {
             let two_to_minus_register = f64::integer_exp2_minus(P::EXPONENT + register_value);
 
-            let x_left = x(phis[0], two_to_minus_register);
-            let x_right = x(phis[1], two_to_minus_register);
-            let x_joint = x(phis[2], two_to_minus_register);
-            let (y_left, z_left) = yz(x_left);
-            let (y_right, z_right) = yz(x_right);
-            let (y_joint, z_joint) = yz(x_joint);
+            let x_register = x(phis, two_to_minus_register);
+            let (y_register, z_register) = yz(x_register);
 
             let joint_k = joint_multiplicities[usize::from(register_value)];
             let left_smaller_k = left_multiplicities_smaller[usize::from(register_value)];
@@ -209,57 +292,34 @@ fn mle_union_cardinality<
             let right_smaller_k = right_multiplicities_smaller[usize::from(register_value)];
             let right_larger_k = right_multiplicities_larger[usize::from(register_value)];
 
-            let yjoint_zleft = y_joint * z_left;
-            let yjoint_right_zleft = yjoint_zleft * y_right;
-            let yjoint_zright = y_joint * z_right;
-            let yjointleft_zright = yjoint_zright * y_left;
-            let yjointleft = y_joint * y_left;
-            let yjointright = y_joint * y_right;
-            let yjoint_zlr = yjoint_zleft * z_right;
-            let mut zj_plus_yjoint_zleft = z_joint + yjoint_zleft;
-            if zj_plus_yjoint_zleft < f64::EPSILON {
-                zj_plus_yjoint_zleft = f64::EPSILON;
-            }
-            let reciprocal_zj_plus_yjoint_zleft = f64::ONE / zj_plus_yjoint_zleft;
-            let mut zj_plus_yjoint_zright = z_joint + yjoint_zright;
-            if zj_plus_yjoint_zright < f64::EPSILON {
-                zj_plus_yjoint_zright = f64::EPSILON;
-            }
-            let reciprocal_zj_plus_yjoint_zright = f64::ONE / zj_plus_yjoint_zright;
-            let mut zj_plus_yjoint_zlr = z_joint + yjoint_zlr;
-            if zj_plus_yjoint_zlr < f64::EPSILON {
-                zj_plus_yjoint_zlr = f64::EPSILON;
-            }
+            let yjoint_right_zleft = y_register[2] * z_register[0] * y_register[1];
+            let yjoint_left_zright = y_register[2] * z_register[1] * y_register[0];
+            let yjointleft = y_register[2] * y_register[0];
+            let yjointright = y_register[2] * y_register[1];
+            let zj_plus_yjoint_zright = z_register[2] + y_register[2] * z_register[1];
+            let zj_plus_yjoint_zlr = z_register[2] + y_register[2] * z_register[0] * z_register[1];
             let reciprocal_zj_plus_yjoint_zlr = f64::ONE / zj_plus_yjoint_zlr;
 
-            let left_reciprocal =
-                left_smaller_k * (reciprocal_zj_plus_yjoint_zleft * yjointleft - f64::ONE);
+            let left_reciprocal = left_smaller_k
+                * (y_register[2] * y_register[0] / (z_register[2] + y_register[2] * z_register[0]) - f64::ONE);
             let right_reciprocal =
-                right_smaller_k * (reciprocal_zj_plus_yjoint_zright * yjointright - f64::ONE);
+                right_smaller_k * (yjointright / zj_plus_yjoint_zright - f64::ONE);
 
-            if x_left > f64::EPSILON {
-                gradients[0] += x_left
-                    * (left_reciprocal
-                        + joint_k * (yjointleft_zright * reciprocal_zj_plus_yjoint_zlr - f64::ONE)
-                        + left_larger_k * (y_left / z_left - f64::ONE));
-            }
+            let delta = [
+                left_reciprocal
+                    + joint_k * (yjoint_left_zright * reciprocal_zj_plus_yjoint_zlr - f64::ONE)
+                    + left_larger_k * (y_register[0] / z_register[0] - f64::ONE),
+                right_reciprocal
+                    + joint_k * (yjoint_right_zleft * reciprocal_zj_plus_yjoint_zlr - f64::ONE)
+                    + right_larger_k * (y_register[1] / z_register[1] - f64::ONE),
+                left_reciprocal
+                    + right_reciprocal
+                    + joint_k
+                        * ((yjointleft + yjoint_right_zleft) * reciprocal_zj_plus_yjoint_zlr
+                            - f64::ONE),
+            ];
 
-            if x_right > f64::EPSILON {
-                gradients[1] += x_right
-                    * (right_reciprocal
-                        + joint_k
-                            * (yjoint_right_zleft * reciprocal_zj_plus_yjoint_zlr - f64::ONE)
-                        + right_larger_k * (y_right / z_right - f64::ONE));
-            }
-
-            if x_joint > f64::EPSILON {
-                gradients[2] += x_joint
-                    * (left_reciprocal
-                        + right_reciprocal
-                        + joint_k
-                            * ((yjointleft + yjoint_right_zleft) * reciprocal_zj_plus_yjoint_zlr
-                                - f64::ONE));
-            }
+            gradients = gradients.ew_add(x_register.ew_mul(delta));
         });
 
         // We execute the update of the Adam first and second moments.
@@ -277,42 +337,82 @@ fn mle_union_cardinality<
     phis[0].exp() + phis[1].exp() + phis[2].exp()
 }
 
-impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Estimator<f64>
-    for MLE<LogLogBeta<P, B, R, Hasher>, ERROR>
-where
-    Self: HyperLogLog<P, B, Hasher>,
-{
-    #[inline]
-    fn estimate_cardinality(&self) -> f64 {
-        self.counter.estimate_cardinality()
-    }
+/// Trait for element-wise multiplication.
+trait ElementWiseMultiplication<Rhs = Self> {
+    /// Element-wise multiplication.
+    fn ew_mul(self, other: Rhs) -> Self;
+}
 
+impl<const N: usize, T: Default + Copy + Mul<T, Output = T>> ElementWiseMultiplication for [T; N] {
     #[inline]
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        true
-    }
-
-    #[inline]
-    fn estimate_union_cardinality_with_cardinalities(
-        &self,
-        other: &Self,
-        self_cardinality: f64,
-        other_cardinality: f64,
-    ) -> f64 {
-        mle_union_cardinality::<P, B, Hasher, LogLogBeta<P, B, R, Hasher>, ERROR>(
-            &self.counter,
-            &other.counter,
-            self_cardinality,
-            other_cardinality,
-            P::beta_estimate,
-        )
+    fn ew_mul(self, other: Self) -> Self {
+        let mut result = [T::default(); N];
+        for i in 0..N {
+            result[i] = self[i] * other[i];
+        }
+        result
     }
 }
 
-impl<const ERROR: i32, P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Estimator<f64>
-    for MLE<PlusPlus<P, B, R, Hasher>, ERROR>
+impl<const N: usize, T: Default + Copy + Mul<T, Output = T>> ElementWiseMultiplication<T>
+    for [T; N]
+{
+    #[inline]
+    fn ew_mul(self, other: T) -> Self {
+        let mut result = [T::default(); N];
+        for i in 0..N {
+            result[i] = self[i] * other;
+        }
+        result
+    }
+}
+
+/// Trait for element-wise subtraction.
+trait ElementWiseSubtraction {
+    /// Element-wise subtraction.
+    fn ew_sub(self, other: Self) -> Self;
+}
+
+impl<const N: usize, T: Default + Copy + Sub<T, Output = T>> ElementWiseSubtraction for [T; N] {
+    #[inline]
+    fn ew_sub(self, other: Self) -> Self {
+        let mut result = [T::default(); N];
+        for i in 0..N {
+            result[i] = self[i] - other[i];
+        }
+        result
+    }
+}
+
+/// Trait for element-wise addition.
+trait ElementWiseAddition {
+    /// Element-wise addition.
+    fn ew_add(self, other: Self) -> Self;
+}
+
+impl<const N: usize, T: Default + Copy + Add<T, Output = T>> ElementWiseAddition for [T; N] {
+    #[inline]
+    fn ew_add(self, other: Self) -> Self {
+        let mut result = [T::default(); N];
+        for i in 0..N {
+            result[i] = self[i] + other[i];
+        }
+        result
+    }
+}
+
+impl<const ERROR: i32, H: Correction> Correction for MLE<H, ERROR> {
+    fn correction(
+        harmonic_sum: f64,
+        number_of_zero_registers: <Self::Precision as Precision>::NumberOfRegisters,
+    ) -> f64 {
+        H::correction(harmonic_sum, number_of_zero_registers)
+    }
+}
+
+impl<const ERROR: i32, H> Estimator<f64> for MLE<H, ERROR>
 where
-    Self: HyperLogLog<P, B, Hasher>,
+    H: Estimator<f64> + Correction,
 {
     #[inline]
     fn estimate_cardinality(&self) -> f64 {
@@ -331,12 +431,21 @@ where
         self_cardinality: f64,
         other_cardinality: f64,
     ) -> f64 {
-        mle_union_cardinality::<P, B, Hasher, PlusPlus<P, B, R, Hasher>, ERROR>(
-            &self.counter,
-            &other.counter,
+        mle_union_cardinality::<
+            <H as HyperLogLog>::Precision,
+            <H as HyperLogLog>::Bits,
+            <<H as HyperLogLog>::Registers as Registers<
+                <H as HyperLogLog>::Precision,
+                <H as HyperLogLog>::Bits,
+            >>::IterZipped<'_>,
+            ERROR,
+        >(
+            self.counter
+                .registers()
+                .iter_registers_zipped(other.counter.registers()),
             self_cardinality,
             other_cardinality,
-            P::plusplus_estimate,
+            <H as Correction>::correction,
         )
     }
 }

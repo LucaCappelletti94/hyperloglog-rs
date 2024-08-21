@@ -1,7 +1,7 @@
 //! Implementation of the basic struct for [`HyperLogLog`] counter.
 
 use crate::prelude::*;
-use crate::utils::{HasherType, Number, One, PositiveInteger, VariableWords, Zero};
+use crate::utils::{HasherType, One, PositiveInteger, VariableWords, Zero};
 use core::fmt::Debug;
 use core::fmt::Formatter;
 use core::hash::Hash;
@@ -90,7 +90,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> BasicLogLog<
         let (old_register_value, larger_register_value) =
             self.registers.set_greater(index, new_register_value);
 
-        self.number_of_zero_registers -= P::NumberOfRegisters::from_bool(old_register_value == 0);
+        self.number_of_zero_registers -= P::NumberOfRegisters::from(old_register_value == 0);
 
         self.harmonic_sum += f64::integer_exp2_minus(larger_register_value)
             - f64::integer_exp2_minus(old_register_value);
@@ -108,10 +108,13 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Default
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperLogLog<P, B, Hasher>
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperLogLog
     for BasicLogLog<P, B, R, Hasher>
 {
     type Registers = R;
+    type Precision = P;
+    type Bits = B;
+    type Hasher = Hasher;
 
     /// Returns the number of registers with zero values.
     fn get_number_of_zero_registers(&self) -> P::NumberOfRegisters {
@@ -137,7 +140,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperLogLog<
         let mut harmonic_sum = f64::ZERO;
 
         for register in registers.iter_registers() {
-            number_of_zero_registers += P::NumberOfRegisters::from_bool(register == 0);
+            number_of_zero_registers += P::NumberOfRegisters::from(register == 0);
             harmonic_sum += f64::integer_exp2_minus(register);
         }
 
@@ -160,13 +163,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, A: Hash, Hasher: HasherType> Fro
     }
 }
 
-impl<
-        P: Precision,
-        B: Bits,
-        R: Registers<P, B>,
-        Hasher: HasherType,
-        Rhs: HyperLogLog<P, B, Hasher>,
-    > BitOrAssign<Rhs> for BasicLogLog<P, B, R, Hasher>
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType, Rhs: HyperLogLog>
+    BitOrAssign<Rhs> for BasicLogLog<P, B, R, Hasher>
 {
     fn bitor_assign(&mut self, rhs: Rhs) {
         let mut rhs_registers = rhs.registers().iter_registers();
@@ -177,7 +175,7 @@ impl<
             if rhs_register > old_register {
                 self.harmonic_sum +=
                     f64::integer_exp2_minus(rhs_register) - f64::integer_exp2_minus(old_register);
-                self.number_of_zero_registers -= P::NumberOfRegisters::from_bool(old_register == 0);
+                self.number_of_zero_registers -= P::NumberOfRegisters::from(old_register == 0);
                 rhs_register
             } else {
                 old_register
@@ -186,13 +184,8 @@ impl<
     }
 }
 
-impl<
-        P: Precision,
-        B: Bits,
-        R: Registers<P, B>,
-        Rhs: HyperLogLog<P, B, Hasher>,
-        Hasher: HasherType,
-    > BitOr<Rhs> for BasicLogLog<P, B, R, Hasher>
+impl<P: Precision, B: Bits, R: Registers<P, B>, Rhs: HyperLogLog, Hasher: HasherType> BitOr<Rhs>
+    for BasicLogLog<P, B, R, Hasher>
 {
     type Output = Self;
 
@@ -210,19 +203,21 @@ impl<
         CH: CompositeHash<P, B>,
     > Hybridazable<CH> for BasicLogLog<P, B, R, Hasher>
 {
-    type IterSortedHashes<'words> = <R as VariableWords<CH>>::Iter<'words> where Self: 'words, CH: 'words;
-    type B = B;
-    type P = P;
+    type IterSortedHashes<'words> = <R as VariableWords<CH>>::Words<'words> where Self: 'words, CH: 'words;
+
+    fn new_hybrid() -> Self {
+        let mut default: Self = BasicLogLog::default();
+        default.clear_words();
+        default
+    }
 
     fn is_hybrid(&self) -> bool {
         // We employ the harmonic sum as a flag to represent whether the counter is in hybrid mode.
         self.harmonic_sum < f64::ZERO
     }
 
-    fn new_hybrid() -> Self {
-        let mut default: Self = BasicLogLog::default();
-        default.clear_words();
-        default
+    fn capacity(&self) -> usize {
+        <R as VariableWords<CH>>::number_of_words(&self.registers)
     }
 
     fn dehybridize(&mut self) {
@@ -245,10 +240,6 @@ impl<
         self.get_number_of_zero_registers().to_usize()
     }
 
-    fn capacity(&self) -> usize {
-        self.registers.number_of_words()
-    }
-
     fn clear_words(&mut self) {
         self.registers.clear_registers();
         self.number_of_zero_registers = P::NumberOfRegisters::ZERO;
@@ -268,10 +259,10 @@ impl<
         );
 
         let hash = Self::compute_hash(element);
-        let (register, _index) = Self::split_hash(hash);
+        let (register, index) = Self::split_hash(hash);
 
         self.registers
-            .find_sorted_with_len(CH::encode(register, hash), self.number_of_hashes())
+            .find_sorted_with_len(CH::encode(register, index, hash), self.number_of_hashes())
     }
 
     fn hybrid_insert<T: Hash>(&mut self, element: &T) -> bool {
@@ -317,8 +308,8 @@ impl<
                 self.insert(element)
             } else {
                 let hash = Self::compute_hash(element);
-                let (register, _index) = Self::split_hash(hash);
-                let composite_hash = CH::encode(register, hash);
+                let (register, index) = Self::split_hash(hash);
+                let composite_hash = CH::encode(register, index, hash);
 
                 debug_assert!(composite_hash != CH::Word::ZERO, "Composite hash is zero.");
 
@@ -341,37 +332,6 @@ impl<
         } else {
             self.insert(element)
         }
-    }
-}
-
-impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>> SetProperties
-    for BasicLogLog<P, B, R, Hasher>
-{
-    fn is_empty(&self) -> bool {
-        self.number_of_zero_registers == P::NUMBER_OF_REGISTERS
-    }
-
-    fn is_full(&self) -> bool {
-        // The harmonic sum is defined as Sum(2^(-register_value)) for all registers.
-        // When all registers are maximally filled, i.e. equal to the maximal multiplicity value,
-        // the harmonic sum is equal to (2^(-max_multiplicity)) * number_of_registers.
-        // Since number_of_registers is a power of 2, specifically 2^exponent, the harmonic sum
-        // is equal to 2^(exponent - max_multiplicity).
-        self.harmonic_sum
-            <= f64::integer_exp2_minus_signed(
-                i8::try_from(1 << B::NUMBER_OF_BITS).unwrap()
-                    - i8::try_from(P::EXPONENT).unwrap()
-                    - 1,
-            )
-    }
-}
-
-impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, T: Hash> ApproximatedSet<T>
-    for BasicLogLog<P, B, R, Hasher>
-{
-    fn may_contain(&self, element: &T) -> bool {
-        let (register, index) = Self::hash_and_index::<T>(element);
-        self.get_register(index) >= register
     }
 }
 

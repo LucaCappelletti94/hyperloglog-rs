@@ -361,7 +361,7 @@ fn write_weights(precisions: &[usize]) {
         .unwrap();
 }
 
-#[cfg(feature = "plusplus")]
+#[cfg(feature = "zero_count_correction")]
 fn write_linear_count_zeros(precisions: &[usize]) {
     let linear_count_zeros = precisions
         .iter()
@@ -402,9 +402,12 @@ fn write_alphas(precisions: &[usize]) {
         .unwrap();
 }
 
-#[cfg(any(
-    all(feature = "beta", not(feature = "precomputed_beta")),
-    feature = "plusplus"
+#[cfg(all(
+    not(feature = "std_ln"),
+    any(
+        all(feature = "beta", not(feature = "precomputed_beta")),
+        feature = "plusplus",
+    )
 ))]
 fn write_ln_values(precisions: &[usize]) {
     // Since the ln values are needed up to the maximal number of registers, we
@@ -529,9 +532,12 @@ fn main() {
     write_alphas(&precisions);
     write_number_of_registers(&precisions);
 
-    #[cfg(any(
-        all(feature = "beta", not(feature = "precomputed_beta")),
-        feature = "plusplus"
+    #[cfg(all(
+        not(feature = "std_ln"),
+        any(
+            all(feature = "beta", not(feature = "precomputed_beta")),
+            feature = "plusplus"
+        )
     ))]
     write_ln_values(&precisions);
 

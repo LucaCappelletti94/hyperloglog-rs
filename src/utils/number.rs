@@ -3,8 +3,8 @@ use crate::utils::{One, Zero};
 use core::fmt::{Debug, Display};
 use core::hash::Hash;
 use core::ops::{
-    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, Div, Mul, Neg, Not, Shl, Shr, Sub,
-    SubAssign, Rem
+    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, Div, Mul, Neg, Not, Rem, Shl, Shr,
+    Sub, SubAssign,
 };
 
 /// A trait for numbers.
@@ -20,6 +20,7 @@ pub trait Number:
     + Display
     + Zero
     + One
+    + From<bool>
     + PartialOrd
     + Send
     + Sync
@@ -27,16 +28,20 @@ pub trait Number:
     #[must_use]
     /// A method to subtract the second number from the first number, returning zero if the result is negative.
     fn saturating_zero_sub(self, other: Self) -> Self;
+}
 
-    #[must_use]
-    #[inline]
-    /// Converts a boolean value to a number.
-    fn from_bool(value: bool) -> Self {
-        if value {
-            Self::ONE
-        } else {
-            Self::ZERO
-        }
+/// A trait defining numbers that can be converted to an f64 without loss of precision.
+pub trait ToF64 {
+    /// Converts the number to an f64.
+    fn to_f64(self) -> f64;
+}
+
+impl<T> ToF64 for T
+where
+    f64: From<T>,
+{
+    fn to_f64(self) -> f64 {
+        f64::from(self)
     }
 }
 
@@ -66,10 +71,6 @@ pub trait PositiveInteger:
     /// * If the value is too large to be converted to a positive integer number.
     fn try_from_u64(value: u64) -> Result<Self, Self::TryFromU64Error>;
 
-    #[allow(unsafe_code)]
-    /// Converts a `u64` to a positive integer number without checking the value.
-    unsafe fn unchecked_from_u64(value: u64) -> Self;
-
     /// Converts the positive integer number to a `usize`.
     fn to_usize(self) -> usize;
 }
@@ -80,7 +81,7 @@ pub(crate) trait FloatOps: Number + Neg<Output = Self> {
     fn integer_exp2_minus(register: u8) -> Self;
 
     /// Returns the value of 2^(-register), including negative registers.
-    fn integer_exp2_minus_signed(register: i8) -> Self;
+    fn integer_exp2_minus_signed(register: i16) -> Self;
 
     /// Returns the value of 2^(register)
     fn integer_exp2(register: u8) -> Self;
@@ -105,7 +106,7 @@ macro_rules! impl_number {
     ($($t:ty),*) => {
         $(
             impl Number for $t {
-                #[inline(always)]
+                #[inline]
                 fn saturating_zero_sub(self, other: Self) -> Self {
                     debug_assert!(self >= Self::ZERO, "The first number must be positive, got: {}", self);
                     debug_assert!(other >= Self::ZERO, "The second number must be positive, got: {}", other);
@@ -131,18 +132,12 @@ macro_rules! impl_positive_integer_number {
             impl PositiveInteger for $t {
                 type TryFromU64Error = <$t as core::convert::TryFrom<u64>>::Error;
 
-                #[inline(always)]
+                #[inline]
                 fn try_from_u64(value: u64) -> Result<Self, Self::TryFromU64Error> {
                     <$t as core::convert::TryFrom<u64>>::try_from(value)
                 }
 
-                #[inline(always)]
-                #[allow(unsafe_code)]
-                unsafe fn unchecked_from_u64(value: u64) -> Self {
-                    value as Self
-                }
-
-                #[inline(always)]
+                #[inline]
                 #[must_use]
                 fn to_usize(self) -> usize {
                     usize::try_from(self).unwrap()
@@ -163,10 +158,12 @@ impl FloatOps for f64 {
 
     #[must_use]
     #[inline]
-    fn integer_exp2_minus_signed(register: i8) -> Self {
-        f64::from_le_bytes(
-            (u64::try_from(1023_i16 - i16::from(register)).unwrap() << 52).to_le_bytes(),
-        )
+    fn integer_exp2_minus_signed(register: i16) -> Self {
+        debug_assert!(
+            register > -1024,
+            "The register must be greater than -1024, got: {register}",
+        );
+        f64::from_le_bytes((u64::try_from(1023_i16 - register).unwrap() << 52).to_le_bytes())
     }
 
     #[must_use]
@@ -195,8 +192,7 @@ mod test_integer_exp2_minus {
                 );
                 assert_eq!(
                     f64::from_bits(
-                        u64::max_value().wrapping_sub(u64::from(register_value as u64)) << 54
-                            >> 2
+                        u64::max_value().wrapping_sub(u64::from(register_value as u64)) << 54 >> 2
                     ),
                     f64::integer_exp2_minus(register_value as u8),
                     "Expected: 2^(-{}), Got: {}",

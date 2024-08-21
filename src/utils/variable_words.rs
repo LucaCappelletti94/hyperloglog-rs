@@ -6,7 +6,7 @@ use core::slice::Iter;
 /// Trait for arrays of words.
 pub trait VariableWords<W: VariableWord> {
     /// The type of the iterator over the words.
-    type Iter<'words>: ExactSizeIterator<Item = W::Word>
+    type Words<'words>: ExactSizeIterator<Item = W::Word> + DoubleEndedIterator
     where
         W: 'words,
         Self: 'words;
@@ -21,7 +21,7 @@ pub trait VariableWords<W: VariableWord> {
     fn sorted_insert_with_len(&mut self, value: W::Word, len: usize) -> bool;
 
     /// Returns an iterator over the words.
-    fn iter_variable_words<'words>(&'words self, len: usize) -> Self::Iter<'words>
+    fn iter_variable_words<'words>(&'words self, len: usize) -> Self::Words<'words>
     where
         W: 'words;
 }
@@ -65,7 +65,7 @@ where
     W::Word: From<<Self as Words<W>>::SliceType>,
     W::Word: Into<<Self as Words<W>>::SliceType>,
 {
-    type Iter<'words> = Map<
+    type Words<'words> = Map<
         Copied<Iter<'words, <Self as Words<W>>::SliceType>>,
         fn(<Self as Words<W>>::SliceType) -> W::Word,
     > where
@@ -91,9 +91,8 @@ where
 
     fn sorted_insert_with_len(&mut self, value: W::Word, len: usize) -> bool {
         debug_assert!(
-            self.as_ref().len() >= len + 1,
-            "The array must have enough space for the new value. The length is {} and the number of words is {}.",
-            len,
+            self.as_ref().len() > len,
+            "The array must have enough space for the new value. The length is {len} and the number of words is {}.",
             self.as_ref().len()
         );
         debug_assert!(
@@ -112,7 +111,7 @@ where
         }
     }
 
-    fn iter_variable_words<'words>(&'words self, len: usize) -> Self::Iter<'words>
+    fn iter_variable_words<'words>(&'words self, len: usize) -> Self::Words<'words>
     where
         W: 'words,
     {

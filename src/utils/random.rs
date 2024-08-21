@@ -1,6 +1,6 @@
 //! Random number generators.
 
-use super::{One, Zero, PositiveInteger, VariableWord};
+use super::{One, VariableWord, Zero};
 
 #[must_use]
 #[inline]
@@ -60,17 +60,15 @@ pub fn iter_var_len_random_values<V: VariableWord>(
     let size = minimal_size + if delta > 0 { state % delta } else { 0 };
 
     state = splitmix64(state);
-    let actual_maximal_value: V::Word = maximal_value.map_or(
-        unsafe { V::Word::unchecked_from_u64(V::MASK) },
-        |mv| unsafe {
-            V::Word::ONE + V::Word::unchecked_from_u64(xorshift64(state) & V::MASK) % mv
-        },
-    );
+    let actual_maximal_value: V::Word = maximal_value
+        .map_or(unsafe { V::unchecked_from_u64(V::MASK) }, |mv| unsafe {
+            V::Word::ONE + V::unchecked_from_u64(xorshift64(state) & V::MASK) % mv
+        });
     state = splitmix64(state);
 
     (0..size).map(move |_| {
         state = xorshift64(state);
-        unsafe { V::Word::unchecked_from_u64(state & V::MASK) % actual_maximal_value }
+        unsafe { V::unchecked_from_u64(state & V::MASK) % actual_maximal_value }
     })
 }
 

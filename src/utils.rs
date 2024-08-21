@@ -10,6 +10,7 @@
 //! - `word_from_registers<const NUMBER_OF_BITS_PER_REGISTER: usize>(registers: &[u32]) -> u32`: Converts an array
 //!   of HLL registers into a single 32-bit word.
 
+mod to_bytes;
 mod composite_hash;
 mod constants;
 mod hasher_type;
@@ -18,16 +19,15 @@ mod number;
 mod random;
 mod variable_word;
 mod variable_words;
-mod as_bytes;
 
+pub use to_bytes::ToBytes;
 pub use composite_hash::CompositeHash;
 pub use constants::*;
 pub use hasher_type::HasherType;
 pub use matrix::Matrix;
-pub(crate) use number::{FloatOps, Number, PositiveInteger};
+pub(crate) use number::{FloatOps, Number, ToF64, PositiveInteger};
 pub use random::*;
-pub use as_bytes::AsBytes;
-pub use variable_word::{VariableWord, u24, u40, u48, u56};
+pub use variable_word::{u24, u40, u48, u56, VariableWord};
 pub use variable_words::VariableWords;
 
 #[cfg(feature = "std")]
@@ -40,28 +40,28 @@ pub trait Named {
 #[cfg(feature = "std")]
 impl Named for u8 {
     fn name(&self) -> String {
-        format!("u8")
+        "u8".to_owned()
     }
 }
 
 #[cfg(feature = "std")]
 impl Named for u16 {
     fn name(&self) -> String {
-        format!("u16")
+        "u16".to_owned()
     }
 }
 
 #[cfg(feature = "std")]
 impl Named for u32 {
     fn name(&self) -> String {
-        format!("u32")
+        "u32".to_owned()
     }
 }
 
 #[cfg(feature = "std")]
 impl Named for u64 {
     fn name(&self) -> String {
-        format!("u64")
+        "u64".to_owned()
     }
 }
 

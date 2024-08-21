@@ -13,13 +13,13 @@ pub trait SetProperties {
 }
 
 /// Trait for an approximated set.
-pub trait ApproximatedSet<T: Hash>: SetProperties {
+pub trait ApproximatedSet<T: Hash> {
     /// Returns whether the set contains the element.
     fn may_contain(&self, element: &T) -> bool;
 }
 
 /// Trait for a mutable set.
-pub trait MutableSet: SetProperties {
+pub trait MutableSet {
     /// Empties the set.
     fn clear(&mut self);
 }
@@ -70,7 +70,11 @@ pub trait Estimator<F: Number>: Sized + Send + Sync {
     fn estimate_intersection_cardinality(&self, other: &Self) -> F {
         let self_cardinality = self.estimate_cardinality();
         let other_cardinality = other.estimate_cardinality();
-        let union_cardinality = self.estimate_union_cardinality_with_cardinalities(other, self_cardinality, other_cardinality);
+        let union_cardinality = self.estimate_union_cardinality_with_cardinalities(
+            other,
+            self_cardinality,
+            other_cardinality,
+        );
 
         // We apply correction to the union cardinality to get the intersection cardinality.
         if self_cardinality + other_cardinality < union_cardinality {
@@ -85,7 +89,11 @@ pub trait Estimator<F: Number>: Sized + Send + Sync {
     fn estimate_jaccard_index(&self, other: &Self) -> F {
         let self_cardinality = self.estimate_cardinality();
         let other_cardinality = other.estimate_cardinality();
-        let union_cardinality = self.estimate_union_cardinality_with_cardinalities(other, self_cardinality, other_cardinality);
+        let union_cardinality = self.estimate_union_cardinality_with_cardinalities(
+            other,
+            self_cardinality,
+            other_cardinality,
+        );
 
         // We apply correction to the union cardinality to get the intersection cardinality.
         if self_cardinality + other_cardinality < union_cardinality || union_cardinality.is_zero() {

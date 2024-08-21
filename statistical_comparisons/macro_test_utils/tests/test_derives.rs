@@ -1,5 +1,5 @@
-use macro_test_utils::*;
 use hyperloglog_rs::prelude::*;
+use macro_test_utils::*;
 
 #[derive(Default)]
 struct TestNamedA;
@@ -18,6 +18,15 @@ impl ExtendableApproximatedSet<u64> for TestNamedA {
 
 impl Estimator<f64> for TestNamedA {
     fn estimate_cardinality(&self) -> f64 {
+        0.0
+    }
+
+    fn estimate_union_cardinality_with_cardinalities(
+        &self,
+        _other: &Self,
+        _cardinality: f64,
+        _other_cardinality: f64,
+    ) -> f64 {
         0.0
     }
 
@@ -43,6 +52,15 @@ impl ExtendableApproximatedSet<u64> for TestNamedB {
 
 impl Estimator<f64> for TestNamedB {
     fn estimate_cardinality(&self) -> f64 {
+        0.0
+    }
+
+    fn estimate_union_cardinality_with_cardinalities(
+        &self,
+        _other: &Self,
+        _cardinality: f64,
+        _other_cardinality: f64,
+    ) -> f64 {
         0.0
     }
 

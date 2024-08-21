@@ -3,7 +3,7 @@ use crate::prelude::*;
 use core::hash::{Hash, Hasher};
 
 /// Trait for [`HyperLogLog`] counters.
-pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
+pub trait HyperLogLog:
     Sized
     + Default
     + Eq
@@ -12,11 +12,19 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
     + BitOr<Self, Output = Self>
     + Send
     + Sync
-    + SetProperties
     + MutableSet
 {
+    /// The precision of the counter
+    type Precision: Precision;
+
+    /// The number of bits per register.
+    type Bits: Bits;
+
+    /// The hasher used to hash the elements.
+    type Hasher: HasherType + Default;
+
     /// The type of the registers of the [`HyperLogLog`] counter.
-    type Registers: Registers<P, B>;
+    type Registers: Registers<Self::Precision, Self::Bits>;
 
     /// Returns a reference to the registers of the [`HyperLogLog`] counter.
     fn registers(&self) -> &Self::Registers;
@@ -35,11 +43,8 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
     ///     use hyperloglog_rs::prelude::*;
     ///
     ///     // Create a new HyperLogLog counter with precision 14 and 5 bits per register.
-    ///     let mut hll = LogLogBeta::<
-    ///         Precision6,
-    ///         Bits5,
-    ///         <Precision6 as ArrayRegister<Bits5>>::Array,
-    ///     >::default();
+    ///     let mut hll =
+    ///         LogLogBeta::<Precision6, Bits5, <Precision6 as ArrayRegister<Bits5>>::Array>::default();
     ///
     ///     // Add some elements to the counter.
     ///     hll.insert(&1);
@@ -52,7 +57,7 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
     ///     assert_eq!(number_of_zero_registers, 61);
     /// }
     /// ```
-    fn get_number_of_zero_registers(&self) -> P::NumberOfRegisters;
+    fn get_number_of_zero_registers(&self) -> <Self::Precision as Precision>::NumberOfRegisters;
 
     #[inline]
     /// Returns whether the provided [`HyperLogLog`] counter may be fully contained in the current [`HyperLogLog`] counter.
@@ -98,17 +103,20 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
     #[must_use]
     #[inline]
     /// Slits the hash into two parts: the register value and the index of the register.
-    fn split_hash(hash: u64) -> (u8, P::NumberOfRegisters) {
-        let index: P::NumberOfRegisters = P::NumberOfRegisters::try_from_u64(
-            hash & (P::NUMBER_OF_REGISTERS - P::NumberOfRegisters::ONE).into(),
-        )
-        .unwrap();
+    fn split_hash(hash: u64) -> (u8, <Self::Precision as Precision>::NumberOfRegisters) {
+        let index: <Self::Precision as Precision>::NumberOfRegisters =
+            <Self::Precision as Precision>::NumberOfRegisters::try_from_u64(
+                hash & (<Self::Precision as Precision>::NUMBER_OF_REGISTERS
+                    - <Self::Precision as Precision>::NumberOfRegisters::ONE)
+                    .into(),
+            )
+            .unwrap();
 
         debug_assert!(
-            index < P::NUMBER_OF_REGISTERS,
+            index < <Self::Precision as Precision>::NUMBER_OF_REGISTERS,
             "The index {} must be less than the number of registers {}.",
             index,
-            P::NUMBER_OF_REGISTERS
+            <Self::Precision as Precision>::NUMBER_OF_REGISTERS
         );
 
         // And we censor we just used for the index.
@@ -119,17 +127,17 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
         // the number of zeros we obtain afterwards is never higher
         // than the maximal value that may be represented in a register
         // with BITS bits.
-        if B::NUMBER_OF_BITS < 6_u8 {
-            censored_hash |= 1_u64 << 64_u64 - B::MASK;
+        if <Self::Bits as VariableWord>::NUMBER_OF_BITS < 6_u8 {
+            censored_hash |= 1_u64 << (64_u64 - <Self::Bits as VariableWord>::MASK);
         }
 
         let register_value = u8::try_from(censored_hash.leading_zeros() + 1).unwrap();
 
         debug_assert!(
-            register_value <= u8::try_from(B::MASK).unwrap(),
+            register_value <= u8::try_from(<Self::Bits as VariableWord>::MASK).unwrap(),
             "The register value {} must be less than or equal to the maximum register value {}.",
             register_value,
-            (1 << B::NUMBER_OF_BITS) - 1
+            (1 << <Self::Bits as VariableWord>::NUMBER_OF_BITS) - 1
         );
 
         (register_value, index)
@@ -137,8 +145,10 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
 
     #[inline]
     /// Hashes the element and returns the register value and the index of the register.
-    fn hash_and_index<T: Hash>(element: &T) -> (u8, P::NumberOfRegisters) {
-        let mut hasher = HS::default();
+    fn hash_and_index<T: Hash>(
+        element: &T,
+    ) -> (u8, <Self::Precision as Precision>::NumberOfRegisters) {
+        let mut hasher = Self::Hasher::default();
         element.hash(&mut hasher);
         let hash = hasher.finish();
 
@@ -146,8 +156,48 @@ pub trait HyperLogLog<P: Precision, B: Bits, HS: Hasher + Default>:
     }
 
     /// Return the value of the register at the given index.
-    fn get_register(&self, index: P::NumberOfRegisters) -> u8;
+    fn get_register(&self, index: <Self::Precision as Precision>::NumberOfRegisters) -> u8;
 
     /// Create a new [`HyperLogLog`] counter from an array of registers.
     fn from_registers(registers: Self::Registers) -> Self;
+}
+
+/// Trait for the correction of an hyperloglog counter.
+pub trait Correction: HyperLogLog {
+    /// Returns the correction factor for the given number of registers with zero values.
+    fn correction(
+        harmonic_sum: f64,
+        number_of_zero_registers: <Self::Precision as Precision>::NumberOfRegisters,
+    ) -> f64;
+}
+
+impl<H> SetProperties for H
+where
+    H: HyperLogLog,
+{
+    fn is_empty(&self) -> bool {
+        self.get_number_of_zero_registers() == H::Precision::NUMBER_OF_REGISTERS
+    }
+
+    fn is_full(&self) -> bool {
+        // The harmonic sum is defined as Sum(2^(-register_value)) for all registers.
+        // When all registers are maximally filled, i.e. equal to the maximal multiplicity value,
+        // the harmonic sum is equal to (2^(-max_multiplicity)) * number_of_registers.
+        // Since number_of_registers is a power of 2, specifically 2^exponent, the harmonic sum
+        // is equal to 2^(exponent - max_multiplicity).
+        self.harmonic_sum()
+            <= f64::integer_exp2_minus_signed(
+                (1_i16 << H::Bits::NUMBER_OF_BITS) - i16::from(H::Precision::EXPONENT) - 1,
+            )
+    }
+}
+
+impl<H, T: Hash> ApproximatedSet<T> for H
+where
+    H: HyperLogLog,
+{
+    fn may_contain(&self, element: &T) -> bool {
+        let (register, index) = Self::hash_and_index::<T>(element);
+        self.get_register(index) >= register
+    }
 }

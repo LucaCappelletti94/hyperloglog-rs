@@ -28,12 +28,12 @@ macro_rules! impl_constants {
     ($($t:ty)*) => ($(
         impl One for $t {
             const ONE: Self = 1;
-            #[inline(always)]
+            #[inline]
             fn is_one(&self) -> bool { *self == 1 }
         }
         impl Zero for $t {
             const ZERO: Self = 0;
-            #[inline(always)]
+            #[inline]
             fn is_zero(&self) -> bool { *self == 0 }
         }
         #[cfg(feature = "plusplus")]
