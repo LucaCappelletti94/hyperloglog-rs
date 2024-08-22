@@ -249,24 +249,13 @@ pub fn cardinality_benchmark(_attr: TokenStream, item: TokenStream) -> TokenStre
         Ident::new("AHasher", fn_name.span()),
         Ident::new("XxH3", fn_name.span()),
     ];
-    let words = vec![
-        (8, Ident::new("u8", fn_name.span())),
-        (16, Ident::new("u16", fn_name.span())),
-        (24, Ident::new("u24", fn_name.span())),
-        (32, Ident::new("u32", fn_name.span())),
-        (48, Ident::new("u48", fn_name.span())),
-        (56, Ident::new("u56", fn_name.span())),
-        (64, Ident::new("u64", fn_name.span())),
-    ];
 
     // Generate the test functions
     let benchmarks = hashers.into_iter().flat_map(move |hasher| {
         let precisions = precisions.clone();
             let bits = bits.clone();
-            let words = words.clone();
             precisions.into_iter().map(move |(exponent, precision)| {
             let bits = bits.clone();
-            let words = words.clone();
             let hasher = hasher.clone();
             let h2b_calls = quote! {
                 HyperTwoVariants::<#hasher>::prepare_cardinality_reports();
@@ -274,17 +263,11 @@ pub fn cardinality_benchmark(_attr: TokenStream, item: TokenStream) -> TokenStre
             let hll_calls = bits
                 .into_iter()
                 .flat_map(move |(bit_num, bit)| {
-                    let words = words.clone();
                     let precision = precision.clone();
                     let hasher = hasher.clone();
-                    words.into_iter().map(move |(word_size, word)| {
-                        if exponent + bit_num > word_size {
-                            return quote! {};
-                        }
-                        quote! {
-                            HLLVariants::<#exponent, #precision, #hasher, #bit_num, #bit, #word>::prepare_cardinality_reports();
-                        }
-                    })
+                    quote! {
+                        HLLVariants::<#exponent, #precision, #hasher, #bit_num, #bit>::prepare_cardinality_reports();
+                    }
                 });
             quote! {
                 #h2b_calls

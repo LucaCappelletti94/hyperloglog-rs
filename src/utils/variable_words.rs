@@ -1,5 +1,6 @@
 //! Submodule for words-arrays
-use super::{u24, u40, u48, u56, VariableWord};
+use super::{u24, VariableWord};
+use core::fmt::Debug;
 use core::iter::{Copied, Map};
 use core::slice::Iter;
 
@@ -31,9 +32,8 @@ pub trait Words<W: VariableWord>:
     AsRef<[<Self as Words<W>>::SliceType]> + AsMut<[<Self as Words<W>>::SliceType]>
 where
     W::Word: From<<Self as Words<W>>::SliceType>,
-    W::Word: Into<<Self as Words<W>>::SliceType>,
 {
-    type SliceType: Ord + Copy;
+    type SliceType: Ord + Copy + Debug;
 }
 impl<T: AsRef<[u8]> + AsMut<[u8]>> Words<u8> for T {
     type SliceType = u8;
@@ -46,15 +46,6 @@ impl<T: AsRef<[[u8; 3]]> + AsMut<[[u8; 3]]>> Words<u24> for T {
 }
 impl<T: AsRef<[u32]> + AsMut<[u32]>> Words<u32> for T {
     type SliceType = u32;
-}
-impl<T: AsRef<[[u8; 5]]> + AsMut<[[u8; 5]]>> Words<u40> for T {
-    type SliceType = [u8; 5];
-}
-impl<T: AsRef<[[u8; 6]]> + AsMut<[[u8; 6]]>> Words<u48> for T {
-    type SliceType = [u8; 6];
-}
-impl<T: AsRef<[[u8; 7]]> + AsMut<[[u8; 7]]>> Words<u56> for T {
-    type SliceType = [u8; 7];
 }
 impl<T: AsRef<[u64]> + AsMut<[u64]>> Words<u64> for T {
     type SliceType = u64;
@@ -82,11 +73,11 @@ where
             "The array must have enough elements."
         );
         debug_assert!(
-            self.as_ref()[0..len].windows(2).all(|w| w[0] < w[1]),
-            "The array must be strictly sorted, i.e. sorted with no duplicates."
+            self.as_ref()[0..len].is_sorted_by_key(|x| W::Word::from(*x)),
+            "The array with len ({len}) must be sorted but got {:?}",
+            &self.as_ref()[0..len],
         );
-        let slice_type: <Self as Words<W>>::SliceType = value.into();
-        self.as_ref()[0..len].binary_search(&slice_type).is_ok()
+        self.as_ref()[0..len].binary_search_by_key(&value, |x| W::Word::from(*x)).is_ok()
     }
 
     fn sorted_insert_with_len(&mut self, value: W::Word, len: usize) -> bool {
@@ -96,16 +87,23 @@ where
             self.as_ref().len()
         );
         debug_assert!(
-            self.as_ref()[0..len].windows(2).all(|w| w[0] < w[1]),
-            "The array must be strictly sorted, i.e. sorted with no duplicates."
+            self.as_ref()[0..len].is_sorted_by_key(|x| W::Word::from(*x)),
+            "The array with len ({len}) must be sorted but got {:?}",
+            &self.as_ref()[0..len],
         );
 
         let slice_type: <Self as Words<W>>::SliceType = value.into();
-        match self.as_mut()[0..len].binary_search(&slice_type) {
+        match self.as_mut()[0..len].binary_search_by_key(&value, |x| W::Word::from(*x)) {
             Ok(_) => false,
             Err(index) => {
-                self.as_mut()[index..=len].rotate_right(1);
+                self.as_mut().copy_within(index..len, index + 1);
                 self.as_mut()[index] = slice_type;
+
+                debug_assert!(
+                    self.as_ref()[0..(len + 1)].is_sorted_by_key(|x| W::Word::from(*x)),
+                    "The array must be sorted."
+                );
+
                 true
             }
         }

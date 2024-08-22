@@ -1,4 +1,6 @@
 //! The `hyperloglog` module contains the [`HyperLogLog`] trait that defines the interface for [`HyperLogLog`] counters.
+use twox_hash::XxHash64;
+
 use crate::prelude::*;
 use core::hash::{Hash, Hasher};
 
@@ -57,7 +59,7 @@ pub trait HyperLogLog:
     ///     assert_eq!(number_of_zero_registers, 61);
     /// }
     /// ```
-    fn get_number_of_zero_registers(&self) -> <Self::Precision as Precision>::NumberOfRegisters;
+    fn get_number_of_zero_registers(&self) -> usize;
 
     #[inline]
     /// Returns whether the provided [`HyperLogLog`] counter may be fully contained in the current [`HyperLogLog`] counter.
@@ -100,38 +102,49 @@ pub trait HyperLogLog:
             .all(|[left_register, right_register]| left_register >= right_register)
     }
 
-    #[must_use]
     #[inline]
-    /// Slits the hash into two parts: the register value and the index of the register.
-    fn split_hash(hash: u64) -> (u8, <Self::Precision as Precision>::NumberOfRegisters) {
-        let index: <Self::Precision as Precision>::NumberOfRegisters =
-            <Self::Precision as Precision>::NumberOfRegisters::try_from_u64(
-                hash & (<Self::Precision as Precision>::NUMBER_OF_REGISTERS
-                    - <Self::Precision as Precision>::NumberOfRegisters::ONE)
-                    .into(),
-            )
-            .unwrap();
+    /// Hashes the element and returns the register value and the index of the register.
+    fn register_and_index<T: Hash>(
+        element: &T,
+    ) -> (u8, usize) {
+        let (index, register, _) = Self::hash_and_register_and_index::<T>(element);
+        (register, index)
+    }
+
+    #[inline]
+    /// Hashes the element and returns the register value and the index of the register.
+    fn hash_and_register_and_index<T: Hash>(
+        element: &T,
+    ) -> (usize, u8, u64) {
+        let mut hasher = Self::Hasher::default();
+        element.hash(&mut hasher);
+        let hash = hasher.finish();
+
+        let mut second_hasher = XxHash64::with_seed(675445374566346345_u64);
+        element.hash(&mut second_hasher);
+        let mut second_hash = second_hasher.finish();
+
+        let index: usize = usize::try_from(hash & ((1 << Self::Precision::EXPONENT) - 1)).unwrap();
 
         debug_assert!(
-            index < <Self::Precision as Precision>::NUMBER_OF_REGISTERS,
-            "The index {} must be less than the number of registers {}.",
-            index,
-            <Self::Precision as Precision>::NUMBER_OF_REGISTERS
+            index < 1 << Self::Precision::EXPONENT,
+            "The index {index} must be less than the number of registers {}.",
+            1 << Self::Precision::EXPONENT
         );
 
         // And we censor we just used for the index.
-        // let mut censored_hash: u64 = hash | 1 << P::EXPONENT;
-        let mut censored_hash: u64 = hash;
+        // let mut censored_hash: u64 = hash | 1 << Self::Precision::EXPONENT;
+        // let mut censored_hash: u64 = hash;
 
         // We need to add ones to the hash to make sure that the
         // the number of zeros we obtain afterwards is never higher
         // than the maximal value that may be represented in a register
         // with BITS bits.
         if <Self::Bits as VariableWord>::NUMBER_OF_BITS < 6_u8 {
-            censored_hash |= 1_u64 << (64_u64 - <Self::Bits as VariableWord>::MASK);
+            second_hash |= 1_u64 << (64_u64 - <Self::Bits as VariableWord>::MASK);
         }
 
-        let register_value = u8::try_from(censored_hash.leading_zeros() + 1).unwrap();
+        let register_value = u8::try_from(second_hash.leading_zeros() + 1).unwrap();
 
         debug_assert!(
             register_value <= u8::try_from(<Self::Bits as VariableWord>::MASK).unwrap(),
@@ -140,35 +153,27 @@ pub trait HyperLogLog:
             (1 << <Self::Bits as VariableWord>::NUMBER_OF_BITS) - 1
         );
 
-        (register_value, index)
+        (index, register_value, hash)
     }
 
-    #[inline]
-    /// Hashes the element and returns the register value and the index of the register.
-    fn hash_and_index<T: Hash>(
-        element: &T,
-    ) -> (u8, <Self::Precision as Precision>::NumberOfRegisters) {
-        let mut hasher = Self::Hasher::default();
-        element.hash(&mut hasher);
-        let hash = hasher.finish();
-
-        Self::split_hash(hash)
-    }
+    /// Inserts the register value into the counter at the given index.
+    fn insert_register_value_and_index(
+        &mut self,
+        new_register_value: u8,
+        index: usize,
+    ) -> bool;
 
     /// Return the value of the register at the given index.
-    fn get_register(&self, index: <Self::Precision as Precision>::NumberOfRegisters) -> u8;
+    fn get_register(&self, index: usize) -> u8;
 
     /// Create a new [`HyperLogLog`] counter from an array of registers.
     fn from_registers(registers: Self::Registers) -> Self;
 }
 
 /// Trait for the correction of an hyperloglog counter.
-pub trait Correction: HyperLogLog {
+pub trait Correction {
     /// Returns the correction factor for the given number of registers with zero values.
-    fn correction(
-        harmonic_sum: f64,
-        number_of_zero_registers: <Self::Precision as Precision>::NumberOfRegisters,
-    ) -> f64;
+    fn correction(harmonic_sum: f64, number_of_zero_registers: usize) -> f64;
 }
 
 impl<H> SetProperties for H
@@ -176,7 +181,7 @@ where
     H: HyperLogLog,
 {
     fn is_empty(&self) -> bool {
-        self.get_number_of_zero_registers() == H::Precision::NUMBER_OF_REGISTERS
+        self.get_number_of_zero_registers() == 1 << H::Precision::EXPONENT
     }
 
     fn is_full(&self) -> bool {
@@ -197,7 +202,15 @@ where
     H: HyperLogLog,
 {
     fn may_contain(&self, element: &T) -> bool {
-        let (register, index) = Self::hash_and_index::<T>(element);
+        let (register, index) = Self::register_and_index::<T>(element);
         self.get_register(index) >= register
+    }
+}
+
+impl<H: HyperLogLog, T: Hash> ExtendableApproximatedSet<T> for H {
+    fn insert(&mut self, element: &T) -> bool {
+        let (new_register_value, index) = Self::register_and_index::<T>(element);
+
+        self.insert_register_value_and_index(new_register_value, index)
     }
 }

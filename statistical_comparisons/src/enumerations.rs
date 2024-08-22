@@ -51,13 +51,15 @@ pub enum HyperTwoVariants<H: HasherBuilderAssociated> {
 #[derive(Clone, Named, ExtendableApproximatedSet, Estimator, TransparentMemSize, EnumIter)]
 /// Enumerations will all `HyperLogLog` variants we
 /// take into consideration for the benchmarks.
-pub enum HLLVariants<const EXPONENT: usize, P: Precision, H: HasherBuilderAssociated, const BITS: usize, B, CH>
-where
+pub enum HLLVariants<
+    const EXPONENT: usize,
+    P: Precision,
+    H: HasherBuilderAssociated,
+    const BITS: usize,
+    B,
+> where
     P: Named + ArrayRegister<B>,
     B: Named + Bits,
-    CH: Named + CompositeHash<P, B>,
-    <P as ArrayRegister<B>>::Array: VariableWords<CH>,
-    <P as ArrayRegister<B>>::Packed: VariableWords<CH>,
 {
     TabacHyperLogLogPlus(TabacHLLPlusPlus<P, H>),
     TabacHyperLogLogPF(TabacHLL<P, H>),
@@ -70,9 +72,9 @@ where
     LLB4ArrayXxhasher(LogLogBeta<P, B, <P as ArrayRegister<B>>::Array, H>),
     MLEPP4Xxhasher(MLE<PlusPlus<P, B, <P as ArrayRegister<B>>::Array, H>>),
     MLELLB4Xxhasher(MLE<LogLogBeta<P, B, <P as ArrayRegister<B>>::Array, H>>),
-    HybridPP4ArrayXxhasher(Hybrid<PlusPlus<P, B, <P as ArrayRegister<B>>::Array, H>, CH>),
-    HybridPP4PackedXxhasher(Hybrid<PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, H>, CH>),
-    HybridLLB4ArrayXxhasher(Hybrid<LogLogBeta<P, B, <P as ArrayRegister<B>>::Array, H>, CH>),
-    HybridMLEPP4Xxhasher(Hybrid<MLE<PlusPlus<P, B, <P as ArrayRegister<B>>::Array, H>>, CH>),
-    HybridMLELLB4Xxhasher(Hybrid<MLE<LogLogBeta<P, B, <P as ArrayRegister<B>>::Array, H>>, CH>),
+    HybridPP4ArrayXxhasher(Hybrid<PlusPlus<P, B, <P as ArrayRegister<B>>::Array, H>>),
+    HybridPP4PackedXxhasher(Hybrid<PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, H>>),
+    HybridLLB4ArrayXxhasher(Hybrid<LogLogBeta<P, B, <P as ArrayRegister<B>>::Array, H>>),
+    HybridMLEPP4Xxhasher(Hybrid<MLE<PlusPlus<P, B, <P as ArrayRegister<B>>::Array, H>>>),
+    HybridMLELLB4Xxhasher(Hybrid<MLE<LogLogBeta<P, B, <P as ArrayRegister<B>>::Array, H>>>),
 }

@@ -1,8 +1,6 @@
-use ahash::AHasher;
 use hyperloglog_derive::test_estimator;
 use hyperloglog_rs::prelude::*;
 use twox_hash::XxHash;
-use wyhash::WyHash;
 
 /// Test the HyperLogLog implementation with the provided precision and bits
 pub fn test_approximated_counter_at_precision_and_bits<
@@ -144,7 +142,7 @@ fn test_mle_beta<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
 fn test_hybrid_mle_plusplus<
     P: Precision,
     B: Bits,
-    R: Registers<P, B> + VariableWords<u32>,
+    R: HybridRegisters<P, B>,
     H: HasherType,
 >() {
     test_approximated_counter_at_precision_and_bits::<P, Hybrid<MLE<PlusPlus<P, B, R, H>>>>();
@@ -155,7 +153,7 @@ fn test_hybrid_mle_plusplus<
 fn test_hybrid_mle_beta<
     P: Precision,
     B: Bits,
-    R: Registers<P, B> + VariableWords<u32>,
+    R: HybridRegisters<P, B>,
     H: HasherType,
 >() {
     test_approximated_counter_at_precision_and_bits::<P, Hybrid<MLE<LogLogBeta<P, B, R, H>>>>();
@@ -165,83 +163,18 @@ fn test_hybrid_mle_beta<
 fn test_hybrid_plusplus<
     P: Precision,
     B: Bits,
-    R: Registers<P, B>
-        + VariableWords<u32>
-        + VariableWords<u40>
-        + VariableWords<u48>
-        + VariableWords<u56>
-        + VariableWords<u64>,
+    R: HybridRegisters<P, B>,
     H: HasherType,
 >() {
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<PlusPlus<P, B, R, H>, u32>>();
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<PlusPlus<P, B, R, H>, u40>>();
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<PlusPlus<P, B, R, H>, u48>>();
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<PlusPlus<P, B, R, H>, u56>>();
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<PlusPlus<P, B, R, H>, u64>>();
+    test_approximated_counter_at_precision_and_bits::<P, Hybrid<PlusPlus<P, B, R, H>>>();
 }
 
 #[test_estimator]
 fn test_hybrid_beta<
     P: Precision,
     B: Bits,
-    R: Registers<P, B>
-        + VariableWords<u32>
-        + VariableWords<u40>
-        + VariableWords<u48>
-        + VariableWords<u56>
-        + VariableWords<u64>,
+    R: HybridRegisters<P, B>,
     H: HasherType,
 >() {
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<LogLogBeta<P, B, R, H>, u32>>();
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<LogLogBeta<P, B, R, H>, u40>>();
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<LogLogBeta<P, B, R, H>, u48>>();
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<LogLogBeta<P, B, R, H>, u56>>();
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<LogLogBeta<P, B, R, H>, u64>>();
-}
-
-#[test]
-#[cfg(feature = "plusplus")]
-fn test_hybrid_plusplus_low_bits_hash() {
-    test_approximated_counter_at_precision_and_bits::<
-        Precision4,
-        Hybrid<
-            PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Array, XxHash>,
-            u8,
-        >,
-    >();
-    test_approximated_counter_at_precision_and_bits::<
-        Precision4,
-        Hybrid<
-            PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Array, XxHash>,
-            u16,
-        >,
-    >();
-    test_approximated_counter_at_precision_and_bits::<
-        Precision4,
-        Hybrid<
-            PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Array, XxHash>,
-            u24,
-        >,
-    >();
-    test_approximated_counter_at_precision_and_bits::<
-        Precision4,
-        Hybrid<
-            PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Packed, XxHash>,
-            u8,
-        >,
-    >();
-    test_approximated_counter_at_precision_and_bits::<
-        Precision4,
-        Hybrid<
-            PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Packed, XxHash>,
-            u16,
-        >,
-    >();
-    test_approximated_counter_at_precision_and_bits::<
-        Precision4,
-        Hybrid<
-            PlusPlus<Precision4, Bits4, <Precision4 as ArrayRegister<Bits4>>::Packed, XxHash>,
-            u24,
-        >,
-    >();
+    test_approximated_counter_at_precision_and_bits::<P, Hybrid<LogLogBeta<P, B, R, H>>>();
 }

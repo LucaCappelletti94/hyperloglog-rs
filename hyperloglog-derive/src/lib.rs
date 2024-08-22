@@ -1,60 +1,81 @@
 //! Submodule providing the derive macro for the VariableWord trait.
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{parse_macro_input, Data, DeriveInput, Fields, Ident, ItemFn, Type};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// Possible variants for the word size currently supported.
-enum WordSize {
+enum WordType {
+    /// 8-bit word.
+    U8,
+    /// 16-bit word.
+    U16,
     /// 24-bit word.
     U24,
-    /// 40-bit word.
-    U40,
-    /// 48-bit word.
-    U48,
-    /// 56-bit word.
-    U56,
-}
-
-impl From<&Ident> for WordSize {
-    fn from(ident: &Ident) -> Self {
-        if ident.to_string().contains("24") {
-            WordSize::U24
-        } else if ident.to_string().contains("40") {
-            WordSize::U40
-        } else if ident.to_string().contains("48") {
-            WordSize::U48
-        } else if ident.to_string().contains("56") {
-            WordSize::U56
-        } else {
-            panic!("The struct name must contain either 24, 40, 48, or 56");
-        }
-    }
-}
-
-impl WordSize {
-    fn number_of_bits(&self) -> u8 {
-        match self {
-            WordSize::U24 => 24,
-            WordSize::U40 => 40,
-            WordSize::U48 => 48,
-            WordSize::U56 => 56,
-        }
-    }
-
-    fn mask(&self) -> u64 {
-        match self {
-            WordSize::U24 => 0xFF_FFFF,
-            WordSize::U40 => 0xFF_FFFF_FFFF,
-            WordSize::U48 => 0xFFFF_FFFF_FFFF,
-            WordSize::U56 => 0xFF_FFFF_FFFF_FFFF,
-        }
-    }
-}
-
-/// The words that can be used underneath the hood.
-enum WordType {
+    /// 32-bit word.
     U32,
+    /// 64-bit word.
     U64,
+}
+
+impl core::fmt::Display for WordType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                WordType::U8 => "u8",
+                WordType::U16 => "u16",
+                WordType::U24 => "u24",
+                WordType::U32 => "u32",
+                WordType::U64 => "u64",
+            }
+        )
+    }
+}
+
+impl From<&str> for WordType {
+    fn from(s: &str) -> Self {
+        match s {
+            "u8" => WordType::U8,
+            "u16" => WordType::U16,
+            "u24" => WordType::U24,
+            "u32" => WordType::U32,
+            "u64" => WordType::U64,
+            _ => panic!("Unsupported word size"),
+        }
+    }
+}
+
+impl From<&Ident> for WordType {
+    fn from(ident: &Ident) -> Self {
+        if ident.to_string().contains("u8") {
+            WordType::U8
+        } else if ident.to_string().contains("u16") {
+            WordType::U16
+        } else if ident.to_string().contains("u24") {
+            WordType::U24
+        } else if ident.to_string().contains("u32") {
+            WordType::U32
+        } else if ident.to_string().contains("u64") {
+            WordType::U64
+        } else {
+            panic!("Unsupported word size");
+        }
+    }
+}
+
+impl ToTokens for WordType {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        match self {
+            WordType::U8 => quote! { u8 },
+            WordType::U16 => quote! { u16 },
+            WordType::U24 => quote! { u24 },
+            WordType::U32 => quote! { u32 },
+            WordType::U64 => quote! { u64 },
+        }
+        .to_tokens(tokens);
+    }
 }
 
 impl From<Type> for WordType {
@@ -63,7 +84,13 @@ impl From<Type> for WordType {
             Type::Path(type_path) => {
                 let segment = type_path.path.segments.first().unwrap();
                 let ident = &segment.ident;
-                if *ident == "u32" {
+                if *ident == "u8" {
+                    WordType::U8
+                } else if *ident == "u16" {
+                    WordType::U16
+                } else if *ident == "u24" {
+                    WordType::U24
+                } else if *ident == "u32" {
                     WordType::U32
                 } else if *ident == "u64" {
                     WordType::U64
@@ -77,15 +104,79 @@ impl From<Type> for WordType {
 }
 
 impl WordType {
-    fn bits(&self) -> usize {
+    /// Returns all the variants.
+    fn variants() -> Vec<Self> {
+        vec![
+            WordType::U8,
+            WordType::U16,
+            WordType::U24,
+            WordType::U32,
+            WordType::U64,
+        ]
+    }
+
+    /// Returns whether the word is a power of two.
+    fn is_power_of_two(&self) -> bool {
         match self {
+            WordType::U8 => true,
+            WordType::U16 => true,
+            WordType::U24 => false,
+            WordType::U32 => true,
+            WordType::U64 => true,
+        }
+    }
+
+    /// Returns the underlying field type.
+    fn field_type(&self) -> Type {
+        match self {
+            WordType::U8 => syn::parse_quote! { u8 },
+            WordType::U16 => syn::parse_quote! { u16 },
+            WordType::U24 => syn::parse_quote! { u32 },
+            WordType::U32 => syn::parse_quote! { u32 },
+            WordType::U64 => syn::parse_quote! { u64 },
+        }
+    }
+
+    /// Returns all the smaller variants of the word size.
+    fn smaller_variants(&self) -> Vec<Self> {
+        Self::variants()
+            .into_iter()
+            .filter(|variant| variant.number_of_bits() < self.number_of_bits())
+            .collect()
+    }
+
+    /// Returns all variants that are strictly larger than the current one, and are a power of two.
+    fn larger_power_of_two_variants(&self) -> Vec<Self> {
+        Self::variants()
+            .into_iter()
+            .filter(|variant| {
+                (variant.number_of_bits() > self.number_of_bits()) && variant.is_power_of_two()
+            })
+            .collect()
+    }
+
+    fn number_of_bits(&self) -> u8 {
+        match self {
+            WordType::U8 => 8,
+            WordType::U16 => 16,
+            WordType::U24 => 24,
             WordType::U32 => 32,
             WordType::U64 => 64,
         }
     }
 
+    fn mask(&self) -> u64 {
+        match self {
+            WordType::U8 => 0xFF,
+            WordType::U16 => 0xFFFF,
+            WordType::U24 => 0xFF_FFFF,
+            WordType::U32 => 0xFFFF_FFFF,
+            WordType::U64 => 0xFFFF_FFFF_FFFF_FFFF,
+        }
+    }
+
     fn bytes(&self) -> usize {
-        self.bits() / 8
+        usize::from(self.number_of_bits() / 8)
     }
 }
 
@@ -113,14 +204,17 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
     let word_type: WordType = WordType::from(field_type.clone());
 
     // Get the word size from the struct name
-    let word_size = WordSize::from(name);
+    let word_size = WordType::from(name);
     let number_of_bits = word_size.number_of_bits();
     let number_of_bits_usize = number_of_bits as usize;
     let mask = word_size.mask();
     let word_bytes = word_type.bytes();
 
+    let test_bytes_symmetry_for_name =
+        Ident::new(&format!("test_bytes_symmetry_for_{name}"), name.span());
+
     // Generate the necessary traits for the word
-    let expanded = quote! {
+    let mut expanded = quote! {
         impl crate::prelude::VariableWord for #name {
             const NUMBER_OF_BITS: u8 = #number_of_bits;
             const MASK: u64 = #mask;
@@ -134,23 +228,13 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl crate::prelude::ToBytes for #name {
-            type Bytes = [u8; #number_of_bits_usize / 8];
-
-            #[inline]
-            #[must_use]
-            fn to_bytes(self) -> Self::Bytes {
-                self.into()
-            }
-        }
-
         impl From<[u8; #number_of_bits_usize / 8]> for #name {
             #[inline]
             #[must_use]
             fn from(bytes: [u8; #number_of_bits_usize / 8]) -> Self {
                 let mut array = [0; #word_bytes];
-                array[#word_bytes - #number_of_bits_usize / 8..].copy_from_slice(&bytes);
-                Self(#field_type::from_be_bytes(array))
+                array[..#number_of_bits_usize / 8].copy_from_slice(&bytes);
+                Self(<#field_type>::from_le_bytes(array))
             }
         }
 
@@ -158,9 +242,24 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
             #[inline]
             #[must_use]
             fn into(self) -> [u8; #number_of_bits_usize / 8] {
+                let array = self.0.to_le_bytes();
                 let mut bytes = [0; #number_of_bits_usize / 8];
-                bytes.copy_from_slice(&self.0.to_be_bytes()[#word_bytes - #number_of_bits_usize / 8..]);
+                bytes.copy_from_slice(&array[..#number_of_bits_usize / 8]);
                 bytes
+            }
+        }
+
+        #[cfg(test)]
+        mod #test_bytes_symmetry_for_name {
+            use super::*;
+
+            #[test]
+            fn test_bytes_symmetry() {
+                for value in crate::prelude::iter_random_values::<#name>(1_000, Some(#name::try_from(#name::MASK).unwrap()), None) {
+                    let bytes: [u8; #number_of_bits_usize / 8] = value.into();
+                    let value_from_bytes: #name = <#name>::from(bytes);
+                    assert_eq!(value, value_from_bytes);
+                }
             }
         }
 
@@ -230,7 +329,7 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
             #[inline]
             #[must_use]
             fn div(self, rhs: Self) -> Self::Output {
-                Self((self.0 / rhs.0) & (<Self as crate::prelude::VariableWord>::MASK as #field_type))
+                Self(self.0 / rhs.0)
             }
         }
 
@@ -248,7 +347,7 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
             #[inline]
             #[must_use]
             fn rem(self, rhs: Self) -> Self::Output {
-                Self((self.0 % rhs.0) & (<Self as crate::prelude::VariableWord>::MASK as #field_type))
+                Self(self.0 % rhs.0)
             }
         }
 
@@ -320,16 +419,17 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
             #[inline]
             #[must_use]
             fn shl(self, rhs: A) -> Self::Output {
-                Self(self.0 << rhs)
+                let result = self.0 << rhs;
+                debug_assert!(result <= <Self as crate::prelude::VariableWord>::MASK as #field_type, "The value {result} is too large for the number.");
+                Self(result)
             }
         }
 
-        impl<A> core::ops::ShlAssign<A> for #name where #field_type: core::ops::ShlAssign<A> {
+        impl<A: core::fmt::Debug> core::ops::ShlAssign<A> for #name where #field_type: core::ops::ShlAssign<A> {
             #[inline]
             #[must_use]
             fn shl_assign(&mut self, rhs: A) {
                 self.0 <<= rhs;
-                self.0 &= (<Self as crate::prelude::VariableWord>::MASK as #field_type);
             }
         }
 
@@ -406,14 +506,6 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
         }
 
         impl crate::prelude::PositiveInteger for #name {
-            type TryFromU64Error = <Self as core::convert::TryFrom<u64>>::Error;
-
-            #[inline]
-            #[must_use]
-            fn try_from_u64(value: u64) -> Result<Self, Self::TryFromU64Error> {
-                Self::try_from(value)
-            }
-
             #[inline]
             #[must_use]
             fn to_usize(self) -> usize {
@@ -459,85 +551,11 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl TryFrom<u64> for #name {
-            type Error = &'static str;
-
-            #[inline]
-            #[must_use]
-            fn try_from(value: u64) -> Result<Self, Self::Error> {
-                if value > <Self as crate::prelude::VariableWord>::MASK {
-                    Err("Value is too large for the word size")
-                } else {
-                    Ok(Self(value as #field_type))
-                }
-            }
-        }
-
         impl From<bool> for #name {
             #[inline]
             #[must_use]
             fn from(value: bool) -> Self {
                 Self(#field_type::from(value))
-            }
-        }
-
-        impl From<u8> for #name {
-            #[inline]
-            #[must_use]
-            fn from(value: u8) -> Self {
-                Self(value as #field_type)
-            }
-        }
-
-        impl From<u16> for #name {
-            #[inline]
-            #[must_use]
-            fn from(value: u16) -> Self {
-                Self(value as #field_type)
-            }
-        }
-
-        impl From<u32> for #name {
-            #[inline]
-            #[must_use]
-            fn from(value: u32) -> Self {
-                Self(value as #field_type)
-            }
-        }
-
-        impl Into<u64> for #name {
-            #[inline]
-            #[must_use]
-            fn into(self) -> u64 {
-                self.0 as u64
-            }
-        }
-
-        impl TryInto<u8> for #name {
-            type Error = &'static str;
-
-            #[inline]
-            #[must_use]
-            fn try_into(self) -> Result<u8, Self::Error> {
-                if self.0 > u8::MAX as #field_type {
-                    Err("Value is too large for u8")
-                } else {
-                    Ok(self.0 as u8)
-                }
-            }
-        }
-
-        impl TryInto<u16> for #name {
-            type Error = &'static str;
-
-            #[inline]
-            #[must_use]
-            fn try_into(self) -> Result<u16, Self::Error> {
-                if self.0 > u16::MAX as #field_type {
-                    Err("Value is too large for u16")
-                } else {
-                    Ok(self.0 as u16)
-                }
             }
         }
 
@@ -550,6 +568,125 @@ pub fn derive_variable_word(input: TokenStream) -> TokenStream {
             }
         }
     };
+
+    // We iterate the variant that are smaller than the current one and implement the From trait
+    // for each one. Next, we iterate all variants that are larger and we implement the TryFrom.
+
+    // We iterate the smaller variants
+    for smaller_variant in word_size.smaller_variants() {
+        let smaller_variant_name = smaller_variant.to_string();
+        let smaller_variant_ident = Ident::new(&smaller_variant_name, name.span());
+
+        let field_type_of_smaller_variant = smaller_variant.field_type();
+
+        if smaller_variant.is_power_of_two() {
+            expanded.extend(quote! {
+                impl TryInto<#smaller_variant_ident> for #name {
+                    type Error = &'static str;
+
+                    #[inline]
+                    #[must_use]
+                    fn try_into(self) -> Result<#smaller_variant_ident, Self::Error> {
+                        if self.0 > <Self as crate::prelude::VariableWord>::MASK as #field_type{
+                            Err("The value is too large for the number.")
+                        } else {
+                            Ok(self.0 as #field_type_of_smaller_variant)
+                        }
+                    }
+                }
+
+                impl From<#smaller_variant_ident> for #name {
+                    #[inline]
+                    #[must_use]
+                    fn from(value: #smaller_variant_ident) -> Self {
+                        Self(value as #field_type)
+                    }
+                }
+            });
+        } else {
+            expanded.extend(quote! {
+                impl TryInto<#smaller_variant_ident> for #name {
+                    type Error = &'static str;
+
+                    #[inline]
+                    #[must_use]
+                    fn try_into(self) -> Result<#smaller_variant_ident, Self::Error> {
+                        if self.0 > <Self as crate::prelude::VariableWord>::MASK as #field_type{
+                            Err("The value is too large for the number.")
+                        } else {
+                            Ok(#smaller_variant_ident(self.0 as #field_type_of_smaller_variant))
+                        }
+                    }
+                }
+
+                impl From<#smaller_variant_ident> for #name {
+                    #[inline]
+                    #[must_use]
+                    fn from(value: #smaller_variant_ident) -> Self {
+                        Self(value.0 as #field_type)
+                    }
+                }
+            });
+        }
+    }
+
+    // We iterate the larger variants
+    for larger_variant in word_size.larger_power_of_two_variants() {
+        let larger_variant_name = larger_variant.to_string();
+        let larger_variant_ident = Ident::new(&larger_variant_name, name.span());
+
+        let field_type_of_larger_variant = larger_variant.field_type();
+
+        if larger_variant.is_power_of_two() {
+            expanded.extend(quote! {
+                impl TryFrom<#larger_variant_ident> for #name {
+                    type Error = &'static str;
+
+                    #[inline]
+                    #[must_use]
+                    fn try_from(value: #larger_variant_ident) -> Result<Self, Self::Error> {
+                        if value > <Self as crate::prelude::VariableWord>::MASK as #field_type_of_larger_variant {
+                            Err("The value is too large for the number.")
+                        } else {
+                            Ok(Self(value as #field_type))
+                        }
+                    }
+                }
+
+                impl Into<#larger_variant_ident> for #name {
+                    #[inline]
+                    #[must_use]
+                    fn into(self) -> #field_type_of_larger_variant {
+                        self.0 as #field_type_of_larger_variant
+                    }
+                }
+            });
+        } else {
+            expanded.extend(quote! {
+                impl TryFrom<#larger_variant_ident> for #name {
+                    type Error = &'static str;
+
+                    #[inline]
+                    #[must_use]
+                    fn try_from(value: #larger_variant_ident) -> Result<Self, Self::Error> {
+                        if value.0 > <Self as crate::prelude::VariableWord>::MASK as #field_type_of_larger_variant {
+                            Err("The value is too large for the number.")
+                        } else {
+                            Ok(Self(value.0 as #field_type))
+                        }
+                    }
+                }
+
+                impl Into<#larger_variant_ident> for #name {
+                    #[inline]
+                    #[must_use]
+                    fn into(self) -> #larger_variant_ident {
+                        #larger_variant_ident(self.0 as #field_type_of_larger_variant)
+                    }
+                }
+            });
+        }
+    }
 
     // Return the generated impl
     TokenStream::from(expanded)
@@ -569,10 +706,6 @@ pub fn test_variable_words(_attr: TokenStream, item: TokenStream) -> TokenStream
         Ident::new("u16", fn_name.span()),
         Ident::new("u24", fn_name.span()),
         Ident::new("u32", fn_name.span()),
-        Ident::new("u40", fn_name.span()),
-        Ident::new("u48", fn_name.span()),
-        Ident::new("u56", fn_name.span()),
-        Ident::new("u64", fn_name.span()),
     ];
 
     // We add the Bits{i} for the range 1-8
@@ -607,7 +740,20 @@ pub fn test_variable_words(_attr: TokenStream, item: TokenStream) -> TokenStream
 }
 
 #[proc_macro_attribute]
-pub fn test_array(_attr: TokenStream, item: TokenStream) -> TokenStream {
+/// Derive the test functions for the Array struct
+pub fn test_array(attr: TokenStream, item: TokenStream) -> TokenStream {
+    // We see whether there any attributes
+    let string_attr = attr.to_string();
+    let deny: Vec<WordType> = if string_attr.is_empty() {
+        vec![]
+    } else {
+        string_attr
+            .split(',')
+            .map(|word| word.trim())
+            .map(WordType::from)
+            .collect::<Vec<_>>()
+    };
+
     // Parse the input token stream (the function we're deriving for)
     let input = parse_macro_input!(item as ItemFn);
 
@@ -615,20 +761,18 @@ pub fn test_array(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let fn_name = &input.sig.ident;
 
     // Define a list of generics we want to cover
-    let mut generics = vec![
-        Ident::new("u8", fn_name.span()),
-        Ident::new("u16", fn_name.span()),
-        Ident::new("u24", fn_name.span()),
-        Ident::new("u32", fn_name.span()),
-        Ident::new("u40", fn_name.span()),
-        Ident::new("u48", fn_name.span()),
-        Ident::new("u56", fn_name.span()),
-        Ident::new("u64", fn_name.span()),
-    ];
+    let mut generics: Vec<Ident> = WordType::variants()
+        .into_iter()
+        .filter(|word| !deny.contains(word))
+        .map(|word| Ident::new(&format!("{word}",), fn_name.span()))
+        .collect::<Vec<_>>();
 
-    // We add the Bits{i} for the range 1-8
-    for i in 1..=8 {
-        generics.push(Ident::new(&format!("Bits{}", i), fn_name.span()));
+    // We check that u8 was not denied
+    if !deny.contains(&WordType::U8) {
+        // We add the Bits{i} for the range 1-8
+        for i in 1..=8 {
+            generics.push(Ident::new(&format!("Bits{}", i), fn_name.span()));
+        }
     }
 
     // Generate the test functions
@@ -672,56 +816,6 @@ pub fn test_array(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn test_all_precisions_and_bits(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    // Parse the input token stream (the function we're deriving for)
-    let input = parse_macro_input!(item as ItemFn);
-
-    // Extract the function name
-    let fn_name = &input.sig.ident;
-
-    // Define a list of generics we want to cover
-    let precisions = (4..=18)
-        .map(|precision| Ident::new(&format!("Precision{}", precision), fn_name.span()))
-        .collect::<Vec<_>>();
-    let bits = (4..=6)
-        .map(|bits| Ident::new(&format!("Bits{}", bits), fn_name.span()))
-        .collect::<Vec<_>>();
-
-    // Generate the test functions
-    let test_functions = precisions.iter().enumerate().flat_map(|(i, precision)| {
-        let precision_exponent = i + 4;
-        (bits).iter().flat_map(move |bit| {
-            let test_fn_name = Ident::new(
-                &format!("{fn_name}_{precision}_{bit}",).to_lowercase(),
-                fn_name.span(),
-            );
-
-            // For each precision, we need to check whether the feature precision_{exponent} is enabled
-            let precision_flag = format!("precision_{precision_exponent}");
-            let feature_constraints = vec![quote! { #[cfg(feature = #precision_flag)] }];
-
-            quote! {
-                #[test]
-                #(#feature_constraints)*
-                fn #test_fn_name() {
-                    #fn_name::<#precision, #bit>();
-                }
-            }
-        })
-    });
-
-    // Generate the final token stream
-    let expanded = quote! {
-        #input
-
-        #(#test_functions)*
-    };
-
-    // Convert the expanded code into a token stream
-    TokenStream::from(expanded)
-}
-
-#[proc_macro_attribute]
 pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Parse the input token stream (the function we're deriving for)
     let input = parse_macro_input!(item as ItemFn);
@@ -738,8 +832,8 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
     let hashers = vec![
         Ident::new("XxHash", fn_name.span()),
-        Ident::new("WyHash", fn_name.span()),
-        Ident::new("AHasher", fn_name.span()),
+        // Ident::new("WyHash", fn_name.span()),
+        // Ident::new("AHasher", fn_name.span()),
     ];
 
     // Generate the test functions
@@ -812,5 +906,3 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Convert the expanded code into a token stream
     TokenStream::from(expanded)
 }
-
-

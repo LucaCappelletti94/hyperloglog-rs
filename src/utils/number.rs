@@ -30,21 +30,6 @@ pub trait Number:
     fn saturating_zero_sub(self, other: Self) -> Self;
 }
 
-/// A trait defining numbers that can be converted to an f64 without loss of precision.
-pub trait ToF64 {
-    /// Converts the number to an f64.
-    fn to_f64(self) -> f64;
-}
-
-impl<T> ToF64 for T
-where
-    f64: From<T>,
-{
-    fn to_f64(self) -> f64 {
-        f64::from(self)
-    }
-}
-
 /// A trait for positive integer numbers.
 pub trait PositiveInteger:
     Number
@@ -62,15 +47,6 @@ pub trait PositiveInteger:
     + Hash
     + Not<Output = Self>
 {
-    /// The error type for the `try_from_u64` method.
-    type TryFromU64Error: Debug;
-
-    /// Converts a `u64` to a positive integer number.
-    ///
-    /// # Errors
-    /// * If the value is too large to be converted to a positive integer number.
-    fn try_from_u64(value: u64) -> Result<Self, Self::TryFromU64Error>;
-
     /// Converts the positive integer number to a `usize`.
     fn to_usize(self) -> usize;
 }
@@ -130,13 +106,6 @@ macro_rules! impl_positive_integer_number {
     ($($t:ty),*) => {
         $(
             impl PositiveInteger for $t {
-                type TryFromU64Error = <$t as core::convert::TryFrom<u64>>::Error;
-
-                #[inline]
-                fn try_from_u64(value: u64) -> Result<Self, Self::TryFromU64Error> {
-                    <$t as core::convert::TryFrom<u64>>::try_from(value)
-                }
-
                 #[inline]
                 #[must_use]
                 fn to_usize(self) -> usize {

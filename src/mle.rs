@@ -1,5 +1,6 @@
 //! Struct marker MLE.
 
+use crate::basicloglog::BasicLogLog;
 use crate::prelude::*;
 use core::cmp::Ordering;
 use core::hash::Hash;
@@ -13,65 +14,17 @@ pub struct MLE<H, const ERROR: i32 = 2> {
     counter: H,
 }
 
-impl<H: ExtendableApproximatedSet<T>, T: Hash, const ERROR: i32> ExtendableApproximatedSet<T>
-    for MLE<H, ERROR>
-{
+impl<X, H: AsMut<X>, const ERROR: i32> AsMut<X> for MLE<H, ERROR> {
     #[inline]
-    fn insert(&mut self, element: &T) -> bool {
-        self.counter.insert(element)
+    fn as_mut(&mut self) -> &mut X {
+        self.counter.as_mut()
     }
 }
 
-impl<H: Hybridazable<CH>, CH: CompositeHash<H::Precision, H::Bits>, const ERROR: i32>
-    Hybridazable<CH> for MLE<H, ERROR>
-{
-    type IterSortedHashes<'words> = H::IterSortedHashes<'words> where Self: 'words, CH: 'words;
-
+impl<X, H: AsRef<X>, const ERROR: i32> AsRef<X> for MLE<H, ERROR> {
     #[inline]
-    fn dehybridize(&mut self) {
-        self.counter.dehybridize();
-    }
-
-    #[inline]
-    fn is_hybrid(&self) -> bool {
-        self.counter.is_hybrid()
-    }
-
-    #[inline]
-    fn capacity(&self) -> usize {
-        self.counter.capacity()
-    }
-
-    #[inline]
-    fn new_hybrid() -> Self {
-        Self {
-            counter: Hybridazable::new_hybrid(),
-        }
-    }
-
-    #[inline]
-    fn number_of_hashes(&self) -> usize {
-        self.counter.number_of_hashes()
-    }
-
-    #[inline]
-    fn contains<T: core::hash::Hash>(&self, element: &T) -> bool {
-        Hybridazable::contains(&self.counter, element)
-    }
-
-    #[inline]
-    fn clear_words(&mut self) {
-        self.counter.clear_words();
-    }
-
-    #[inline]
-    fn iter_sorted_hashes(&self) -> Self::IterSortedHashes<'_> {
-        self.counter.iter_sorted_hashes()
-    }
-
-    #[inline]
-    fn hybrid_insert<T: core::hash::Hash>(&mut self, element: &T) -> bool {
-        self.counter.hybrid_insert(element)
+    fn as_ref(&self) -> &X {
+        self.counter.as_ref()
     }
 }
 
@@ -93,14 +46,11 @@ impl<H: BitOrAssign, const ERROR: i32> BitOrAssign for MLE<H, ERROR> {
     }
 }
 
-impl<H: MutableSet, const ERROR: i32> MutableSet for MLE<H, ERROR> {
-    #[inline]
-    fn clear(&mut self) {
-        self.counter.clear();
-    }
-}
-
-impl<H: HyperLogLog, const ERROR: i32> HyperLogLog for MLE<H, ERROR> {
+impl<
+        H: HyperLogLog + AsMut<BasicLogLog<H::Precision, H::Bits, H::Registers, H::Hasher>>,
+        const ERROR: i32,
+    > HyperLogLog for MLE<H, ERROR>
+{
     type Registers = H::Registers;
     type Precision = H::Precision;
     type Bits = H::Bits;
@@ -112,18 +62,28 @@ impl<H: HyperLogLog, const ERROR: i32> HyperLogLog for MLE<H, ERROR> {
     }
 
     #[inline]
-    fn get_number_of_zero_registers(&self) -> <H::Precision as Precision>::NumberOfRegisters {
+    fn get_number_of_zero_registers(&self) -> usize {
         self.counter.get_number_of_zero_registers()
     }
 
     #[inline]
-    fn get_register(&self, index: <H::Precision as Precision>::NumberOfRegisters) -> u8 {
+    fn get_register(&self, index: usize) -> u8 {
         self.counter.get_register(index)
     }
 
     #[inline]
     fn harmonic_sum(&self) -> f64 {
         self.counter.harmonic_sum()
+    }
+
+    #[inline]
+    fn insert_register_value_and_index(
+        &mut self,
+        new_register_value: u8,
+        index: usize,
+    ) -> bool {
+        self.counter
+            .insert_register_value_and_index(new_register_value, index)
     }
 
     #[inline]
@@ -162,7 +122,7 @@ fn mle_union_cardinality<
     registers: I,
     left_cardinality: f64,
     right_cardinality: f64,
-    estimate: fn(f64, P::NumberOfRegisters) -> f64,
+    estimate: fn(f64, usize) -> f64,
 ) -> f64 {
     let mut left_multiplicities_larger = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
     let mut left_multiplicities_smaller = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
@@ -170,7 +130,7 @@ fn mle_union_cardinality<
     let mut right_multiplicities_smaller = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
     let mut joint_multiplicities = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
     let mut union_harmonic_sum = f64::ZERO;
-    let mut union_zeros = P::NumberOfRegisters::ZERO;
+    let mut union_zeros = 0;
 
     for [left_register, right_register] in registers {
         let cmp = left_register.cmp(&right_register);
@@ -189,7 +149,7 @@ fn mle_union_cardinality<
         joint_multiplicities[left_register] += f64::from(cmp == Ordering::Equal);
 
         union_harmonic_sum += f64::integer_exp2_minus(larger_register);
-        union_zeros += P::NumberOfRegisters::from(larger_register.is_zero());
+        union_zeros += usize::from(larger_register.is_zero());
     }
 
     // We get the best estimates from HyperLogLog++
@@ -199,7 +159,7 @@ fn mle_union_cardinality<
     // the first value in the multiplicities vectors, is equal
     // to the number of registers, it means that the intersection
     // is empty.
-    if union_zeros == P::NUMBER_OF_REGISTERS {
+    if union_zeros == 1 << B::NUMBER_OF_BITS {
         return f64::ZERO;
     }
 
@@ -404,7 +364,7 @@ impl<const N: usize, T: Default + Copy + Add<T, Output = T>> ElementWiseAddition
 impl<const ERROR: i32, H: Correction> Correction for MLE<H, ERROR> {
     fn correction(
         harmonic_sum: f64,
-        number_of_zero_registers: <Self::Precision as Precision>::NumberOfRegisters,
+        number_of_zero_registers: usize,
     ) -> f64 {
         H::correction(harmonic_sum, number_of_zero_registers)
     }
@@ -412,7 +372,7 @@ impl<const ERROR: i32, H: Correction> Correction for MLE<H, ERROR> {
 
 impl<const ERROR: i32, H> Estimator<f64> for MLE<H, ERROR>
 where
-    H: Estimator<f64> + Correction,
+    H: Estimator<f64> + Correction + HyperLogLog,
 {
     #[inline]
     fn estimate_cardinality(&self) -> f64 {

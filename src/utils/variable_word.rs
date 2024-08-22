@@ -22,7 +22,7 @@ pub trait VariableWord: Send + Sync + Clone + Copy + Debug + Default {
     /// The mask for the word.
     const MASK: u64;
     /// The word type.
-    type Word: PositiveInteger + TryInto<u8> + TryInto<u16> + TryInto<u64>;
+    type Word: PositiveInteger;
 
     #[allow(unsafe_code)]
     /// Converts the word to a u64.
@@ -37,21 +37,6 @@ pub trait VariableWord: Send + Sync + Clone + Copy + Debug + Default {
 #[allow(non_camel_case_types)]
 #[derive(Clone, VariableWord)]
 pub struct u24(u32);
-
-/// Virtual word with 40 bits.
-#[allow(non_camel_case_types)]
-#[derive(Clone, VariableWord)]
-pub struct u40(u64);
-
-/// Virtual word with 48 bits.
-#[allow(non_camel_case_types)]
-#[derive(Clone, VariableWord)]
-pub struct u48(u64);
-
-/// Virtual word with 56 bits.
-#[allow(non_camel_case_types)]
-#[derive(Clone, VariableWord)]
-pub struct u56(u64);
 
 impl VariableWord for u8 {
     const NUMBER_OF_BITS: u8 = 8;

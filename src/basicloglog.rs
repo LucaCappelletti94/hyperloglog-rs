@@ -1,7 +1,7 @@
 //! Implementation of the basic struct for [`HyperLogLog`] counter.
 
 use crate::prelude::*;
-use crate::utils::{HasherType, One, PositiveInteger, VariableWords, Zero};
+use crate::utils::{HasherType, Zero};
 use core::fmt::Debug;
 use core::fmt::Formatter;
 use core::hash::Hash;
@@ -21,6 +21,14 @@ pub(crate) struct BasicLogLog<P: Precision, B: Bits, R: Registers<P, B>, Hasher:
     harmonic_sum: f64,
     /// Phantom data to ensure the type parameters are used.
     _phantom: PhantomData<(P, B, Hasher)>,
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType>
+    AsMut<BasicLogLog<P, B, R, Hasher>> for BasicLogLog<P, B, R, Hasher>
+{
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
 }
 
 impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Debug
@@ -63,40 +71,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> BasicLogLog<
             _phantom: PhantomData,
         }
     }
-
-    /// Computes the hash of a value and splits it into a register value and an index.
-    fn compute_hash<T: Hash>(value: T) -> u64 {
-        let mut hasher = Hasher::default();
-        value.hash(&mut hasher);
-        hasher.finish()
-    }
-
-    /// Splits a hash into a register value and an index.
-    fn insert_register_value_and_index(
-        &mut self,
-        new_register_value: u8,
-        index: P::NumberOfRegisters,
-    ) -> bool {
-        // Count leading zeros.
-        debug_assert!(
-            new_register_value <= u8::try_from(B::MASK).unwrap(),
-            "Register value is too large."
-        );
-        debug_assert!(
-            new_register_value > 0,
-            "Register value is zero, which is not allowed."
-        );
-
-        let (old_register_value, larger_register_value) =
-            self.registers.set_greater(index, new_register_value);
-
-        self.number_of_zero_registers -= P::NumberOfRegisters::from(old_register_value == 0);
-
-        self.harmonic_sum += f64::integer_exp2_minus(larger_register_value)
-            - f64::integer_exp2_minus(old_register_value);
-
-        old_register_value != new_register_value
-    }
 }
 
 impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Default
@@ -117,8 +91,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperLogLog
     type Hasher = Hasher;
 
     /// Returns the number of registers with zero values.
-    fn get_number_of_zero_registers(&self) -> P::NumberOfRegisters {
-        self.number_of_zero_registers
+    fn get_number_of_zero_registers(&self) -> usize {
+        self.number_of_zero_registers.to_usize()
     }
 
     /// Returns a reference to the registers of the [`HyperLogLog`] counter.
@@ -131,8 +105,35 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperLogLog
         self.harmonic_sum
     }
 
-    fn get_register(&self, index: P::NumberOfRegisters) -> u8 {
+    fn get_register(&self, index: usize) -> u8 {
         self.registers.get_register(index)
+    }
+
+    /// Splits a hash into a register value and an index.
+    fn insert_register_value_and_index(
+        &mut self,
+        new_register_value: u8,
+        index: usize,
+    ) -> bool {
+        // Count leading zeros.
+        debug_assert!(
+            new_register_value <= u8::try_from(B::MASK).unwrap(),
+            "Register value is too large."
+        );
+        debug_assert!(
+            new_register_value > 0,
+            "Register value is zero, which is not allowed."
+        );
+
+        let (old_register_value, larger_register_value) =
+            self.registers.set_greater(index, new_register_value);
+
+        self.number_of_zero_registers -= P::NumberOfRegisters::from(old_register_value == 0);
+
+        self.harmonic_sum += f64::integer_exp2_minus(larger_register_value)
+            - f64::integer_exp2_minus(old_register_value);
+
+        old_register_value != new_register_value
     }
 
     fn from_registers(registers: R) -> Self {
@@ -195,162 +196,37 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Rhs: HyperLogLog, Hasher: Hasher
     }
 }
 
-impl<
-        P: Precision,
-        B: Bits,
-        Hasher: HasherType,
-        R: Registers<P, B> + VariableWords<CH>,
-        CH: CompositeHash<P, B>,
-    > Hybridazable<CH> for BasicLogLog<P, B, R, Hasher>
+impl<H> Hybridazable for H
+where
+    H: HyperLogLog
+        + AsMut<BasicLogLog<H::Precision, H::Bits, H::Registers, H::Hasher>>
+        + Correction,
+    H::Registers: HybridRegisters<H::Precision, H::Bits>,
 {
-    type IterSortedHashes<'words> = <R as VariableWords<CH>>::Words<'words> where Self: 'words, CH: 'words;
+    type Hashes = H::Registers;
 
-    fn new_hybrid() -> Self {
-        let mut default: Self = BasicLogLog::default();
-        default.clear_words();
-        default
+    fn registers_mut(&mut self) -> &mut Self::Registers {
+        &mut self.as_mut().registers
     }
 
-    fn is_hybrid(&self) -> bool {
-        // We employ the harmonic sum as a flag to represent whether the counter is in hybrid mode.
-        self.harmonic_sum < f64::ZERO
+    fn harmonic_sum_mut(&mut self) -> &mut f64 {
+        &mut self.as_mut().harmonic_sum
     }
 
-    fn capacity(&self) -> usize {
-        <R as VariableWords<CH>>::number_of_words(&self.registers)
-    }
-
-    fn dehybridize(&mut self) {
-        if self.is_hybrid() {
-            let number_of_hashes = self.number_of_hashes();
-            self.number_of_zero_registers = P::NUMBER_OF_REGISTERS;
-            self.harmonic_sum = f64::integer_exp2(P::EXPONENT);
-            let registers = self.registers.clone();
-            self.registers = R::default();
-            for composite_hash in registers.iter_variable_words(number_of_hashes) {
-                debug_assert!(composite_hash != CH::Word::ZERO, "Composite hash is zero.");
-
-                let (register_value, index) = CH::decode(composite_hash);
-                self.insert_register_value_and_index(register_value, index);
-            }
-        }
-    }
-
-    fn number_of_hashes(&self) -> usize {
-        self.get_number_of_zero_registers().to_usize()
-    }
-
-    fn clear_words(&mut self) {
-        self.registers.clear_registers();
-        self.number_of_zero_registers = P::NumberOfRegisters::ZERO;
-        self.harmonic_sum = f64::NEG_INFINITY;
-    }
-
-    fn iter_sorted_hashes(&self) -> Self::IterSortedHashes<'_> {
-        self.registers.iter_variable_words(self.number_of_hashes())
-    }
-
-    fn contains<T: Hash>(&self, element: &T) -> bool {
-        debug_assert!(
-            self.number_of_hashes() <= self.registers.number_of_words(),
-            "Number of hashes ({}) is greater than the number of words ({}) in the list of hashes.",
-            self.number_of_hashes(),
-            self.registers.number_of_words()
-        );
-
-        let hash = Self::compute_hash(element);
-        let (register, index) = Self::split_hash(hash);
-
-        self.registers
-            .find_sorted_with_len(CH::encode(register, index, hash), self.number_of_hashes())
-    }
-
-    fn hybrid_insert<T: Hash>(&mut self, element: &T) -> bool {
-        // In hybrid setting, we are using the registers as a list of hashes
-        // instead of the actual registers of an HyperLogLog counter, and we
-        // use the number of zeros as the number of words in the list.
-
-        if self.is_hybrid() {
-            // If the counter in hybrid mode has reached saturation, i.e. has as many
-            // hashes stored as it can fit, we switch to the normal HyperLogLog mode.
-            if self.capacity() == self.number_of_hashes() {
-                debug_assert_eq!(
-                    self.number_of_hashes(),
-                    self.registers.number_of_words(),
-                    "Number of hashes ({}) is not equal to the number of words ({}) in the list of hashes.",
-                    self.number_of_hashes(),
-                    self.registers.number_of_words()
-                );
-                debug_assert_eq!(
-                    self.iter_sorted_hashes().count(), self.number_of_hashes(),
-                    "Number of hashes ({}) is not equal to the number of words ({}) in the list of hashes.",
-                    self.iter_sorted_hashes().count(),
-                    self.number_of_hashes()
-                );
-                debug_assert_eq!(
-                    self.registers.iter_variable_words(self.number_of_hashes()).count(),
-                    self.number_of_hashes(),
-                    "Number of hashes ({}) is not equal to the number of words ({}) in the list of hashes.",
-                    self.registers.iter_variable_words(self.number_of_hashes()).count(),
-                    self.number_of_hashes()
-                );
-                debug_assert!(
-                    self.iter_sorted_hashes().all(|hash| hash != CH::Word::ZERO),
-                    "Number of zero hashes is not zero."
-                );
-                debug_assert!(
-                    self.registers
-                        .iter_variable_words(self.number_of_hashes())
-                        .all(|hash| hash != CH::Word::ZERO),
-                    "Number of zero hashes is not zero."
-                );
-                self.dehybridize();
-                self.insert(element)
-            } else {
-                let hash = Self::compute_hash(element);
-                let (register, index) = Self::split_hash(hash);
-                let composite_hash = CH::encode(register, index, hash);
-
-                debug_assert!(composite_hash != CH::Word::ZERO, "Composite hash is zero.");
-
-                if self
-                    .registers
-                    .sorted_insert_with_len(composite_hash, self.number_of_hashes())
-                {
-                    debug_assert!(
-                        self.number_of_zero_registers <= P::NUMBER_OF_REGISTERS,
-                        "Number of zero registers ({}) is greater than the number of registers ({})",
-                        self.number_of_zero_registers,
-                        P::NUMBER_OF_REGISTERS
-                    );
-                    self.number_of_zero_registers += P::NumberOfRegisters::ONE;
-                    true
-                } else {
-                    false
-                }
-            }
-        } else {
-            self.insert(element)
-        }
+    fn number_of_zero_registers_mut(
+        &mut self,
+    ) -> &mut <H::Precision as Precision>::NumberOfRegisters {
+        &mut self.as_mut().number_of_zero_registers
     }
 }
 
-impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>> MutableSet
-    for BasicLogLog<P, B, R, Hasher>
+impl<H> MutableSet for H
+where
+    H: HyperLogLog + AsMut<BasicLogLog<H::Precision, H::Bits, H::Registers, H::Hasher>>,
 {
     fn clear(&mut self) {
-        self.registers.clear_registers();
-        self.number_of_zero_registers = P::NUMBER_OF_REGISTERS;
-        self.harmonic_sum = f64::integer_exp2(P::EXPONENT);
-    }
-}
-
-impl<P: Precision, B: Bits, Hasher: HasherType, R: Registers<P, B>, T: Hash>
-    ExtendableApproximatedSet<T> for BasicLogLog<P, B, R, Hasher>
-{
-    fn insert(&mut self, element: &T) -> bool {
-        let (new_register_value, index) = Self::hash_and_index::<T>(element);
-
-        self.insert_register_value_and_index(new_register_value, index)
+        self.as_mut().registers.clear_registers();
+        self.as_mut().number_of_zero_registers = H::Precision::NUMBER_OF_REGISTERS;
+        self.as_mut().harmonic_sum = f64::integer_exp2(H::Precision::EXPONENT);
     }
 }

@@ -9,9 +9,10 @@
 //! it will also make it slower, as we need to perform more operations to extract the registers from the
 //! packed array, expecially in the case of bridge registers, i.e. registers that span two words.
 
+use super::HybridRegisters;
 use super::{
-    Bits, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6, Bits7, Bits8, FloatOps, Matrix, Precision,
-    Registers, Zero,
+    Bits, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6, Bits7, Bits8, Matrix, Precision, Registers,
+    Zero,
 };
 use crate::utils::PositiveInteger;
 use crate::utils::VariableWord;
@@ -634,11 +635,11 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
 
     #[inline]
     /// Returns whether the array has padding for a given length.
-    const fn has_padding(len: u64) -> bool {
+    const fn has_padding(len: usize) -> bool {
         if PACKED {
-            len * V::NUMBER_OF_BITS_U64 < N as u64 * 64
+            len * V::NUMBER_OF_BITS_USIZE < N * 64
         } else {
-            len < N as u64 * V::NUMBER_OF_ENTRIES_U64
+            len < N * V::NUMBER_OF_ENTRIES_USIZE
         }
     }
 
@@ -721,7 +722,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     ///
     /// # Returns
     /// The previous value at the given index and the new value.
-    /// 
+    ///
     /// # Safety
     /// This method accesses values in the underlying array without checking whether the index is valid,
     /// as it is guaranteed to be valid by the split_index method.
@@ -732,7 +733,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
         let (word_index, relative_value_offset) = split_index::<PACKED, V>(index);
 
         if Self::is_bridge_offset(relative_value_offset) {
-            let (low, high) = unsafe {self.words.split_at_mut_unchecked(word_index + 1)};
+            let (low, high) = unsafe { self.words.split_at_mut_unchecked(word_index + 1) };
             let low = &mut low[word_index];
             let high = &mut high[0];
             let value = extract_bridge_value_from_word::<V>(*low, *high, relative_value_offset);
@@ -763,17 +764,17 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     /// # Arguments
     /// * `ops` - The function to apply to the values.
     /// * `len` - The number of values to apply the function to.
-    fn apply<F>(&mut self, mut ops: F, len: u64)
+    fn apply<F>(&mut self, mut ops: F, len: usize)
     where
         F: FnMut(V::Word) -> V::Word,
     {
-        let mut number_of_values = 0;
+        let mut number_of_values: usize = 0;
         let mut value_offset = 0;
         for i in 0..N {
             let mut number_of_values_in_word = if PACKED {
-                (64 - u64::from(value_offset)) / V::NUMBER_OF_BITS_U64
+                (64 - usize::from(value_offset)) / V::NUMBER_OF_BITS_USIZE
             } else {
-                V::NUMBER_OF_ENTRIES_U64
+                V::NUMBER_OF_ENTRIES_USIZE
             };
 
             if Self::has_padding(len) && number_of_values + number_of_values_in_word > len {
@@ -833,23 +834,23 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Named for Array<N, PAC
 pub trait ArrayRegister<B: Bits>: Precision {
     #[cfg(all(feature = "std", feature = "mem_dbg"))]
     /// The type of the packed array register.
-    type Array: Registers<Self, B> + Named + MemDbg + MemSize;
+    type Array: HybridRegisters<Self, B> + Named + MemDbg + MemSize;
     #[cfg(all(feature = "std", not(feature = "mem_dbg")))]
     /// The type of the packed array register.
-    type Array: Registers<Self, B> + Named;
+    type Array: HybridRegisters<Self, B> + Named;
     #[cfg(not(feature = "std"))]
     /// The type of the packed array register.
-    type Array: Registers<Self, B>;
+    type Array: HybridRegisters<Self, B>;
 
     #[cfg(all(feature = "std", feature = "mem_dbg"))]
     /// The type of the packed array register.
-    type Packed: Registers<Self, B> + Named + MemDbg + MemSize;
+    type Packed: HybridRegisters<Self, B> + Named + MemDbg + MemSize;
     #[cfg(all(feature = "std", not(feature = "mem_dbg")))]
     /// The type of the packed array register.
-    type Packed: Registers<Self, B> + Named;
+    type Packed: HybridRegisters<Self, B> + Named;
     #[cfg(not(feature = "std"))]
     /// The type of the packed array register.
-    type Packed: Registers<Self, B>;
+    type Packed: HybridRegisters<Self, B>;
 }
 
 /// Trait marker to associate a precision to all possible packed array registers.
@@ -1025,45 +1026,32 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                     }
 
                     #[inline]
-                    fn get_harmonic_sum_and_zeros(
-                        &self,
-                        other: &Self,
-                    ) -> (f64, <[<Precision $exponent>] as Precision>::NumberOfRegisters)
-                    {
-                        let mut harmonic_sum = f64::ZERO;
-                        let mut union_zeros = <[<Precision $exponent>] as Precision>::NumberOfRegisters::ZERO;
-
-                        for [left, right] in <Self as Registers<[<Precision $exponent>], [<Bits $bits>]>>::iter_registers_zipped(self, other) {
-                            let max_register = core::cmp::max(left, right);
-                            harmonic_sum += f64::integer_exp2_minus(max_register);
-                            union_zeros += <[<Precision $exponent>] as Precision>::NumberOfRegisters::from(max_register.is_zero());
-                        }
-
-                        (harmonic_sum, union_zeros)
-                    }
-
-                    #[inline]
                     fn apply_to_registers<F>(&mut self, register_function: F)
                     where
                         F: FnMut(u8) -> u8,
                     {
-                        self.apply(register_function, <[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS.into());
+                        self.apply(register_function, <[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS.to_usize());
                     }
 
                     #[inline]
-                    fn set_greater(&mut self, index: <[<Precision $exponent>] as Precision>::NumberOfRegisters, new_register: u8) -> (u8, u8) {
-                        self.set_apply(index.to_usize(), |register| core::cmp::max(register, new_register))
+                    fn set_greater(&mut self, index: usize, new_register: u8) -> (u8, u8) {
+                        self.set_apply(index, |register| core::cmp::max(register, new_register))
                     }
 
                     #[inline]
                     /// Returns the value of the register at the given index in the packed array.
-                    fn get_register(&self, index: <[<Precision $exponent>] as Precision>::NumberOfRegisters) -> u8 {
-                        self.get(index.to_usize())
+                    fn get_register(&self, index: usize) -> u8 {
+                        self.get(index)
                     }
 
                     #[inline]
                     fn clear_registers(&mut self) {
                         self.clear();
+                    }
+
+                    #[inline]
+                    fn bitsize() -> usize {
+                        64 * crate::utils::ceil(usize::pow(2, $exponent) * $bits, 64)
                     }
                 }
 
@@ -1085,45 +1073,32 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                     }
 
                     #[inline]
-                    fn get_harmonic_sum_and_zeros(
-                        &self,
-                        other: &Self,
-                    ) -> (f64, <[<Precision $exponent>] as Precision>::NumberOfRegisters)
-                    {
-                        let mut harmonic_sum = f64::ZERO;
-                        let mut union_zeros = <[<Precision $exponent>] as Precision>::NumberOfRegisters::ZERO;
-
-                        for [left, right] in <Self as Registers<[<Precision $exponent>], [<Bits $bits>]>>::iter_registers_zipped(self, other) {
-                            let max_register = core::cmp::max(left, right);
-                            harmonic_sum += f64::integer_exp2_minus(max_register);
-                            union_zeros += <[<Precision $exponent>] as Precision>::NumberOfRegisters::from(max_register.is_zero());
-                        }
-
-                        (harmonic_sum, union_zeros)
-                    }
-
-                    #[inline]
                     fn apply_to_registers<F>(&mut self, register_function: F)
                     where
                         F: FnMut(u8) -> u8,
                     {
-                        self.apply(register_function, <[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS.into());
+                        self.apply(register_function, <[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS.to_usize());
                     }
 
                     #[inline]
-                    fn set_greater(&mut self, index: <[<Precision $exponent>] as Precision>::NumberOfRegisters, new_register: u8) -> (u8, u8) {
-                        self.set_apply(index.to_usize(), |register| core::cmp::max(register, new_register))
+                    fn set_greater(&mut self, index: usize, new_register: u8) -> (u8, u8) {
+                        self.set_apply(index, |register| core::cmp::max(register, new_register))
                     }
 
                     #[inline]
                     /// Returns the value of the register at the given index in the packed array.
-                    fn get_register(&self, index: <[<Precision $exponent>] as Precision>::NumberOfRegisters) -> u8 {
-                        self.get(index.to_usize())
+                    fn get_register(&self, index: usize) -> u8 {
+                        self.get(index)
                     }
 
                     #[inline]
                     fn clear_registers(&mut self) {
                         self.clear();
+                    }
+
+                    #[inline]
+                    fn bitsize() -> usize {
+                        64 * crate::utils::ceil(usize::pow(2, $exponent), 64 / $bits)
                     }
                 }
             }

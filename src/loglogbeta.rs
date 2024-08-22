@@ -22,6 +22,24 @@ pub struct LogLogBeta<
     counter: BasicLogLog<P, B, R, Hasher>,
 }
 
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> AsRef<BasicLogLog<P, B, R, Hasher>>
+    for LogLogBeta<P, B, R, Hasher>
+{
+    #[inline]
+    fn as_ref(&self) -> &BasicLogLog<P, B, R, Hasher> {
+        &self.counter
+    }
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> AsMut<BasicLogLog<P, B, R, Hasher>>
+    for LogLogBeta<P, B, R, Hasher>
+{
+    #[inline]
+    fn as_mut(&mut self) -> &mut BasicLogLog<P, B, R, Hasher> {
+        &mut self.counter
+    }
+}
+
 hll_impl!(LogLogBeta<P, B, R, Hasher>);
 
 impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType>
@@ -70,13 +88,23 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperLogLog
     }
 
     #[inline]
-    fn get_number_of_zero_registers(&self) -> <P as Precision>::NumberOfRegisters {
+    fn get_number_of_zero_registers(&self) -> usize {
         self.counter.get_number_of_zero_registers()
     }
 
     #[inline]
-    fn get_register(&self, index: P::NumberOfRegisters) -> u8 {
+    fn get_register(&self, index: usize) -> u8 {
         self.counter.get_register(index)
+    }
+
+    #[inline]
+    fn insert_register_value_and_index(
+        &mut self,
+        new_register_value: u8,
+        index: usize,
+    ) -> bool {
+        self.counter
+            .insert_register_value_and_index(new_register_value, index)
     }
 
     #[inline]
@@ -98,7 +126,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Correction
     #[inline]
     fn correction(
         harmonic_sum: f64,
-        number_of_zero_registers: <Self::Precision as Precision>::NumberOfRegisters,
+        number_of_zero_registers: usize,
     ) -> f64 {
         P::plusplus_estimate(harmonic_sum, number_of_zero_registers)
     }

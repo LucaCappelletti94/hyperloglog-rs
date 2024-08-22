@@ -45,7 +45,18 @@ pub trait Registers<P: Precision, B: Bits>:
     ) -> Self::IterZipped<'registers>;
 
     /// Returns the harmonic sum of the maximum value of the registers and the number of zero registers.
-    fn get_harmonic_sum_and_zeros(&self, other: &Self) -> (f64, P::NumberOfRegisters);
+    fn get_harmonic_sum_and_zeros(&self, other: &Self) -> (f64, usize) {
+        let mut harmonic_sum = f64::ZERO;
+        let mut union_zeros = 0;
+
+        for [left, right] in Self::iter_registers_zipped(self, other) {
+            let max_register = core::cmp::max(left, right);
+            harmonic_sum += f64::integer_exp2_minus(max_register);
+            union_zeros += usize::from(max_register.is_zero());
+        }
+
+        (harmonic_sum, union_zeros)
+    }
 
     /// Applies a function to each register.
     fn apply_to_registers<F>(&mut self, f: F)
@@ -61,11 +72,14 @@ pub trait Registers<P: Precision, B: Bits>:
     ///
     /// # Returns
     /// The previous value of the register, and the larger of the two values.
-    fn set_greater(&mut self, index: P::NumberOfRegisters, value: u8) -> (u8, u8);
+    fn set_greater(&mut self, index: usize, value: u8) -> (u8, u8);
 
     /// Returns the value of the register at the given index.
-    fn get_register(&self, index: P::NumberOfRegisters) -> u8;
+    fn get_register(&self, index: usize) -> u8;
 
     /// Clears the registers to zero.
     fn clear_registers(&mut self);
+
+    /// Returns the struct bitsize.
+    fn bitsize() -> usize;
 }

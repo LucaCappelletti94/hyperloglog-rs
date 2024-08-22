@@ -367,8 +367,7 @@ fn write_linear_count_zeros(precisions: &[usize]) {
         .iter()
         .map(|precision| {
             let count = get_linear_count(1 << precision, get_linear_count_threshold(*precision));
-            let data_type = get_smallest_data_type(1 << precision);
-            format!("/// Number of zeros for linear count threshold for precision {precision} used in [`HyperLogLog`]. \nconst LINEAR_COUNT_ZEROS_{precision}: {data_type} = {count};",)
+            format!("/// Number of zeros for linear count threshold for precision {precision} used in [`HyperLogLog`]. \nconst LINEAR_COUNT_ZEROS_{precision}: usize = {count};",)
         })
         .collect::<Vec<String>>()
         .join("\n");

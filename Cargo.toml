@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [".", "evaluate_composite_hash", "hyperloglog-derive", "statistical_comparisons", "statistical_comparisons/macro_test_utils"]
+members = [".", "hyperloglog-derive", "statistical_comparisons", "statistical_comparisons/macro_test_utils"]
 
 [package]
 name = "hyperloglog-rs"
@@ -128,10 +128,6 @@ opt-level = 3
 
 [[bench]]
 name = "unique_count_from_sorted_iterators"
-harness = false
-
-[[bench]]
-name = "hybrid"
 harness = false
 
 [[bench]]

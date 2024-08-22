@@ -24,20 +24,21 @@ struct WilcoxonTestResult {
     first_approach_name: String,
     second_approach_name: String,
     #[serde(serialize_with = "float_formatter")]
-    p_value: f64,
+    p_value: f64
 }
 
 #[derive(Debug)]
 struct ReportInformations {
     absolute_errors: Vec<f64>,
     mean_memory_requirements: usize,
+    mean_time_requirements: u128,
     mean_absolute_error: f64,
     std_absolute_error: f64,
     name: String,
 }
 
 impl ReportInformations {
-    fn from_path(path: &std::path::Path, memory_normalized: bool) -> Self {
+    fn from_path(path: &std::path::Path, normalized: bool) -> Self {
         let path: &str = path.to_str().unwrap();
         let reports: Vec<ErrorReport> = read_csv(path).unwrap();
         let approach_name = path
@@ -49,12 +50,13 @@ impl ReportInformations {
             .unwrap()
             .to_owned();
 
-        let absolute_errors = if memory_normalized {
+        let absolute_errors = if normalized {
             reports
                 .iter()
                 .map(|report| {
                     report.error().max(f64::from(f32::EPSILON))
                         * f64::from(u32::try_from(report.memory_requirement()).unwrap())
+                        * (report.time_requirement() as f64) 
                 })
                 .collect::<Vec<f64>>()
         } else {
@@ -62,12 +64,14 @@ impl ReportInformations {
         };
 
         let mean_memory_requirements = mean(reports.iter().map(ErrorReport::memory_requirement));
+        let mean_time_requirements = mean(reports.iter().map(ErrorReport::time_requirement));
         let mean_absolute_error = mean(absolute_errors.iter().copied());
         let std_absolute_error = standard_deviation(&absolute_errors, mean_absolute_error);
 
         ReportInformations {
             absolute_errors,
             mean_memory_requirements,
+            mean_time_requirements,
             mean_absolute_error,
             std_absolute_error,
             name: approach_name,
@@ -80,6 +84,7 @@ struct ModelPerformance {
     name: String,
     mean_absolute_error: f64,
     std_absolute_error: f64,
+    mean_time_requirements: u128,
     mean_memory_requirements: usize,
     number_of_wins: usize,
     number_of_losses: usize,
@@ -170,6 +175,7 @@ fn wilcoxon_test(mut reports: Vec<ReportInformations>, feature_name: &str) {
             mean_absolute_error: report.mean_absolute_error,
             std_absolute_error: report.std_absolute_error,
             mean_memory_requirements: report.mean_memory_requirements,
+            mean_time_requirements: report.mean_time_requirements,
             number_of_wins: 0,
             number_of_losses: 0,
             number_of_draws: 0,
@@ -268,14 +274,14 @@ pub fn cartesian_wilcoxon_test(feature_name: &str) {
     );
 
     // First, we load all of the reports in parallel.
-    let memory_normalized_reports: Vec<ReportInformations> = report_paths
+    let normalized_reports: Vec<ReportInformations> = report_paths
         .par_iter()
         .progress_with(progress_bar)
         .map(|path| ReportInformations::from_path(path, true))
         .collect::<Vec<ReportInformations>>();
 
     wilcoxon_test(
-        memory_normalized_reports,
-        &format!("{feature_name}_memory_normalized"),
+        normalized_reports,
+        &format!("{feature_name}_normalized"),
     );
 }
