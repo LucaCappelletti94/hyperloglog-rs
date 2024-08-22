@@ -1,5 +1,4 @@
 use hyperloglog_rs::prelude::*;
-use statistical_comparisons::cartesian_wilcoxon_test;
 use statistical_comparisons::enumerations::*;
 use statistical_comparisons::reports_generator::SetTester;
 use twox_hash::{XxHash64, xxh3::Hash64 as XxH3};
@@ -14,6 +13,6 @@ fn main() {
     // We init the logger
     env_logger::init();
     cardinality_benchmarks();
-    cartesian_wilcoxon_test("cardinality");
+    // statistical_comparisons::cartesian_wilcoxon_test("cardinality");
     // cartesian_wilcoxon_test("union");
 }

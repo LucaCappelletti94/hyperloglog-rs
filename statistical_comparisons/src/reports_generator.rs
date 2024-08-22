@@ -2,20 +2,19 @@
 use std::collections::HashSet;
 
 use crate::csv_utils::{read_csv, write_csv};
-use crate::estimation_tests::{cardinality_test, union_test};
+use crate::estimation_tests::cardinality_test;
 use crate::{
     estimation_tests::{ErrorReport, PerformanceReport},
     traits::TransparentMemSize,
 };
 use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
-use indicatif::ProgressIterator;
 use strum::IntoEnumIterator;
 
 fn prepare_reports<S, T1, T2>(test_for_hashset: T1, test: T2, test_name: &str)
 where
-    T1: Fn(&HashSet<u64>, Option<&MultiProgress>) -> Vec<PerformanceReport>,
-    T2: Fn(&S, Option<&MultiProgress>) -> Vec<PerformanceReport>,
+    T1: Fn(&HashSet<u64>) -> Vec<PerformanceReport>,
+    T2: Fn(&S) -> Vec<PerformanceReport>,
     S: Named
         + Clone
         + ExtendableApproximatedSet<u64>
@@ -40,7 +39,7 @@ where
         // We log the progress of the computation.
         log::info!("Computing the exact {} of the set.", test_name);
 
-        let correct_report = test_for_hashset(&exact_estimator, None);
+        let correct_report = test_for_hashset(&exact_estimator);
         // And we store it into the "reports/cardinality/{estimator_name}.csv" file.
         write_csv(correct_report.iter().copied(), &path);
         correct_report
@@ -76,16 +75,17 @@ where
     entries_progress_bar.set_style(
         indicatif::ProgressStyle::default_bar()
             .template(&format!(
-                "{test_name}: [{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>7}}/{{len:7}}"
+                "{test_name} [{{msg}}]: [{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>7}}/{{len:7}}"
             ))
             .unwrap()
             .progress_chars("##-"),
     );
 
-    for enum_entry in entries.progress_with(entries_progress_bar) {
+    for enum_entry in entries {
         // We do the same for each estimator.
         let path = format!("reports/{test_name}/{}.csv.gz", enum_entry.name());
-        let report = test(&enum_entry, Some(&multi_progress));
+        entries_progress_bar.set_message(enum_entry.name());
+        let report = test(&enum_entry);
         write_csv(
             report
                 .into_iter()
@@ -93,6 +93,7 @@ where
                 .map(|(a, b)| ErrorReport::from_performance_reports(a, b)),
             &path,
         );
+        entries_progress_bar.inc(1);
     }
 
     multi_progress.clear().unwrap();
@@ -112,10 +113,10 @@ pub trait SetTester:
         prepare_reports::<Self, _, _>(cardinality_test, cardinality_test, "cardinality");
     }
 
-    /// Prepare the reports for the union test.
-    fn prepare_union_reports() {
-        prepare_reports::<Self, _, _>(union_test, union_test, "union");
-    }
+    // /// Prepare the reports for the union test.
+    // fn prepare_union_reports() {
+    //     prepare_reports::<Self, _, _>(union_test, union_test, "union");
+    // }
 }
 
 impl<

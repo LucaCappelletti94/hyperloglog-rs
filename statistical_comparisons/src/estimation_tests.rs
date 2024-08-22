@@ -4,9 +4,6 @@
 //! Evaluation of set-like properties across different data structures.
 use crate::traits::TransparentMemSize;
 use hyperloglog_rs::prelude::*;
-use indicatif::ParallelProgressIterator;
-use indicatif::ProgressBar;
-use indicatif::ProgressStyle;
 use rayon::prelude::*;
 
 #[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
@@ -53,33 +50,15 @@ pub(crate) fn cardinality_test<
     H: Estimator<f64> + Clone + TransparentMemSize + Named + ExtendableApproximatedSet<u64>,
 >(
     estimator: &H,
-    multi_progress: Option<&indicatif::MultiProgress>,
 ) -> Vec<PerformanceReport> {
     let number_of_vectors = 1_000_u64;
     let number_of_elements = 1_000_000;
     let sample_interval = number_of_elements / 1_000;
     let sequence_random_state = splitmix64(9_516_748_163_234_878_233_u64);
-    let sample_index_random_state = splitmix64(234_878_239_9_516_748_163_u64);
-
-    let estimator_name = estimator.name();
-
-    let progress_bar = ProgressBar::new(number_of_vectors);
-    progress_bar.set_style(
-        ProgressStyle::default_bar()
-            .template(&format!(
-                "{estimator_name}: [{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>7}}/{{len:7}}"
-            ))
-            .unwrap()
-            .progress_chars("##-"),
-    );
+    let sample_index_random_state = splitmix64(2_348_782_399_516_748_163_u64);
 
     (0..number_of_vectors)
         .into_par_iter()
-        .progress_with(if let Some(multi_progress) = multi_progress {
-            multi_progress.add(progress_bar)
-        } else {
-            progress_bar
-        })
         .flat_map(|thread_number| {
             let sequence_random_state =
                 splitmix64(splitmix64(sequence_random_state.wrapping_mul(thread_number + 1)));
