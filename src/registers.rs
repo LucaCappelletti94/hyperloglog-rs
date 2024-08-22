@@ -23,7 +23,18 @@ impl<B: Bits> RegisterWord<B> for u64 {
 
 /// Trait marker for the registers.
 pub trait Registers<P: Precision, B: Bits>:
-    Eq + PartialEq + Clone + Debug + Send + Sync + Default
+    Eq
+    + PartialEq
+    + Clone
+    + Debug
+    + Send
+    + Sync
+    + Default
+    + AsMut<[u8]>
+    + VariableWords<u8>
+    + VariableWords<u16>
+    + VariableWords<u24>
+    + VariableWords<u32>
 {
     /// Iterator over the registers.
     type Iter<'register>: ExactSizeIterator<Item = u8>
@@ -45,14 +56,14 @@ pub trait Registers<P: Precision, B: Bits>:
     ) -> Self::IterZipped<'registers>;
 
     /// Returns the harmonic sum of the maximum value of the registers and the number of zero registers.
-    fn get_harmonic_sum_and_zeros(&self, other: &Self) -> (f64, usize) {
+    fn get_harmonic_sum_and_zeros(&self, other: &Self) -> (f64, u32) {
         let mut harmonic_sum = f64::ZERO;
         let mut union_zeros = 0;
 
         for [left, right] in Self::iter_registers_zipped(self, other) {
             let max_register = core::cmp::max(left, right);
             harmonic_sum += f64::integer_exp2_minus(max_register);
-            union_zeros += usize::from(max_register.is_zero());
+            union_zeros += u32::from(max_register.is_zero());
         }
 
         (harmonic_sum, union_zeros)

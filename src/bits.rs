@@ -47,4 +47,4 @@ macro_rules! impl_bits {
     };
 }
 
-impl_bits!(1, 2, 3, 4, 5, 6, 7, 8);
+impl_bits!(4, 5, 6);

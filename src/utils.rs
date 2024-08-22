@@ -23,8 +23,8 @@ pub use hasher_type::HasherType;
 pub use matrix::Matrix;
 pub(crate) use number::{FloatOps, Number, PositiveInteger};
 pub use random::*;
-pub use variable_word::{u24, VariableWord};
-pub use variable_words::VariableWords;
+pub(crate) use variable_word::{u24, VariableWord};
+pub(crate) use variable_words::VariableWords;
 
 #[cfg(feature = "std")]
 /// Trait for an object with a name.
@@ -62,6 +62,7 @@ impl Named for u64 {
 }
 
 #[inline]
+#[must_use]
 /// Calculates the integer ceil of the division of `numerator` by `denominator`.
 ///
 /// # Arguments

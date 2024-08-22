@@ -75,7 +75,7 @@ def plot_errors():
                     float((2**precision) * number_of_bits) / float(hash_size)
                 )
                 expected_collisions = compute_expected_collisions(
-                    hash_size - 5, 5, maximal_number_of_hashes
+                    hash_size - number_of_bits, number_of_bits, maximal_number_of_hashes
                 )
                 mean_collisions.append(expected_collisions / maximal_number_of_hashes)
 
@@ -245,4 +245,5 @@ def plot_absolute_error_by_cardinality():
     plt.savefig("scripts/absolute_error_vs_cardinality.png")
 
 if __name__ == "__main__":
+    plot_errors()
     plot_absolute_error_by_cardinality()

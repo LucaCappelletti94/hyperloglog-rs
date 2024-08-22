@@ -117,12 +117,14 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     type NumberOfRegisters: PositiveInteger
         + VariableWord<Word = <Self as Precision>::NumberOfRegisters>
         + MemSize
+        + Into<u32>
         + TryFrom<u64>
         + MemDbg;
     #[cfg(not(feature = "mem_dbg"))]
     /// Se documentation above.
     type NumberOfRegisters: PositiveInteger
         + TryFrom<u64>
+        + Into<u32>
         + VariableWord<Word = <Self as Precision>::NumberOfRegisters>;
     /// The exponent of the number of registers, meaning the number of registers
     /// that will be used is 2^EXPONENT. This is the p parameter in the [`HyperLogLog`].
@@ -156,11 +158,11 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
 
     #[cfg(feature = "precomputed_beta")]
     /// Returns the precomputed beta value for the given number of zero registers.
-    fn const_beta_horner(number_of_zero_registers: usize) -> f64;
+    fn const_beta_horner(number_of_zero_registers: u32) -> f64;
 
     #[cfg(feature = "zero_count_correction")]
     /// The number of zero registers over which the counter should switch to the linear counting.
-    const LINEAR_COUNT_ZEROS: usize;
+    const LINEAR_COUNT_ZEROS: u32;
     #[cfg(all(feature = "plusplus", not(feature = "integer_plusplus")))]
     /// The estimate centroids for the [`PlusPlus`] bias correction.
     const ESTIMATES: &'static [f64];
@@ -176,11 +178,12 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
 
     #[cfg(feature = "beta")]
     #[inline]
+    #[must_use]
     /// Computes LogLog-Beta estimate bias correction using Horner's method.
     ///
     /// Paper: <https://arxiv.org/pdf/1612.02284.pdf>
     /// Wikipedia: <https://en.wikipedia.org/wiki/Horner%27s_method>
-    fn beta_estimate(harmonic_sum: f64, number_of_zero_registers: usize) -> f64 {
+    fn beta_estimate(harmonic_sum: f64, number_of_zero_registers: u32) -> f64 {
         #[cfg(feature = "zero_count_correction")]
         if number_of_zero_registers >= Self::LINEAR_COUNT_ZEROS {
             return Self::small_correction(number_of_zero_registers);
@@ -190,12 +193,12 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
             #[cfg(not(feature = "std_ln"))]
             let number_of_zero_registers_ln = LN_VALUES[1 + number_of_zero_registers];
             #[cfg(feature = "std_ln")]
-            let number_of_zero_registers_ln = f64::ln_1p(number_of_zero_registers as f64);
+            let number_of_zero_registers_ln = f64::ln_1p(f64::from(number_of_zero_registers));
             let mut res = f64::ZERO;
             for i in (1..8).rev() {
                 res = res * number_of_zero_registers_ln + Self::BETA[i];
             }
-            res * number_of_zero_registers_ln + Self::BETA[0] * number_of_zero_registers as f64
+            res * number_of_zero_registers_ln + Self::BETA[0] * f64::from(number_of_zero_registers)
         };
 
         #[cfg(feature = "precomputed_beta")]
@@ -203,24 +206,25 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
 
         Self::ALPHA
             * f64::integer_exp2(Self::EXPONENT)
-            * (f64::integer_exp2(Self::EXPONENT) - number_of_zero_registers as f64)
+            * (f64::integer_exp2(Self::EXPONENT) - f64::from(number_of_zero_registers))
             / (harmonic_sum + beta_horner)
             + 0.5
     }
 
     /// Computes the small correction factor for the estimate.
     #[inline]
+    #[must_use]
     #[cfg(feature = "zero_count_correction")]
-    fn small_correction(number_of_zero_registers: usize) -> f64 {
+    fn small_correction(number_of_zero_registers: u32) -> f64 {
         #[cfg(not(feature = "std_ln"))]
         return f64::integer_exp2(Self::EXPONENT)
             * (f64::from(Self::EXPONENT) * core::f64::consts::LN_2
-                - LN_VALUES[number_of_zero_registers]);
+                - LN_VALUES[number_of_zero_registers.to_usize()]);
         #[cfg(feature = "std_ln")]
         return f64::integer_exp2(Self::EXPONENT)
             * f64::ln_1p(
-                (((1 << Self::EXPONENT) - number_of_zero_registers) as f64)
-                    / number_of_zero_registers as f64,
+                (f64::from((1 << Self::EXPONENT) - number_of_zero_registers))
+                    / f64::from(number_of_zero_registers),
             );
     }
 
@@ -248,8 +252,9 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
 
     #[cfg(feature = "plusplus")]
     #[inline]
+    #[must_use]
     /// Computes the estimate of the cardinality using the [`PlusPlus`] algorithm.
-    fn plusplus_estimate(harmonic_sum: f64, number_of_zeros: usize) -> f64 {
+    fn plusplus_estimate(harmonic_sum: f64, number_of_zeros: u32) -> f64 {
         #[cfg(feature = "zero_count_correction")]
         if number_of_zeros >= Self::LINEAR_COUNT_ZEROS {
             return Self::small_correction(number_of_zeros);
@@ -295,12 +300,12 @@ macro_rules! impl_precision {
                 #[cfg(all(feature = "beta", not(feature = "precomputed_beta")))]
                 const BETA: [f64; 8] = [<BETA_ $exponent>];
                 #[cfg(feature = "precomputed_beta")]
-                fn const_beta_horner(number_of_zero_registers: usize) -> f64 {
-                    [<BETA_HORNER_ $exponent>][number_of_zero_registers]
+                fn const_beta_horner(number_of_zero_registers: u32) -> f64 {
+                    [<BETA_HORNER_ $exponent>][number_of_zero_registers.to_usize()]
                 }
 
                 #[cfg(feature = "zero_count_correction")]
-                const LINEAR_COUNT_ZEROS: usize = [<LINEAR_COUNT_ZEROS_ $exponent>];
+                const LINEAR_COUNT_ZEROS: u32 = [<LINEAR_COUNT_ZEROS_ $exponent>];
 
                 #[cfg(all(feature = "plusplus", not(feature = "integer_plusplus")))]
                 const ESTIMATES: &'static [f64] = &[<ESTIMATES_ $exponent>];

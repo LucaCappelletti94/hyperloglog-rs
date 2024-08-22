@@ -2,8 +2,8 @@
 
 use crate::prelude::*;
 use core::cmp::Ordering;
+use core::fmt::Debug;
 use core::hash::Hash;
-use core::usize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
@@ -111,30 +111,7 @@ impl<T: Hash, H: ExtendableApproximatedSet<T> + Hybridazable> ExtendableApproxim
     }
 }
 
-#[allow(unsafe_code)]
 #[inline]
-#[expect(
-    clippy::cast_possible_truncation,
-    reason = "The value is guaranteed to be less than 2**32"
-)]
-/// Method to convert a usize to a u32.
-///
-/// # Arguments
-/// * `value` - The value to be converted.
-///
-/// # Safety
-/// This method needs to be used with caution, as it will truncate values
-/// that are greater than 2**32.
-const unsafe fn usize_to_u32(value: usize) -> u32 {
-    debug_assert!(
-        value < (2_usize << 32),
-        "The value should be less than 2**32"
-    );
-    value as u32
-}
-
-#[inline]
-#[allow(unsafe_code)]
 /// Returns the number of unique values from two sorted iterators.
 ///
 /// # Implementative details
@@ -147,6 +124,9 @@ const unsafe fn usize_to_u32(value: usize) -> u32 {
 /// of the two sets is at most the sum of the number of unique values in each set,
 /// so at most 2**16 unique values. We can thus use a u32 to represent the number
 /// of unique values.
+///
+/// # Panics
+/// Panics if the number of unique values is greater than 2**32.
 pub fn unique_count_from_sorted_iterators<
     T: Ord,
     I: ExactSizeIterator<Item = T>,
@@ -156,8 +136,8 @@ pub fn unique_count_from_sorted_iterators<
     mut right: J,
 ) -> u32 {
     let mut intersection = u32::ZERO;
-    let left_length = unsafe { usize_to_u32(left.len()) };
-    let right_length = unsafe { usize_to_u32(right.len()) };
+    let left_length = u32::try_from(left.len()).unwrap();
+    let right_length = u32::try_from(right.len()).unwrap();
     let mut maybe_left_value = left.next();
     let mut maybe_right_value = right.next();
     while let (Some(left_value), Some(right_value)) =
@@ -224,7 +204,7 @@ pub fn union_estimation_from_sorted_iterator_and_counter<
 
         // If the right register value is a zero, we are surely now removing
         // it because the left register value cannot be a zero.
-        number_of_zeros -= usize::from(right_register_value == 0);
+        number_of_zeros -= u32::from(right_register_value == 0);
         harmonic_sum += f64::integer_exp2_minus(left_register_value)
             - f64::integer_exp2_minus(right_register_value);
     }
@@ -236,32 +216,12 @@ pub fn union_estimation_from_sorted_iterator_and_counter<
     )
 }
 
-/// Trait marker for Registers that can be used in the hybrid approach.
-pub trait HybridRegisters<P: Precision, B: Bits>:
-    Registers<P, B>
-    + AsMut<[u8]>
-    + VariableWords<u8>
-    + VariableWords<u16>
-    + VariableWords<u24>
-    + VariableWords<u32>
-{
-}
-
-impl<P: Precision, B: Bits, R: Registers<P, B>> HybridRegisters<P, B> for R where
-    R: VariableWords<u8>
-        + AsMut<[u8]>
-        + VariableWords<u16>
-        + VariableWords<u24>
-        + VariableWords<u32>
-{
-}
-
 /// Trait for a struct that can be used in the hybrid approach.
 pub trait Hybridazable:
     HyperLogLog<Registers = <Self as Hybridazable>::Hashes> + Correction
 {
     /// Registers type.
-    type Hashes: HybridRegisters<Self::Precision, Self::Bits>;
+    type Hashes: Registers<Self::Precision, Self::Bits>;
 
     /// Returns the capacity of the counter.
     fn registers_mut(&mut self) -> &mut Self::Hashes;
@@ -284,23 +244,22 @@ impl<H: Named> Named for Hybrid<H> {
 }
 
 #[allow(unsafe_code)]
+#[expect(
+    clippy::transmute_ptr_to_ptr,
+    reason = "We are transmuting a mutable reference to a mutable reference, which is safe."
+)]
 fn encode_harmonic_flag(harmonic_sum_as_flat: &mut f64, target_hash: u8) {
-    let harmonic_sum_as_u64 = unsafe { core::mem::transmute::<&f64, &u64>(harmonic_sum_as_flat) };
-    let mut harmonic_sum_as_u64 = *harmonic_sum_as_u64;
+    let harmonic_sum_as_u64: &mut u64 = unsafe { core::mem::transmute(harmonic_sum_as_flat) };
     // We clear the bits that are used to store the number of entries.
-    harmonic_sum_as_u64 &= !((1 << (8 + 1)) - 1);
+    *harmonic_sum_as_u64 &= !((1 << (8 + 1)) - 1);
 
     // Then, we set the flag associated with this specific Composite Hash.
-    harmonic_sum_as_u64 |= 1 << target_hash;
-    *harmonic_sum_as_flat = unsafe { core::mem::transmute::<u64, f64>(harmonic_sum_as_u64) };
+    *harmonic_sum_as_u64 |= 1 << target_hash;
 }
 
-#[allow(unsafe_code)]
 fn decode_harmonic_flag(harmonic_sum_as_flat: f64) -> u8 {
-    let harmonic_sum_as_u64 = unsafe { core::mem::transmute::<f64, u64>(harmonic_sum_as_flat) };
-
     // We use a trailing zeros operation to determine the number of entries.
-    u8::try_from(harmonic_sum_as_u64.trailing_zeros()).unwrap()
+    u8::try_from(harmonic_sum_as_flat.to_bits().trailing_zeros()).unwrap()
 }
 
 #[cfg(test)]
@@ -308,7 +267,6 @@ mod test_encode_decode_harmonic_flag {
     use super::*;
 
     #[test]
-    #[allow(unsafe_code)]
     fn test_encode_decode_harmonic_flag() {
         // The harmonic flag is initialized to minus infinity.
         let mut harmonic_sum = f64::NEG_INFINITY;
@@ -324,8 +282,7 @@ mod test_encode_decode_harmonic_flag {
         // We check that the harmonic sum has still a leading number of zeros
         // equal to zero, as we have initialized it to minus infinity and we
         // should not have touched those bits.
-        let harmonic_sum: u64 = unsafe { core::mem::transmute(harmonic_sum) };
-        assert_eq!(harmonic_sum.leading_zeros(), 0);
+        assert_eq!(harmonic_sum.to_bits().leading_zeros(), 0);
     }
 }
 
@@ -406,20 +363,15 @@ impl<H: Hybridazable> Hybrid<H> {
     }
 
     #[inline]
-    #[allow(unsafe_code)]
     /// Returns whether the counter is in hybrid mode.
-    pub fn is_hybrid(&self) -> bool {
-        let integer: u64 = unsafe { core::mem::transmute(self.inner.harmonic_sum()) };
-        integer.leading_zeros() == 0
+    fn is_hybrid(&self) -> bool {
+        self.inner.harmonic_sum().to_bits().leading_zeros() == 0
     }
 
     #[inline]
     /// Returns the maximum number of hashes that can be stored in the counter.
-    pub fn maximal_number_of_hashes() -> usize {
-        let bytes_of_smallest_viable_hash = Self::smallest_viable_hash();
-        let maximal_number_of_hashes =
-            H::Registers::bitsize() / usize::from(bytes_of_smallest_viable_hash * 8);
-        maximal_number_of_hashes
+    fn maximal_number_of_hashes() -> usize {
+        H::Registers::bitsize() / usize::from(Self::smallest_viable_hash() * 8)
     }
 
     const fn smallest_viable_hash() -> u8 {
@@ -427,15 +379,21 @@ impl<H: Hybridazable> Hybrid<H> {
             return 1;
         }
 
-        if H::Precision::EXPONENT <= 9 {
+        if H::Precision::EXPONENT < 9
+            || H::Precision::EXPONENT == 9 && H::Bits::NUMBER_OF_BITS < 6
+            || H::Precision::EXPONENT == 10 && H::Bits::NUMBER_OF_BITS < 5
+        {
             return 2;
         }
 
-        if H::Precision::EXPONENT <= 15 {
+        if H::Precision::EXPONENT < 15
+            || H::Precision::EXPONENT == 15 && H::Bits::NUMBER_OF_BITS < 6
+            || H::Precision::EXPONENT == 16 && H::Bits::NUMBER_OF_BITS < 5
+        {
             return 3;
         }
 
-        return 4;
+        4
     }
 
     #[inline]
@@ -451,15 +409,16 @@ impl<H: Hybridazable> Hybrid<H> {
     }
 
     #[inline]
-    #[allow(unsafe_code)]
     fn find_sorted<T: Hash, W: VariableWord>(&self, element: &T) -> bool
     where
         H::Registers: VariableWords<W>,
+        W::Word: TryFrom<u64>,
+        <W::Word as TryFrom<u64>>::Error: Debug,
     {
         let encoded = self.to_encoded_hash::<T>(element);
         debug_assert!(encoded <= W::MASK);
-        let number_of_hashes = self.inner.get_number_of_zero_registers();
-        let word_encoded = unsafe { W::unchecked_from_u64(encoded) };
+        let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
+        let word_encoded = <W::Word as TryFrom<u64>>::try_from(encoded).unwrap();
         <H::Hashes as VariableWords<W>>::find_sorted_with_len(
             self.inner.registers(),
             word_encoded,
@@ -475,7 +434,7 @@ impl<H: Hybridazable> Hybrid<H> {
     /// registers vector to store the current number of hash (in the size of
     /// the target hash) and the next hash.
     fn downgrade_maximal_hash_bytes(&self) -> u8 {
-        let number_of_hash = self.inner.get_number_of_zero_registers();
+        let number_of_hash = self.inner.get_number_of_zero_registers().to_usize();
         let current_hash = decode_harmonic_flag(self.inner.harmonic_sum());
         let smallest_viable_hash = Self::smallest_viable_hash();
         debug_assert!(
@@ -495,28 +454,25 @@ impl<H: Hybridazable> Hybrid<H> {
     #[inline]
     /// Returns the current hash capacity.
     fn current_hash_capacity(&self) -> usize {
-        let current_hash_bytes = self.hash_bytes();
-        let current_hash_capacity = H::Registers::bitsize() / (current_hash_bytes as usize * 8);
-        current_hash_capacity
+        H::Registers::bitsize() / usize::from(self.hash_bytes() * 8)
     }
 
     #[inline]
     /// Returns whether the hasher will have to be dehybridized at the next insert.
     fn will_dehybridize_upon_insert(&self) -> bool {
         debug_assert!(self.is_hybrid());
-        self.inner.get_number_of_zero_registers() == Self::maximal_number_of_hashes()
+        self.inner.get_number_of_zero_registers().to_usize() == Self::maximal_number_of_hashes()
     }
 
     #[inline]
     /// Returns whether the hasher will have to downgrade the hash at the next insert.
     fn will_downgrade_upon_insert(&self) -> bool {
         debug_assert!(self.is_hybrid());
-        self.inner.get_number_of_zero_registers() == self.current_hash_capacity()
+        self.inner.get_number_of_zero_registers().to_usize() == self.current_hash_capacity()
     }
 
     #[inline]
-    #[allow(unsafe_code)]
-    /// Converts the Hybrid counter to a regular HyperLogLog counter.
+    /// Converts the Hybrid counter to a regular [`HyperLogLog`] counter.
     fn dehybridize_with_word<W: VariableWord>(&mut self)
     where
         H::Hashes: VariableWords<W>,
@@ -544,10 +500,11 @@ impl<H: Hybridazable> Hybrid<H> {
     }
 
     #[inline]
-    #[allow(unsafe_code)]
-    /// Converts the Hybrid counter to a regular HyperLogLog counter.
+    /// Converts the Hybrid counter to a regular [`HyperLogLog`] counter.
     fn dehybridize(&mut self) {
-        match self.hash_bytes() {
+        let hash_bytes = self.hash_bytes();
+        assert!(hash_bytes >= Self::smallest_viable_hash());
+        match hash_bytes {
             1 => self.dehybridize_with_word::<u8>(),
             2 => self.dehybridize_with_word::<u16>(),
             3 => self.dehybridize_with_word::<u24>(),
@@ -642,15 +599,16 @@ impl<H: Hybridazable> Hybrid<H> {
     }
 
     #[inline]
-    #[allow(unsafe_code)]
     fn insert_value<W: VariableWord, T: Hash>(&mut self, value: &T) -> bool
     where
         H::Hashes: VariableWords<W>,
+        W::Word: TryFrom<u64>,
+        <W::Word as TryFrom<u64>>::Error: Debug,
     {
         let encoded = self.to_encoded_hash::<T>(value);
         debug_assert!(encoded <= W::MASK);
-        let encoded_word = unsafe { W::unchecked_from_u64(encoded) };
-        let number_of_hashes = self.inner.get_number_of_zero_registers();
+        let encoded_word = <W::Word as TryFrom<u64>>::try_from(encoded).unwrap();
+        let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
         let inserted = self
             .inner
             .registers_mut()
@@ -661,7 +619,6 @@ impl<H: Hybridazable> Hybrid<H> {
         inserted
     }
 
-    #[allow(unsafe_code)]
     fn unique_count_from_iterators<L: VariableWord, R: Ord + VariableWord>(
         &self,
         other: &Self,
@@ -669,21 +626,20 @@ impl<H: Hybridazable> Hybrid<H> {
     where
         H::Hashes: VariableWords<L> + VariableWords<R>,
         L::Word: TryInto<R::Word>,
+        <L::Word as TryInto<R::Word>>::Error: Debug,
     {
         debug_assert!(self.is_hybrid());
         debug_assert!(other.is_hybrid());
         debug_assert!(self.hash_bytes() >= other.hash_bytes());
-        let self_number_of_hashes = self.inner.get_number_of_zero_registers();
-        let other_number_of_hashes = other.inner.get_number_of_zero_registers();
+        let self_number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
+        let other_number_of_hashes = other.inner.get_number_of_zero_registers().to_usize();
         let shift = (self.hash_bytes() - other.hash_bytes()) * 8;
         f64::from(unique_count_from_sorted_iterators(
             <H::Hashes as VariableWords<L>>::iter_variable_words(
                 self.inner.registers(),
                 self_number_of_hashes,
             )
-            .map(|hash| unsafe {
-                <L::Word as TryInto<R::Word>>::try_into(hash >> shift).unwrap_unchecked()
-            }),
+            .map(|hash| <L::Word as TryInto<R::Word>>::try_into(hash >> shift).unwrap()),
             <H::Hashes as VariableWords<R>>::iter_variable_words(
                 other.inner.registers(),
                 other_number_of_hashes,
@@ -691,20 +647,14 @@ impl<H: Hybridazable> Hybrid<H> {
         ))
     }
 
-    #[allow(unsafe_code)]
-    fn mixed_union<W: VariableWord>(
-        &self,
-        other: &Self,
-        left_cardinality: f64,
-        right_cardinality: f64,
-    ) -> f64
+    fn mixed_union<W>(&self, other: &Self, left_cardinality: f64, right_cardinality: f64) -> f64
     where
         H::Hashes: VariableWords<W>,
         W: VariableWord,
     {
         debug_assert!(self.is_hybrid());
         debug_assert!(!other.is_hybrid());
-        let number_of_hashes = self.inner.get_number_of_zero_registers();
+        let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
         union_estimation_from_sorted_iterator_and_counter(
             <H::Hashes as VariableWords<W>>::iter_variable_words(
                 self.inner.registers(),
@@ -718,23 +668,22 @@ impl<H: Hybridazable> Hybrid<H> {
     }
 
     #[inline]
-    #[allow(unsafe_code)]
     /// Downgrades the Hybrid hashes one level.
     fn downgrade(&mut self) {
         debug_assert!(self.is_hybrid());
         debug_assert!(self.will_downgrade_upon_insert());
 
-        let number_of_hashes = self.inner.get_number_of_zero_registers();
-        let current_hash = self.hash_bytes();
+        let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
+        let current_hash = usize::from(self.hash_bytes());
         let target_hash = self.downgrade_maximal_hash_bytes();
         let slice = self.inner.registers_mut().as_mut();
 
-        let slice_to_update = &mut slice[..number_of_hashes * usize::from(current_hash)];
+        let slice_to_update = &mut slice[..number_of_hashes * current_hash];
 
         shift_right_little_endian(
             slice_to_update,
-            usize::from(current_hash),
-            usize::from(current_hash - target_hash),
+            current_hash,
+            current_hash - usize::from(target_hash),
             number_of_hashes,
         );
 
@@ -747,7 +696,7 @@ impl<H: Clone + Correction + Estimator<f64> + Hybridazable + Default> Estimator<
     #[inline]
     fn estimate_cardinality(&self) -> f64 {
         if self.is_hybrid() {
-            self.inner.get_number_of_zero_registers() as f64
+            f64::from(self.inner.get_number_of_zero_registers())
         } else {
             self.inner.estimate_cardinality()
         }
@@ -799,10 +748,10 @@ impl<H: Clone + Correction + Estimator<f64> + Hybridazable + Default> Estimator<
                 let self_hash = self.hash_bytes();
                 assert!(self_hash >= Self::smallest_viable_hash());
                 match self_hash {
-                    1 => self.mixed_union::<u8>(&other, self_cardinality, other_cardinality),
-                    2 => self.mixed_union::<u16>(&other, self_cardinality, other_cardinality),
-                    3 => self.mixed_union::<u24>(&other, self_cardinality, other_cardinality),
-                    4 => self.mixed_union::<u32>(&other, self_cardinality, other_cardinality),
+                    1 => self.mixed_union::<u8>(other, self_cardinality, other_cardinality),
+                    2 => self.mixed_union::<u16>(other, self_cardinality, other_cardinality),
+                    3 => self.mixed_union::<u24>(other, self_cardinality, other_cardinality),
+                    4 => self.mixed_union::<u32>(other, self_cardinality, other_cardinality),
                     _ => {
                         unreachable!();
                     }
@@ -863,12 +812,7 @@ mod test_hybrid_propertis {
     use twox_hash::XxHash;
 
     #[test_estimator]
-    fn test_plusplus_hybrid_properties<
-        P: Precision,
-        B: Bits,
-        R: HybridRegisters<P, B>,
-        H: HasherType,
-    >() {
+    fn test_plusplus_hybrid_properties<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
         let mut hybrid: Hybrid<PlusPlus<P, B, R, H>> = Default::default();
         assert!(hybrid.is_hybrid());
         assert!(hybrid.is_empty());

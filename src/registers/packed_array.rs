@@ -9,11 +9,8 @@
 //! it will also make it slower, as we need to perform more operations to extract the registers from the
 //! packed array, expecially in the case of bridge registers, i.e. registers that span two words.
 
-use super::HybridRegisters;
-use super::{
-    Bits, Bits1, Bits2, Bits3, Bits4, Bits5, Bits6, Bits7, Bits8, Matrix, Precision, Registers,
-    Zero,
-};
+use super::Registers;
+use super::{Bits, Bits4, Bits5, Bits6, Matrix, Precision, Zero};
 use crate::utils::PositiveInteger;
 use crate::utils::VariableWord;
 use core::fmt::Debug;
@@ -335,7 +332,8 @@ impl<'array, const PACKED: bool, const N: usize, V: VariableWord> Iterator
                 self.word_offset += V::NUMBER_OF_BITS;
                 if self.value_index < self.total_values
                     && (PACKED && self.word_offset == 64
-                        || !PACKED && self.word_offset == V::NUMBER_OF_BITS * V::NUMBER_OF_ENTRIES)
+                        || !PACKED
+                            && self.word_offset == V::NUMBER_OF_BITS * V::NUMBER_OF_ENTRIES_U8)
                 {
                     self.word_offset = 0;
                     self.word_index += 1;
@@ -385,7 +383,8 @@ impl<'array, const PACKED: bool, const N: usize, V: VariableWord> Iterator
                 self.word_offset += V::NUMBER_OF_BITS;
                 if self.value_index < self.total_values
                     && (PACKED && self.word_offset == 64
-                        || !PACKED && self.word_offset == V::NUMBER_OF_BITS * V::NUMBER_OF_ENTRIES)
+                        || !PACKED
+                            && self.word_offset == V::NUMBER_OF_BITS * V::NUMBER_OF_ENTRIES_U8)
                 {
                     self.word_offset = 0;
                     self.word_index += 1;
@@ -455,37 +454,35 @@ macro_rules! impl_as_ref_mut {
     };
 }
 
-impl_as_ref_mut!(u8, u16, u32, u64);
+impl_as_ref_mut!(u8, u16, u32);
 
-macro_rules! impl_to_bytes_ref_mut {
-    ($($number:expr),*) => {
-        $(
-            impl<const N: usize, const PACKED: bool, V2> AsRef<[[u8; $number]]>
-                for Array<N, PACKED, V2>
-            {
-                #[inline]
-                #[allow(unsafe_code)]
-                fn as_ref(&self) -> &[[u8; $number]] {
-                    let words_u64: &[u64] = self.words.as_ref();
-                    unsafe { core::slice::from_raw_parts(words_u64.as_ptr().cast::<[u8; $number]>(), words_u64.len() * 8 / $number) }
-                }
-            }
-
-            impl<const N: usize, const PACKED: bool, V2> AsMut<[[u8; $number]]>
-                for Array<N, PACKED, V2>
-            {
-                #[inline]
-                #[allow(unsafe_code)]
-                fn as_mut(&mut self) -> &mut [[u8; $number]] {
-                    let words_u64: &mut [u64] = self.words.as_mut();
-                    unsafe { core::slice::from_raw_parts_mut(words_u64.as_mut_ptr().cast::<[u8; $number]>(), words_u64.len() * 8 / $number) }
-                }
-            }
-        )*
-    };
+impl<const N: usize, const PACKED: bool, V2> AsRef<[[u8; 3]]> for Array<N, PACKED, V2> {
+    #[inline]
+    #[allow(unsafe_code)]
+    fn as_ref(&self) -> &[[u8; 3]] {
+        let words_u64: &[u64] = self.words.as_ref();
+        unsafe {
+            core::slice::from_raw_parts(
+                words_u64.as_ptr().cast::<[u8; 3]>(),
+                words_u64.len() * 8 / 3,
+            )
+        }
+    }
 }
 
-impl_to_bytes_ref_mut!(3, 5, 6, 7);
+impl<const N: usize, const PACKED: bool, V2> AsMut<[[u8; 3]]> for Array<N, PACKED, V2> {
+    #[inline]
+    #[allow(unsafe_code)]
+    fn as_mut(&mut self) -> &mut [[u8; 3]] {
+        let words_u64: &mut [u64] = self.words.as_mut();
+        unsafe {
+            core::slice::from_raw_parts_mut(
+                words_u64.as_mut_ptr().cast::<[u8; 3]>(),
+                words_u64.len() * 8 / 3,
+            )
+        }
+    }
+}
 
 impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     #[inline]
@@ -629,7 +626,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     /// Returns whether a given offset is a bridge offset.
     const fn is_bridge_offset(offset: u8) -> bool {
         PACKED
-            && (V::NUMBER_OF_BITS_U64 * V::NUMBER_OF_ENTRIES_U64 < 64)
+            && (V::NUMBER_OF_BITS_USIZE * V::NUMBER_OF_ENTRIES < 64)
             && (offset + V::NUMBER_OF_BITS > 64)
     }
 
@@ -639,7 +636,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
         if PACKED {
             len * V::NUMBER_OF_BITS_USIZE < N * 64
         } else {
-            len < N * V::NUMBER_OF_ENTRIES_USIZE
+            len < N * V::NUMBER_OF_ENTRIES
         }
     }
 
@@ -649,7 +646,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
         if PACKED {
             N * 64 / V::NUMBER_OF_BITS_USIZE
         } else {
-            N * V::NUMBER_OF_ENTRIES_USIZE
+            N * V::NUMBER_OF_ENTRIES
         }
     }
 
@@ -659,7 +656,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
         debug_assert!(
             index < Self::number_of_values(),
             "The index {index} should be less than {} (the number of registers) in an object of type {}",
-            N as u64 * V::NUMBER_OF_ENTRIES_U64,
+            N * V::NUMBER_OF_ENTRIES,
             core::any::type_name::<Self>()
         );
 
@@ -713,7 +710,6 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     }
 
     #[inline]
-    #[allow(unsafe_code)]
     /// Applies a function to the value at the given index.
     ///
     /// # Arguments
@@ -725,7 +721,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     ///
     /// # Safety
     /// This method accesses values in the underlying array without checking whether the index is valid,
-    /// as it is guaranteed to be valid by the split_index method.
+    /// as it is guaranteed to be valid by the `split_index` method.
     pub fn set_apply<F>(&mut self, index: usize, ops: F) -> (V::Word, V::Word)
     where
         F: Fn(V::Word) -> V::Word,
@@ -733,7 +729,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
         let (word_index, relative_value_offset) = split_index::<PACKED, V>(index);
 
         if Self::is_bridge_offset(relative_value_offset) {
-            let (low, high) = unsafe { self.words.split_at_mut_unchecked(word_index + 1) };
+            let (low, high) = self.words.split_at_mut(word_index + 1);
             let low = &mut low[word_index];
             let high = &mut high[0];
             let value = extract_bridge_value_from_word::<V>(*low, *high, relative_value_offset);
@@ -774,7 +770,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
             let mut number_of_values_in_word = if PACKED {
                 (64 - usize::from(value_offset)) / V::NUMBER_OF_BITS_USIZE
             } else {
-                V::NUMBER_OF_ENTRIES_USIZE
+                V::NUMBER_OF_ENTRIES
             };
 
             if Self::has_padding(len) && number_of_values + number_of_values_in_word > len {
@@ -834,72 +830,36 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Named for Array<N, PAC
 pub trait ArrayRegister<B: Bits>: Precision {
     #[cfg(all(feature = "std", feature = "mem_dbg"))]
     /// The type of the packed array register.
-    type Array: HybridRegisters<Self, B> + Named + MemDbg + MemSize;
+    type Array: Registers<Self, B> + Named + MemDbg + MemSize;
     #[cfg(all(feature = "std", not(feature = "mem_dbg")))]
     /// The type of the packed array register.
-    type Array: HybridRegisters<Self, B> + Named;
+    type Array: Registers<Self, B> + Named;
     #[cfg(not(feature = "std"))]
     /// The type of the packed array register.
-    type Array: HybridRegisters<Self, B>;
+    type Array: Registers<Self, B>;
 
     #[cfg(all(feature = "std", feature = "mem_dbg"))]
     /// The type of the packed array register.
-    type Packed: HybridRegisters<Self, B> + Named + MemDbg + MemSize;
+    type Packed: Registers<Self, B> + Named + MemDbg + MemSize;
     #[cfg(all(feature = "std", not(feature = "mem_dbg")))]
     /// The type of the packed array register.
-    type Packed: HybridRegisters<Self, B> + Named;
+    type Packed: Registers<Self, B> + Named;
     #[cfg(not(feature = "std"))]
     /// The type of the packed array register.
-    type Packed: HybridRegisters<Self, B>;
+    type Packed: Registers<Self, B>;
 }
 
 /// Trait marker to associate a precision to all possible packed array registers.
-pub trait AllArrays:
-    ArrayRegister<Bits1>
-    + ArrayRegister<Bits2>
-    + ArrayRegister<Bits3>
-    + ArrayRegister<Bits4>
-    + ArrayRegister<Bits5>
-    + ArrayRegister<Bits6>
-    + ArrayRegister<Bits7>
-    + ArrayRegister<Bits8>
-{
-}
+pub trait AllArrays: ArrayRegister<Bits4> + ArrayRegister<Bits5> + ArrayRegister<Bits6> {}
 
-impl<P> AllArrays for P where
-    P: ArrayRegister<Bits1>
-        + ArrayRegister<Bits2>
-        + ArrayRegister<Bits3>
-        + ArrayRegister<Bits4>
-        + ArrayRegister<Bits5>
-        + ArrayRegister<Bits6>
-        + ArrayRegister<Bits7>
-        + ArrayRegister<Bits8>
-{
-}
+impl<P> AllArrays for P where P: ArrayRegister<Bits4> + ArrayRegister<Bits5> + ArrayRegister<Bits6> {}
 
-#[allow(unsafe_code)]
-#[inline]
+const LOG2_USIZE: usize = (core::mem::size_of::<usize>() * 8).trailing_zeros() as usize;
+
 #[expect(
     clippy::cast_possible_truncation,
     reason = "The value is guaranteed to be less than 256"
 )]
-/// Method to convert a usize to a u8.
-///
-/// # Arguments
-/// * `value` - The value to be converted.
-///
-/// # Safety
-/// This method needs to be used with caution, as it will truncate values
-/// that are greater than 255.
-const unsafe fn usize_to_u8(value: usize) -> u8 {
-    debug_assert!(value <= 255, "The value should be less than 256");
-    value as u8
-}
-
-const LOG2_USIZE: usize = (core::mem::size_of::<usize>() * 8).trailing_zeros() as usize;
-
-#[allow(unsafe_code)]
 /// Extracts the word position and the relative register offset from the packed index.
 ///
 /// # Safety
@@ -908,21 +868,23 @@ const LOG2_USIZE: usize = (core::mem::size_of::<usize>() * 8).trailing_zeros() a
 const fn split_packed_index<V: VariableWord>(index: usize) -> (usize, u8) {
     let absolute_register_offset: usize = (V::NUMBER_OF_BITS_USIZE) * index;
     let word_index: usize = absolute_register_offset >> LOG2_USIZE;
-    let relative_register_offset =
-        unsafe { usize_to_u8(absolute_register_offset - word_index * 64) };
+    let relative_register_offset = (absolute_register_offset - word_index * 64) as u8;
     (word_index, relative_register_offset)
 }
 
-#[allow(unsafe_code)]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "The value is guaranteed to be less than 256"
+)]
 /// Extracts the word position and the relative register offset from a non-packed index.
 ///
 /// # Safety
 /// This method employs unsafe code to convert a usize to a u8, as it guarantees
 /// that the value is less than 256.
 const fn split_not_packed_index<V: VariableWord>(index: usize) -> (usize, u8) {
-    let word_index: usize = index / V::NUMBER_OF_ENTRIES_USIZE;
+    let word_index: usize = index / V::NUMBER_OF_ENTRIES;
     let relative_register_offset: u8 =
-        V::NUMBER_OF_BITS * unsafe { usize_to_u8(index - word_index * V::NUMBER_OF_ENTRIES_USIZE) };
+        V::NUMBER_OF_BITS * (index - word_index * V::NUMBER_OF_ENTRIES) as u8;
     (word_index, relative_register_offset)
 }
 
@@ -969,9 +931,9 @@ mod test_split_index {
         let maximum_index = 1_usize << 18;
         // We iter all possible values of the index.
         for index in minimum_index..maximum_index {
-            let expected_word_index = index / usize::from(V::NUMBER_OF_ENTRIES);
+            let expected_word_index = index / V::NUMBER_OF_ENTRIES;
             let expected_relative_register_offset =
-                (index % usize::from(V::NUMBER_OF_ENTRIES)) as u8 * V::NUMBER_OF_BITS;
+                (index % V::NUMBER_OF_ENTRIES) as u8 * V::NUMBER_OF_BITS;
             let (word_index, relative_register_offset) = split_not_packed_index::<V>(index);
             assert_eq!(
                 word_index, expected_word_index as usize,
@@ -1110,7 +1072,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
 macro_rules! impl_registers_for_precisions {
     ($($exponent: expr),*) => {
         $(
-            impl_packed_array_register_for_precision_and_bits!($exponent, 1, 2, 3, 4, 5, 6, 7, 8);
+            impl_packed_array_register_for_precision_and_bits!($exponent, 4, 5, 6);
         )*
     };
 }

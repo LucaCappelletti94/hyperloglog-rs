@@ -709,7 +709,7 @@ pub fn test_variable_words(_attr: TokenStream, item: TokenStream) -> TokenStream
     ];
 
     // We add the Bits{i} for the range 1-8
-    for i in 1..=8 {
+    for i in 4..=6 {
         generics.push(Ident::new(&format!("Bits{}", i), fn_name.span()));
     }
 
@@ -770,7 +770,7 @@ pub fn test_array(attr: TokenStream, item: TokenStream) -> TokenStream {
     // We check that u8 was not denied
     if !deny.contains(&WordType::U8) {
         // We add the Bits{i} for the range 1-8
-        for i in 1..=8 {
+        for i in 4..=6 {
             generics.push(Ident::new(&format!("Bits{}", i), fn_name.span()));
         }
     }

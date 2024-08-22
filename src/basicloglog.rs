@@ -91,8 +91,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperLogLog
     type Hasher = Hasher;
 
     /// Returns the number of registers with zero values.
-    fn get_number_of_zero_registers(&self) -> usize {
-        self.number_of_zero_registers.to_usize()
+    fn get_number_of_zero_registers(&self) -> u32 {
+        self.number_of_zero_registers.into()
     }
 
     /// Returns a reference to the registers of the [`HyperLogLog`] counter.
@@ -201,7 +201,7 @@ where
     H: HyperLogLog
         + AsMut<BasicLogLog<H::Precision, H::Bits, H::Registers, H::Hasher>>
         + Correction,
-    H::Registers: HybridRegisters<H::Precision, H::Bits>,
+    H::Registers: Registers<H::Precision, H::Bits>,
 {
     type Hashes = H::Registers;
 

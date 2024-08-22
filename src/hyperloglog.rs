@@ -1,6 +1,4 @@
 //! The `hyperloglog` module contains the [`HyperLogLog`] trait that defines the interface for [`HyperLogLog`] counters.
-use twox_hash::XxHash64;
-
 use crate::prelude::*;
 use core::hash::{Hash, Hasher};
 
@@ -59,7 +57,7 @@ pub trait HyperLogLog:
     ///     assert_eq!(number_of_zero_registers, 61);
     /// }
     /// ```
-    fn get_number_of_zero_registers(&self) -> usize;
+    fn get_number_of_zero_registers(&self) -> u32;
 
     #[inline]
     /// Returns whether the provided [`HyperLogLog`] counter may be fully contained in the current [`HyperLogLog`] counter.
@@ -104,25 +102,17 @@ pub trait HyperLogLog:
 
     #[inline]
     /// Hashes the element and returns the register value and the index of the register.
-    fn register_and_index<T: Hash>(
-        element: &T,
-    ) -> (u8, usize) {
+    fn register_and_index<T: Hash>(element: &T) -> (u8, usize) {
         let (index, register, _) = Self::hash_and_register_and_index::<T>(element);
         (register, index)
     }
 
     #[inline]
     /// Hashes the element and returns the register value and the index of the register.
-    fn hash_and_register_and_index<T: Hash>(
-        element: &T,
-    ) -> (usize, u8, u64) {
+    fn hash_and_register_and_index<T: Hash>(element: &T) -> (usize, u8, u64) {
         let mut hasher = Self::Hasher::default();
         element.hash(&mut hasher);
         let hash = hasher.finish();
-
-        let mut second_hasher = XxHash64::with_seed(675445374566346345_u64);
-        element.hash(&mut second_hasher);
-        let mut second_hash = second_hasher.finish();
 
         let index: usize = usize::try_from(hash & ((1 << Self::Precision::EXPONENT) - 1)).unwrap();
 
@@ -133,18 +123,17 @@ pub trait HyperLogLog:
         );
 
         // And we censor we just used for the index.
-        // let mut censored_hash: u64 = hash | 1 << Self::Precision::EXPONENT;
-        // let mut censored_hash: u64 = hash;
+        let mut censored_hash: u64 = hash | 1 << Self::Precision::EXPONENT;
 
         // We need to add ones to the hash to make sure that the
         // the number of zeros we obtain afterwards is never higher
         // than the maximal value that may be represented in a register
         // with BITS bits.
         if <Self::Bits as VariableWord>::NUMBER_OF_BITS < 6_u8 {
-            second_hash |= 1_u64 << (64_u64 - <Self::Bits as VariableWord>::MASK);
+            censored_hash |= 1_u64 << (64_u64 - <Self::Bits as VariableWord>::MASK);
         }
 
-        let register_value = u8::try_from(second_hash.leading_zeros() + 1).unwrap();
+        let register_value = u8::try_from(censored_hash.leading_zeros() + 1).unwrap();
 
         debug_assert!(
             register_value <= u8::try_from(<Self::Bits as VariableWord>::MASK).unwrap(),
@@ -157,11 +146,7 @@ pub trait HyperLogLog:
     }
 
     /// Inserts the register value into the counter at the given index.
-    fn insert_register_value_and_index(
-        &mut self,
-        new_register_value: u8,
-        index: usize,
-    ) -> bool;
+    fn insert_register_value_and_index(&mut self, new_register_value: u8, index: usize) -> bool;
 
     /// Return the value of the register at the given index.
     fn get_register(&self, index: usize) -> u8;
@@ -173,7 +158,7 @@ pub trait HyperLogLog:
 /// Trait for the correction of an hyperloglog counter.
 pub trait Correction {
     /// Returns the correction factor for the given number of registers with zero values.
-    fn correction(harmonic_sum: f64, number_of_zero_registers: usize) -> f64;
+    fn correction(harmonic_sum: f64, number_of_zero_registers: u32) -> f64;
 }
 
 impl<H> SetProperties for H

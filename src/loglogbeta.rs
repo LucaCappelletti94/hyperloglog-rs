@@ -88,7 +88,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperLogLog
     }
 
     #[inline]
-    fn get_number_of_zero_registers(&self) -> usize {
+    fn get_number_of_zero_registers(&self) -> u32 {
         self.counter.get_number_of_zero_registers()
     }
 
@@ -126,7 +126,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> Correction
     #[inline]
     fn correction(
         harmonic_sum: f64,
-        number_of_zero_registers: usize,
+        number_of_zero_registers: u32,
     ) -> f64 {
         P::plusplus_estimate(harmonic_sum, number_of_zero_registers)
     }

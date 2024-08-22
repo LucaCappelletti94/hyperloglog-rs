@@ -11,14 +11,10 @@ pub trait VariableWord: Send + Sync + Clone + Copy + Debug + Default {
     const NUMBER_OF_BITS: u8;
     /// The number of bits in the word as a usize.
     const NUMBER_OF_BITS_USIZE: usize = Self::NUMBER_OF_BITS as usize;
-    /// The number of bits in the word as a u64.
-    const NUMBER_OF_BITS_U64: u64 = Self::NUMBER_OF_BITS as u64;
-    /// The number of entries in a u64.
-    const NUMBER_OF_ENTRIES: u8 = 64 / Self::NUMBER_OF_BITS;
-    /// The number of entries in a u64 as a usize.
-    const NUMBER_OF_ENTRIES_USIZE: usize = Self::NUMBER_OF_ENTRIES as usize;
-    /// The number of entries in a u64.
-    const NUMBER_OF_ENTRIES_U64: u64 = Self::NUMBER_OF_ENTRIES as u64;
+    /// The number of entries in a usize.
+    const NUMBER_OF_ENTRIES: usize = 64 / Self::NUMBER_OF_BITS_USIZE;
+    /// The number of entries in u8.
+    const NUMBER_OF_ENTRIES_U8: u8 = 64 / Self::NUMBER_OF_BITS;
     /// The mask for the word.
     const MASK: u64;
     /// The word type.

@@ -62,7 +62,7 @@ impl<
     }
 
     #[inline]
-    fn get_number_of_zero_registers(&self) -> usize {
+    fn get_number_of_zero_registers(&self) -> u32 {
         self.counter.get_number_of_zero_registers()
     }
 
@@ -112,6 +112,10 @@ where
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "I don't want to split the function in smaller parts."
+)]
 /// Compute the union cardinality using the Maximum Likelihood Estimation.
 fn mle_union_cardinality<
     P: Precision,
@@ -122,7 +126,7 @@ fn mle_union_cardinality<
     registers: I,
     left_cardinality: f64,
     right_cardinality: f64,
-    estimate: fn(f64, usize) -> f64,
+    estimate: fn(f64, u32) -> f64,
 ) -> f64 {
     let mut left_multiplicities_larger = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
     let mut left_multiplicities_smaller = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
@@ -149,7 +153,7 @@ fn mle_union_cardinality<
         joint_multiplicities[left_register] += f64::from(cmp == Ordering::Equal);
 
         union_harmonic_sum += f64::integer_exp2_minus(larger_register);
-        union_zeros += usize::from(larger_register.is_zero());
+        union_zeros += u32::from(larger_register.is_zero());
     }
 
     // We get the best estimates from HyperLogLog++
@@ -187,9 +191,9 @@ fn mle_union_cardinality<
 
         (
             [
-                (f64::ONE + exp_m1[0]).max(f64::EPSILON),
-                (f64::ONE + exp_m1[1]).max(f64::EPSILON),
-                (f64::ONE + exp_m1[2]).max(f64::EPSILON),
+                (1.0 + exp_m1[0]).max(f64::EPSILON),
+                (1.0 + exp_m1[1]).max(f64::EPSILON),
+                (1.0 + exp_m1[2]).max(f64::EPSILON),
             ],
             [-exp_m1[0], -exp_m1[1], -exp_m1[2]],
         )
@@ -229,7 +233,7 @@ fn mle_union_cardinality<
         let x_q = x(phis, two_to_minus_q);
         let (y_q, z_q) = yz(x_q);
 
-        let denominator = f64::ONE / (z_q[2] + y_q[2] * z_q[0] * z_q[1]);
+        let denominator = 1.0 / (z_q[2] + y_q[2] * z_q[0] * z_q[1]);
 
         let y_q_saturated = y_q.ew_mul(zeros_q[2]);
 
@@ -256,27 +260,27 @@ fn mle_union_cardinality<
             let yjoint_left_zright = y_register[2] * z_register[1] * y_register[0];
             let zj_plus_yjoint_zright = z_register[2] + y_register[2] * z_register[1];
             let zj_plus_yjoint_zlr = z_register[2] + y_register[2] * z_register[0] * z_register[1];
-            let reciprocal_zj_plus_yjoint_zlr = f64::ONE / zj_plus_yjoint_zlr;
+            let reciprocal_zj_plus_yjoint_zlr = 1.0 / zj_plus_yjoint_zlr;
 
             let left_reciprocal = left_smaller_k
                 * (y_register[2] * y_register[0] / (z_register[2] + y_register[2] * z_register[0])
-                    - f64::ONE);
+                    - 1.0);
             let right_reciprocal = right_smaller_k
-                * (y_register[2] * y_register[1] / zj_plus_yjoint_zright - f64::ONE);
+                * (y_register[2] * y_register[1] / zj_plus_yjoint_zright - 1.0);
 
             let delta = [
                 left_reciprocal
-                    + joint_k * (yjoint_left_zright * reciprocal_zj_plus_yjoint_zlr - f64::ONE)
-                    + left_larger_k * (y_register[0] / z_register[0] - f64::ONE),
+                    + joint_k * (yjoint_left_zright * reciprocal_zj_plus_yjoint_zlr - 1.0)
+                    + left_larger_k * (y_register[0] / z_register[0] - 1.0),
                 right_reciprocal
-                    + joint_k * (yjoint_right_zleft * reciprocal_zj_plus_yjoint_zlr - f64::ONE)
-                    + right_larger_k * (y_register[1] / z_register[1] - f64::ONE),
+                    + joint_k * (yjoint_right_zleft * reciprocal_zj_plus_yjoint_zlr - 1.0)
+                    + right_larger_k * (y_register[1] / z_register[1] - 1.0),
                 left_reciprocal
                     + right_reciprocal
                     + joint_k
                         * ((y_register[2] * y_register[0] + yjoint_right_zleft)
                             * reciprocal_zj_plus_yjoint_zlr
-                            - f64::ONE),
+                            - 1.0),
             ];
 
             gradients = gradients.ew_add(x_register.ew_mul(delta));
@@ -364,7 +368,7 @@ impl<const N: usize, T: Default + Copy + Add<T, Output = T>> ElementWiseAddition
 impl<const ERROR: i32, H: Correction> Correction for MLE<H, ERROR> {
     fn correction(
         harmonic_sum: f64,
-        number_of_zero_registers: usize,
+        number_of_zero_registers: u32,
     ) -> f64 {
         H::correction(harmonic_sum, number_of_zero_registers)
     }
@@ -449,12 +453,12 @@ impl<const N: usize> Adam<N> {
             .zip(gradients.iter_mut().zip(phis.iter_mut()))
             .for_each(|((first_moment, second_moment), (gradient, phi))| {
                 *first_moment = self.first_order_decay_factor * *first_moment
-                    + (f64::ONE - self.first_order_decay_factor) * *gradient;
+                    + (1.0 - self.first_order_decay_factor) * *gradient;
                 *second_moment = self.second_order_decay_factor * *second_moment
-                    + (f64::ONE - self.second_order_decay_factor) * (*gradient).powi(2);
+                    + (1.0 - self.second_order_decay_factor) * (*gradient).powi(2);
                 let adaptative_learning_rate = self.learning_rate
-                    * (f64::ONE - self.second_order_decay_factor.powi(self.time)).sqrt()
-                    / (f64::ONE - self.first_order_decay_factor.powi(self.time));
+                    * (1.0 - self.second_order_decay_factor.powi(self.time)).sqrt()
+                    / (1.0 - self.first_order_decay_factor.powi(self.time));
                 let second_moment_root = (*second_moment).sqrt();
                 *gradient = adaptative_learning_rate * (*first_moment)
                     / if second_moment_root > f64::EPSILON {
