@@ -32,10 +32,6 @@ pub trait Registers<P: Precision, B: Bits>:
     + Default
     + AsMut<[u8]>
     + AsRef<[u8]>
-    + VariableWords<u8>
-    + VariableWords<u16>
-    + VariableWords<u24>
-    + VariableWords<u32>
 {
     /// Iterator over the registers.
     type Iter<'register>: ExactSizeIterator<Item = u8>

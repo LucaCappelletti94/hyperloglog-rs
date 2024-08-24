@@ -3,7 +3,6 @@
 //! are not a power of two.
 use super::PositiveInteger;
 use core::fmt::Debug;
-use hyperloglog_derive::VariableWord;
 
 /// Trait marker for the variable word.
 pub trait VariableWord: Send + Sync + Clone + Copy + Debug + Default {
@@ -28,11 +27,6 @@ pub trait VariableWord: Send + Sync + Clone + Copy + Debug + Default {
     /// It needs to be used with caution and where appropriate.
     unsafe fn unchecked_from_u64(value: u64) -> Self::Word;
 }
-
-/// Virtual word with 24 bits.
-#[allow(non_camel_case_types)]
-#[derive(Clone, VariableWord)]
-pub struct u24(u32);
 
 impl VariableWord for u8 {
     const NUMBER_OF_BITS: u8 = 8;

@@ -16,15 +16,13 @@ mod matrix;
 mod number;
 mod random;
 mod variable_word;
-mod variable_words;
 
 pub use constants::*;
 pub use hasher_type::HasherType;
 pub use matrix::Matrix;
 pub(crate) use number::{FloatOps, Number, PositiveInteger};
 pub use random::*;
-pub(crate) use variable_word::{u24, VariableWord};
-pub(crate) use variable_words::VariableWords;
+pub(crate) use variable_word::VariableWord;
 
 #[cfg(feature = "std")]
 /// Trait for an object with a name.
