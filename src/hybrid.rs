@@ -357,7 +357,8 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
     }
 
     #[inline]
-    fn hash_bytes(&self) -> u8 {
+    /// Returns the number of bytes currently used for the hash.
+    pub fn hash_bytes(&self) -> u8 {
         debug_assert!(self.is_hash_list());
         let hash_bytes = decode_harmonic_flag(self.inner.harmonic_sum());
         debug_assert!(
@@ -401,16 +402,29 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
 
     #[inline]
     /// Returns whether the hasher will have to be dehybridized at the next insert.
-    fn will_dehybridize_upon_new_insert(&self) -> bool {
-        debug_assert!(self.is_hash_list());
-        self.inner.get_number_of_zero_registers().to_usize() == Self::maximal_number_of_hashes()
+    pub fn will_dehybridize_upon_new_insert(&self) -> bool {
+        self.is_hash_list() && self.inner.get_number_of_zero_registers().to_usize() == Self::maximal_number_of_hashes()
     }
 
     #[inline]
     /// Returns whether the hasher will have to downgrade the hash at the next insert.
-    fn will_downgrade_upon_new_insert(&self) -> bool {
-        debug_assert!(self.is_hash_list());
-        self.inner.get_number_of_zero_registers().to_usize() == self.current_hash_capacity()
+    pub fn will_downgrade_upon_new_insert(&self) -> bool {
+        self.is_hash_list() && self.inner.get_number_of_zero_registers().to_usize() == self.current_hash_capacity()
+    }
+
+    #[inline]
+    /// Returns an iterator over the current hashes if the counter is in hash list mode.
+    /// The iterator is sorted in descending order.
+    pub fn hashes(&self) -> Result<CH::Downgraded<'_>, &'static str> {
+        if self.is_hash_list() {
+            let hash_bytes = self.hash_bytes();
+            assert!(hash_bytes >= CH::SMALLEST_VIABLE_HASH_BITS / 8);
+            let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
+            let hashes = self.inner.registers().as_ref();
+            Ok(CH::downgraded(hashes, number_of_hashes, hash_bytes * 8, 0))
+        } else {
+            Err("The counter is not in hash list mode.")
+        }
     }
 
     #[inline]
