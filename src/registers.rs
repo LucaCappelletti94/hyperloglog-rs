@@ -31,6 +31,7 @@ pub trait Registers<P: Precision, B: Bits>:
     + Sync
     + Default
     + AsMut<[u8]>
+    + AsRef<[u8]>
     + VariableWords<u8>
     + VariableWords<u16>
     + VariableWords<u24>

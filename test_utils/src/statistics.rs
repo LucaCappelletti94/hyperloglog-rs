@@ -119,9 +119,9 @@ impl<'a> BenchmarkResults<'a> {
 
         // Calculate the improvement percentage
         let improvement_percentage = if self.estimate_feature_target() {
-            ((self.new_stats.mean - self.old_stats.mean) / self.old_stats.mean) * 100.0
+            ((self.new_stats.mean - self.old_stats.mean).abs() / self.old_stats.mean) * 100.0
         } else {
-            ((self.old_stats.mean - self.new_stats.mean) / self.old_stats.mean) * 100.0
+            ((self.new_stats.mean - self.old_stats.mean).abs() / self.old_stats.mean) * 100.0
         };
 
         // Print the p-value and significance
@@ -152,18 +152,35 @@ impl<'a> BenchmarkResults<'a> {
         }
 
         // Print the improvement percentage
-        if improvement_percentage.is_nan() {
-            println!(
-                "{}: {}",
-                "Relative Improvement".cyan(),
-                "N/A"
-            );
-        } else {
-            println!(
-                "{}: {:.2}%",
-                "Relative Improvement".cyan(),
-                improvement_percentage
-            );
+        match (self.new_stats.mean > self.old_stats.mean, self.estimate_feature_target()) {
+            (true, true) => {
+                println!(
+                    "{}: {:.2}%",
+                    "Improved by".green(),
+                    improvement_percentage
+                );
+            },
+            (true, false) => {
+                println!(
+                    "{}: {:.2}%",
+                    "Degraded by".red(),
+                    improvement_percentage
+                );
+            },
+            (false, true) => {
+                println!(
+                    "{}: {:.2}%",
+                    "Degraded by".red(),
+                    improvement_percentage
+                );
+            },
+            (false, false) => {
+                println!(
+                    "{}: {:.2}%",
+                    "Improved by".green(),
+                    improvement_percentage
+                );
+            },
         }
 
         // Add spacing between results for readability

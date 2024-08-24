@@ -134,7 +134,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperLogLog
         self.harmonic_sum += f64::integer_exp2_minus(larger_register_value)
             - f64::integer_exp2_minus(old_register_value);
 
-        old_register_value != new_register_value
+        old_register_value < new_register_value
     }
 
     fn from_registers(registers: R) -> Self {

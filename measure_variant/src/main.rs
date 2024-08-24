@@ -3,31 +3,46 @@
 use hyperloglog_rs::prelude::*;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use rayon::prelude::*;
+use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use test_utils::prelude::{compare_features, read_csv, write_csv};
 
-const ITERATIONS: usize = 1_0000;
-const MINIMUM_CARDINALITY_FOR_SAMPLING: u64 = 0;
-const MAX: u64 = 20_000;
-const MEASUREMENT_STEP: u64 = 1;
-
-type HLL = Hybrid<
+type HLL1 = Hybrid<
     PlusPlus<
         Precision16,
         Bits6,
         <Precision16 as ArrayRegister<Bits6>>::Packed,
         twox_hash::XxHash64,
     >,
+    hyperloglog_rs::composite_hash::current::CurrentHash<Precision16, Bits6>,
 >;
+
+type HLL2 = Hybrid<
+    PlusPlus<
+        Precision16,
+        Bits6,
+        <Precision16 as ArrayRegister<Bits6>>::Packed,
+        twox_hash::XxHash64,
+    >,
+    hyperloglog_rs::composite_hash::switch::SwitchHash<Precision16, Bits6>,
+>;
+
+const ITERATIONS: usize = 1_0000;
+const MINIMUM_CARDINALITY_FOR_SAMPLING: u64 = 0;
+const MEASUREMENT_STEP: u64 = 1;
 
 #[derive(Debug, Serialize, Deserialize, Default, Copy, Clone)]
 struct Report {
     relative_error: f64,
+    cardinality: u64,
 }
 
 /// Main function to compare the progress of two variants of HLL.
 fn main() {
     let random_state = 7_536_558_723_694_876_u64;
+
+    let max_hashes = HLL2::maximal_number_of_hashes();
+    let max = (max_hashes * 10) as u64;
 
     let progress_bar = ProgressBar::new(ITERATIONS as u64);
     progress_bar.set_style(
@@ -37,34 +52,28 @@ fn main() {
             .progress_chars("##-"),
     );
 
-    let size = MAX / MEASUREMENT_STEP - MINIMUM_CARDINALITY_FOR_SAMPLING / MEASUREMENT_STEP;
+    let size = max / MEASUREMENT_STEP - MINIMUM_CARDINALITY_FOR_SAMPLING / MEASUREMENT_STEP;
 
     let mut total_reports = (0..ITERATIONS)
         .into_par_iter()
         .progress_with(progress_bar)
         .map(|i| {
-            // In order to execute the test faster, we approximate the cardinality
-            // of a set to this simple counter, as we assume that the iterator does
-            // not yield duplicates that often, at least not in a small range.
-            let mut counter = 0;
             let mut measurement_step = 0;
             let thread_random_state = splitmix64(random_state.wrapping_mul(i as u64 + 1));
-            let mut hll = HLL::default();
+            let mut hll = HLL2::default();
             let mut reports: Vec<Report> = Vec::with_capacity((size) as usize);
+            let mut hashset: HashSet<u64> = HashSet::default();
 
-            for value in iter_random_values::<u64>(MAX, None, Some(thread_random_state)) {
-                counter += 1;
+            for value in iter_random_values::<u64>(max, None, Some(thread_random_state)) {
                 hll.insert(&value);
 
-                if counter <= MINIMUM_CARDINALITY_FOR_SAMPLING {
-                    continue;
-                }
-
-                if measurement_step == MEASUREMENT_STEP {
+                if hashset.insert(value) {
                     let cardinality = hll.estimate_cardinality();
-                    let relative_error = (counter as f64 - cardinality).abs() / counter as f64;
+                    let exact_cardinality = hashset.len() as u64;
+                    let relative_error = (exact_cardinality as f64 - cardinality).abs() / exact_cardinality as f64;
                     reports.push(Report {
                         relative_error,
+                        cardinality: exact_cardinality,
                     });
                     measurement_step = 0;
                 }
@@ -74,9 +83,11 @@ fn main() {
 
             if measurement_step != 0 {
                 let cardinality = hll.estimate_cardinality();
-                let relative_error = (counter as f64 - cardinality).abs() / counter as f64;
+                let exact_cardinality = hashset.len() as u64;
+                let relative_error = (exact_cardinality as f64 - cardinality).abs() / exact_cardinality as f64;
                 reports.push(Report {
                     relative_error,
+                    cardinality: exact_cardinality,
                 });
             }
 
@@ -97,7 +108,7 @@ fn main() {
             },
         );
 
-    assert_eq!(total_reports.len(), size as usize);
+    // assert_eq!(total_reports.len(), size as usize);
 
     total_reports.iter_mut().for_each(|report| {
         report.relative_error /= ITERATIONS as f64;
@@ -112,7 +123,7 @@ fn main() {
             write_csv(total_reports.into_iter(), "reference_report.csv");
             return;
         } else {
-            write_csv(total_reports.into_iter(), "latest_report.csv");
+            write_csv(total_reports.iter(), "latest_report.csv");
         }
 
         let old_errors = reference_reports

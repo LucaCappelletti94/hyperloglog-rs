@@ -815,6 +815,60 @@ pub fn test_array(attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+
+#[proc_macro_attribute]
+pub fn test_precisions_and_bits(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Parse the input token stream (the function we're deriving for)
+    let input = parse_macro_input!(item as ItemFn);
+
+    // Extract the function name
+    let fn_name = &input.sig.ident;
+
+    // Define a list of generics we want to cover
+    let precisions = (4..=18)
+        .map(|precision| Ident::new(&format!("Precision{}", precision), fn_name.span()))
+        .collect::<Vec<_>>();
+    let bits = (4..=6)
+        .map(|bits| Ident::new(&format!("Bits{}", bits), fn_name.span()))
+        .collect::<Vec<_>>();
+
+    // Generate the test functions
+    let test_functions = precisions.iter().enumerate().flat_map(|(i, precision)| {
+        let precision_exponent = i + 4;
+        (bits).iter().flat_map(move |bit| {
+            let test_fn_name = Ident::new(
+                &format!(
+                    "{}_{}_{}",
+                    fn_name, precision, bit
+                )
+                .to_lowercase(),
+                fn_name.span(),
+            );
+
+            // For each precision, we need to check whether the feature precision_{exponent} is enabled
+            let precision_flag = format!("precision_{precision_exponent}");
+            quote! {
+                #[test]
+                #[cfg(feature = #precision_flag)]
+                fn #test_fn_name() {
+                    #fn_name::<#precision, #bit>();
+                }
+            }
+        })
+    });
+
+    // Generate the final token stream
+    let expanded = quote! {
+        #input
+
+        #(#test_functions)*
+    };
+
+    // Convert the expanded code into a token stream
+    TokenStream::from(expanded)
+}
+
+
 #[proc_macro_attribute]
 pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Parse the input token stream (the function we're deriving for)
