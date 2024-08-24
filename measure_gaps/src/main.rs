@@ -10,6 +10,8 @@ use serde::Serialize;
 use std::collections::HashMap;
 use test_utils::prelude::write_csv;
 use twox_hash::XxHash64;
+use wyhash::WyHash;
+use ahash::AHasher;
 
 #[derive(Serialize, Deserialize)]
 struct GapReport {
@@ -19,6 +21,8 @@ struct GapReport {
     /// The number of times we observed this gap.
     count: u64,
 }
+
+
 
 fn measure_gaps<P: Precision, B: Bits, H: HasherType>(multiprogress: &MultiProgress)
 where
@@ -127,9 +131,23 @@ where
 /// bit size and hasher types.
 macro_rules! generate_measure_gaps {
     ($multiprogress:ident, $precision:ty, $bit_size:ty, $($hasher:ty),*) => {
+        let progress_bar = $multiprogress.add(ProgressBar::new(3 as u64));
+
+        progress_bar.set_style(
+            ProgressStyle::default_bar()
+                .template("[{elapsed_precise} | {eta}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+                .unwrap()
+                .progress_chars("##-"),
+        );
+
+        progress_bar.tick();
+
         $(
             measure_gaps::<$precision, $bit_size, $hasher>($multiprogress);
+            progress_bar.inc(1);
         )*
+
+        progress_bar.finish();
     };
 }
 
@@ -149,7 +167,7 @@ macro_rules! generate_measure_gaps_for_precision {
         progress_bar.tick();
 
         $(
-            generate_measure_gaps!($multiprogress, $precision, $bit_size, XxHash64);
+            generate_measure_gaps!($multiprogress, $precision, $bit_size, WyHash, AHasher);
             progress_bar.inc(1);
         )*
 
