@@ -1,0 +1,13 @@
+[package]
+name = "measure_variant"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hyperloglog-rs = {path="../", features=["all_precisions"]}
+indicatif = { version = "0.17.8", features = ["rayon"] }
+rayon = "1.10.0"
+serde = { version = "1.0.208", features = ["derive"] }
+test_utils = {path="../test_utils"}
+twox-hash = "1.6.3"
+colored = "2.1.0"

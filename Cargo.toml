@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [".", "hyperloglog-derive", "statistical_comparisons", "statistical_comparisons/macro_test_utils"]
+members = [".", "hyperloglog-derive", "measure_variant", "statistical_comparisons", "statistical_comparisons/macro_test_utils", "test_utils"]
 
 [package]
 name = "hyperloglog-rs"
@@ -45,7 +45,7 @@ ahash = "0.8.11"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
-default = ["low_precisions", "beta", "plusplus", "zero_count_correction", "precomputed_beta"]
+default = ["low_precisions", "beta", "plusplus", "zero_count_correction"]
 beta = []
 precomputed_beta = ["beta"]
 plusplus = []

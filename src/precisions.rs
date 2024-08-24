@@ -191,7 +191,7 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
         #[cfg(not(feature = "precomputed_beta"))]
         let beta_horner = {
             #[cfg(not(feature = "std_ln"))]
-            let number_of_zero_registers_ln = LN_VALUES[1 + number_of_zero_registers];
+            let number_of_zero_registers_ln = LN_VALUES[1 + number_of_zero_registers.to_usize()];
             #[cfg(feature = "std_ln")]
             let number_of_zero_registers_ln = f64::ln_1p(f64::from(number_of_zero_registers));
             let mut res = f64::ZERO;

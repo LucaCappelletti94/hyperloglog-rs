@@ -13,6 +13,6 @@ fn main() {
     // We init the logger
     env_logger::init();
     cardinality_benchmarks();
-    // statistical_comparisons::cartesian_wilcoxon_test("cardinality");
+    statistical_comparisons::cartesian_wilcoxon_test("cardinality");
     // cartesian_wilcoxon_test("union");
 }

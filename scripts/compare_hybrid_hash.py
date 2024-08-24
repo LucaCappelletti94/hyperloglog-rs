@@ -23,25 +23,48 @@ def compute_hll_error_rate(precision_bits: int) -> Decimal:
 
 
 def compute_expected_collisions(
-    n_uniform_bits: int,
-    n_geometric_bits: int,
-    m_samples: int,
-    p: Decimal = Decimal(0.5),
+    m_bits: int,           # Total bits in the hash
+    n_uniform_bits: int,   # Number of strictly uniform bits (p)
+    b_geometric_bits: int, # Geometric bits (b)
+    m_samples: int,        # Number of samples (total hashes)
+    p: Decimal = Decimal(0.5),  # Geometric distribution parameter (typically 0.5)
 ) -> Decimal:
-    # Number of uniformly distributed values: 2^n_uniform_bits
-    N_uniform = Decimal(2**n_uniform_bits)
-
-    # Expected value of the geometric distribution (1/p for a geometric dist.)
-    # For leading zeros, p typically equals 0.5, meaning expected leading zeros is 2.
-    E_geometric = Decimal(1) / p
-
-    # Effective total hash space size
-    N_total = N_uniform * E_geometric
-
-    # Compute expected number of unique values (based on birthday paradox approximation)
-    expected_unique = N_total * (1 - (1 - Decimal(1) / N_total) ** m_samples)
-
-    # Expected collisions is the total number of samples minus expected unique
+    # Effective number of bits in the hash (excluding the flag bit)
+    effective_bits = m_bits - 1
+    
+    # Maximum value 2^b - 1 (this is the maximum number of leading zeros that can be represented)
+    max_leading_zeros = (2 ** b_geometric_bits) - 1
+    
+    # Number of non-uniform bits that remain after subtracting the always-uniform bits and the flag bit
+    remaining_bits = effective_bits - n_uniform_bits
+    
+    # Calculate how many bits are taken based on the value of leading zeros
+    # Case 1: 2^b <= remaining_bits (leading zeros and additional bits are used)
+    # Here, all remaining bits are directly taken from the uniform hash
+    n_total_bits_case1 = n_uniform_bits + remaining_bits
+    # Case 2: 2^b > remaining_bits (write leading zeros using b bits, and remaining uniform bits)
+    n_total_bits_case2 = n_uniform_bits + (remaining_bits - b_geometric_bits)
+    
+    # Probabilities for each case (geometric distribution PMF)
+    P_case1 = Decimal(min(max_leading_zeros + 1, remaining_bits)) / (max_leading_zeros + 1)
+    P_case2 = Decimal(1) - P_case1
+    
+    # Number of possible distinct values for case 1
+    N_case1 = Decimal(2 ** n_total_bits_case1)
+    
+    # Number of possible distinct values for case 2
+    N_case2 = Decimal(2 ** n_total_bits_case2)
+    
+    # Expected number of unique values for case 1
+    expected_unique_case1 = N_case1 * (1 - (1 - Decimal(1) / N_case1) ** m_samples)
+    
+    # Expected number of unique values for case 2
+    expected_unique_case2 = N_case2 * (1 - (1 - Decimal(1) / N_case2) ** m_samples)
+    
+    # Weighted average of expected unique values based on the probabilities
+    expected_unique = (P_case1 * expected_unique_case1) + (P_case2 * expected_unique_case2)
+    
+    # Expected collisions is the total number of samples minus expected unique values
     expected_collisions = Decimal(m_samples) - expected_unique
 
     return expected_collisions
@@ -75,7 +98,10 @@ def plot_errors():
                     float((2**precision) * number_of_bits) / float(hash_size)
                 )
                 expected_collisions = compute_expected_collisions(
-                    hash_size - number_of_bits, number_of_bits, maximal_number_of_hashes
+                    m_bits=hash_size,
+                    n_uniform_bits=precision,
+                    b_geometric_bits=number_of_bits,
+                    m_samples=maximal_number_of_hashes,
                 )
                 mean_collisions.append(expected_collisions / maximal_number_of_hashes)
 
@@ -131,7 +157,10 @@ def hybrid_approach_absolute_error(cardinality: int, precision: int, bits: int, 
             continue
 
         expected_collisions = compute_expected_collisions(
-            hash_size - 4, 4, cardinality
+            m_bits=hash_size,
+            n_uniform_bits=precision,
+            b_geometric_bits=6,
+            m_samples=maximal_number_of_hashes
         )
         if expected_collisions / cardinality < hyper_log_log_error_rate_at_precision:
             hash_size_identified = hash_size

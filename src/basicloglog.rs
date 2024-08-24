@@ -118,7 +118,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperLogLog
         // Count leading zeros.
         debug_assert!(
             new_register_value <= u8::try_from(B::MASK).unwrap(),
-            "Register value is too large."
+            "Register value is too large: {new_register_value} > {}",
+            B::MASK
         );
         debug_assert!(
             new_register_value > 0,

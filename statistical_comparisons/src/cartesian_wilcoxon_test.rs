@@ -1,16 +1,15 @@
 //! Submodule loading all of the reports for a given task, one by one to avoid an excessive memory peak,
 //! and then running the statistical tests.
-use core::f64;
-use serde::Serializer;
-use std::iter::Sum;
-use std::ops::Div;
-
-use crate::csv_utils::{read_csv, write_csv};
+use test_utils::prelude::{read_csv, write_csv};
 use crate::estimation_tests::ErrorReport;
+use core::f64;
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
+use serde::Serializer;
 use stattest::test::StatisticalTest;
 use stattest::test::WilcoxonWTest;
+use std::iter::Sum;
+use std::ops::Div;
 
 fn float_formatter<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -24,11 +23,11 @@ struct WilcoxonTestResult {
     first_approach_name: String,
     second_approach_name: String,
     #[serde(serialize_with = "float_formatter")]
-    p_value: f64
+    p_value: f64,
 }
 
 #[derive(Debug)]
-struct ReportInformations {
+struct ErrorReports {
     absolute_errors: Vec<f64>,
     mean_memory_requirements: usize,
     mean_time_requirements: u128,
@@ -37,10 +36,20 @@ struct ReportInformations {
     name: String,
 }
 
-impl ReportInformations {
+impl ErrorReports {
     fn from_path(path: &std::path::Path, normalized: bool) -> Self {
         let path: &str = path.to_str().unwrap();
-        let reports: Vec<ErrorReport> = read_csv(path).unwrap();
+        let reports: Vec<ErrorReport> = match read_csv(path) {
+            Ok(reports) => reports,
+            Err(err) => {
+                eprintln!("Error reading the CSV file: {err}");
+
+                // We delete the file and exit with an error code.
+                std::fs::remove_file(path).unwrap();
+
+                std::process::exit(1);
+            }
+        };
         let approach_name = path
             .split('/')
             .last()
@@ -56,7 +65,7 @@ impl ReportInformations {
                 .map(|report| {
                     report.error().max(f64::from(f32::EPSILON))
                         * f64::from(u32::try_from(report.memory_requirement()).unwrap())
-                        * (report.time_requirement() as f64) 
+                        * (report.time_requirement() as f64)
                 })
                 .collect::<Vec<f64>>()
         } else {
@@ -68,7 +77,7 @@ impl ReportInformations {
         let mean_absolute_error = mean(absolute_errors.iter().copied());
         let std_absolute_error = standard_deviation(&absolute_errors, mean_absolute_error);
 
-        ReportInformations {
+        ErrorReports {
             absolute_errors,
             mean_memory_requirements,
             mean_time_requirements,
@@ -110,7 +119,7 @@ where
 }
 
 /// Runs the Wilcoxon test and writes the results to a CSV file, alongside the win-loss-draw statistics.
-fn wilcoxon_test(mut reports: Vec<ReportInformations>, feature_name: &str) {
+fn wilcoxon_test(mut reports: Vec<ErrorReports>, feature_name: &str) {
     // We sort the reports by approach name, so that later when we update the
     // number of wins, losses and draws, we can find the correct approach quickly
     // by using a binary search.
@@ -126,7 +135,7 @@ fn wilcoxon_test(mut reports: Vec<ReportInformations>, feature_name: &str) {
     );
 
     // Next, we prepare the tasks to run by pre-rendering the test tuples to evaluate.
-    let tasks: Vec<(&ReportInformations, &ReportInformations)> = reports
+    let tasks: Vec<(&ErrorReports, &ErrorReports)> = reports
         .par_iter()
         .enumerate()
         .progress_with(progress_bar)
@@ -149,10 +158,13 @@ fn wilcoxon_test(mut reports: Vec<ReportInformations>, feature_name: &str) {
     );
 
     let results = tasks
-        .par_iter()
+        .into_par_iter()
         .progress_with(progress_bar)
         .map(|(left, right)| {
-            let w_test = WilcoxonWTest::paired(&left.absolute_errors, &right.absolute_errors);
+            let w_test = WilcoxonWTest::voracious_quantized_paired::<_, _, i8>(
+                &left.absolute_errors,
+                &right.absolute_errors,
+            );
 
             WilcoxonTestResult {
                 first_approach_name: left.name.clone(),
@@ -256,11 +268,11 @@ pub fn cartesian_wilcoxon_test(feature_name: &str) {
     );
 
     // First, we load all of the reports in parallel.
-    let reports: Vec<ReportInformations> = report_paths
+    let reports: Vec<ErrorReports> = report_paths
         .par_iter()
         .progress_with(progress_bar)
-        .map(|path| ReportInformations::from_path(path, false))
-        .collect::<Vec<ReportInformations>>();
+        .map(|path| ErrorReports::from_path(path, false))
+        .collect::<Vec<ErrorReports>>();
 
     wilcoxon_test(reports, feature_name);
 
@@ -274,14 +286,11 @@ pub fn cartesian_wilcoxon_test(feature_name: &str) {
     );
 
     // First, we load all of the reports in parallel.
-    let normalized_reports: Vec<ReportInformations> = report_paths
+    let normalized_reports: Vec<ErrorReports> = report_paths
         .par_iter()
         .progress_with(progress_bar)
-        .map(|path| ReportInformations::from_path(path, true))
-        .collect::<Vec<ReportInformations>>();
+        .map(|path| ErrorReports::from_path(path, true))
+        .collect::<Vec<ErrorReports>>();
 
-    wilcoxon_test(
-        normalized_reports,
-        &format!("{feature_name}_normalized"),
-    );
+    wilcoxon_test(normalized_reports, &format!("{feature_name}_normalized"));
 }

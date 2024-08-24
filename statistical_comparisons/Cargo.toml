@@ -15,7 +15,7 @@ rust-hyperloglog = {git = "https://github.com/LucaCappelletti94/rust-hyperloglog
 sourmash = {git="https://github.com/LucaCappelletti94/sourmash.git", features = ["mem_dbg"], branch = "latest_merged"}
 hypertwobits = {git="https://github.com/LucaCappelletti94/hypertwobits.git", features = ["mem_dbg"], branch="main"}
 simple_hll = {git="https://github.com/LucaCappelletti94/simple_hll.git", features = ["mem_dbg"], branch="hasher"}
-stattest = {git = "https://github.com/LucaCappelletti94/stattest", branch = "faster_wilcoxon"}
+stattest = {git = "https://github.com/LucaCappelletti94/stattest", branch = "faster_wilcoxon", features=["voracious_radix_sort"]}
 csv = "1.3.0"
 wyhash = {git="https://github.com/LucaCappelletti94/wyhash-rs", branch="merged", features=["mem_dbg"]}
 mem_dbg = "0.2.4"
@@ -31,6 +31,7 @@ bincode = "1.3.3"
 log = "0.4.22"
 env_logger = "0.11.5"
 flate2 = "1.0.31"
+test_utils = { path = "../test_utils" }
 ahash = {git="https://github.com/LucaCappelletti94/aHash", branch="master", features=["mem_dbg"]}
 
 [features]

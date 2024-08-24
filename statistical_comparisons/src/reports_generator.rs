@@ -1,7 +1,7 @@
 //! This module contains the code to generate the reports for the cardinality and union tests.
 use std::collections::HashSet;
 
-use crate::csv_utils::{read_csv, write_csv};
+use test_utils::prelude::{read_csv, write_csv};
 use crate::estimation_tests::cardinality_test;
 use crate::{
     estimation_tests::{ErrorReport, PerformanceReport},
@@ -11,10 +11,10 @@ use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
 use strum::IntoEnumIterator;
 
-fn prepare_reports<S, T1, T2>(test_for_hashset: T1, test: T2, test_name: &str)
+fn prepare_reports<S, T1, T2>(test_for_hashset: T1, test: T2, test_name: &str, multiprogress: &MultiProgress)
 where
-    T1: Fn(&HashSet<u64>) -> Vec<PerformanceReport>,
-    T2: Fn(&S) -> Vec<PerformanceReport>,
+    T1: Fn(&HashSet<u64>, &MultiProgress) -> Vec<PerformanceReport>,
+    T2: Fn(&S, &MultiProgress) -> Vec<PerformanceReport>,
     S: Named
         + Clone
         + ExtendableApproximatedSet<u64>
@@ -39,7 +39,7 @@ where
         // We log the progress of the computation.
         log::info!("Computing the exact {} of the set.", test_name);
 
-        let correct_report = test_for_hashset(&exact_estimator);
+        let correct_report = test_for_hashset(&exact_estimator, multiprogress);
         // And we store it into the "reports/cardinality/{estimator_name}.csv" file.
         write_csv(correct_report.iter().copied(), &path);
         correct_report
@@ -68,10 +68,8 @@ where
     // and we insert the progress bars for these entries. We then pass this progress
     // bar to the test function.
 
-    let multi_progress = MultiProgress::new();
-
     let entries_progress_bar =
-        multi_progress.add(indicatif::ProgressBar::new(number_of_entries as u64));
+        multiprogress.add(indicatif::ProgressBar::new(number_of_entries as u64));
     entries_progress_bar.set_style(
         indicatif::ProgressStyle::default_bar()
             .template(&format!(
@@ -85,7 +83,7 @@ where
         // We do the same for each estimator.
         let path = format!("reports/{test_name}/{}.csv.gz", enum_entry.name());
         entries_progress_bar.set_message(enum_entry.name());
-        let report = test(&enum_entry);
+        let report = test(&enum_entry, multiprogress);
         write_csv(
             report
                 .into_iter()
@@ -95,8 +93,6 @@ where
         );
         entries_progress_bar.inc(1);
     }
-
-    multi_progress.clear().unwrap();
 }
 
 /// Trait to prepare the reports for the cardinality and union tests.
@@ -109,8 +105,8 @@ pub trait SetTester:
     + IntoEnumIterator
 {
     /// Prepare the reports for the cardinality test.
-    fn prepare_cardinality_reports() {
-        prepare_reports::<Self, _, _>(cardinality_test, cardinality_test, "cardinality");
+    fn prepare_cardinality_reports(multiprogress: &MultiProgress) {
+        prepare_reports::<Self, _, _>(cardinality_test, cardinality_test, "cardinality", multiprogress);
     }
 
     // /// Prepare the reports for the union test.

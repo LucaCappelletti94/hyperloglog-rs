@@ -518,60 +518,120 @@ impl<H: Hybridazable> Hybrid<H> {
     #[inline]
     #[must_use]
     /// Encode the hash from the provided register value, index and the original unsplitted hash.
-    ///
-    /// # Arguments
-    /// * `register` - The register value to be encoded.
-    /// * `hash` - The original hash to be encoded.
-    ///
-    /// # Implementation
-    /// The hash we receive is expected to be in the following form:
-    ///
-    /// ```text
-    /// | bits used for the leading zeros count | potentially unused bits | bits used for the index |
-    /// ```
-    ///
-    /// We need to ensure that the higher bits are the bits of the index, as we will
-    /// sort the hashes and the index needs to be the primary sorting key. Next, we
-    /// want to sort by the number of leading zeros, followed by any eventual unused bits.
-    /// The resulting hash therefore, will be in the following form:
-    ///
-    /// ```text
-    /// | bits used for the index | number of leading zeros | potentially unused bits |
-    /// ```
     fn encode(&self, index: usize, register: u8, hash: u64) -> u64 {
         debug_assert!(register > 0);
         debug_assert!(index < 1 << H::Precision::EXPONENT);
         let hash_bits = self.hash_bytes() * 8;
 
-        let offset = hash_bits - H::Bits::NUMBER_OF_BITS - H::Precision::EXPONENT;
-        let mask = (1 << offset) - 1;
-
-        // We remove the portion used for the index and apply the padding mask,
-        // which ensures that now only the bits used for the padding (if any) are kept.
-        let mut hash = (hash >> H::Precision::EXPONENT) & mask;
+        // We start by encoding the index in the rightmost bits of the hash.
+        let mut composite_hash = (index as u64) << (hash_bits - H::Precision::EXPONENT);
 
         debug_assert!(
-            hash.leading_zeros() >= u32::from(64 - hash_bits + H::Precision::EXPONENT + H::Bits::NUMBER_OF_BITS),
-            concat!(
-                "Since the hash starts from a u64, and we are constructing a W::Word, ",
-                "it must have at least 64 - W::NUMBER_OF_BITS + H::Precision::EXPONENT + H::Bits::NUMBER_OF_BITS leading zeros."
-            )
+            composite_hash.leading_zeros() >= u32::from(64 - hash_bits),
+            "The composite hash {composite_hash} must have at least {} leading zeros, but has only {}",
+            64 - hash_bits,
+            composite_hash.leading_zeros(),
         );
 
-        // Next, we place the index in the rightmost bits of the hash.
-        hash |= (index as u64) << (hash_bits - H::Precision::EXPONENT);
-
-        // Next, we place the register in the rightmost bits of the hash, minus the bits used for the index.
-        hash |= u64::from(register) << offset;
-
-        // The resulting hash, since it starts from a u64, and we are constructing a W::Word,
-        // must have at least 64 - hash_bits leading zeros.
         debug_assert!(
-            hash.leading_zeros() >= u32::from(64 - hash_bits),
-            "The hash we have constructed must have at least 64 - {hash_bits} leading zeros."
+            composite_hash.trailing_zeros() >= u32::from(hash_bits - H::Precision::EXPONENT),
+            "The composite hash {composite_hash} must have at least {} trailing zeros, but has only {}",
+            hash_bits - H::Precision::EXPONENT,
+            composite_hash.trailing_zeros(),
         );
 
-        hash
+        // If the hash barely fits as-is, we do not need to do anything special.
+        if H::Precision::EXPONENT + H::Bits::NUMBER_OF_BITS == hash_bits {
+            composite_hash |= u64::from(register);
+            return composite_hash;
+        }
+
+        debug_assert_eq!(
+            (composite_hash >> (hash_bits - H::Precision::EXPONENT - 1)) & 1,
+            0
+        );
+
+        // Depending on whether the registers, i.e. the number of leading zeros in
+        // the provided hash, are less than the number of available bits in the hash
+        // we are currently encoding minus the bits used for the index, instead of
+        // storing the register value after the index, we store the higher bits of
+        // the original hash after the index.
+        if register > hash_bits - H::Precision::EXPONENT - 1 {
+            // In this case, the composite hash has the following structure:
+            //
+            // [index (exponent bits) | flag = 1 | registers (bitsize) | hash remainder]
+
+            // We set to 1 the flag bit, which indicates that the composite hash
+            // has the structure we described above.
+            composite_hash |= 1 << (hash_bits - H::Precision::EXPONENT - 1);
+
+            // We place the register value in the rightmost bits of the hash, after the index
+            // and the flag.
+            let register_offset = hash_bits - H::Precision::EXPONENT - 1 - H::Bits::NUMBER_OF_BITS;
+            composite_hash |= u64::from(register) << register_offset;
+
+            // We take the bits remaining in the original hash after having remove the last
+            // p bits which were used for the index, and we place them in the rightmost bits
+            // of the composite hash.
+            let mut censored_hash = hash >> H::Precision::EXPONENT;
+
+            // We determine the number of bits we intend to keep from the original hash.
+            let hash_offset = hash_bits - H::Precision::EXPONENT - 1 - H::Bits::NUMBER_OF_BITS;
+
+            // We mask out the bits we do not want to keep.
+            let mask = (1 << hash_offset) - 1;
+            censored_hash &= mask;
+
+            // We place the censored hash in the rightmost bits of the composite hash.
+            composite_hash |= censored_hash;
+
+            debug_assert_eq!(
+                (composite_hash >> (hash_bits - H::Precision::EXPONENT - 1)) & 1,
+                1
+            );
+        } else {
+            debug_assert_eq!(
+                (composite_hash >> (hash_bits - H::Precision::EXPONENT - 1)) & 1,
+                0
+            );
+            // In this case, the composite hash has the following structure:
+            //
+            // [index (exponent bits) | flag = 0 | original hash leading values]
+
+            // We do not need to set the flag bit, as we initialized the composite
+            // hash with zeros and that bit is certainly zero.
+
+            // We shift the original hash to the right.
+            let censored_hash = (!hash) >> (64 - hash_bits + 1 + H::Precision::EXPONENT);
+
+            // 1010_0101_1111_1111_1111_1111_1100
+            // 1010_0101_1111_1111_1111_1111_1100
+            // **** **** **^ Flag
+            // Precision    ^ ^^^^ ^^^^ ^^^^ ^^^^ ^^^^
+            //              Inverted leading bits of the original hash
+
+            // 0110_0110_1001_0111_0101_1101_1101_0011
+            // **** **** ^Flag
+            // Precision  ^^^ ^^^^ ^^^^ ^^^^ ^^^^ ^^^^
+            //            Inverted leading bits of the original hash
+
+            // We place the censored hash in the rightmost bits of the composite hash.
+            composite_hash |= censored_hash;
+
+            debug_assert_eq!(
+                (composite_hash >> (hash_bits - H::Precision::EXPONENT - 1)) & 1,
+                0
+            );
+        }
+
+        debug_assert!(
+            composite_hash.leading_zeros() >= u32::from(64 - hash_bits),
+            "The composite hash {composite_hash} must have at least {} leading zeros, but has only {}",
+            64 - hash_bits,
+            composite_hash.leading_zeros(),
+        );
+
+        composite_hash
     }
 
     #[must_use]
@@ -579,14 +639,40 @@ impl<H: Hybridazable> Hybrid<H> {
     /// Decode the hash into the register value and index.
     fn decode(&self, hash: u64) -> (u8, usize) {
         let hash_bits = self.hash_bytes() * 8;
-        // We extract the index from the rightmost bits of the hash.
+        // We extract the index from the leftmost bits of the hash.
         let index = usize::try_from(hash >> (hash_bits - H::Precision::EXPONENT)).unwrap();
-        // Next, we extract the register from the rightmost bits of the hash, minus the bits used for the index.
-        let register = u8::try_from(
-            (hash >> (hash_bits - H::Bits::NUMBER_OF_BITS - H::Precision::EXPONENT))
-                & H::Bits::MASK,
-        )
-        .unwrap();
+
+        // If the hash barely fits as is, we do not need to do anything special.
+        if H::Precision::EXPONENT + H::Bits::NUMBER_OF_BITS == hash_bits {
+            let register = u8::try_from(hash & H::Bits::MASK).unwrap();
+            return (register, index);
+        }
+
+        // Next, we extract the flag bit, which is the bit just before the index.
+        let flag = (hash >> (hash_bits - H::Precision::EXPONENT - 1)) & 1;
+
+        debug_assert!(flag == 1 || flag == 0);
+
+        // If the flag bit is set to 1, we have a composite hash with the following structure:
+        // [index (exponent bits) | flag = 1 | registers (bitsize) | hash remainder]
+        let register = if flag == 1 {
+            u8::try_from(
+                (hash >> (hash_bits - H::Bits::NUMBER_OF_BITS - H::Precision::EXPONENT - 1))
+                    & H::Bits::MASK,
+            )
+            .unwrap()
+        } else {
+            // Otherwise, we have a composite hash with the following structure:
+            // [index (exponent bits) | flag = 0 | original hash leading values]
+            // Therefore, we shift left by exponent bits and the flag bit to get
+            // the leading values of the original hash to the rightmost bits,
+            // and then we can count the leading zeros to get the register value.
+            let mut restored_hash = !(hash << (H::Precision::EXPONENT + 1 + (64 - hash_bits)));
+            restored_hash |= 1_u64 << (64_u64 - <H::Bits as VariableWord>::MASK);
+
+            let leading_zeros = restored_hash.leading_zeros();
+            u8::try_from(leading_zeros + 1).unwrap()
+        };
 
         (register, index)
     }
@@ -594,7 +680,17 @@ impl<H: Hybridazable> Hybrid<H> {
     fn to_encoded_hash<T: Hash>(&self, value: &T) -> u64 {
         let (index, register, hash) = H::hash_and_register_and_index(value);
         let encoded = self.encode(index, register, hash);
-        debug_assert_eq!(self.decode(encoded), (register, index));
+        debug_assert!(
+            encoded.leading_zeros() >= u32::from(64 - self.hash_bytes() * 8),
+            "The encoded hash {encoded} must have at least {} leading zeros, but has only {}",
+            64 - self.hash_bytes() * 8,
+            encoded.leading_zeros(),
+        );
+        debug_assert_eq!(
+            self.decode(encoded), (register, index),
+            "Failed to decode the encoded hash of {} bits {encoded:b} into the register {register} and the index {index}",
+            self.hash_bytes() * 8,
+        );
         encoded
     }
 

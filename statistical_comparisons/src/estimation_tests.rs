@@ -3,6 +3,7 @@
 //! competitor libraries.
 //! Evaluation of set-like properties across different data structures.
 use crate::traits::TransparentMemSize;
+use indicatif::ParallelProgressIterator;
 use hyperloglog_rs::prelude::*;
 use rayon::prelude::*;
 
@@ -46,19 +47,49 @@ impl ErrorReport {
     }
 }
 
+fn sample_interval_by_range(cardinality: u64) -> u64 {
+    if cardinality < 1_00 { // 10
+        10
+    } else if cardinality < 1_000 { // 10
+        100
+    } else if cardinality < 10_000 { // 10
+        1000
+    } else if cardinality < 100_000 { // 10
+        10_000
+    } else if cardinality < 1_000_000 { // 10
+        100_000
+    } else if cardinality <= 10_000_000 { // 10
+        1_000_000
+    } else {
+        unimplemented!()
+    }
+}
+
 pub(crate) fn cardinality_test<
     H: Estimator<f64> + Clone + TransparentMemSize + Named + ExtendableApproximatedSet<u64>,
 >(
     estimator: &H,
+    multiprogress: &indicatif::MultiProgress,
 ) -> Vec<PerformanceReport> {
     let number_of_vectors = 1_000_u64;
-    let number_of_elements = 1_000_000;
-    let sample_interval = number_of_elements / 1_000;
+    let number_of_elements = 10_000_000;
     let sequence_random_state = splitmix64(9_516_748_163_234_878_233_u64);
     let sample_index_random_state = splitmix64(2_348_782_399_516_748_163_u64);
 
+    let estimator_name = estimator.name();
+    let progress_bar = multiprogress.add(indicatif::ProgressBar::new(number_of_vectors));
+
+    progress_bar.set_style(
+        indicatif::ProgressStyle::default_bar()
+            .template(&format!(
+                "{estimator_name}: [{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>7}}/{{len:7}}"
+            )).unwrap()
+            .progress_chars("##-"),
+    );
+
     (0..number_of_vectors)
         .into_par_iter()
+        .progress_with(progress_bar)
         .flat_map(|thread_number| {
             let sequence_random_state =
                 splitmix64(splitmix64(sequence_random_state.wrapping_mul(thread_number + 1)));
@@ -66,7 +97,7 @@ pub(crate) fn cardinality_test<
                 splitmix64(splitmix64(sample_index_random_state.wrapping_mul(thread_number + 1)));
             let mut performance_reports = Vec::new();
             let mut estimator = estimator.clone();
-            let mut next_sample_index = sample_interval;
+            let mut next_sample_index = sample_interval_by_range(0);
 
             for (i, element) in
                 iter_random_values::<u64>(number_of_elements, None, Some(sequence_random_state)).enumerate()
@@ -75,7 +106,7 @@ pub(crate) fn cardinality_test<
 
                 if next_sample_index == i as u64{
                     sample_index_random_state = splitmix64(sample_index_random_state);
-                    next_sample_index += sample_index_random_state % sample_interval;
+                    next_sample_index += sample_index_random_state % sample_interval_by_range(i as u64);
 
                     let start = std::time::Instant::now();
                     let prediction = estimator.estimate_cardinality();

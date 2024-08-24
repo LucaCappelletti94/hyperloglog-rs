@@ -251,29 +251,75 @@ pub fn cardinality_benchmark(_attr: TokenStream, item: TokenStream) -> TokenStre
     ];
 
     // Generate the test functions
+
+    let number_of_hashers = hashers.len();
+
+    let hasher_loading_bar = quote! {
+        let hasher_loading_bar = multiprogress.add(indicatif::ProgressBar::new(#number_of_hashers as u64));
+        hasher_loading_bar.set_style(
+            indicatif::ProgressStyle::default_bar()
+                .template("Hashers: [{elapsed_precise} | {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
+                .unwrap()
+                .progress_chars("##-"),
+        );
+        hasher_loading_bar.tick();
+    };
     let benchmarks = hashers.into_iter().flat_map(move |hasher| {
         let precisions = precisions.clone();
-            let bits = bits.clone();
-            precisions.into_iter().map(move |(exponent, precision)| {
+        let bits = bits.clone();
+        let h2b_calls = quote! {
+            HyperTwoVariants::<#hasher>::prepare_cardinality_reports(&multiprogress);
+        };
+        let number_of_precisions = precisions.len() as u64;
+        let precision_loading_bar = quote! {
+            let precision_loading_bar = multiprogress.add(indicatif::ProgressBar::new(#number_of_precisions));
+            precision_loading_bar.set_style(
+                indicatif::ProgressStyle::default_bar()
+                    .template("Precision: [{elapsed_precise} | {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
+                    .unwrap()
+                    .progress_chars("##-"),
+            );
+            precision_loading_bar.tick();
+        };
+        let hll_calls = precisions.into_iter().map(move |(exponent, precision)| {
             let bits = bits.clone();
             let hasher = hasher.clone();
-            let h2b_calls = quote! {
-                HyperTwoVariants::<#hasher>::prepare_cardinality_reports();
+            let number_of_bits = bits.len() as u64;
+            let bits_loading_bar = quote! {
+                let bits_loading_bar = multiprogress.add(indicatif::ProgressBar::new(#number_of_bits));
+                bits_loading_bar.set_style(
+                    indicatif::ProgressStyle::default_bar()
+                        .template("Bits: [{elapsed_precise} | {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}")
+                        .unwrap()
+                        .progress_chars("##-"),
+                );
+                bits_loading_bar.tick();
             };
-            let hll_calls = bits
+            let bits_benches = bits
                 .into_iter()
                 .flat_map(move |(bit_num, bit)| {
                     let precision = precision.clone();
                     let hasher = hasher.clone();
                     quote! {
-                        HLLVariants::<#exponent, #precision, #hasher, #bit_num, #bit>::prepare_cardinality_reports();
+                        HLLVariants::<#exponent, #precision, #hasher, #bit_num, #bit>::prepare_cardinality_reports(&multiprogress);
+                        bits_loading_bar.inc(1);
                     }
                 });
+
             quote! {
-                #h2b_calls
-                #(#hll_calls)*
+                #bits_loading_bar
+                #(#bits_benches)*
+                bits_loading_bar.finish_and_clear();
+                precision_loading_bar.inc(1);
             }
-        })
+        });
+        quote! {
+            #h2b_calls
+            #precision_loading_bar
+            #(#hll_calls)*
+            precision_loading_bar.finish_and_clear();
+            hasher_loading_bar.inc(1);
+        }
     });
 
     // Generate the final token stream
@@ -281,7 +327,11 @@ pub fn cardinality_benchmark(_attr: TokenStream, item: TokenStream) -> TokenStre
         #input
 
         fn cardinality_benchmarks() {
+            let multiprogress = indicatif::MultiProgress::new();
+            #hasher_loading_bar
             #(#benchmarks)*
+            hasher_loading_bar.finish_and_clear();
+            multiprogress.clear().unwrap();
         }
     };
 

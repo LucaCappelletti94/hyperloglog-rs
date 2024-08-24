@@ -7,7 +7,6 @@
 mod cartesian_wilcoxon_test;
 mod estimation_tests;
 pub use cartesian_wilcoxon_test::cartesian_wilcoxon_test;
-mod csv_utils;
 pub mod enumerations;
 mod proxy_implementations;
 pub mod reports_generator;
