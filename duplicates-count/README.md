@@ -7,9 +7,10 @@ As usual, just run:
 
 ```bash
 RUSTFLAGS='-C target-cpu=native' cargo run --release
+```
 
 ## Results
-Here is a preview of the results, which are stored in the `duplicates.csv` file:
+Here is a preview of the results, which are stored in the [`duplicates.csv`](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/duplicates-count/duplicates.csv) file:
 
 | precision | bit_size | hash_size | hasher_count | hasher    | composite_hash | code                | space_usage | rate |
 |-----------|----------|-----------|--------------|-----------|----------------|---------------------|-------------|------|
