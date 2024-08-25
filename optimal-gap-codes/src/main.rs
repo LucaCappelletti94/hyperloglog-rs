@@ -4,9 +4,8 @@
 #![deny(unused_macro_rules)]
 #![deny(missing_docs)]
 
-use ahash::AHasher;
 use dsi_bitstream::prelude::{Code, CodesStats};
-use hyperloglog_rs::composite_hash::{current::CurrentHash, switch::SwitchHash, CompositeHash};
+use hyperloglog_rs::composite_hash::{switch::SwitchHash, CompositeHash};
 use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
@@ -16,7 +15,8 @@ use serde::Serialize;
 use std::collections::HashMap;
 use test_utils::prelude::{append_csv, read_csv, write_csv};
 use twox_hash::XxHash64;
-use wyhash::WyHash;
+
+type CS = CodesStats<50, 50, 50, 50, 50>;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 /// Report of the gap between subsequent hashes in the Listhash variant of HyperLogLog.
@@ -43,6 +43,8 @@ struct GapReport {
     uncompressed_space_usage: u64,
     /// The rate of the optimal code.
     rate: f64,
+    /// Mean encoded gap size in bits.
+    mean_gap_size: f64,
 }
 
 /// Normalized the name of a hasher type.
@@ -84,7 +86,7 @@ fn optimal_gap_codes<
         }
     }
 
-    let iterations = 10_000;
+    let iterations = 50_000;
     let hll = Hybrid::<PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, H>, CH>::default();
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));
@@ -97,14 +99,14 @@ fn optimal_gap_codes<
 
     let random_state = 6539823745562884_u64;
 
-    let gaps: HashMap<u8, CodesStats> = ParallelIterator::reduce(
+    let gaps: HashMap<u8, (CS, u64)> = ParallelIterator::reduce(
         (0..iterations)
             .into_par_iter()
             .progress_with(progress_bar)
             .map(|i| {
                 let random_state = splitmix64(random_state.wrapping_mul(i + 1));
                 let mut hll = hll.clone();
-                let mut gap_report: HashMap<u8, CodesStats> = HashMap::new();
+                let mut gap_report: HashMap<u8, (CS, u64)> = HashMap::new();
 
                 for value in iter_random_values::<u64>(1_000_000, None, Some(random_state)) {
                     hll.insert(&value);
@@ -117,10 +119,11 @@ fn optimal_gap_codes<
                         for hash in hll.hashes().unwrap() {
                             if let Some(last_hash) = last_hash {
                                 assert!(last_hash >= hash);
-                                gap_report
+                                let entry = gap_report
                                     .entry(hash_size)
-                                    .or_insert_with(CodesStats::default)
-                                    .update(last_hash - hash);
+                                    .or_insert_with(|| (CS::default(), 0));
+                                entry.0.update(last_hash - hash);
+                                entry.1 += 1;
                             }
                             last_hash = Some(hash);
                         }
@@ -132,10 +135,11 @@ fn optimal_gap_codes<
                         for hash in hll.hashes().unwrap() {
                             if let Some(last_hash) = last_hash {
                                 assert!(last_hash >= hash);
-                                gap_report
+                                let entry = gap_report
                                     .entry(hash_size)
-                                    .or_insert_with(CodesStats::default)
-                                    .update(last_hash - hash);
+                                    .or_insert_with(|| (CS::default(), 0));
+                                entry.0.update(last_hash - hash);
+                                entry.1 += 1;
                             }
                             last_hash = Some(hash);
                         }
@@ -147,9 +151,12 @@ fn optimal_gap_codes<
             }),
         || HashMap::new(),
         |mut acc, report| {
-            for (hash_size, gap_report) in report {
-                let hash_size_report = acc.entry(hash_size).or_insert_with(CodesStats::default);
-                *hash_size_report += gap_report;
+            for (hash_size, (gap_report, total)) in report {
+                let hash_size_report = acc
+                    .entry(hash_size)
+                    .or_insert_with(|| (CS::default(), 0));
+                hash_size_report.0 += gap_report;
+                hash_size_report.1 += total;
             }
             acc
         },
@@ -158,11 +165,12 @@ fn optimal_gap_codes<
     let path = "optimal-gap-codes.csv";
 
     append_csv(
-        gaps.iter().map(|(hash_size, gap_report)| {
+        gaps.iter().map(|(hash_size, (gap_report, total))| {
             let (code, space_usage): (Code, u64) = gap_report.best_code();
 
-            let uncompressed_space_usage = u64::from(*hash_size) * (gap_report.total + 1);
+            let uncompressed_space_usage = u64::from(*hash_size) * (total + 1);
             let rate = space_usage as f64 / uncompressed_space_usage as f64;
+            let mean_gap_size = space_usage as f64 / *total as f64;
 
             GapReport {
                 precision: P::EXPONENT,
@@ -174,6 +182,7 @@ fn optimal_gap_codes<
                 space_usage,
                 uncompressed_space_usage,
                 rate,
+                mean_gap_size
             }
         }),
         path,
@@ -184,25 +193,25 @@ fn optimal_gap_codes<
 /// bit size and hasher types.
 macro_rules! generate_optimal_gap_codes {
     ($multiprogress:ident, $precision:ty, $bit_size:ty, $($hasher:ty),*) => {
-        let progress_bar = $multiprogress.add(ProgressBar::new(6 as u64));
+        // let progress_bar = $multiprogress.add(ProgressBar::new(1 as u64));
 
-        progress_bar.set_style(
-            ProgressStyle::default_bar()
-                .template("[{elapsed_precise} | {eta}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
-                .unwrap()
-                .progress_chars("##-"),
-        );
+        // progress_bar.set_style(
+        //     ProgressStyle::default_bar()
+        //         .template("[{elapsed_precise} | {eta}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+        //         .unwrap()
+        //         .progress_chars("##-"),
+        // );
 
-        progress_bar.tick();
+        // progress_bar.tick();
 
         $(
-            optimal_gap_codes::<$precision, $bit_size, $hasher, CurrentHash<$precision, $bit_size>>($multiprogress);
-            progress_bar.inc(1);
+            // optimal_gap_codes::<$precision, $bit_size, $hasher, CurrentHash<$precision, $bit_size>>($multiprogress);
+            // progress_bar.inc(1);
             optimal_gap_codes::<$precision, $bit_size, $hasher, SwitchHash<$precision, $bit_size>>($multiprogress);
-            progress_bar.inc(1);
+            // progress_bar.inc(1);
         )*
 
-        progress_bar.finish_and_clear();
+        // progress_bar.finish_and_clear();
     };
 }
 
@@ -222,7 +231,7 @@ macro_rules! generate_optimal_gap_codes_for_precision {
         progress_bar.tick();
 
         $(
-            generate_optimal_gap_codes!($multiprogress, $precision, $bit_size, XxHash64, WyHash, AHasher);
+            generate_optimal_gap_codes!($multiprogress, $precision, $bit_size, XxHash64);
             progress_bar.inc(1);
         )*
 
@@ -278,9 +287,7 @@ fn main() {
     // We reload the report one more time, sort it and re-write it.
     let mut reports = read_csv::<GapReport>("optimal-gap-codes.csv").unwrap();
 
-    reports.sort_by(|a, b| {
-        a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-    });
+    reports.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
     write_csv(reports.iter(), "optimal-gap-codes.csv");
 }
