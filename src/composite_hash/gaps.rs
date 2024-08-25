@@ -372,18 +372,29 @@ where
     // iter until we find where we should insert
     let mut iter = GapHash::<CH>::downgraded(readable, number_of_hashes, hash_bits, 0);
     let encoded = CH::encode(index, register, original_hash, hash_bits);
+    let mut gap = encoded;
+    let mut previous_value = u64::MAX;
     for value in &mut iter {
-        if value <= encoded {
+        // The values are sorted in descending order, so we can stop when we find a value
+        // that is less than or equal to the value we want to insert
+        if encoded >= value {
+            // if the value is equal to the encoded value, we don't need to insert it
             if value == encoded {
                 return false;
             }
+            // We need to compute the gap between the value we want to insert and the previous value
+            if previous_value != u64::MAX {
+                gap = previous_value - encoded;
+            }
             break;
         }
+
+        previous_value = value;
     }
     // created a writer at the same position ! UNSAFE !
     let mut writer = BitWriter::new(hashes_64);
     writer.seek(iter.bitstream.tell());
-    let mut value_to_write = encoded;
+    let mut value_to_write = gap;
     // keep reading and then writing the value
     let iter_tell = unsafe{&*(&iter as *const _ as usize as *const <GapHash<CH> as CompositeHash>::Downgraded<'_>)};
     for value in &mut iter {
