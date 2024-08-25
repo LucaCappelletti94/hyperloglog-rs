@@ -115,99 +115,62 @@ where
         original_hash: u64,
         hash_bits: u8,
     ) -> bool {
-        match hash_bits {
-            8 => {
-                if core::any::TypeId::of::<<CH as PrefixFreeCode<8>>::Code>()
-                    == core::any::TypeId::of::<NoPrefixCode<8>>()
-                {
-                    return CH::insert_sorted_desc(
-                        hashes,
-                        number_of_hashes,
-                        index,
-                        register,
-                        original_hash,
-                        hash_bits,
-                    );
-                } else {
-                    insert_sorted_desc_with_writer::<<CH as PrefixFreeCode<8>>::Code, CH>(
-                        hashes,
-                        number_of_hashes,
-                        index,
-                        register,
-                        original_hash,
-                        hash_bits,
-                    )
-                }
-            }
-            16 => {
-                if core::any::TypeId::of::<<CH as PrefixFreeCode<16>>::Code>()
+        if hash_bits == 8
+            && core::any::TypeId::of::<<CH as PrefixFreeCode<8>>::Code>()
+                == core::any::TypeId::of::<NoPrefixCode<8>>()
+            || hash_bits == 16
+                && core::any::TypeId::of::<<CH as PrefixFreeCode<16>>::Code>()
                     == core::any::TypeId::of::<NoPrefixCode<16>>()
-                {
-                    return CH::insert_sorted_desc(
-                        hashes,
-                        number_of_hashes,
-                        index,
-                        register,
-                        original_hash,
-                        hash_bits,
-                    );
-                } else {
-                    insert_sorted_desc_with_writer::<<CH as PrefixFreeCode<16>>::Code, CH>(
-                        hashes,
-                        number_of_hashes,
-                        index,
-                        register,
-                        original_hash,
-                        hash_bits,
-                    )
-                }
-            }
-            24 => {
-                if core::any::TypeId::of::<<CH as PrefixFreeCode<24>>::Code>()
+            || hash_bits == 24
+                && core::any::TypeId::of::<<CH as PrefixFreeCode<24>>::Code>()
                     == core::any::TypeId::of::<NoPrefixCode<24>>()
-                {
-                    return CH::insert_sorted_desc(
-                        hashes,
-                        number_of_hashes,
-                        index,
-                        register,
-                        original_hash,
-                        hash_bits,
-                    );
-                } else {
-                    insert_sorted_desc_with_writer::<<CH as PrefixFreeCode<24>>::Code, CH>(
-                        hashes,
-                        number_of_hashes,
-                        index,
-                        register,
-                        original_hash,
-                        hash_bits,
-                    )
-                }
-            }
-            32 => {
-                if core::any::TypeId::of::<<CH as PrefixFreeCode<32>>::Code>()
+            || hash_bits == 32
+                && core::any::TypeId::of::<<CH as PrefixFreeCode<32>>::Code>()
                     == core::any::TypeId::of::<NoPrefixCode<32>>()
-                {
-                    return CH::insert_sorted_desc(
-                        hashes,
-                        number_of_hashes,
-                        index,
-                        register,
-                        original_hash,
-                        hash_bits,
-                    );
-                } else {
-                    insert_sorted_desc_with_writer::<<CH as PrefixFreeCode<32>>::Code, CH>(
-                        hashes,
-                        number_of_hashes,
-                        index,
-                        register,
-                        original_hash,
-                        hash_bits,
-                    )
-                }
-            }
+        {
+            return CH::insert_sorted_desc(
+                hashes,
+                number_of_hashes,
+                index,
+                register,
+                original_hash,
+                hash_bits,
+            );
+        }
+
+        match hash_bits {
+            8 => insert_sorted_desc_with_writer::<<CH as PrefixFreeCode<8>>::Code, CH>(
+                hashes,
+                number_of_hashes,
+                index,
+                register,
+                original_hash,
+                hash_bits,
+            ),
+            16 => insert_sorted_desc_with_writer::<<CH as PrefixFreeCode<16>>::Code, CH>(
+                hashes,
+                number_of_hashes,
+                index,
+                register,
+                original_hash,
+                hash_bits,
+            ),
+            24 => insert_sorted_desc_with_writer::<<CH as PrefixFreeCode<24>>::Code, CH>(
+                hashes,
+                number_of_hashes,
+                index,
+                register,
+                original_hash,
+                hash_bits,
+            ),
+            32 => insert_sorted_desc_with_writer::<<CH as PrefixFreeCode<32>>::Code, CH>(
+                hashes,
+                number_of_hashes,
+                index,
+                register,
+                original_hash,
+                hash_bits,
+            ),
             _ => unreachable!(),
         }
     }
@@ -326,7 +289,9 @@ fn downgrade_inplace_with_writer<'a, CT: CodeWrite + 'static, CH: CompositeHash>
     let mut writer = BitWriter::new(hashes_64);
 
     let mut iter = GapHash::<CH>::downgraded(readable, number_of_hashes, hash_bits, shift);
-    let iter_tell = unsafe{&*(&iter as *const _ as usize as *const <GapHash<CH> as CompositeHash>::Downgraded<'_>)};
+    let iter_tell = unsafe {
+        &*(&iter as *const _ as usize as *const <GapHash<CH> as CompositeHash>::Downgraded<'_>)
+    };
 
     let mut last_value = u64::MAX;
     for value in &mut iter {
@@ -403,7 +368,9 @@ where
     writer.seek(iter.bitstream.tell());
     let mut value_to_write = gap;
     // keep reading and then writing the value
-    let iter_tell = unsafe{&*(&iter as *const _ as usize as *const <GapHash<CH> as CompositeHash>::Downgraded<'_>)};
+    let iter_tell = unsafe {
+        &*(&iter as *const _ as usize as *const <GapHash<CH> as CompositeHash>::Downgraded<'_>)
+    };
     for value in &mut iter {
         debug_assert!(iter_tell.bitstream.tell() > writer.tell());
         CW::write(&mut writer, value);
@@ -555,7 +522,7 @@ where
             32 => <CH as PrefixFreeCode<32>>::Code::read(&mut self.bitstream),
             _ => unreachable!(),
         };
-        
+
         debug_assert!(
             gap.leading_zeros() >= 64 - u32::from(self.hash_bits),
             "A gap {gap} between hash of {} bits cannot have more than {} leading zeros, but got {}",
