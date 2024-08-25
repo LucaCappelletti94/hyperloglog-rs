@@ -19,7 +19,7 @@ fn flag<P: Precision>(hash: u64, hash_bits: u8) -> bool {
     ((hash >> (hash_bits - P::EXPONENT - 1)) & 1) == 1
 }
 
-const fn smallest_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
+pub(super) const fn smallest_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
     if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
         return 8;
     }
@@ -50,6 +50,10 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         hash_bits: u8,
         shift: u8,
     ) {
+        if shift == 0 {
+            return;
+        }
+
         let hash_bytes = usize::from(hash_bits) / 8;
         let downgraded_hash_bytes = usize::from(hash_bits - shift) / 8;
 
@@ -183,7 +187,11 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     /// Encode the hash from the provided register value, index and the original unsplitted hash.
     fn encode(index: usize, register: u8, original_hash: u64, hash_bits: u8) -> u64 {
         debug_assert!(register > 0);
-        debug_assert!(index < 1 << Self::Precision::EXPONENT);
+        debug_assert!(
+            index < 1 << Self::Precision::EXPONENT,
+            "The index ({index}) must be less than 2^({})",
+            Self::Precision::EXPONENT,
+        );
         // We start by encoding the index in the rightmost bits of the hash.
         let mut composite_hash = (index as u64) << (hash_bits - Self::Precision::EXPONENT);
 
@@ -269,8 +277,21 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     #[inline]
     /// Decode the hash into the register value and index.
     fn decode(hash: u64, hash_bits: u8) -> (u8, usize) {
+        debug_assert!(
+            hash.leading_zeros() >= u32::from(64 - hash_bits),
+            "The hash ({hash:064b}) should be composed of {hash_bits} and therefore must have at least {} leading zeros, but has only {}",
+            64 - hash_bits,
+            hash.leading_zeros(),
+        );
+
         // We extract the index from the leftmost bits of the hash.
         let index = usize::try_from(hash >> (hash_bits - Self::Precision::EXPONENT)).unwrap();
+
+        debug_assert!(
+            index < 1 << Self::Precision::EXPONENT,
+            "While decoding the hash ({hash:064b}), the index ({index}) must be less than 2^({})",
+            Self::Precision::EXPONENT
+        );
 
         // If the hash barely fits as is, we do not need to do anything special.
         if Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS == hash_bits {

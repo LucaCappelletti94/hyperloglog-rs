@@ -259,7 +259,12 @@ where
     CH: CompositeHash,
 {
     assert!(hash_bits >= 8);
-    assert!(hash_bits >= CH::SMALLEST_VIABLE_HASH_BITS);
+    assert!(
+        hash_bits >= CH::SMALLEST_VIABLE_HASH_BITS,
+        "The hash bits ({}) must be greater or equal to the smallest viable hash bits ({})",
+        hash_bits,
+        CH::SMALLEST_VIABLE_HASH_BITS,
+    );
     let hash_bytes = usize::from(hash_bits / 8);
 
     match CH::find(

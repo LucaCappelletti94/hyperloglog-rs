@@ -13,3 +13,7 @@ test_utils = {path="../test_utils"}
 twox-hash = "1.6.3"
 wyhash = "0.5.0"
 dsi-bitstream = {git="https://github.com/LucaCappelletti94/dsi-bitstream-rs.git", branch="main"}
+syn = "2.0"
+quote = "1.0"
+proc-macro2 = "1.0"
+prettyplease = "0.2"

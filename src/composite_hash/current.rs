@@ -102,6 +102,12 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
     #[inline]
     /// Decode the hash into the register value and index.
     fn decode(hash: u64, hash_bits: u8) -> (u8, usize) {
+        debug_assert!(
+            hash.leading_zeros() >= u32::from(64 - hash_bits),
+            "The hash ({hash:064b}) should be composed of {hash_bits} and therefore must have at least {} leading zeros, but has only {}",
+            64 - hash_bits,
+            hash.leading_zeros(),
+        );
         // We extract the index from the rightmost bits of the hash.
         let index = usize::try_from(hash >> (hash_bits - P::EXPONENT)).unwrap();
         // Next, we extract the register from the rightmost bits of the hash, minus the bits used for the index.
@@ -171,6 +177,10 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
         hash_bits: u8,
         shift: u8,
     ) {
+        if shift == 0 {
+            return;
+        }
+
         let hash_bytes = usize::from(hash_bits / 8);
         let shift_bytes = usize::from(shift / 8);
 

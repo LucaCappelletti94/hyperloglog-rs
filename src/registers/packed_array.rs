@@ -447,7 +447,10 @@ macro_rules! impl_as_ref_mut {
                 #[allow(unsafe_code)]
                 fn as_mut(&mut self) -> &mut [$typ] {
                     let words_u64: &mut [u64] = self.words.as_mut();
-                    unsafe { core::slice::from_raw_parts_mut(words_u64.as_mut_ptr().cast::<$typ>(), words_u64.len() * 8 / core::mem::size_of::<$typ>()) }
+                    let slice = unsafe { core::slice::from_raw_parts_mut(words_u64.as_mut_ptr().cast::<$typ>(), words_u64.len() * 8 / core::mem::size_of::<$typ>()) };
+                    debug_assert_eq!(slice.len(), N * 64 / core::mem::size_of::<$typ>());
+                    debug_assert_eq!(slice.len() % core::mem::size_of::<u64>(), 0);
+                    slice
                 }
             }
         )*

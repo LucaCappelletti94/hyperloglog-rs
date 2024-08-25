@@ -6,6 +6,8 @@ pub mod current;
 pub mod gaps;
 mod shared;
 pub mod switch;
+pub use current::CurrentHash;
+pub use switch::SwitchHash;
 
 /// A composite hash is a 64-bit hash that encodes a register, index and original hash.
 pub trait CompositeHash: Send + Sync {
@@ -127,6 +129,7 @@ mod test_composite_hash {
 
     use super::*;
     use crate::prelude::*;
+    use gaps::PrefixFreeCode;
     use hyperloglog_derive::test_precisions_and_bits;
 
     /// Adds the register as leading number of zeros and the index as the tail of the hash
@@ -170,6 +173,7 @@ mod test_composite_hash {
         )
     }
 
+    #[allow(unsafe_code)]
     fn test_composite_hash<CH: CompositeHash>() {
         let maximal_register_value = 1 << CH::Bits::NUMBER_OF_BITS;
         let maximal_index_value = 1 << CH::Precision::EXPONENT;
@@ -182,7 +186,14 @@ mod test_composite_hash {
                 number_of_hashes * number_of_indices_to_sample * (maximal_register_value - 1);
             let mut reference_hashes: Vec<u64> = Vec::with_capacity(number_of_expected_hashes);
             let mut encoded_hashes =
-                vec![0_u8; number_of_expected_hashes * usize::from(hash_bytes)];
+                vec![0_u64; ceil(number_of_expected_hashes * usize::from(hash_bytes), 8)];
+            let mut encoded_hashes: &mut [u8] = unsafe {
+                core::slice::from_raw_parts_mut(
+                    encoded_hashes.as_mut_ptr() as *mut u8,
+                    encoded_hashes.len() * 8,
+                )
+            };
+
             random_state = splitmix64(random_state);
             for index in iter_random_values::<u64>(
                 number_of_indices_to_sample as u64,
@@ -210,7 +221,7 @@ mod test_composite_hash {
                         assert_eq!(index, decoded_index, "Failed to recover the index at hash bits {hash_bits}. The hash is {encoded_hash:b}. The fake hash is {fake_hash:064b}.");
 
                         match CH::find(
-                            encoded_hashes.as_slice(),
+                            encoded_hashes,
                             reference_hashes.len(),
                             index,
                             register,
@@ -271,13 +282,26 @@ mod test_composite_hash {
                             );
                         } else {
                             // If the hash was not inserted, there must be a reference stored with the same hash.
-                            assert_eq!(reference_hashes.contains(&encoded_hash), true);
+                            assert_eq!(
+                                reference_hashes.contains(&encoded_hash), true,
+                                concat!(
+                                    "The hash was not found in the reference hashes, but it is in the encoded hashes. ",
+                                    "The register is {} and the index is {}, and the fake hash is {}. ",
+                                    "The number of bits for the hash is {}, precision is {} and the number of bits is {}."
+                                ),
+                                register,
+                                index,
+                                fake_hash,
+                                hash_bits,
+                                CH::Precision::EXPONENT,
+                                CH::Bits::NUMBER_OF_BITS,
+                            );
                         }
 
                         // After inserting the hash, we check if the hash is found.
                         assert!(
                             CH::find(
-                                encoded_hashes.as_slice(),
+                                encoded_hashes,
                                 reference_hashes.len(),
                                 index,
                                 register,
@@ -304,7 +328,7 @@ mod test_composite_hash {
                         );
 
                         let decoded: Vec<(u8, usize)> = CH::decoded(
-                            encoded_hashes.as_slice(),
+                            encoded_hashes,
                             reference_hashes.len(),
                             hash_bits,
                         )
@@ -325,7 +349,9 @@ mod test_composite_hash {
                             assert_eq!(decoded_index, reference_index);
                         }
 
-                        for target_hash_bytes in CH::SMALLEST_VIABLE_HASH_BITS / 8..hash_bytes {
+                        // We include the case where the target hash bytes == hash bytes so to test
+                        // when the degrade is called with shift == 0.
+                        for target_hash_bytes in CH::SMALLEST_VIABLE_HASH_BITS / 8..=hash_bytes {
                             let target_hash_bits = target_hash_bytes * 8;
                             let shift = hash_bits - target_hash_bits;
                             let downgraded_hash = CH::downgrade(encoded_hash, hash_bits, shift);
@@ -340,7 +366,7 @@ mod test_composite_hash {
 
                             assert_eq!(downgraded_hash, encoded_target_hash, "Downgraded from hash bits {hash_bits} ({encoded_hash:b}) to {target_hash_bits} hash directly encoded ({encoded_target_hash:b}) and downgraded hash do not match ({downgraded_hash:b}). The original hash is {fake_hash:064b}.");
 
-                            let mut downgraded_encoded_hashes = encoded_hashes.clone();
+                            let mut downgraded_encoded_hashes = encoded_hashes.to_vec();
                             CH::downgrade_inplace(
                                 &mut downgraded_encoded_hashes,
                                 reference_hashes.len(),
@@ -380,5 +406,23 @@ mod test_composite_hash {
     #[test_precisions_and_bits]
     fn test_switch_hash<P: Precision, B: Bits>() {
         test_composite_hash::<switch::SwitchHash<P, B>>();
+    }
+
+    #[test_precisions_and_bits]
+    fn test_gap_current_hash<P: Precision, B: Bits>()
+    where
+        current::CurrentHash<P, B>:
+            PrefixFreeCode<8> + PrefixFreeCode<16> + PrefixFreeCode<24> + PrefixFreeCode<32>,
+    {
+        test_composite_hash::<gaps::GapHash<current::CurrentHash<P, B>>>();
+    }
+
+    #[test_precisions_and_bits]
+    fn test_gap_switch_hash<P: Precision, B: Bits>()
+    where
+        switch::SwitchHash<P, B>:
+            PrefixFreeCode<8> + PrefixFreeCode<16> + PrefixFreeCode<24> + PrefixFreeCode<32>,
+    {
+        test_composite_hash::<gaps::GapHash<switch::SwitchHash<P, B>>>();
     }
 }
