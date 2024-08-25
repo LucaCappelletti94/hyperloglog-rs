@@ -18,7 +18,7 @@ use test_utils::prelude::{append_csv, read_csv, write_csv};
 use twox_hash::XxHash64;
 use wyhash::WyHash;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 /// Report of the gap between subsequent hashes in the Listhash variant of HyperLogLog.
 struct GapReport {
     /// The precision exponent of the HyperLogLog, determining
@@ -84,7 +84,7 @@ fn optimal_gap_codes<
         }
     }
 
-    let iterations = 100_000;
+    let iterations = 10_000;
     let hll = Hybrid::<PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, H>, CH>::default();
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));
@@ -279,13 +279,7 @@ fn main() {
     let mut reports = read_csv::<GapReport>("optimal-gap-codes.csv").unwrap();
 
     reports.sort_by(|a, b| {
-        a.rate
-            .partial_cmp(&b.rate)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.space_usage.cmp(&b.space_usage))
-            .then_with(|| a.uncompressed_space_usage.cmp(&b.uncompressed_space_usage))
-            .then_with(|| a.precision.cmp(&b.precision))
-            .then_with(|| a.bit_size.cmp(&b.bit_size))
+        a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
     });
 
     write_csv(reports.iter(), "optimal-gap-codes.csv");
