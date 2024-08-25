@@ -1,5 +1,6 @@
-# Measure Gaps
-A rayon-parallelized utility to measure sorted hash gaps.
+# Optimal gap codes
+A rayon-parallelized utility to determine which encoding is more space efficient for a given
+precision, number of bits, hash size and hasher.
 
 ## How to run
 As usual, just run:

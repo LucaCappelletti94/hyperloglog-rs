@@ -1,5 +1,5 @@
 [package]
-name = "measure_gaps"
+name = "optimal-gap-codes"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,3 +12,4 @@ serde = { version = "1.0.208", features = ["derive"] }
 test_utils = {path="../test_utils"}
 twox-hash = "1.6.3"
 wyhash = "0.5.0"
+dsi-bitstream = {git="https://github.com/LucaCappelletti94/dsi-bitstream-rs.git", branch="gap_number"}

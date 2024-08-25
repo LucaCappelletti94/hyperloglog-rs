@@ -44,6 +44,37 @@ pub fn write_csv<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: Seriali
     }
 }
 
+/// CSV write to appen to a given csv file.
+///
+/// # Arguments
+/// * `report` - The iterator of serializable values.
+/// * `path` - The path to the CSV file.
+pub fn append_csv<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: Serialize>(
+    report: I,
+    path: &str,
+) {
+    // If the file does not exist, we create it.
+    if !std::path::Path::new(path).exists() {
+        write_csv(report, path);
+        return;
+    }
+
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open(path)
+        .unwrap();
+    let mut writer = csv::WriterBuilder::new()
+        .has_headers(false)
+        .from_writer(file);
+
+    for record in report {
+        writer.serialize(record).unwrap();
+    }
+
+    writer.flush().unwrap();
+}
+
 /// CSV reader for a given deserializable type.
 ///
 /// # Arguments

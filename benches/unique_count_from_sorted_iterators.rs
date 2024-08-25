@@ -37,7 +37,12 @@ fn bench_unique_count_from_sorted_iterators(b: &mut Criterion) {
     group.bench_function("unique_count_from_sorted_iterators", |b| {
         b.iter(|| {
             for (a, b) in &entries {
-                unique_count_from_sorted_iterators(black_box(a.iter()), black_box(b.iter()));
+                unique_count_from_sorted_iterators(
+                    black_box(a.iter()),
+                    black_box(b.iter()),
+                    a.len() as u32,
+                    b.len() as u32,
+                );
             }
         })
     });
