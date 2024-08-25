@@ -1,5 +1,3 @@
-
-
 #[derive(Debug, Clone, Copy)]
 pub struct BitReader<'a> {
     data: &'a [u32],
@@ -9,7 +7,7 @@ pub struct BitReader<'a> {
 }
 
 impl<'a> BitReader<'a> {
-    pub fn new(data: &'a[u32]) -> Self {
+    pub fn new(data: &'a [u32]) -> Self {
         Self {
             data,
             word_idx: 0,
@@ -41,8 +39,7 @@ impl<'a> BitReader<'a> {
             return result;
         }
 
-        let mut result: u64 =
-            self.buffer >> (64 - 1 - self.bits_in_buffer) >> 1_u8;
+        let mut result: u64 = self.buffer >> (64 - 1 - self.bits_in_buffer) >> 1_u8;
         n_bits -= self.bits_in_buffer;
 
         while n_bits > 32 {
@@ -61,9 +58,7 @@ impl<'a> BitReader<'a> {
         let upcasted: u64 = new_word as u64;
         let final_bits: u64 = upcasted >> self.bits_in_buffer;
         result = (result << (n_bits - 1) << 1) | final_bits;
-        self.buffer = ((new_word as u64)
-            << (64 - self.bits_in_buffer - 1))
-            << 1;
+        self.buffer = ((new_word as u64) << (64 - self.bits_in_buffer - 1)) << 1;
 
         result
     }
@@ -88,8 +83,7 @@ impl<'a> BitReader<'a> {
 
             if new_word != 0 {
                 let zeros: usize = new_word.leading_zeros() as _;
-                self.buffer =
-                    (new_word as u64) << (32 + zeros) << 1;
+                self.buffer = (new_word as u64) << (32 + zeros) << 1;
                 self.bits_in_buffer = 32 - zeros - 1;
                 return result + zeros as u64;
             }
@@ -117,9 +111,7 @@ impl<'a> BitReader<'a> {
         self.word_idx += 1;
         self.bits_in_buffer = 32 - n_bits;
 
-        self.buffer = (new_word as u64)
-            << (64 - 1 - self.bits_in_buffer)
-            << 1;
+        self.buffer = (new_word as u64) << (64 - 1 - self.bits_in_buffer) << 1;
     }
 
     pub fn read_minimal_binary(&mut self, max: u64) -> u64 {
@@ -151,7 +143,7 @@ impl<'a> BitReader<'a> {
     }
 
     pub fn read_rice(&mut self, b: usize) -> u64 {
-        (self.read_unary() << b) + self.read_bits(b) 
+        (self.read_unary() << b) + self.read_bits(b)
     }
 
     pub fn read_exp_golomb(&mut self, b: usize) -> u64 {
@@ -180,6 +172,293 @@ impl<'a> BitReader<'a> {
             0
         } else {
             self.read_pi(k) + 1
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::bitwriter::BitWriter;
+    use super::*;
+    use crate::prelude::*;
+
+    #[test]
+    #[allow(unsafe_code)]
+    fn test_read_write_unary() {
+        let mut expected = [0u64; 6];
+        let mut buffer = [0u64; 16];
+
+        {
+            let mut writer = BitWriter::new(&mut buffer);
+
+            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+                writer.write_unary(value as u64);
+                expected[i] = value as u64;
+            }
+        }
+
+        let transmuted_buffer =
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+        let mut reader = BitReader::new(&transmuted_buffer);
+
+        for value in expected {
+            assert_eq!(
+                reader.read_unary(),
+                value,
+                "Unary encoded value does not match the expected value."
+            );
+        }
+    }
+
+    #[test]
+    #[allow(unsafe_code)]
+    fn test_read_write_minimal_binary() {
+        let mut expected = [0u64; 6];
+        let mut buffer = [0u64; 16];
+
+        {
+            let mut writer = BitWriter::new(&mut buffer);
+
+            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+                writer.write_minimal_binary(value as u64, 255);
+                expected[i] = value as u64;
+            }
+        }
+
+        let transmuted_buffer =
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+        let mut reader = BitReader::new(&transmuted_buffer);
+
+        for value in expected {
+            assert_eq!(
+                reader.read_minimal_binary(255),
+                value,
+                "Minimal binary encoded value does not match the expected value."
+            );
+        }
+    }
+
+    #[test]
+    #[allow(unsafe_code)]
+    fn test_read_write_gamma() {
+        let mut expected = [0u64; 6];
+        let mut buffer = [0u64; 16];
+
+        {
+            let mut writer = BitWriter::new(&mut buffer);
+
+            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+                writer.write_gamma(value as u64);
+                expected[i] = value as u64;
+            }
+        }
+
+        let transmuted_buffer =
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+        let mut reader = BitReader::new(&transmuted_buffer);
+
+        for value in expected {
+            assert_eq!(
+                reader.read_gamma(),
+                value,
+                "Gamma encoded value does not match the expected value."
+            );
+        }
+    }
+
+    #[test]
+    #[allow(unsafe_code)]
+    fn test_read_write_delta() {
+        let mut expected = [0u64; 6];
+        let mut buffer = [0u64; 16];
+
+        {
+            let mut writer = BitWriter::new(&mut buffer);
+
+            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+                writer.write_delta(value as u64);
+                expected[i] = value as u64;
+            }
+        }
+
+        let transmuted_buffer =
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+        let mut reader = BitReader::new(&transmuted_buffer);
+
+        for value in expected {
+            assert_eq!(
+                reader.read_delta(),
+                value,
+                "Delta encoded value does not match the expected value."
+            );
+        }
+    }
+
+    #[test]
+    #[allow(unsafe_code)]
+    fn test_read_write_golomb() {
+        let mut expected = [0u64; 6];
+        let mut buffer = [0u64; 16];
+
+        {
+            let mut writer = BitWriter::new(&mut buffer);
+
+            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+                writer.write_golomb(value as u64, 17);
+                expected[i] = value as u64;
+            }
+        }
+
+        let transmuted_buffer =
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+        let mut reader = BitReader::new(&transmuted_buffer);
+
+        for value in expected {
+            assert_eq!(
+                reader.read_golomb(17),
+                value,
+                "Golomb encoded value does not match the expected value."
+            );
+        }
+    }
+
+    #[test]
+    #[allow(unsafe_code)]
+    fn test_read_write_rice() {
+        let mut expected = [0u64; 6];
+        let mut buffer = [0u64; 16];
+
+        {
+            let mut writer = BitWriter::new(&mut buffer);
+
+            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+                writer.write_rice(value as u64, 17);
+                expected[i] = value as u64;
+            }
+        }
+
+        let transmuted_buffer =
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+        let mut reader = BitReader::new(&transmuted_buffer);
+
+        for value in expected {
+            assert_eq!(
+                reader.read_rice(17),
+                value,
+                "Rice encoded value does not match the expected value."
+            );
+        }
+    }
+
+    #[test]
+    #[allow(unsafe_code)]
+    fn test_read_write_exp_golomb() {
+        let mut expected = [0u64; 6];
+        let mut buffer = [0u64; 16];
+
+        {
+            let mut writer = BitWriter::new(&mut buffer);
+
+            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+                writer.write_exp_golomb(value as u64, 17);
+                expected[i] = value as u64;
+            }
+        }
+
+        let transmuted_buffer =
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+        let mut reader = BitReader::new(&transmuted_buffer);
+
+        for value in expected {
+            assert_eq!(
+                reader.read_exp_golomb(17),
+                value,
+                "Exponential Golomb encoded value does not match the expected value."
+            );
+        }
+    }
+
+    #[test]
+    #[allow(unsafe_code)]
+    fn test_read_write_zeta() {
+        let mut expected = [0u64; 6];
+        let mut buffer = [0u64; 16];
+
+        {
+            let mut writer = BitWriter::new(&mut buffer);
+
+            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+                writer.write_zeta(value as u64, 17);
+                expected[i] = value as u64;
+            }
+        }
+
+        let transmuted_buffer =
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+        let mut reader = BitReader::new(&transmuted_buffer);
+
+        for value in expected {
+            assert_eq!(
+                reader.read_zeta(17),
+                value,
+                "Zeta encoded value does not match the expected value."
+            );
+        }
+    }
+
+    #[test]
+    #[allow(unsafe_code)]
+    fn test_read_write_pi() {
+        let mut expected = [0u64; 6];
+        let mut buffer = [0u64; 16];
+
+        {
+            let mut writer = BitWriter::new(&mut buffer);
+
+            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+                writer.write_pi(value as u64, 17);
+                expected[i] = value as u64;
+            }
+        }
+
+        let transmuted_buffer =
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+        let mut reader = BitReader::new(&transmuted_buffer);
+
+        for value in expected {
+            assert_eq!(
+                reader.read_pi(17),
+                value,
+                "Pi encoded value does not match the expected value."
+            );
+        }
+    }
+
+    #[test]
+    #[allow(unsafe_code)]
+    fn test_read_write_pi_web() {
+        let mut expected = [0u64; 6];
+        let mut buffer = [0u64; 16];
+
+        {
+            let mut writer = BitWriter::new(&mut buffer);
+
+            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+                writer.write_pi_web(value as u64, 17);
+                expected[i] = value as u64;
+            }
+        }
+
+        let transmuted_buffer =
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+        let mut reader = BitReader::new(&transmuted_buffer);
+
+        for value in expected {
+            assert_eq!(
+                reader.read_pi_web(17),
+                value,
+                "Pi-Web encoded value does not match the expected value."
+            );
         }
     }
 }
