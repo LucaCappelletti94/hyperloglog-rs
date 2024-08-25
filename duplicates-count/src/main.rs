@@ -1,11 +1,10 @@
-//! Program to measure the gap between subsequent hashes in the Listhash variant of HyperLogLog,
-//! for all 4 to 18 precisions a 4, 5, 6 bit sizes.
+//! Program to measure the number of subsequent identical hashes that may appear in the Listhash variant of HyperLogLog
+//! after a downgrading event occurs, i.e. when the hashes are reduced to a smaller number of bits.
 #![deny(unsafe_code)]
 #![deny(unused_macro_rules)]
 #![deny(missing_docs)]
 
 use ahash::AHasher;
-use dsi_bitstream::prelude::{Code, CodesStats};
 use hyperloglog_rs::composite_hash::{current::CurrentHash, switch::SwitchHash, CompositeHash};
 use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
@@ -20,29 +19,27 @@ use wyhash::WyHash;
 
 #[derive(Debug, Serialize, Deserialize)]
 /// Report of the gap between subsequent hashes in the Listhash variant of HyperLogLog.
-struct GapReport {
+struct DuplicatesReport {
     /// The precision exponent of the HyperLogLog, determining
     /// the number of registers (2^precision).
     precision: u8,
     /// The number of bits used for the registers in the HyperLogLog.
     bit_size: u8,
-    /// The number of bits used for the hash in the hash list variant
-    /// of the HyperLogLog.
-    hash_size: u8,
+    /// The hash size BEFORE the downgrading event.
+    starting_hash_size: u8,
+    /// The hash size AFTER the downgrading event.
+    downgraded_hash_size: u8,
     /// The hasher used in the HyperLogLog.
     hasher: String,
     /// The composite hash approach used to encode index and registers
     /// in the HyperLogLog.
     composite_hash: String,
-    /// The optimal code identified to encode this particular parametrization
-    /// of HashList HyperLogLog
-    code: String,
-    /// The space usage of the optimal code.
-    space_usage: u64,
-    /// The uncompressed space usage if no code was used.
-    uncompressed_space_usage: u64,
-    /// The rate of the optimal code.
-    rate: f64,
+    /// The average number of duplicates observed.
+    average_number_of_duplicates: f64,
+    /// The absolute number of duplicates observed.
+    absolute_average_number_of_duplicates: f64,
+    /// The total number of hashes.
+    total_number_of_hashes: u64,
 }
 
 /// Normalized the name of a hasher type.
@@ -62,7 +59,7 @@ fn composite_hash_name<CH>() -> &'static str {
 }
 
 /// Measures the gap between subsequent hashes in the Listhash variant of HyperLogLog.
-fn optimal_gap_codes<
+fn count_duplicates<
     P: Precision,
     B: Bits,
     H: HasherType,
@@ -73,7 +70,7 @@ fn optimal_gap_codes<
     P: ArrayRegister<B>,
 {
     // We check that this particular combination was not already measured.
-    if let Ok(reports) = read_csv::<GapReport>("optimal-gap-codes.csv") {
+    if let Ok(reports) = read_csv::<DuplicatesReport>("duplicates.csv") {
         if reports.iter().any(|report| {
             report.precision == P::EXPONENT
                 && report.bit_size == B::NUMBER_OF_BITS
@@ -84,7 +81,7 @@ fn optimal_gap_codes<
         }
     }
 
-    let iterations = 100_000;
+    let iterations = 50_000;
     let hll = Hybrid::<PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, H>, CH>::default();
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));
@@ -97,92 +94,83 @@ fn optimal_gap_codes<
 
     let random_state = 6539823745562884_u64;
 
-    let gaps: HashMap<u8, CodesStats> = ParallelIterator::reduce(
+    let duplicates_report: HashMap<(u8, u8), (f64, u64, u64)> = ParallelIterator::reduce(
         (0..iterations)
             .into_par_iter()
             .progress_with(progress_bar)
             .map(|i| {
                 let random_state = splitmix64(random_state.wrapping_mul(i + 1));
                 let mut hll = hll.clone();
-                let mut gap_report: HashMap<u8, CodesStats> = HashMap::new();
+                let mut duplicates_report: HashMap<(u8, u8), (f64, u64, u64)> = HashMap::new();
 
                 for value in iter_random_values::<u64>(1_000_000, None, Some(random_state)) {
+                    let starting_hash_size: Option<u8> = hll.will_downgrade_upon_new_insert().then(|| {
+                        hll.hash_bytes() * 8
+                    }); 
                     hll.insert(&value);
 
-                    if hll.will_downgrade_upon_new_insert() {
-                        // We measure the hash at this point, which are sorted in
-                        // descending order.
-                        let hash_size = hll.hash_bytes() * 8;
+                    if let Some(starting_hash_size) = starting_hash_size {
+                        let downgraded_hash_size = hll.hash_bytes() * 8;
                         let mut last_hash: Option<u64> = None;
+                        let mut duplicates = 0;
+                        let mut total_number_of_hashes = 0;
                         for hash in hll.hashes().unwrap() {
-                            if let Some(last_hash) = last_hash {
-                                assert!(last_hash >= hash);
-                                gap_report
-                                    .entry(hash_size)
-                                    .or_insert_with(CodesStats::default)
-                                    .update(last_hash - hash);
-                            }
+                            duplicates += u64::from(last_hash == Some(hash));
                             last_hash = Some(hash);
+                            total_number_of_hashes += 1;
                         }
+
+                        let rate = duplicates as f64 / total_number_of_hashes as f64;
+
+                        duplicates_report.insert(
+                            (starting_hash_size, downgraded_hash_size),
+                            (rate, duplicates, total_number_of_hashes),
+                        );
                     }
                     if hll.will_dehybridize_upon_new_insert() {
-                        // We measure the hash at this point.
-                        let hash_size = hll.hash_bytes() * 8;
-                        let mut last_hash: Option<u64> = None;
-                        for hash in hll.hashes().unwrap() {
-                            if let Some(last_hash) = last_hash {
-                                assert!(last_hash >= hash);
-                                gap_report
-                                    .entry(hash_size)
-                                    .or_insert_with(CodesStats::default)
-                                    .update(last_hash - hash);
-                            }
-                            last_hash = Some(hash);
-                        }
                         break;
                     }
                 }
 
-                gap_report
+                duplicates_report
             }),
         || HashMap::new(),
         |mut acc, report| {
-            for (hash_size, gap_report) in report {
-                let hash_size_report = acc.entry(hash_size).or_insert_with(CodesStats::default);
-                *hash_size_report += gap_report;
+            for ((starting_hash_size, downgraded_hash_size), (rate, count, total_hashes)) in report {
+                let entry = acc.entry((starting_hash_size, downgraded_hash_size)).or_insert((0.0, 0, total_hashes));
+                entry.0 += rate;
+                entry.1 += count;
             }
             acc
         },
     );
 
-    let path = "optimal-gap-codes.csv";
+    let path = "duplicates.csv";
 
     append_csv(
-        gaps.iter().map(|(hash_size, gap_report)| {
-            let (code, space_usage): (Code, u64) = gap_report.best_code();
+        duplicates_report.into_iter().map(|((starting_hash_size, downgraded_hash_size), (rate_sum, count_sum, total_hashes))| {
+            let duplicates_rate = rate_sum / iterations as f64;
+            let duplicates_count = count_sum as f64 / iterations as f64;
 
-            let uncompressed_space_usage = u64::from(*hash_size) * (gap_report.total + 1);
-            let rate = space_usage as f64 / uncompressed_space_usage as f64;
-
-            GapReport {
+            DuplicatesReport {
                 precision: P::EXPONENT,
                 bit_size: B::NUMBER_OF_BITS,
-                hash_size: *hash_size,
+                starting_hash_size,
+                downgraded_hash_size,
                 hasher: hash_name::<H>().to_string(),
                 composite_hash: composite_hash_name::<CH>().to_string(),
-                code: code.to_string(),
-                space_usage,
-                uncompressed_space_usage,
-                rate,
+                average_number_of_duplicates: duplicates_rate,
+                absolute_average_number_of_duplicates: duplicates_count,
+                total_number_of_hashes: total_hashes,
             }
         }),
         path,
     );
 }
 
-/// Proceral macro to generate the optimal_gap_codes function for the provided precision,
+/// Proceral macro to generate the count_duplicates function for the provided precision,
 /// bit size and hasher types.
-macro_rules! generate_optimal_gap_codes {
+macro_rules! generate_count_duplicates {
     ($multiprogress:ident, $precision:ty, $bit_size:ty, $($hasher:ty),*) => {
         let progress_bar = $multiprogress.add(ProgressBar::new(6 as u64));
 
@@ -196,9 +184,9 @@ macro_rules! generate_optimal_gap_codes {
         progress_bar.tick();
 
         $(
-            optimal_gap_codes::<$precision, $bit_size, $hasher, CurrentHash<$precision, $bit_size>>($multiprogress);
+            count_duplicates::<$precision, $bit_size, $hasher, CurrentHash<$precision, $bit_size>>($multiprogress);
             progress_bar.inc(1);
-            optimal_gap_codes::<$precision, $bit_size, $hasher, SwitchHash<$precision, $bit_size>>($multiprogress);
+            count_duplicates::<$precision, $bit_size, $hasher, SwitchHash<$precision, $bit_size>>($multiprogress);
             progress_bar.inc(1);
         )*
 
@@ -206,9 +194,9 @@ macro_rules! generate_optimal_gap_codes {
     };
 }
 
-/// Procedural macro to generate the optimal_gap_codes function for the provided precision,
+/// Procedural macro to generate the count_duplicates function for the provided precision,
 /// and bit sizes.
-macro_rules! generate_optimal_gap_codes_for_precision {
+macro_rules! generate_count_duplicates_for_precision {
     ($multiprogress:ident, $precision:ty, $($bit_size:ty),*) => {
         let progress_bar = $multiprogress.add(ProgressBar::new(3 as u64));
 
@@ -222,7 +210,7 @@ macro_rules! generate_optimal_gap_codes_for_precision {
         progress_bar.tick();
 
         $(
-            generate_optimal_gap_codes!($multiprogress, $precision, $bit_size, XxHash64, WyHash, AHasher);
+            generate_count_duplicates!($multiprogress, $precision, $bit_size, XxHash64, WyHash, AHasher);
             progress_bar.inc(1);
         )*
 
@@ -230,8 +218,8 @@ macro_rules! generate_optimal_gap_codes_for_precision {
     };
 }
 
-/// Procedural macro to generate the optimal_gap_codes function for the provided precisions.
-macro_rules! generate_optimal_gap_codes_for_precisions {
+/// Procedural macro to generate the count_duplicates function for the provided precisions.
+macro_rules! generate_count_duplicates_for_precisions {
     ($multiprogress:ident, $($precision:ty),*) => {
         let progress_bar = $multiprogress.add(ProgressBar::new(18-4));
 
@@ -245,7 +233,7 @@ macro_rules! generate_optimal_gap_codes_for_precisions {
         progress_bar.tick();
 
         $(
-            generate_optimal_gap_codes_for_precision!($multiprogress, $precision, Bits4, Bits5, Bits6);
+            generate_count_duplicates_for_precision!($multiprogress, $precision, Bits4, Bits5, Bits6);
             progress_bar.inc(1);
         )*
 
@@ -255,7 +243,7 @@ macro_rules! generate_optimal_gap_codes_for_precisions {
 
 fn main() {
     let multiprogress = &MultiProgress::new();
-    generate_optimal_gap_codes_for_precisions!(
+    generate_count_duplicates_for_precisions!(
         multiprogress,
         Precision4,
         Precision5,
@@ -276,17 +264,15 @@ fn main() {
     multiprogress.clear().unwrap();
 
     // We reload the report one more time, sort it and re-write it.
-    let mut reports = read_csv::<GapReport>("optimal-gap-codes.csv").unwrap();
+    let mut reports = read_csv::<DuplicatesReport>("duplicates.csv").unwrap();
 
     reports.sort_by(|a, b| {
-        a.rate
-            .partial_cmp(&b.rate)
+        a.average_number_of_duplicates
+            .partial_cmp(&b.average_number_of_duplicates)
             .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.space_usage.cmp(&b.space_usage))
-            .then_with(|| a.uncompressed_space_usage.cmp(&b.uncompressed_space_usage))
             .then_with(|| a.precision.cmp(&b.precision))
             .then_with(|| a.bit_size.cmp(&b.bit_size))
     });
 
-    write_csv(reports.iter(), "optimal-gap-codes.csv");
+    write_csv(reports.iter(), "duplicates.csv");
 }

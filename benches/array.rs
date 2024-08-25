@@ -75,7 +75,7 @@ fn bench_array_insert(c: &mut Criterion) {
             (left, right)
         });
     });
-    
+
     group.bench_function("array6_insert", |b| {
         b.iter(|| {
             let mut left = 0;
@@ -93,45 +93,6 @@ fn bench_array_insert(c: &mut Criterion) {
     });
 
     group.bench_function("packed6_insert", |b| {
-        b.iter(|| {
-            let mut left = 0;
-            let mut right = 0;
-            let mut packed: Array<PACKED_SIZE, true, Bits6> = Array::default();
-            for i in 0..NUMBER_OF_REGISTERS {
-                for value in 0..64 {
-                    let (l, r) = packed.set_apply(black_box(i), black_box(|x: u8| x.max(value)));
-                    left ^= l;
-                    right ^= r;
-                }
-            }
-            (left, right)
-        });
-    });
-
-    group.finish();
-}
-
-
-fn bench_array_get(c: &mut Criterion) {
-    let mut group = c.benchmark_group("array_get");
-
-    group.bench_function("array_get", |b| {
-        b.iter(|| {
-            let mut left = 0;
-            let mut right = 0;
-            let mut array: Array<PADDED_SIZE, false, Bits6> = Array::default();
-            for i in 0..NUMBER_OF_REGISTERS {
-                for value in 0..64 {
-                    let (l, r) = array.set_apply(black_box(i), black_box(|x: u8| x.max(value)));
-                    left ^= l;
-                    right ^= r;
-                }
-            }
-            (left, right)
-        });
-    });
-
-    group.bench_function("packed_get", |b| {
         b.iter(|| {
             let mut left = 0;
             let mut right = 0;
