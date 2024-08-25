@@ -1,5 +1,5 @@
 //! Gap-based composite hash implementation.
-use core::marker::PhantomData;
+use core::{marker::PhantomData, u64};
 mod bitreader;
 mod bitwriter;
 mod optimal_codes;
@@ -420,7 +420,7 @@ impl<'a, CH: CompositeHash> DowngradedIter<'a, CH> {
 
         Self {
             bitstream: BitReader::new(hashes),
-            previous: 0,
+            previous: u64::MAX,
             number_of_hashes,
             hash_bits,
             shift,
@@ -447,7 +447,20 @@ where
             32 => <CH as PrefixFreeCode<32>>::Code::read(&mut self.bitstream),
             _ => unreachable!(),
         };
-        self.previous += gap;
+
+        debug_assert!(
+            gap.leading_zeros() >= 64 - u32::from(self.hash_bits),
+            "A gap {gap} between hash of {} bits cannot have more than {} leading zeros, but got {}",
+            self.hash_bits,
+            64 - u32::from(self.hash_bits),
+            gap.leading_zeros(),
+        );
+
+        if self.previous == u64::MAX {
+            self.previous = gap;
+        } else {
+            self.previous -= gap;
+        }
         self.number_of_hashes -= 1;
 
         debug_assert!(
@@ -498,7 +511,7 @@ impl<'a, CH: CompositeHash> DecodedIter<'a, CH> {
 
         Self {
             bitstream: BitReader::new(hashes),
-            previous: 0,
+            previous: u64::MAX,
             number_of_hashes,
             hash_bits,
             _phantom: PhantomData,
@@ -524,7 +537,20 @@ where
             32 => <CH as PrefixFreeCode<32>>::Code::read(&mut self.bitstream),
             _ => unreachable!(),
         };
-        self.previous += gap;
+        
+        debug_assert!(
+            gap.leading_zeros() >= 64 - u32::from(self.hash_bits),
+            "A gap {gap} between hash of {} bits cannot have more than {} leading zeros, but got {}",
+            self.hash_bits,
+            64 - u32::from(self.hash_bits),
+            gap.leading_zeros(),
+        );
+
+        if self.previous == u64::MAX {
+            self.previous = gap;
+        } else {
+            self.previous -= gap;
+        }
         self.number_of_hashes -= 1;
 
         debug_assert!(
