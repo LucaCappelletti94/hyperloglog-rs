@@ -325,13 +325,20 @@ fn downgrade_inplace_with_writer<'a, CT: CodeWrite + 'static, CH: CompositeHash>
     // created a writer at the same position ! UNSAFE !
     let mut writer = BitWriter::new(hashes_64);
 
-    // iter until we find where we should insert
     let mut iter = GapHash::<CH>::downgraded(readable, number_of_hashes, hash_bits, shift);
     let iter_tell = unsafe{&*(&iter as *const _ as usize as *const <GapHash<CH> as CompositeHash>::Downgraded<'_>)};
-    // keep reading and then writing the value
+
+    let mut last_value = u64::MAX;
     for value in &mut iter {
+        let gap: u64 = if last_value == u64::MAX {
+            value
+        } else {
+            last_value - value
+        };
+        last_value = value;
+
         debug_assert!(iter_tell.bitstream.tell() > writer.tell());
-        CT::write(&mut writer, value);
+        CT::write(&mut writer, gap);
     }
 }
 
