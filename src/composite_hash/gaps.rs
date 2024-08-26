@@ -354,6 +354,7 @@ where
         "Expected the length of the hashes to be a multiple of the size of u64, but got {}",
         hashes.len()
     );
+    
     let hashes_64 = unsafe {
         core::slice::from_raw_parts_mut(
             hashes.as_mut_ptr() as *mut u64,
@@ -367,15 +368,19 @@ where
     // iter until we find where we should insert
     let mut iter = GapHash::<CH>::downgraded(readable, number_of_hashes, hash_bits, 0);
     let encoded = CH::encode(index, register, original_hash, hash_bits);
-    let mut gap_from_previous: u64 = encoded;
+
+    let mut gap_from_previous = encoded;
     let mut previous_value = u64::MAX;
-    let mut previous_tell = iter.bitstream.tell();
+    let mut previous_tell = iter.tell();
+
+    let mut position = 0;
     loop {
         let value = if let Some(value) = iter.next() {
             value
         } else {
             break;
         };
+
         // The values are sorted in descending order, so we can stop when we find a value
         // that is less than or equal to the value we want to insert
         if encoded >= value {
@@ -386,25 +391,44 @@ where
 
             // We need to compute the gap between the value we want to insert and the previous value
             if previous_value != u64::MAX {
+                println!("Value {encoded} was preceded by {previous_value}");
                 gap_from_previous = previous_value - encoded;
             }
             previous_value = value;
             break;
         }
-        previous_tell = iter.bitstream.tell();
+
+        position += 1;
+        previous_tell = iter.tell();
         previous_value = value;
     }
     // created a writer at the same position ! UNSAFE !
     let mut writer = BitWriter::new(hashes_64);
     writer.seek(previous_tell);
+    println!("Inserting at position {position} {encoded} as {gap_from_previous}");
     CW::write(&mut writer, gap_from_previous);
+
+    position += 1;
+
+    // If the previous value is u64::MAX, then we do not need to
+    // do anything else as this is the first value we are inserting
+    // in this buffer.
+    if previous_value == u64::MAX {
+        debug_assert_eq!(previous_tell, 0);
+        return true;
+    }
+
+    // Otherwise, after having inserted the gap between the previous value
+    // and the newly inserted value, we need to keep reading and writing
+    // the gaps between the values. Next up, we need to update the gap between
+    // the value after the newly inserted value and its successor.
+    gap_from_previous = encoded - previous_value;
+
     // keep reading and then writing the value
     let iter_tell = unsafe {
         &*(&iter as *const _ as usize as *const <GapHash<CH> as CompositeHash>::Downgraded<'_>)
     };
     
-    let mut previous_previous_value = encoded;
-
     for value in &mut iter {
         debug_assert!(
             iter_tell.bitstream.tell() > writer.tell(),
@@ -412,12 +436,15 @@ where
             iter_tell.bitstream.tell(),
             writer.tell()
         );
-        CW::write(&mut writer, previous_previous_value - previous_value);
-        previous_previous_value = previous_value;
+        println!("Inserting at position {position} {previous_value} as {gap_from_previous}");
+        CW::write(&mut writer, gap_from_previous);
+        gap_from_previous = previous_value - value;
         previous_value = value;
+        position += 1;
     }
 
-    CW::write(&mut writer, previous_previous_value - previous_value);
+    println!("Inserting at position {position} {previous_value} as {gap_from_previous}");
+    CW::write(&mut writer, gap_from_previous);
 
     true
 }
@@ -433,6 +460,10 @@ pub struct DowngradedIter<'a, CH> {
 }
 
 impl<'a, CH: CompositeHash> DowngradedIter<'a, CH> {
+    fn tell(&self) -> usize {
+        self.bitstream.tell()
+    }
+
     #[allow(unsafe_code)]
     fn new(hashes: &'a [u8], number_of_hashes: usize, hash_bits: u8, shift: u8) -> Self {
         let hashes: &mut [u32] = unsafe {
@@ -474,10 +505,11 @@ where
 
         debug_assert!(
             gap.leading_zeros() >= 64 - u32::from(self.hash_bits),
-            "A gap {gap} between hash of {} bits cannot have more than {} leading zeros, but got {}",
+            "A gap {gap} between hash of {} bits cannot have more than {} leading zeros, but got {}. The iterator still has {} hashes left.",
             self.hash_bits,
             64 - u32::from(self.hash_bits),
             gap.leading_zeros(),
+            self.number_of_hashes,
         );
 
         if self.previous == u64::MAX {
@@ -485,11 +517,13 @@ where
         } else {
             debug_assert!(
                 gap <= self.previous,
-                "Since the hashes are meant to be sorted in descending order, the gap ({gap}) must be less than the previous ({})",
+                "Since the hashes are meant to be sorted in descending order, the gap ({gap}) must be less than the previous ({}). The iterator still has {} hashes left.",
                 self.previous,
+                self.number_of_hashes,
             );
             self.previous -= gap;
         }
+
         self.number_of_hashes -= 1;
 
         debug_assert!(

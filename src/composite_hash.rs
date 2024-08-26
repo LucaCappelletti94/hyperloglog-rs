@@ -181,7 +181,10 @@ mod test_composite_hash {
         let number_of_indices_to_sample = 10;
         let mut random_state = 23456789876543_u64;
 
-        for hash_bytes in CH::SMALLEST_VIABLE_HASH_BITS / 8..=4 {
+        let mut all_hash_bytes = (CH::SMALLEST_VIABLE_HASH_BITS / 8..=4).collect::<Vec<u8>>();
+        all_hash_bytes.sort_unstable();
+
+        for hash_bytes in all_hash_bytes {
             let number_of_expected_hashes =
                 number_of_hashes * number_of_indices_to_sample * (maximal_register_value - 1);
             let mut reference_hashes: Vec<u64> = Vec::with_capacity(number_of_expected_hashes);
@@ -201,7 +204,9 @@ mod test_composite_hash {
                 Some(random_state),
             ) {
                 let index = index as usize;
-                for register in 1..maximal_register_value {
+                let mut registers = (1..maximal_register_value).collect::<Vec<usize>>();
+                registers.sort_unstable();
+                for register in registers {
                     let register = register as u8;
                     random_state = splitmix64(random_state);
                     for fake_hash in iter_fake_original_hashes::<CH::Precision>(
@@ -340,8 +345,8 @@ mod test_composite_hash {
                             hashes.iter().zip(reference_hashes.iter()).enumerate()
                         {
                             assert_eq!(
-                                downgraded_hash, reference_hash,
-                                "Failed to downgrade the hash {i}/{} at hash bits {hash_bits}.",
+                                reference_hash, downgraded_hash,
+                                "Failed to retrieve the hash {i}/{} at hash bits {hash_bits}.",
                                 reference_hashes.len()
                             );
                         }
