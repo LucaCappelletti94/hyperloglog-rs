@@ -205,27 +205,85 @@ impl<'a> BitReader<'a> {
 
 #[cfg(test)]
 mod tests {
+    use core::u32;
+
     use super::super::bitwriter::BitWriter;
     use super::*;
     use crate::prelude::*;
 
+    fn len_gamma(mut n: u64) -> usize {
+        n += 1;
+        let number_of_bits_to_write = n.ilog2();
+        2 * number_of_bits_to_write as usize + 1
+    }
+
+    fn len_delta(n: u64) -> usize {
+        let l = (n + 1).ilog2();
+        l as usize + len_gamma(l as _)
+    }
+
+    fn len_exp_golomb(n: u64, k: usize) -> usize {
+        len_gamma(n >> k) + k
+    }
+
+    fn len_golomb(n: u64, b: u64) -> usize {
+        (n / b) as usize + 1 + len_minimal_binary(n % b, b)
+    }
+
+    fn len_minimal_binary(n: u64, max: u64) -> usize {
+        if max == 0 {
+            return 0;
+        }
+        let l = max.ilog2();
+        let limit = (1 << (l + 1)) - max;
+        let mut result = l as usize;
+        if n >= limit {
+            result += 1;
+        }
+        result
+    }
+
+    fn len_pi(mut n: u64, k: u64) -> usize {
+        n += 1; // π codes are indexed from 1
+        let rem = n.ilog2() as usize;
+        let h = 1 + rem;
+        let l = h.div_ceil(1 << k);
+        k as usize + l + rem
+    }
+
+    fn len_pi_web(n: u64, k: u64) -> usize {
+        1 + if n == 0 { 0 } else { len_pi(n - 1, k) }
+    }
+
+    fn len_rice(n: u64, b: usize) -> usize {
+        (n >> b) as usize + 1 + b
+    }
+
+    fn len_zeta(mut n: u64, k: u64) -> usize {
+        n += 1;
+        let h = n.ilog2() as u64 / k;
+        let u = 1 << ((h + 1) * k);
+        let l = 1 << (h * k);
+        h as usize + 1 + len_minimal_binary(n - l, u - l)
+    }
+
     #[test]
     #[allow(unsafe_code)]
     fn test_read_write_unary() {
-        let mut expected = [0u64; 6];
-        let mut buffer = [0u64; 16];
+        let mut expected = [0u64; 1000];
+        let mut buffer = [0u64; 2000];
 
         {
             let mut writer = BitWriter::new(&mut buffer);
 
-            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+            for (i, value) in iter_random_values::<u8>(1_000, Some(127), None).enumerate() {
                 writer.write_unary(value as u64);
                 expected[i] = value as u64;
             }
         }
 
         let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
         let mut reader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
@@ -240,25 +298,25 @@ mod tests {
     #[test]
     #[allow(unsafe_code)]
     fn test_read_write_minimal_binary() {
-        let mut expected = [0u64; 6];
-        let mut buffer = [0u64; 16];
+        let mut expected = [0u64; 1000];
+        let mut buffer = [0u64; 2000];
 
         {
             let mut writer = BitWriter::new(&mut buffer);
 
-            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
-                writer.write_minimal_binary(value as u64, 255);
+            for (i, value) in iter_random_values::<u32>(1_000, None, None).enumerate() {
+                writer.write_minimal_binary(value as u64, u32::MAX.into());
                 expected[i] = value as u64;
             }
         }
 
         let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
         let mut reader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
             assert_eq!(
-                reader.read_minimal_binary(255),
+                reader.read_minimal_binary(u32::MAX.into()),
                 value,
                 "Minimal binary encoded value does not match the expected value."
             );
@@ -268,20 +326,20 @@ mod tests {
     #[test]
     #[allow(unsafe_code)]
     fn test_read_write_gamma() {
-        let mut expected = [0u64; 6];
-        let mut buffer = [0u64; 16];
+        let mut expected = [0u64; 1000];
+        let mut buffer = [0u64; 2000];
 
         {
             let mut writer = BitWriter::new(&mut buffer);
 
-            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+            for (i, value) in iter_random_values::<u32>(1_000, None, None).enumerate() {
                 writer.write_gamma(value as u64);
                 expected[i] = value as u64;
             }
         }
 
         let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
         let mut reader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
@@ -296,20 +354,20 @@ mod tests {
     #[test]
     #[allow(unsafe_code)]
     fn test_read_write_delta() {
-        let mut expected = [0u64; 6];
-        let mut buffer = [0u64; 16];
+        let mut expected = [0u64; 1000];
+        let mut buffer = [0u64; 2000];
 
         {
             let mut writer = BitWriter::new(&mut buffer);
 
-            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+            for (i, value) in iter_random_values::<u32>(1_000, None, None).enumerate() {
                 writer.write_delta(value as u64);
                 expected[i] = value as u64;
             }
         }
 
         let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
         let mut reader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
@@ -324,25 +382,25 @@ mod tests {
     #[test]
     #[allow(unsafe_code)]
     fn test_read_write_golomb() {
-        let mut expected = [0u64; 6];
-        let mut buffer = [0u64; 16];
+        let mut expected = [0u64; 100];
+        let mut buffer = [0u64; 2850];
 
         {
             let mut writer = BitWriter::new(&mut buffer);
 
-            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
-                writer.write_golomb(value as u64, 17);
+            for (i, value) in iter_random_values::<u16>(expected.len() as u64, None, None).enumerate() {
+                writer.write_golomb(value as u64, 37);
                 expected[i] = value as u64;
             }
         }
 
         let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
         let mut reader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
             assert_eq!(
-                reader.read_golomb(17),
+                reader.read_golomb(37),
                 value,
                 "Golomb encoded value does not match the expected value."
             );
@@ -352,20 +410,28 @@ mod tests {
     #[test]
     #[allow(unsafe_code)]
     fn test_read_write_rice() {
-        let mut expected = [0u64; 6];
-        let mut buffer = [0u64; 16];
+        let mut expected = [0u64; 1000];
+        let mut buffer = [0u64; 2000];
+        let maximum_value = u16::MAX;
+
+        debug_assert!(
+            len_rice(u64::from(maximum_value), 17) * expected.len() / 64 < buffer.len(),
+            "The buffer len ({}) is not enough to store the upper bound of the encoded values ({}).",
+            buffer.len(),
+            len_rice(u64::from(maximum_value), 17) * expected.len() / 64
+        );
 
         {
             let mut writer = BitWriter::new(&mut buffer);
 
-            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+            for (i, value) in iter_random_values::<u16>(1_000, Some(maximum_value), None).enumerate() {
                 writer.write_rice(value as u64, 17);
                 expected[i] = value as u64;
             }
         }
 
         let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
         let mut reader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
@@ -380,20 +446,28 @@ mod tests {
     #[test]
     #[allow(unsafe_code)]
     fn test_read_write_exp_golomb() {
-        let mut expected = [0u64; 6];
-        let mut buffer = [0u64; 16];
+        let mut expected = [0u64; 1000];
+        let mut buffer = [0u64; 2000];
+        let max_value = u32::MAX;
+
+        debug_assert!(
+            len_exp_golomb(u64::from(max_value), 17) * expected.len() / 64 < buffer.len(),
+            "The buffer len ({}) is not enough to store the upper bound of the encoded values ({}).",
+            buffer.len(),
+            len_exp_golomb(u64::from(max_value), 17) * expected.len() / 64
+        );
 
         {
             let mut writer = BitWriter::new(&mut buffer);
 
-            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+            for (i, value) in iter_random_values::<u32>(1_000, None, None).enumerate() {
                 writer.write_exp_golomb(value as u64, 17);
                 expected[i] = value as u64;
             }
         }
 
         let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
         let mut reader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
@@ -408,20 +482,20 @@ mod tests {
     #[test]
     #[allow(unsafe_code)]
     fn test_read_write_zeta() {
-        let mut expected = [0u64; 6];
-        let mut buffer = [0u64; 16];
+        let mut expected = [0u64; 1000];
+        let mut buffer = [0u64; 2000];
 
         {
             let mut writer = BitWriter::new(&mut buffer);
 
-            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+            for (i, value) in iter_random_values::<u32>(1_000, None, None).enumerate() {
                 writer.write_zeta(value as u64, 17);
                 expected[i] = value as u64;
             }
         }
 
         let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
         let mut reader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
@@ -436,20 +510,20 @@ mod tests {
     #[test]
     #[allow(unsafe_code)]
     fn test_read_write_pi() {
-        let mut expected = [0u64; 6];
-        let mut buffer = [0u64; 16];
+        let mut expected = [0u64; 1000];
+        let mut buffer = [0u64; 2000];
 
         {
             let mut writer = BitWriter::new(&mut buffer);
 
-            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+            for (i, value) in iter_random_values::<u32>(1_000, None, None).enumerate() {
                 writer.write_pi(value as u64, 17);
                 expected[i] = value as u64;
             }
         }
 
         let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
         let mut reader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
@@ -464,20 +538,20 @@ mod tests {
     #[test]
     #[allow(unsafe_code)]
     fn test_read_write_pi_web() {
-        let mut expected = [0u64; 6];
-        let mut buffer = [0u64; 16];
+        let mut expected = [0u64; 1000];
+        let mut buffer = [0u64; 2000];
 
         {
             let mut writer = BitWriter::new(&mut buffer);
 
-            for (i, value) in iter_random_values::<u8>(6 as u64, None, None).enumerate() {
+            for (i, value) in iter_random_values::<u32>(1_000, None, None).enumerate() {
                 writer.write_pi_web(value as u64, 17);
                 expected[i] = value as u64;
             }
         }
 
         let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, 32) };
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
         let mut reader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
