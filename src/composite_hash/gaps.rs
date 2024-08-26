@@ -98,6 +98,29 @@ where
             "The index ({index}) must be less than 2^({})",
             Self::Precision::EXPONENT,
         );
+        if hash_bits == 8
+            && core::any::TypeId::of::<<CH as PrefixFreeCode<8>>::Code>()
+                == core::any::TypeId::of::<NoPrefixCode<8>>()
+            || hash_bits == 16
+                && core::any::TypeId::of::<<CH as PrefixFreeCode<16>>::Code>()
+                    == core::any::TypeId::of::<NoPrefixCode<16>>()
+            || hash_bits == 24
+                && core::any::TypeId::of::<<CH as PrefixFreeCode<24>>::Code>()
+                    == core::any::TypeId::of::<NoPrefixCode<24>>()
+            || hash_bits == 32
+                && core::any::TypeId::of::<<CH as PrefixFreeCode<32>>::Code>()
+                    == core::any::TypeId::of::<NoPrefixCode<32>>()
+        {
+            return CH::find(
+                hashes,
+                number_of_hashes,
+                index,
+                register,
+                original_hash,
+                hash_bits,
+            );
+        }
+
         let encoded_hash = Self::encode(index, register, original_hash, hash_bits);
         Self::downgraded(hashes, number_of_hashes, hash_bits, 0)
             .position(|hash| hash == encoded_hash)
