@@ -98,28 +98,28 @@ where
             "The index ({index}) must be less than 2^({})",
             Self::Precision::EXPONENT,
         );
-        if hash_bits == 8
-            && core::any::TypeId::of::<<CH as PrefixFreeCode<8>>::Code>()
-                == core::any::TypeId::of::<NoPrefixCode<8>>()
-            || hash_bits == 16
-                && core::any::TypeId::of::<<CH as PrefixFreeCode<16>>::Code>()
-                    == core::any::TypeId::of::<NoPrefixCode<16>>()
-            || hash_bits == 24
-                && core::any::TypeId::of::<<CH as PrefixFreeCode<24>>::Code>()
-                    == core::any::TypeId::of::<NoPrefixCode<24>>()
-            || hash_bits == 32
-                && core::any::TypeId::of::<<CH as PrefixFreeCode<32>>::Code>()
-                    == core::any::TypeId::of::<NoPrefixCode<32>>()
-        {
-            return CH::find(
-                hashes,
-                number_of_hashes,
-                index,
-                register,
-                original_hash,
-                hash_bits,
-            );
-        }
+        // if hash_bits == 8
+        //     && core::any::TypeId::of::<<CH as PrefixFreeCode<8>>::Code>()
+        //         == core::any::TypeId::of::<NoPrefixCode<8>>()
+        //     || hash_bits == 16
+        //         && core::any::TypeId::of::<<CH as PrefixFreeCode<16>>::Code>()
+        //             == core::any::TypeId::of::<NoPrefixCode<16>>()
+        //     || hash_bits == 24
+        //         && core::any::TypeId::of::<<CH as PrefixFreeCode<24>>::Code>()
+        //             == core::any::TypeId::of::<NoPrefixCode<24>>()
+        //     || hash_bits == 32
+        //         && core::any::TypeId::of::<<CH as PrefixFreeCode<32>>::Code>()
+        //             == core::any::TypeId::of::<NoPrefixCode<32>>()
+        // {
+        //     return CH::find(
+        //         hashes,
+        //         number_of_hashes,
+        //         index,
+        //         register,
+        //         original_hash,
+        //         hash_bits,
+        //     );
+        // }
 
         let encoded_hash = Self::encode(index, register, original_hash, hash_bits);
         Self::downgraded(hashes, number_of_hashes, hash_bits, 0)
@@ -138,28 +138,28 @@ where
         original_hash: u64,
         hash_bits: u8,
     ) -> bool {
-        if hash_bits == 8
-            && core::any::TypeId::of::<<CH as PrefixFreeCode<8>>::Code>()
-                == core::any::TypeId::of::<NoPrefixCode<8>>()
-            || hash_bits == 16
-                && core::any::TypeId::of::<<CH as PrefixFreeCode<16>>::Code>()
-                    == core::any::TypeId::of::<NoPrefixCode<16>>()
-            || hash_bits == 24
-                && core::any::TypeId::of::<<CH as PrefixFreeCode<24>>::Code>()
-                    == core::any::TypeId::of::<NoPrefixCode<24>>()
-            || hash_bits == 32
-                && core::any::TypeId::of::<<CH as PrefixFreeCode<32>>::Code>()
-                    == core::any::TypeId::of::<NoPrefixCode<32>>()
-        {
-            return CH::insert_sorted_desc(
-                hashes,
-                number_of_hashes,
-                index,
-                register,
-                original_hash,
-                hash_bits,
-            );
-        }
+        // if hash_bits == 8
+        //     && core::any::TypeId::of::<<CH as PrefixFreeCode<8>>::Code>()
+        //         == core::any::TypeId::of::<NoPrefixCode<8>>()
+        //     || hash_bits == 16
+        //         && core::any::TypeId::of::<<CH as PrefixFreeCode<16>>::Code>()
+        //             == core::any::TypeId::of::<NoPrefixCode<16>>()
+        //     || hash_bits == 24
+        //         && core::any::TypeId::of::<<CH as PrefixFreeCode<24>>::Code>()
+        //             == core::any::TypeId::of::<NoPrefixCode<24>>()
+        //     || hash_bits == 32
+        //         && core::any::TypeId::of::<<CH as PrefixFreeCode<32>>::Code>()
+        //             == core::any::TypeId::of::<NoPrefixCode<32>>()
+        // {
+        //     return CH::insert_sorted_desc(
+        //         hashes,
+        //         number_of_hashes,
+        //         index,
+        //         register,
+        //         original_hash,
+        //         hash_bits,
+        //     );
+        // }
 
         match hash_bits {
             8 => insert_sorted_desc_with_writer::<<CH as PrefixFreeCode<8>>::Code, CH>(
@@ -367,7 +367,8 @@ where
     // iter until we find where we should insert
     let mut iter = GapHash::<CH>::downgraded(readable, number_of_hashes, hash_bits, 0);
     let encoded = CH::encode(index, register, original_hash, hash_bits);
-    let mut gap = encoded;
+    let mut gap_from_previous: u64 = encoded;
+    let mut gap_to_successor: u64 = u64::MAX;
     let mut previous_value = u64::MAX;
     let mut previous_tell = iter.bitstream.tell();
     loop {
@@ -383,9 +384,11 @@ where
             if value == encoded {
                 return false;
             }
+
+            gap_to_successor = encoded - value;
             // We need to compute the gap between the value we want to insert and the previous value
             if previous_value != u64::MAX {
-                gap = previous_value - encoded;
+                gap_from_previous = previous_value - encoded;
             }
             break;
         }
@@ -395,7 +398,10 @@ where
     // created a writer at the same position ! UNSAFE !
     let mut writer = BitWriter::new(hashes_64);
     writer.seek(previous_tell);
-    let mut value_to_write = gap;
+    CW::write(&mut writer, gap_from_previous);
+    if gap_to_successor != u64::MAX {
+        CW::write(&mut writer, gap_to_successor);
+    }
     // keep reading and then writing the value
     let iter_tell = unsafe {
         &*(&iter as *const _ as usize as *const <GapHash<CH> as CompositeHash>::Downgraded<'_>)
@@ -403,11 +409,7 @@ where
     for value in &mut iter {
         debug_assert!(iter_tell.bitstream.tell() > writer.tell());
         CW::write(&mut writer, value);
-        value_to_write = value;
     }
-    // write the final value, this is needed because we keep out of sync
-    // with the reader
-    CW::write(&mut writer, value_to_write);
 
     true
 }
@@ -516,6 +518,12 @@ pub struct DecodedIter<'a, CH> {
 impl<'a, CH: CompositeHash> DecodedIter<'a, CH> {
     #[allow(unsafe_code)]
     fn new(hashes: &'a [u8], number_of_hashes: usize, hash_bits: u8) -> Self {
+        debug_assert_eq!(
+            hashes.len() % core::mem::size_of::<u32>(),
+            0,
+            "Expected the length of the hashes to be a multiple of the size of u32.",
+        );
+
         let hashes: &mut [u32] = unsafe {
             core::slice::from_raw_parts_mut(
                 hashes.as_ptr() as *mut u32,

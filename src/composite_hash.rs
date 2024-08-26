@@ -327,12 +327,28 @@ mod test_composite_hash {
                                 .unwrap(),
                         );
 
-                        let decoded: Vec<(u8, usize)> = CH::decoded(
+                        let hashes: Vec<u64> = CH::downgraded(
                             encoded_hashes,
                             reference_hashes.len(),
                             hash_bits,
-                        )
-                        .collect();
+                            0
+                        ).collect();
+
+                        assert_eq!(hashes.len(), reference_hashes.len());
+
+                        for (i, (downgraded_hash, reference_hash)) in
+                            hashes.iter().zip(reference_hashes.iter()).enumerate()
+                        {
+                            assert_eq!(
+                                downgraded_hash, reference_hash,
+                                "Failed to downgrade the hash {i}/{} at hash bits {hash_bits}.",
+                                reference_hashes.len()
+                            );
+                        }
+
+                        let decoded: Vec<(u8, usize)> =
+                            CH::decoded(encoded_hashes, reference_hashes.len(), hash_bits)
+                                .collect();
 
                         let reference_decoded: Vec<(u8, usize)> = reference_hashes
                             .iter()
@@ -341,12 +357,25 @@ mod test_composite_hash {
 
                         assert_eq!(decoded.len(), reference_decoded.len());
                         for (
-                            (decoded_register, decoded_index),
-                            (reference_register, reference_index),
-                        ) in decoded.iter().zip(reference_decoded.iter())
+                            i,
+                            (
+                                (decoded_register, decoded_index),
+                                (reference_register, reference_index),
+                            ),
+                        ) in decoded.iter().zip(reference_decoded.iter()).enumerate()
                         {
-                            assert_eq!(decoded_register, reference_register);
-                            assert_eq!(decoded_index, reference_index);
+                            assert_eq!(
+                                reference_register,
+                                decoded_register,
+                                "Failed to decode register {i}/{} at hash bits {hash_bits}.",
+                                reference_decoded.len()
+                            );
+                            assert_eq!(
+                                reference_index,
+                                decoded_index,
+                                "Failed to decode index {i}/{} at hash bits {hash_bits}.",
+                                reference_decoded.len()
+                            );
                         }
 
                         // We include the case where the target hash bytes == hash bytes so to test
