@@ -368,7 +368,6 @@ where
     let mut iter = GapHash::<CH>::downgraded(readable, number_of_hashes, hash_bits, 0);
     let encoded = CH::encode(index, register, original_hash, hash_bits);
     let mut gap_from_previous: u64 = encoded;
-    let mut gap_to_successor: u64 = u64::MAX;
     let mut previous_value = u64::MAX;
     let mut previous_tell = iter.bitstream.tell();
     loop {
@@ -385,11 +384,11 @@ where
                 return false;
             }
 
-            gap_to_successor = encoded - value;
             // We need to compute the gap between the value we want to insert and the previous value
             if previous_value != u64::MAX {
                 gap_from_previous = previous_value - encoded;
             }
+            previous_value = value;
             break;
         }
         previous_tell = iter.bitstream.tell();
@@ -399,17 +398,26 @@ where
     let mut writer = BitWriter::new(hashes_64);
     writer.seek(previous_tell);
     CW::write(&mut writer, gap_from_previous);
-    if gap_to_successor != u64::MAX {
-        CW::write(&mut writer, gap_to_successor);
-    }
     // keep reading and then writing the value
     let iter_tell = unsafe {
         &*(&iter as *const _ as usize as *const <GapHash<CH> as CompositeHash>::Downgraded<'_>)
     };
+    
+    let mut previous_previous_value = encoded;
+
     for value in &mut iter {
-        debug_assert!(iter_tell.bitstream.tell() > writer.tell());
-        CW::write(&mut writer, value);
+        debug_assert!(
+            iter_tell.bitstream.tell() > writer.tell(),
+            "The reader tell ({}) must be greater than the writer tell ({})",
+            iter_tell.bitstream.tell(),
+            writer.tell()
+        );
+        CW::write(&mut writer, previous_previous_value - previous_value);
+        previous_previous_value = previous_value;
+        previous_value = value;
     }
+
+    CW::write(&mut writer, previous_previous_value - previous_value);
 
     true
 }
@@ -475,6 +483,11 @@ where
         if self.previous == u64::MAX {
             self.previous = gap;
         } else {
+            debug_assert!(
+                gap <= self.previous,
+                "Since the hashes are meant to be sorted in descending order, the gap ({gap}) must be less than the previous ({})",
+                self.previous,
+            );
             self.previous -= gap;
         }
         self.number_of_hashes -= 1;
@@ -571,6 +584,11 @@ where
         if self.previous == u64::MAX {
             self.previous = gap;
         } else {
+            debug_assert!(
+                gap <= self.previous,
+                "Since the hashes are meant to be sorted in descending order, the gap ({gap}) must be less than the previous ({})",
+                self.previous,
+            );
             self.previous -= gap;
         }
         self.number_of_hashes -= 1;
