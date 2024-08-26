@@ -346,7 +346,13 @@ where
     let encoded = CH::encode(index, register, original_hash, hash_bits);
     let mut gap = encoded;
     let mut previous_value = u64::MAX;
-    for value in &mut iter {
+    let mut previous_tell = iter.bitstream.tell();
+    loop {
+        let value = if let Some(value) = iter.next() {
+            value
+        } else {
+            break;
+        };
         // The values are sorted in descending order, so we can stop when we find a value
         // that is less than or equal to the value we want to insert
         if encoded >= value {
@@ -360,12 +366,12 @@ where
             }
             break;
         }
-
+        previous_tell = iter.bitstream.tell();
         previous_value = value;
     }
     // created a writer at the same position ! UNSAFE !
     let mut writer = BitWriter::new(hashes_64);
-    writer.seek(iter.bitstream.tell());
+    writer.seek(previous_tell);
     let mut value_to_write = gap;
     // keep reading and then writing the value
     let iter_tell = unsafe {
