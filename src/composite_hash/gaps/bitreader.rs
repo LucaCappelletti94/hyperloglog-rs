@@ -31,6 +31,12 @@ impl<'a> BitReader<'a> {
     pub fn read_bits(&mut self, mut n_bits: usize) -> u64 {
         debug_assert!(n_bits <= 64);
         debug_assert!(self.bits_in_buffer < 64);
+        debug_assert!(
+            self.data.len() > self.word_idx,
+            "Reader in illegal state: data len is {}, but word index is {}.",
+            self.data.len(),
+            self.word_idx
+        );
 
         if n_bits <= self.bits_in_buffer {
             let result = self.buffer >> (64 - n_bits - 1) >> 1;
@@ -66,6 +72,12 @@ impl<'a> BitReader<'a> {
     #[inline]
     pub fn read_unary(&mut self) -> u64 {
         debug_assert!(self.bits_in_buffer < 64);
+        debug_assert!(
+            self.data.len() > self.word_idx,
+            "Reader in illegal state: data len is {}, but word index is {}.",
+            self.data.len(),
+            self.word_idx
+        );
 
         let zeros: usize = self.buffer.leading_zeros() as _;
 
@@ -76,6 +88,14 @@ impl<'a> BitReader<'a> {
         }
 
         let mut result: u64 = self.bits_in_buffer as _;
+
+        debug_assert!(
+            self.data[self.word_idx..].iter().any(|word| *word!=0),
+            "At least a word after the index {}/{} should be different from zero, otherwise the subsequent loop will go out of bounds. Got: {:?}.",
+            self.word_idx,
+            self.data.len(),
+            &self.data
+        );
 
         loop {
             let new_word = self.data[self.word_idx].to_be();
@@ -94,6 +114,13 @@ impl<'a> BitReader<'a> {
     #[inline]
     pub fn skip_bits(&mut self, mut n_bits: usize) {
         debug_assert!(self.bits_in_buffer < 64);
+        debug_assert!(
+            self.data.len() > self.word_idx,
+            "Reader in illegal state: data len is {}, but word index is {}.",
+            self.data.len(),
+            self.word_idx
+        );
+
         if n_bits <= self.bits_in_buffer {
             self.bits_in_buffer -= n_bits;
             self.buffer <<= n_bits;
