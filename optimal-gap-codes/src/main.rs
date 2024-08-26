@@ -121,11 +121,7 @@ impl GapReport {
         hash_size: u8,
         composite_hash: &str,
     ) -> TokenStream {
-        
-        let bits = Ident::new(
-            &format!("Bits{}", bit_size),
-            proc_macro2::Span::call_site(),
-        );
+        let bits = Ident::new(&format!("Bits{}", bit_size), proc_macro2::Span::call_site());
 
         let hash_size = hash_size;
         let composite_hash = Ident::new(&composite_hash, proc_macro2::Span::call_site());
@@ -185,7 +181,7 @@ fn optimal_gap_codes<
         }
     }
 
-    let iterations = 100_000;
+    let iterations = 20_000;
     let hll = Hybrid::<PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, H>, CH>::default();
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));
@@ -216,12 +212,16 @@ fn optimal_gap_codes<
                         let hash_size = hll.hash_bytes() * 8;
                         let mut last_hash: Option<u64> = None;
                         for hash in hll.hashes().unwrap() {
-                            let gap = last_hash.map(|last_hash| last_hash - hash).unwrap_or(hash);
                             let entry = gap_report
                                 .entry(hash_size)
                                 .or_insert_with(|| (CS::default(), 0));
-                            entry.0.update(gap);
                             entry.1 += 1;
+                            if last_hash.is_none() {
+                                last_hash = Some(hash);
+                                continue;
+                            }
+                            let gap = last_hash.map(|last_hash| last_hash - hash).unwrap_or(hash);
+                            entry.0.update(gap);
                             last_hash = Some(hash);
                         }
                     }
@@ -230,12 +230,16 @@ fn optimal_gap_codes<
                         let hash_size = hll.hash_bytes() * 8;
                         let mut last_hash: Option<u64> = None;
                         for hash in hll.hashes().unwrap() {
-                            let gap = last_hash.map(|last_hash| last_hash - hash).unwrap_or(hash);
                             let entry = gap_report
                                 .entry(hash_size)
                                 .or_insert_with(|| (CS::default(), 0));
-                            entry.0.update(gap);
                             entry.1 += 1;
+                            if last_hash.is_none() {
+                                last_hash = Some(hash);
+                                continue;
+                            }
+                            let gap = last_hash.map(|last_hash| last_hash - hash).unwrap_or(hash);
+                            entry.0.update(gap);
                             last_hash = Some(hash);
                         }
                         break;
@@ -259,8 +263,9 @@ fn optimal_gap_codes<
 
     append_csv(
         gaps.iter().map(|(hash_size, (gap_report, total))| {
-            let (code, space_usage): (Code, u64) = gap_report.best_code();
+            let (code, mut space_usage): (Code, u64) = gap_report.best_code();
 
+            space_usage += u64::from(*hash_size) * iterations as u64;
             let uncompressed_space_usage = u64::from(*hash_size) * *total as u64;
             let rate = space_usage as f64 / uncompressed_space_usage as f64;
             let mean_gap_size = space_usage as f64 / *total as f64;
@@ -416,24 +421,23 @@ fn main() {
         .iter()
         .map(|(_, report)| report.as_prefix_free_code_impl());
 
-
     let test_impls = (4..=18)
-        .flat_map(|precision| {
-            [4, 5, 6].map(|bits| (precision, bits))
+        .flat_map(|precision| [4, 5, 6].map(|bits| (precision, bits)))
+        .flat_map(|(precision, bits)| [8, 16, 24, 32].map(|hash_size| (precision, bits, hash_size)))
+        .flat_map(|(precision, bits, hash_size)| {
+            ["CurrentHash", "SwitchHash"]
+                .map(move |composite_hash| (precision, bits, hash_size, composite_hash))
         })
-        .flat_map(|(precision, bits)|{
-            [8, 16, 24, 32].map(|hash_size|{
-                (precision, bits, hash_size)
-            })
-        })
-        .flat_map(|(precision, bits, hash_size)|{
-            ["CurrentHash", "SwitchHash"].map(move |composite_hash| {
-                (precision, bits, hash_size, composite_hash)
-            })
-        }).filter(|(precision, bits, hash_size, composite_hash)| {
+        .filter(|(precision, bits, hash_size, composite_hash)| {
             !reports.contains_key(&(*precision, *bits, *hash_size, composite_hash.to_string()))
-        }).map(|(precision, bits, hash_size, composite_hash)| {
-            GapReport::as_test_only_prefix_free_code_impl(precision, bits, hash_size, composite_hash)
+        })
+        .map(|(precision, bits, hash_size, composite_hash)| {
+            GapReport::as_test_only_prefix_free_code_impl(
+                precision,
+                bits,
+                hash_size,
+                composite_hash,
+            )
         });
 
     let output = quote! {

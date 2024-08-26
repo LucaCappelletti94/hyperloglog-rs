@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 ahash = "0.8.11"
-hyperloglog-rs = {path="../", features=["all_precisions"]}
+hyperloglog-rs = {path="../", features=["all_precisions", "std"]}
 indicatif = { version = "0.17.8", features = ["rayon"] }
 rayon = "1.10.0"
 serde = { version = "1.0.208", features = ["derive"] }
