@@ -316,17 +316,17 @@ fn downgrade_inplace_with_writer<'a, CT: CodeWrite + 'static, CH: CompositeHash>
         &*(&iter as *const _ as usize as *const <GapHash<CH> as CompositeHash>::Downgraded<'_>)
     };
 
-    let mut last_value = u64::MAX;
+    let mut prev_value = u64::MAX;
     for value in &mut iter {
-        let gap: u64 = if last_value == u64::MAX {
+        let gap: u64 = if prev_value == u64::MAX {
             value
         } else {
-            last_value - value
+            prev_value - value
         };
-        last_value = value;
+        prev_value = value;
 
-        debug_assert!(iter_tell.bitstream.tell() > writer.tell());
         CT::write(&mut writer, gap);
+        debug_assert!(iter_tell.last_buffered_bit_position() > writer.tell());
     }
 }
 
@@ -354,33 +354,39 @@ where
         "Expected the length of the hashes to be a multiple of the size of u64, but got {}",
         hashes.len()
     );
-    
+
+    // We check that all hashes are still ordered in descending order
+    assert!(
+        GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits, 0)
+            .is_sorted_by(|a, b| b <= a)
+    );
+
     let hashes_64 = unsafe {
         core::slice::from_raw_parts_mut(
             hashes.as_mut_ptr() as *mut u64,
             hashes.len() / core::mem::size_of::<u64>(),
         )
     };
-    // WE HAVE A MUTABLE AND IMMUTABLE REFERENCES, THIS VIOLATES THE ALIASING RULES
-    // but we always read then write, so it should be fine :^)
-    let readable = unsafe { core::mem::transmute::<&'a mut [u8], &'a [u8]>(hashes) };
 
-    // iter until we find where we should insert
-    let mut iter = GapHash::<CH>::downgraded(readable, number_of_hashes, hash_bits, 0);
     let encoded = CH::encode(index, register, original_hash, hash_bits);
 
-    let mut gap_from_previous = encoded;
-    let mut previous_value = u64::MAX;
-    let mut previous_tell = iter.tell();
+    let mut possible_hashes =
+        GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits, 0).collect::<Vec<_>>();
+
+    possible_hashes.push(encoded);
+
+    // iter until we find where we should insert
+    let hashes_copy = hashes.to_vec();
+    let mut iter =
+        GapHash::<CH>::downgraded(hashes_copy.as_slice(), number_of_hashes, hash_bits, 0);
+    let mut writer = BitWriter::new(hashes_64);
+
+    let mut prev_value = u64::MAX;
+    let mut next_value = u64::MAX;
 
     let mut position = 0;
-    loop {
-        let value = if let Some(value) = iter.next() {
-            value
-        } else {
-            break;
-        };
 
+    while let Some(value) = iter.next() {
         // The values are sorted in descending order, so we can stop when we find a value
         // that is less than or equal to the value we want to insert
         if encoded >= value {
@@ -388,63 +394,132 @@ where
             if value == encoded {
                 return false;
             }
-
-            // We need to compute the gap between the value we want to insert and the previous value
-            if previous_value != u64::MAX {
-                println!("Value {encoded} was preceded by {previous_value}");
-                gap_from_previous = previous_value - encoded;
-            }
-            previous_value = value;
+            next_value = value;
             break;
         }
 
+        writer.seek(iter.last_read_bit_position());
+        prev_value = value;
         position += 1;
-        previous_tell = iter.tell();
-        previous_value = value;
-    }
-    // created a writer at the same position ! UNSAFE !
-    let mut writer = BitWriter::new(hashes_64);
-    writer.seek(previous_tell);
-    println!("Inserting at position {position} {encoded} as {gap_from_previous}");
-    CW::write(&mut writer, gap_from_previous);
-
-    position += 1;
-
-    // If the previous value is u64::MAX, then we do not need to
-    // do anything else as this is the first value we are inserting
-    // in this buffer.
-    if previous_value == u64::MAX {
-        debug_assert_eq!(previous_tell, 0);
-        return true;
     }
 
-    // Otherwise, after having inserted the gap between the previous value
-    // and the newly inserted value, we need to keep reading and writing
-    // the gaps between the values. Next up, we need to update the gap between
-    // the value after the newly inserted value and its successor.
-    gap_from_previous = encoded - previous_value;
+    let insert_position = position;
 
-    // keep reading and then writing the value
-    let iter_tell = unsafe {
-        &*(&iter as *const _ as usize as *const <GapHash<CH> as CompositeHash>::Downgraded<'_>)
-    };
-    
-    for value in &mut iter {
-        debug_assert!(
-            iter_tell.bitstream.tell() > writer.tell(),
-            "The reader tell ({}) must be greater than the writer tell ({})",
-            iter_tell.bitstream.tell(),
+    // If there is no previos value, we would need to write the encoded value itself but
+    // writing such a high value in prefix-free encoding would be inefficient. Therefore,
+    // we write the first hash explicitly.
+    if prev_value == u64::MAX {
+        debug_assert_eq!(
+            writer.tell(),
+            0,
+            "The writer tell must be 0 if there is no previous value"
+        );
+
+        match hash_bits {
+            8 => {
+                NoPrefixCode::<8>::write(&mut writer, encoded);
+            }
+            16 => {
+                NoPrefixCode::<16>::write(&mut writer, encoded);
+            }
+            24 => {
+                NoPrefixCode::<24>::write(&mut writer, encoded);
+            }
+            32 => {
+                NoPrefixCode::<32>::write(&mut writer, encoded);
+            }
+            _ => unreachable!(),
+        }
+
+        println!(
+            "Writing {encoded} at position {position} (tell 0-{})",
             writer.tell()
         );
-        println!("Inserting at position {position} {previous_value} as {gap_from_previous}");
-        CW::write(&mut writer, gap_from_previous);
-        gap_from_previous = previous_value - value;
-        previous_value = value;
-        position += 1;
+    } else {
+        if position == 1 {
+            debug_assert_eq!(
+                writer.tell(),
+                usize::from(hash_bits),
+                "The writer tell must be {hash_bits} (the hash bits) if there is a single previous value"
+            );
+        }
+
+        let prev_tell = writer.tell();
+        CW::write(&mut writer, prev_value - encoded);
+        debug_assert!(
+            iter.last_buffered_bit_position() > writer.tell(),
+            "The reader last buffered bit  ({}) must be greater than the writer tell ({}) after write ops.",
+            iter.last_buffered_bit_position(),
+            writer.tell()
+        );
+        println!(
+            "Writing {encoded} as gap {} at position {position} (tell {prev_tell}-{})",
+            prev_value - encoded,
+            writer.tell()
+        );
     }
 
-    println!("Inserting at position {position} {previous_value} as {gap_from_previous}");
-    CW::write(&mut writer, gap_from_previous);
+    if next_value != u64::MAX {
+        position += 1;
+        prev_value = encoded;
+
+        while let Some(value) = iter.next() {
+            let writer_tell = writer.tell();
+            CW::write(&mut writer, prev_value - next_value);
+            debug_assert!(
+                iter.last_buffered_bit_position() > writer.tell(),
+                "The reader last buffered bit ({}) must be greater than the writer tell ({}) after write ops.",
+                iter.last_buffered_bit_position(),
+                writer.tell()
+            );
+            println!(
+                "Moving {next_value} as {} to {position} (tell {writer_tell}-{})",
+                prev_value - next_value,
+                writer.tell()
+            );
+            prev_value = next_value;
+            next_value = value;
+            position += 1;
+        }
+
+        let writer_tell = writer.tell();
+        CW::write(&mut writer, prev_value - next_value);
+        println!(
+            "Moving {next_value} as {} to {position} (tell {writer_tell}-{})",
+            prev_value - next_value,
+            writer.tell()
+        );
+    }
+
+    // We check that all hashes are still ordered in descending order
+    drop(writer);
+
+    // We check that all the hashes present in the iterator are among the
+    // allowed hashes
+    GapHash::<CH>::downgraded(hashes, number_of_hashes + 1, hash_bits, 0)
+        .enumerate()
+        .for_each(|hash| {
+            debug_assert!(
+                possible_hashes.contains(&hash.1),
+                "The hash {} at position {}/{} is not among the expected hashes",
+                hash.1,
+                hash.0+1,
+                number_of_hashes + 1
+            );
+        });
+
+    assert!(
+        GapHash::<CH>::downgraded(hashes, number_of_hashes + 1, hash_bits, 0)
+            .is_sorted_by(|a, b| b <= a)
+    );
+    // We check if the decoded value was insert at position 'insert_position'
+    assert_eq!(
+        GapHash::<CH>::decoded(hashes, number_of_hashes + 1, hash_bits)
+            .nth(insert_position)
+            .unwrap()
+            .0,
+        register
+    );
 
     true
 }
@@ -454,29 +529,33 @@ pub struct DowngradedIter<'a, CH> {
     bitstream: BitReader<'a>,
     previous: u64,
     number_of_hashes: usize,
+    current_iteration: usize,
     hash_bits: u8,
     shift: u8,
     _phantom: PhantomData<CH>,
 }
 
 impl<'a, CH: CompositeHash> DowngradedIter<'a, CH> {
-    fn tell(&self) -> usize {
-        self.bitstream.tell()
+    fn last_read_bit_position(&self) -> usize {
+        self.bitstream.last_read_bit_position()
+    }
+
+    fn last_buffered_bit_position(&self) -> usize {
+        self.bitstream.last_buffered_bit_position()
     }
 
     #[allow(unsafe_code)]
     fn new(hashes: &'a [u8], number_of_hashes: usize, hash_bits: u8, shift: u8) -> Self {
-        let hashes: &mut [u32] = unsafe {
-            core::slice::from_raw_parts_mut(
-                hashes.as_ptr() as *mut u32,
-                hashes.len() / core::mem::size_of::<u32>(),
-            )
-        };
-
         Self {
-            bitstream: BitReader::new(hashes),
             previous: u64::MAX,
             number_of_hashes,
+            current_iteration: 0,
+            bitstream: BitReader::new(unsafe {
+                core::slice::from_raw_parts_mut(
+                    hashes.as_ptr() as *mut u32,
+                    hashes.len() / core::mem::size_of::<u32>(),
+                )
+            }),
             hash_bits,
             shift,
             _phantom: PhantomData,
@@ -492,9 +571,22 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.number_of_hashes == 0 {
+        if self.number_of_hashes == self.current_iteration {
             return None;
         }
+        self.current_iteration += 1;
+
+        if self.current_iteration == 1 {
+            self.previous = match self.hash_bits {
+                8 => NoPrefixCode::<8>::read(&mut self.bitstream),
+                16 => NoPrefixCode::<16>::read(&mut self.bitstream),
+                24 => NoPrefixCode::<24>::read(&mut self.bitstream),
+                32 => NoPrefixCode::<32>::read(&mut self.bitstream),
+                _ => unreachable!(),
+            };
+            return Some(self.previous);
+        }
+
         let gap = match self.hash_bits {
             8 => <CH as PrefixFreeCode<8>>::Code::read(&mut self.bitstream),
             16 => <CH as PrefixFreeCode<16>>::Code::read(&mut self.bitstream),
@@ -505,26 +597,21 @@ where
 
         debug_assert!(
             gap.leading_zeros() >= 64 - u32::from(self.hash_bits),
-            "A gap {gap} between hash of {} bits cannot have more than {} leading zeros, but got {}. The iterator still has {} hashes left.",
+            "A gap {gap} between hash of {} bits cannot have more than {} leading zeros, but got {}.",
             self.hash_bits,
             64 - u32::from(self.hash_bits),
             gap.leading_zeros(),
-            self.number_of_hashes,
         );
 
-        if self.previous == u64::MAX {
-            self.previous = gap;
-        } else {
-            debug_assert!(
-                gap <= self.previous,
-                "Since the hashes are meant to be sorted in descending order, the gap ({gap}) must be less than the previous ({}). The iterator still has {} hashes left.",
-                self.previous,
-                self.number_of_hashes,
-            );
-            self.previous -= gap;
-        }
+        debug_assert!(
+            gap <= self.previous,
+            "{}/{}) Since the hashes are meant to be sorted in descending order, the gap ({gap}) must be less than the previous hash ({}).",
+            self.current_iteration,
+            self.number_of_hashes,
+            self.previous,
+        );
 
-        self.number_of_hashes -= 1;
+        self.previous -= gap;
 
         debug_assert!(
             self.previous.leading_zeros() >= 64 - u32::from(self.hash_bits),
@@ -555,35 +642,14 @@ where
 
 /// Iterator over decoded hashes.
 pub struct DecodedIter<'a, CH> {
-    bitstream: BitReader<'a>,
-    previous: u64,
-    number_of_hashes: usize,
-    hash_bits: u8,
-    _phantom: PhantomData<CH>,
+    iter: DowngradedIter<'a, CH>,
 }
 
 impl<'a, CH: CompositeHash> DecodedIter<'a, CH> {
     #[allow(unsafe_code)]
     fn new(hashes: &'a [u8], number_of_hashes: usize, hash_bits: u8) -> Self {
-        debug_assert_eq!(
-            hashes.len() % core::mem::size_of::<u32>(),
-            0,
-            "Expected the length of the hashes to be a multiple of the size of u32.",
-        );
-
-        let hashes: &mut [u32] = unsafe {
-            core::slice::from_raw_parts_mut(
-                hashes.as_ptr() as *mut u32,
-                hashes.len() / core::mem::size_of::<u32>(),
-            )
-        };
-
         Self {
-            bitstream: BitReader::new(hashes),
-            previous: u64::MAX,
-            number_of_hashes,
-            hash_bits,
-            _phantom: PhantomData,
+            iter: DowngradedIter::new(hashes, number_of_hashes, hash_bits, 0),
         }
     }
 }
@@ -596,51 +662,14 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.number_of_hashes == 0 {
-            return None;
-        }
-        let gap = match self.hash_bits {
-            8 => <CH as PrefixFreeCode<8>>::Code::read(&mut self.bitstream),
-            16 => <CH as PrefixFreeCode<16>>::Code::read(&mut self.bitstream),
-            24 => <CH as PrefixFreeCode<24>>::Code::read(&mut self.bitstream),
-            32 => <CH as PrefixFreeCode<32>>::Code::read(&mut self.bitstream),
-            _ => unreachable!(),
-        };
-
-        debug_assert!(
-            gap.leading_zeros() >= 64 - u32::from(self.hash_bits),
-            "A gap {gap} between hash of {} bits cannot have more than {} leading zeros, but got {}",
-            self.hash_bits,
-            64 - u32::from(self.hash_bits),
-            gap.leading_zeros(),
-        );
-
-        if self.previous == u64::MAX {
-            self.previous = gap;
-        } else {
-            debug_assert!(
-                gap <= self.previous,
-                "Since the hashes are meant to be sorted in descending order, the gap ({gap}) must be less than the previous ({})",
-                self.previous,
-            );
-            self.previous -= gap;
-        }
-        self.number_of_hashes -= 1;
-
-        debug_assert!(
-            self.previous.leading_zeros() >= 64 - u32::from(self.hash_bits),
-            "The hash ({}), being theoretically {} bits long, has more than {} leading zeros",
-            self.previous,
-            self.hash_bits,
-            64 - u32::from(self.hash_bits),
-        );
-
-        Some(CH::decode(self.previous, self.hash_bits))
+        self.iter
+            .next()
+            .map(|hash| CH::decode(hash, self.iter.hash_bits))
     }
 
     #[inline(always)]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.number_of_hashes, Some(self.number_of_hashes))
+        self.iter.size_hint()
     }
 }
 
@@ -650,6 +679,6 @@ where
 {
     #[inline(always)]
     fn len(&self) -> usize {
-        self.number_of_hashes
+        self.iter.len()
     }
 }

@@ -16,14 +16,33 @@ impl<'a> BitReader<'a> {
         }
     }
 
-    pub fn seek(&mut self, bit_idx: usize) {
-        self.word_idx = bit_idx / 32;
-        let in_word_idx = bit_idx % 32;
-        self.buffer = (self.data[self.word_idx] << in_word_idx) as u64;
-        self.bits_in_buffer = 32 - in_word_idx;
+    // pub fn seek(&mut self, bit_idx: usize) {
+    //     let new_word_idx = bit_idx / 32;
+    //     let in_word_idx = bit_idx % 32;
+
+    //     assert!(new_word_idx >= self.word_idx);
+
+    //     // We check whether the requested new word index is within the
+    //     // bounds of the look ahead buffer.
+    //     let word = if new_word_idx - self.word_idx < self.words_in_look_ahead {
+    //         self.look_ahead[new_word_idx - self.word_idx]
+    //     } else {
+    //         // We update the look ahead buffer with the words that follow the
+
+    //         self.data[new_word_idx]
+    //     };
+
+    //     self.buffer= (self.data[self.word_idx] << in_word_idx) as u64;
+    //     self.bits_in_buffer = 32 - in_word_idx;
+    // }
+
+    /// Returns the position of the last bit that was read.
+    pub fn last_read_bit_position(&self) -> usize {
+        self.word_idx * 32 - self.bits_in_buffer
     }
 
-    pub fn tell(&self) -> usize {
+    /// Returns the position of the last bit that has been positioned in the read buffer.
+    pub fn last_buffered_bit_position(&self) -> usize {
         self.word_idx * 32 + self.bits_in_buffer
     }
 
@@ -49,7 +68,7 @@ impl<'a> BitReader<'a> {
         n_bits -= self.bits_in_buffer;
 
         while n_bits > 32 {
-            let new_word: u64 = self.data[self.word_idx].to_be() as u64;
+            let new_word: u64 = u64::from(self.data[self.word_idx].to_be());
             self.word_idx += 1;
             result = (result << 32) | new_word;
             n_bits -= 32;
@@ -61,10 +80,10 @@ impl<'a> BitReader<'a> {
         let new_word = self.data[self.word_idx].to_be();
         self.word_idx += 1;
         self.bits_in_buffer = 32 - n_bits;
-        let upcasted: u64 = new_word as u64;
+        let upcasted: u64 = u64::from(new_word);
         let final_bits: u64 = upcasted >> self.bits_in_buffer;
         result = (result << (n_bits - 1) << 1) | final_bits;
-        self.buffer = ((new_word as u64) << (64 - self.bits_in_buffer - 1)) << 1;
+        self.buffer = (upcasted << (64 - self.bits_in_buffer - 1)) << 1;
 
         result
     }
@@ -89,21 +108,13 @@ impl<'a> BitReader<'a> {
 
         let mut result: u64 = self.bits_in_buffer as _;
 
-        debug_assert!(
-            self.data[self.word_idx..].iter().any(|word| *word!=0),
-            "At least a word after the index {}/{} should be different from zero, otherwise the subsequent loop will go out of bounds. Got: {:?}.",
-            self.word_idx,
-            self.data.len(),
-            &self.data
-        );
-
         loop {
             let new_word = self.data[self.word_idx].to_be();
             self.word_idx += 1;
 
             if new_word != 0 {
                 let zeros: usize = new_word.leading_zeros() as _;
-                self.buffer = (new_word as u64) << (32 + zeros) << 1;
+                self.buffer = u64::from(new_word) << (32 + zeros) << 1;
                 self.bits_in_buffer = 32 - zeros - 1;
                 return result + zeros as u64;
             }
@@ -111,35 +122,35 @@ impl<'a> BitReader<'a> {
         }
     }
 
-    #[inline]
-    pub fn skip_bits(&mut self, mut n_bits: usize) {
-        debug_assert!(self.bits_in_buffer < 64);
-        debug_assert!(
-            self.data.len() > self.word_idx,
-            "Reader in illegal state: data len is {}, but word index is {}.",
-            self.data.len(),
-            self.word_idx
-        );
+    // #[inline]
+    // pub fn skip_bits(&mut self, mut n_bits: usize) {
+    //     debug_assert!(self.bits_in_buffer < 64);
+    //     debug_assert!(
+    //         self.data.len() > self.word_idx,
+    //         "Reader in illegal state: data len is {}, but word index is {}.",
+    //         self.data.len(),
+    //         self.word_idx
+    //     );
 
-        if n_bits <= self.bits_in_buffer {
-            self.bits_in_buffer -= n_bits;
-            self.buffer <<= n_bits;
-            return;
-        }
+    //     if n_bits <= self.bits_in_buffer {
+    //         self.bits_in_buffer -= n_bits;
+    //         self.buffer <<= n_bits;
+    //         return;
+    //     }
 
-        n_bits -= self.bits_in_buffer;
+    //     n_bits -= self.bits_in_buffer;
 
-        while n_bits > 32 {
-            self.word_idx += 1;
-            n_bits -= 32;
-        }
+    //     while n_bits > 32 {
+    //         self.word_idx += 1;
+    //         n_bits -= 32;
+    //     }
 
-        let new_word = self.data[self.word_idx];
-        self.word_idx += 1;
-        self.bits_in_buffer = 32 - n_bits;
+    //     let new_word = self.data[self.word_idx];
+    //     self.word_idx += 1;
+    //     self.bits_in_buffer = 32 - n_bits;
 
-        self.buffer = (new_word as u64) << (64 - 1 - self.bits_in_buffer) << 1;
-    }
+    //     self.buffer = (new_word as u64) << (64 - 1 - self.bits_in_buffer) << 1;
+    // }
 
     pub fn read_minimal_binary(&mut self, max: u64) -> u64 {
         let l = max.ilog2();
@@ -270,6 +281,7 @@ mod tests {
     #[test]
     #[allow(unsafe_code)]
     fn test_read_write_unary() {
+        let mut positions = [0usize; 1000];
         let mut expected = [0u64; 1000];
         let mut buffer = [0u64; 2000];
 
@@ -277,19 +289,27 @@ mod tests {
             let mut writer = BitWriter::new(&mut buffer);
 
             for (i, value) in iter_random_values::<u8>(1_000, Some(127), None).enumerate() {
-                writer.write_unary(value as u64);
+                positions[i] = writer.write_unary(value as u64);
+                if i > 0 {
+                    positions[i] += positions[i - 1];
+                }
                 expected[i] = value as u64;
             }
         }
 
         let transmuted_buffer =
             unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader = BitReader::new(&transmuted_buffer);
+        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
 
-        for value in expected {
+        for (value, position) in expected.into_iter().zip(positions) {
             assert_eq!(
                 reader.read_unary(),
                 value,
+                "Unary encoded value does not match the expected value."
+            );
+            assert_eq!(
+                reader.last_read_bit_position(),
+                position,
                 "Unary encoded value does not match the expected value."
             );
         }
@@ -312,7 +332,7 @@ mod tests {
 
         let transmuted_buffer =
             unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader = BitReader::new(&transmuted_buffer);
+        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
             assert_eq!(
@@ -340,7 +360,7 @@ mod tests {
 
         let transmuted_buffer =
             unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader = BitReader::new(&transmuted_buffer);
+        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
             assert_eq!(
@@ -368,7 +388,7 @@ mod tests {
 
         let transmuted_buffer =
             unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader = BitReader::new(&transmuted_buffer);
+        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
             assert_eq!(
@@ -388,7 +408,9 @@ mod tests {
         {
             let mut writer = BitWriter::new(&mut buffer);
 
-            for (i, value) in iter_random_values::<u16>(expected.len() as u64, None, None).enumerate() {
+            for (i, value) in
+                iter_random_values::<u16>(expected.len() as u64, None, None).enumerate()
+            {
                 writer.write_golomb(value as u64, 37);
                 expected[i] = value as u64;
             }
@@ -396,7 +418,7 @@ mod tests {
 
         let transmuted_buffer =
             unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader = BitReader::new(&transmuted_buffer);
+        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
             assert_eq!(
@@ -424,7 +446,9 @@ mod tests {
         {
             let mut writer = BitWriter::new(&mut buffer);
 
-            for (i, value) in iter_random_values::<u16>(1_000, Some(maximum_value), None).enumerate() {
+            for (i, value) in
+                iter_random_values::<u16>(1_000, Some(maximum_value), None).enumerate()
+            {
                 writer.write_rice(value as u64, 17);
                 expected[i] = value as u64;
             }
@@ -432,7 +456,7 @@ mod tests {
 
         let transmuted_buffer =
             unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader = BitReader::new(&transmuted_buffer);
+        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
             assert_eq!(
@@ -468,7 +492,7 @@ mod tests {
 
         let transmuted_buffer =
             unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader = BitReader::new(&transmuted_buffer);
+        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
             assert_eq!(
@@ -496,7 +520,7 @@ mod tests {
 
         let transmuted_buffer =
             unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader = BitReader::new(&transmuted_buffer);
+        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
             assert_eq!(
@@ -524,7 +548,7 @@ mod tests {
 
         let transmuted_buffer =
             unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader = BitReader::new(&transmuted_buffer);
+        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
             assert_eq!(
@@ -552,7 +576,7 @@ mod tests {
 
         let transmuted_buffer =
             unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader = BitReader::new(&transmuted_buffer);
+        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
 
         for value in expected {
             assert_eq!(

@@ -41,7 +41,7 @@ impl<'a> BitWriter<'a> {
         self.word_idx = bits_idx / 64;
         let idx_in_word = bits_idx % 64;
         self.space_left_in_buffer = 64 - idx_in_word;
-        self.buffer = self.data[self.word_idx];
+        self.buffer = u64::from_be(self.data[self.word_idx]);
     }
 
     pub fn tell(&self) -> usize {
@@ -194,5 +194,37 @@ impl<'a> BitWriter<'a> {
         } else {
             self.write_bits(0, 1) + self.write_pi(value - 1, k)
         }
+    }
+}
+
+#[cfg(test)]
+mod testing_writer {
+    use super::*;
+
+    #[test]
+    fn test_hand_picked() {
+        let mut buffer: [u64; 2] = [
+            0b01110111_11000010_11110100_00100011_11101100_10100100_11001010_01110110_u64.to_be(),
+            0b11011101_00110110_10011010_00111110_10100000_11110101_01100101_01001010_u64.to_be(),
+        ];
+
+        let mut writer = BitWriter::new(&mut buffer);
+        writer.seek(13);
+        writer.write_gamma(100); // 100 = 64 + 32 + 4 = 0000001100100
+        drop(writer);
+
+        let expected: [u64; 2] = [
+            //  0b01110111_11000010_11110100_00100011_11101100_10100100_11001010_01110110,
+            //                xxxx_xxxxxxxx_x
+            0b01110111_11000000_00110010_00100011_11101100_10100100_11001010_01110110_u64.to_be(),
+            0b11011101_00110110_10011010_00111110_10100000_11110101_01100101_01001010_u64.to_be(),
+        ];
+
+        assert_eq!(
+            buffer,
+            expected,
+            "Buffer is not as expected. Buffer[0] Xor Expected: {:064b}",
+            (buffer[0] ^ expected[0]).to_be()
+        );
     }
 }

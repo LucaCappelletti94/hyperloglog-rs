@@ -179,6 +179,7 @@ mod test_composite_hash {
         let maximal_index_value = 1 << CH::Precision::EXPONENT;
         let number_of_hashes = 10;
         let number_of_indices_to_sample = 10;
+        let number_of_registers_to_sample = 10;
         let mut random_state = 23456789876543_u64;
 
         let mut all_hash_bytes = (CH::SMALLEST_VIABLE_HASH_BITS / 8..=4).collect::<Vec<u8>>();
@@ -186,7 +187,7 @@ mod test_composite_hash {
 
         for hash_bytes in all_hash_bytes {
             let number_of_expected_hashes =
-                number_of_hashes * number_of_indices_to_sample * (maximal_register_value - 1);
+                number_of_hashes * number_of_indices_to_sample * number_of_registers_to_sample;
             let mut reference_hashes: Vec<u64> = Vec::with_capacity(number_of_expected_hashes);
             let mut encoded_hashes =
                 vec![0_u64; ceil(number_of_expected_hashes * usize::from(hash_bytes), 8)];
@@ -204,10 +205,11 @@ mod test_composite_hash {
                 Some(random_state),
             ) {
                 let index = index as usize;
-                let mut registers = (1..maximal_register_value).collect::<Vec<usize>>();
-                registers.sort_unstable();
-                for register in registers {
-                    let register = register as u8;
+                for register in iter_random_values::<u8>(
+                    number_of_registers_to_sample as u64,
+                    Some(maximal_register_value as u8),
+                    Some(random_state),
+                ) {
                     random_state = splitmix64(random_state);
                     for fake_hash in iter_fake_original_hashes::<CH::Precision>(
                         number_of_hashes as u64,
@@ -283,7 +285,8 @@ mod test_composite_hash {
                                     fake_hash,
                                     hash_bits,
                                 ),
-                                false
+                                false,
+                                "After having inserted the hash, it was inserted again. Working with hash bits {hash_bits}. {reference_hashes:?}",
                             );
                         } else {
                             // If the hash was not inserted, there must be a reference stored with the same hash.
@@ -332,12 +335,9 @@ mod test_composite_hash {
                                 .unwrap(),
                         );
 
-                        let hashes: Vec<u64> = CH::downgraded(
-                            encoded_hashes,
-                            reference_hashes.len(),
-                            hash_bits,
-                            0
-                        ).collect();
+                        let hashes: Vec<u64> =
+                            CH::downgraded(encoded_hashes, reference_hashes.len(), hash_bits, 0)
+                                .collect();
 
                         assert_eq!(hashes.len(), reference_hashes.len());
 
@@ -345,7 +345,8 @@ mod test_composite_hash {
                             hashes.iter().zip(reference_hashes.iter()).enumerate()
                         {
                             assert_eq!(
-                                reference_hash, downgraded_hash,
+                                reference_hash,
+                                downgraded_hash,
                                 "Failed to retrieve the hash {i}/{} at hash bits {hash_bits}.",
                                 reference_hashes.len()
                             );
