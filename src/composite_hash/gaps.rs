@@ -211,72 +211,30 @@ where
         }
 
         match hash_bits - shift {
-            8 => {
-                if core::any::TypeId::of::<<CH as PrefixFreeCode<8>>::Code>()
-                    == core::any::TypeId::of::<NoPrefixCode<8>>()
-                {
-                    assert!(
-                        core::any::TypeId::of::<<CH as PrefixFreeCode<32>>::Code>()
-                            == core::any::TypeId::of::<NoPrefixCode<32>>()
-                    );
-                    assert!(
-                        core::any::TypeId::of::<<CH as PrefixFreeCode<24>>::Code>()
-                            == core::any::TypeId::of::<NoPrefixCode<24>>()
-                    );
-                    assert!(
-                        core::any::TypeId::of::<<CH as PrefixFreeCode<16>>::Code>()
-                            == core::any::TypeId::of::<NoPrefixCode<16>>()
-                    );
-                    CH::downgrade_inplace(hashes, number_of_hashes, hash_bits, shift);
-                } else {
-                    downgrade_inplace_with_writer::<<CH as PrefixFreeCode<8>>::Code, CH>(
-                        hashes,
-                        number_of_hashes,
-                        hash_bits,
-                        shift,
-                    );
-                }
-            }
-            16 => {
-                if core::any::TypeId::of::<<CH as PrefixFreeCode<16>>::Code>()
-                    == core::any::TypeId::of::<NoPrefixCode<16>>()
-                {
-                    assert!(
-                        core::any::TypeId::of::<<CH as PrefixFreeCode<32>>::Code>()
-                            == core::any::TypeId::of::<NoPrefixCode<32>>()
-                    );
-                    assert!(
-                        core::any::TypeId::of::<<CH as PrefixFreeCode<24>>::Code>()
-                            == core::any::TypeId::of::<NoPrefixCode<24>>()
-                    );
-                    CH::downgrade_inplace(hashes, number_of_hashes, hash_bits, shift);
-                } else {
-                    downgrade_inplace_with_writer::<<CH as PrefixFreeCode<16>>::Code, CH>(
-                        hashes,
-                        number_of_hashes,
-                        hash_bits,
-                        shift,
-                    );
-                }
-            }
-            24 => {
-                if core::any::TypeId::of::<<CH as PrefixFreeCode<24>>::Code>()
-                    == core::any::TypeId::of::<NoPrefixCode<24>>()
-                {
-                    assert!(
-                        core::any::TypeId::of::<<CH as PrefixFreeCode<32>>::Code>()
-                            == core::any::TypeId::of::<NoPrefixCode<32>>()
-                    );
-                    CH::downgrade_inplace(hashes, number_of_hashes, hash_bits, shift);
-                } else {
-                    downgrade_inplace_with_writer::<<CH as PrefixFreeCode<24>>::Code, CH>(
-                        hashes,
-                        number_of_hashes,
-                        hash_bits,
-                        shift,
-                    );
-                }
-            }
+            8 => downgrade_inplace_with_writer::<<CH as PrefixFreeCode<8>>::Code, CH>(
+                hashes,
+                number_of_hashes,
+                hash_bits,
+                shift,
+            ),
+            16 => downgrade_inplace_with_writer::<<CH as PrefixFreeCode<16>>::Code, CH>(
+                hashes,
+                number_of_hashes,
+                hash_bits,
+                shift,
+            ),
+            24 => downgrade_inplace_with_writer::<<CH as PrefixFreeCode<24>>::Code, CH>(
+                hashes,
+                number_of_hashes,
+                hash_bits,
+                shift,
+            ),
+            32 => downgrade_inplace_with_writer::<<CH as PrefixFreeCode<32>>::Code, CH>(
+                hashes,
+                number_of_hashes,
+                hash_bits,
+                shift,
+            ),
             _ => unreachable!(),
         }
     }
@@ -293,10 +251,6 @@ fn downgrade_inplace_with_writer<'a, CT: CodeWrite + 'static, CH: CompositeHash>
 ) where
     CH: PrefixFreeCode<8> + PrefixFreeCode<16> + PrefixFreeCode<24> + PrefixFreeCode<32>,
 {
-    debug_assert!(core::any::TypeId::of::<CT>() != core::any::TypeId::of::<NoPrefixCode<8>>());
-    debug_assert!(core::any::TypeId::of::<CT>() != core::any::TypeId::of::<NoPrefixCode<16>>());
-    debug_assert!(core::any::TypeId::of::<CT>() != core::any::TypeId::of::<NoPrefixCode<24>>());
-    debug_assert!(core::any::TypeId::of::<CT>() != core::any::TypeId::of::<NoPrefixCode<32>>());
     // safe because the slice is originally allocated as u64s
     debug_assert!(hashes.len() % core::mem::size_of::<u64>() == 0);
     let hashes_64 = unsafe {
@@ -305,29 +259,44 @@ fn downgrade_inplace_with_writer<'a, CT: CodeWrite + 'static, CH: CompositeHash>
             hashes.len() / core::mem::size_of::<u64>(),
         )
     };
-    // WE HAVE A MUTABLE AND IMMUTABLE REFERENCES, THIS VIOLATES THE ALIASING RULES
-    // but we always read then write, so it should be fine :^)
-    let readable = unsafe { core::mem::transmute::<&'a mut [u8], &'a [u8]>(hashes) };
-    // created a writer at the same position ! UNSAFE !
+
     let mut writer = BitWriter::new(hashes_64);
 
-    let mut iter = GapHash::<CH>::downgraded(readable, number_of_hashes, hash_bits, shift);
-    let iter_tell = unsafe {
-        &*(&iter as *const _ as usize as *const <GapHash<CH> as CompositeHash>::Downgraded<'_>)
+    let mut iter = GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits, shift);
+
+    // We write the first hash explicitly, as otherwise it would be
+    // written in a very inefficient way.
+    let mut prev_value = if let Some(value) = iter.next() {
+        match hash_bits - shift {
+            8 => {
+                NoPrefixCode::<8>::write(&mut writer, value);
+            }
+            16 => {
+                NoPrefixCode::<16>::write(&mut writer, value);
+            }
+            24 => {
+                NoPrefixCode::<24>::write(&mut writer, value);
+            }
+            _ => unreachable!(),
+        }
+        value
+    } else {
+        return;
     };
 
-    let mut prev_value = u64::MAX;
-    for value in &mut iter {
-        let gap: u64 = if prev_value == u64::MAX {
-            value
-        } else {
-            prev_value - value
-        };
+    while let Some(value) = iter.next() {
+        CT::write(&mut writer, prev_value - value);
         prev_value = value;
 
-        CT::write(&mut writer, gap);
-        debug_assert!(iter_tell.last_buffered_bit_position() > writer.tell());
+        debug_assert!(iter.last_buffered_bit_position() > writer.tell());
     }
+
+    drop(writer);
+
+    debug_assert!(
+        GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits - shift, 0)
+            .is_sorted_by(|a, b| b <= a)
+    );
 }
 
 #[allow(unsafe_code)]
@@ -370,15 +339,8 @@ where
 
     let encoded = CH::encode(index, register, original_hash, hash_bits);
 
-    let mut possible_hashes =
-        GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits, 0).collect::<Vec<_>>();
-
-    possible_hashes.push(encoded);
-
     // iter until we find where we should insert
-    let hashes_copy = hashes.to_vec();
-    let mut iter =
-        GapHash::<CH>::downgraded(hashes_copy.as_slice(), number_of_hashes, hash_bits, 0);
+    let mut iter = GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits, 0);
     let mut writer = BitWriter::new(hashes_64);
 
     let mut prev_value = u64::MAX;
@@ -430,11 +392,6 @@ where
             }
             _ => unreachable!(),
         }
-
-        println!(
-            "Writing {encoded} at position {position} (tell 0-{})",
-            writer.tell()
-        );
     } else {
         if position == 1 {
             debug_assert_eq!(
@@ -444,17 +401,11 @@ where
             );
         }
 
-        let prev_tell = writer.tell();
         CW::write(&mut writer, prev_value - encoded);
         debug_assert!(
             iter.last_buffered_bit_position() > writer.tell(),
             "The reader last buffered bit  ({}) must be greater than the writer tell ({}) after write ops.",
             iter.last_buffered_bit_position(),
-            writer.tell()
-        );
-        println!(
-            "Writing {encoded} as gap {} at position {position} (tell {prev_tell}-{})",
-            prev_value - encoded,
             writer.tell()
         );
     }
@@ -464,7 +415,6 @@ where
         prev_value = encoded;
 
         while let Some(value) = iter.next() {
-            let writer_tell = writer.tell();
             CW::write(&mut writer, prev_value - next_value);
             debug_assert!(
                 iter.last_buffered_bit_position() > writer.tell(),
@@ -472,48 +422,23 @@ where
                 iter.last_buffered_bit_position(),
                 writer.tell()
             );
-            println!(
-                "Moving {next_value} as {} to {position} (tell {writer_tell}-{})",
-                prev_value - next_value,
-                writer.tell()
-            );
             prev_value = next_value;
             next_value = value;
             position += 1;
         }
 
-        let writer_tell = writer.tell();
         CW::write(&mut writer, prev_value - next_value);
-        println!(
-            "Moving {next_value} as {} to {position} (tell {writer_tell}-{})",
-            prev_value - next_value,
-            writer.tell()
-        );
     }
 
     // We check that all hashes are still ordered in descending order
     drop(writer);
 
-    // We check that all the hashes present in the iterator are among the
-    // allowed hashes
-    GapHash::<CH>::downgraded(hashes, number_of_hashes + 1, hash_bits, 0)
-        .enumerate()
-        .for_each(|hash| {
-            debug_assert!(
-                possible_hashes.contains(&hash.1),
-                "The hash {} at position {}/{} is not among the expected hashes",
-                hash.1,
-                hash.0+1,
-                number_of_hashes + 1
-            );
-        });
-
-    assert!(
+    debug_assert!(
         GapHash::<CH>::downgraded(hashes, number_of_hashes + 1, hash_bits, 0)
             .is_sorted_by(|a, b| b <= a)
     );
     // We check if the decoded value was insert at position 'insert_position'
-    assert_eq!(
+    debug_assert_eq!(
         GapHash::<CH>::decoded(hashes, number_of_hashes + 1, hash_bits)
             .nth(insert_position)
             .unwrap()
@@ -584,7 +509,7 @@ where
                 32 => NoPrefixCode::<32>::read(&mut self.bitstream),
                 _ => unreachable!(),
             };
-            return Some(self.previous);
+            return Some(CH::downgrade(self.previous, self.hash_bits, self.shift));
         }
 
         let gap = match self.hash_bits {
@@ -664,7 +589,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
             .next()
-            .map(|hash| CH::decode(hash, self.iter.hash_bits))
+            .map(|hash| CH::decode(hash, self.iter.hash_bits - self.iter.shift))
     }
 
     #[inline(always)]

@@ -8,6 +8,7 @@ mod shared;
 pub mod switch;
 pub use current::CurrentHash;
 pub use switch::SwitchHash;
+pub use gaps::GapHash;
 
 /// A composite hash is a 64-bit hash that encodes a register, index and original hash.
 pub trait CompositeHash: Send + Sync {
@@ -205,11 +206,12 @@ mod test_composite_hash {
                 Some(random_state),
             ) {
                 let index = index as usize;
-                for register in iter_random_values::<u8>(
+                for mut register in iter_random_values::<u8>(
                     number_of_registers_to_sample as u64,
-                    Some(maximal_register_value as u8),
+                    Some(maximal_register_value as u8 - 1),
                     Some(random_state),
                 ) {
+                    register += 1;
                     random_state = splitmix64(random_state);
                     for fake_hash in iter_fake_original_hashes::<CH::Precision>(
                         number_of_hashes as u64,
@@ -401,6 +403,34 @@ mod test_composite_hash {
 
                             assert_eq!(downgraded_hash, encoded_target_hash, "Downgraded from hash bits {hash_bits} ({encoded_hash:b}) to {target_hash_bits} hash directly encoded ({encoded_target_hash:b}) and downgraded hash do not match ({downgraded_hash:b}). The original hash is {fake_hash:064b}.");
 
+                            let downgraded_with_iterator = CH::downgraded(
+                                encoded_hashes,
+                                reference_hashes.len(),
+                                hash_bits,
+                                shift,
+                            )
+                            .map(|downgraded_hash| CH::decode(downgraded_hash, target_hash_bits))
+                            .collect::<Vec<(u8, usize)>>();
+
+                            assert_eq!(hashes.len(), downgraded_with_iterator.len());
+
+                            for (
+                                (decoded_register, decoded_index),
+                                (downgraded_register, downgraded_index),
+                            ) in decoded.iter().zip(downgraded_with_iterator.iter())
+                            {
+                                assert_eq!(
+                                    decoded_register,
+                                    downgraded_register,
+                                    "Failed to decode register after downgrading with iterator from hash bits {hash_bits} to {target_hash_bits}. The downgraded hash is {downgraded_hash:b}."
+                                );
+                                assert_eq!(
+                                    decoded_index,
+                                    downgraded_index,
+                                    "Failed to decode index after downgrading with iterator from hash bits {hash_bits} to {target_hash_bits}. The downgraded hash is {downgraded_hash:b}."
+                                );
+                            }
+
                             let mut downgraded_encoded_hashes = encoded_hashes.to_vec();
                             CH::downgrade_inplace(
                                 &mut downgraded_encoded_hashes,
@@ -423,8 +453,16 @@ mod test_composite_hash {
                                 (downgraded_register, downgraded_index),
                             ) in decoded.iter().zip(downgraded_decoded.iter())
                             {
-                                assert_eq!(decoded_register, downgraded_register);
-                                assert_eq!(decoded_index, downgraded_index);
+                                assert_eq!(
+                                    decoded_register,
+                                    downgraded_register,
+                                    "Failed to decode register after downgrading from hash bits {hash_bits} to {target_hash_bits}. The downgraded hash is {downgraded_hash:b}."
+                                );
+                                assert_eq!(
+                                    decoded_index,
+                                    downgraded_index,
+                                    "Failed to decode index after downgrading from hash bits {hash_bits} to {target_hash_bits}. The downgraded hash is {downgraded_hash:b}."
+                                );
                             }
                         }
                     }

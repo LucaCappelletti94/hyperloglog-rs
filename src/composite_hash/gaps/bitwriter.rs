@@ -42,7 +42,11 @@ impl<'a> BitWriter<'a> {
         let idx_in_word = bits_idx % 64;
         self.space_left_in_buffer = 64 - idx_in_word;
         let word = u64::from_be(self.data[self.word_idx]);
-        self.buffer = word >> (64 - idx_in_word);
+        if idx_in_word == 0 {
+            self.buffer = 0;
+        } else {
+            self.buffer = word >> (64 - idx_in_word);
+        }
     }
 
     pub fn tell(&self) -> usize {
@@ -203,6 +207,26 @@ mod testing_writer {
     use super::*;
 
     #[test]
+    fn test_hand_picked_no_ops() {
+        let expected = [
+            0b01110111_11000010_11110100_00100011_11101100_10100100_11001010_01110110_u64.to_be(),
+            0b11011101_00110110_10011010_00111110_10100000_11110101_01100101_01001010_u64.to_be(),
+        ];
+        let mut buffer: [u64; 2] = expected.clone();
+
+        let mut writer = BitWriter::new(&mut buffer);
+        writer.seek(13);
+        drop(writer);
+
+        assert_eq!(
+            buffer,
+            expected,
+            "Buffer is not as expected. Buffer[0] Xor Expected: {:064b}",
+            (buffer[0] ^ expected[0]).to_be()
+        );
+    }
+
+    #[test]
     fn test_hand_picked() {
         let mut buffer: [u64; 1] = [
             0b01110111_11000010_11110100_00100011_11101100_10100100_11001010_10000001_u64.to_be(),
@@ -216,7 +240,7 @@ mod testing_writer {
         let expected: [u64; 1] = [
             0b01110111_11000_0000001100101_100011_11101100_10100100_11001010_10000001_u64.to_be(),
         ];
-        
+
         assert_eq!(
             buffer,
             expected,

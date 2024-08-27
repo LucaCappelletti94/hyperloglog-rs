@@ -1,7 +1,7 @@
 //! Marker struct for the hybrid approach, that keeps the hash explicit up until they fit into the registers.
 
 // use crate::composite_hash::current::CurrentHash;
-use crate::composite_hash::switch::SwitchHash;
+use crate::composite_hash::{GapHash, SwitchHash, CurrentHash};
 use crate::composite_hash::CompositeHash;
 use crate::prelude::*;
 use core::cmp::Ordering;

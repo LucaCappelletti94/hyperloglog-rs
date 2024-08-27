@@ -3,38 +3,28 @@ pub struct BitReader<'a> {
     data: &'a [u32],
     word_idx: usize,
     buffer: u64,
+    look_ahead: [u32; 50],
+    look_ahead_size: usize,
     bits_in_buffer: usize,
 }
 
 impl<'a> BitReader<'a> {
     pub fn new(data: &'a [u32]) -> Self {
+        let mut look_ahead: [u32; 50] = [0; 50];
+
+        let look_ahead_size = core::cmp::min(look_ahead.len(), data.len());
+
+        look_ahead[..look_ahead_size].copy_from_slice(&data[..look_ahead_size]);
+
         Self {
             data,
             word_idx: 0,
             buffer: 0,
+            look_ahead,
+            look_ahead_size,
             bits_in_buffer: 0,
         }
     }
-
-    // pub fn seek(&mut self, bit_idx: usize) {
-    //     let new_word_idx = bit_idx / 32;
-    //     let in_word_idx = bit_idx % 32;
-
-    //     assert!(new_word_idx >= self.word_idx);
-
-    //     // We check whether the requested new word index is within the
-    //     // bounds of the look ahead buffer.
-    //     let word = if new_word_idx - self.word_idx < self.words_in_look_ahead {
-    //         self.look_ahead[new_word_idx - self.word_idx]
-    //     } else {
-    //         // We update the look ahead buffer with the words that follow the
-
-    //         self.data[new_word_idx]
-    //     };
-
-    //     self.buffer= (self.data[self.word_idx] << in_word_idx) as u64;
-    //     self.bits_in_buffer = 32 - in_word_idx;
-    // }
 
     /// Returns the position of the last bit that was read.
     pub fn last_read_bit_position(&self) -> usize {
@@ -43,19 +33,30 @@ impl<'a> BitReader<'a> {
 
     /// Returns the position of the last bit that has been positioned in the read buffer.
     pub fn last_buffered_bit_position(&self) -> usize {
-        self.word_idx * 32 + self.bits_in_buffer
+        debug_assert!(self.word_idx + self.look_ahead_size <= self.data.len());
+        (self.word_idx + self.look_ahead_size) * 32 + self.bits_in_buffer
+    }
+
+    /// Returns the new word.
+    fn new_word(&mut self) -> u32 {
+        let new_word = self.look_ahead[0];
+
+        self.look_ahead.rotate_left(1);
+        self.word_idx += 1;
+
+        if self.word_idx + self.look_ahead.len() <= self.data.len() {
+            self.look_ahead[self.look_ahead.len() - 1] = self.data[self.word_idx + self.look_ahead.len() - 1];
+        } else {
+            self.look_ahead_size -= 1;
+        }
+
+        new_word.to_be()
     }
 
     #[inline]
     pub fn read_bits(&mut self, mut n_bits: usize) -> u64 {
         debug_assert!(n_bits <= 64);
         debug_assert!(self.bits_in_buffer < 64);
-        debug_assert!(
-            self.data.len() > self.word_idx,
-            "Reader in illegal state: data len is {}, but word index is {}.",
-            self.data.len(),
-            self.word_idx
-        );
 
         if n_bits <= self.bits_in_buffer {
             let result = self.buffer >> (64 - n_bits - 1) >> 1;
@@ -68,8 +69,7 @@ impl<'a> BitReader<'a> {
         n_bits -= self.bits_in_buffer;
 
         while n_bits > 32 {
-            let new_word: u64 = u64::from(self.data[self.word_idx].to_be());
-            self.word_idx += 1;
+            let new_word: u64 = u64::from(self.new_word());
             result = (result << 32) | new_word;
             n_bits -= 32;
         }
@@ -77,8 +77,7 @@ impl<'a> BitReader<'a> {
         debug_assert!(n_bits > 0);
         debug_assert!(n_bits <= 32);
 
-        let new_word = self.data[self.word_idx].to_be();
-        self.word_idx += 1;
+        let new_word = self.new_word();
         self.bits_in_buffer = 32 - n_bits;
         let upcasted: u64 = u64::from(new_word);
         let final_bits: u64 = upcasted >> self.bits_in_buffer;
@@ -109,8 +108,7 @@ impl<'a> BitReader<'a> {
         let mut result: u64 = self.bits_in_buffer as _;
 
         loop {
-            let new_word = self.data[self.word_idx].to_be();
-            self.word_idx += 1;
+            let new_word = self.new_word();
 
             if new_word != 0 {
                 let zeros: usize = new_word.leading_zeros() as _;

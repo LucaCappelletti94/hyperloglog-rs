@@ -279,7 +279,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     fn decode(hash: u64, hash_bits: u8) -> (u8, usize) {
         debug_assert!(
             hash.leading_zeros() >= u32::from(64 - hash_bits),
-            "The hash ({hash:064b}) should be composed of {hash_bits} and therefore must have at least {} leading zeros, but has only {}",
+            "The hash ({hash:064b}) should be composed of {hash_bits} bits and therefore must have at least {} leading zeros, but has only {}",
             64 - hash_bits,
             hash.leading_zeros(),
         );
