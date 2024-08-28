@@ -3,7 +3,7 @@
 use crate::{bits::Bits, prelude::Precision};
 
 use super::shared::{find, insert_sorted_desc, into_variant, DecodedIter, DowngradedIter};
-use super::CompositeHash;
+use super::{CompositeHash, CompositeHashError};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 /// The current hash approach is particularly straightforward.
@@ -29,9 +29,7 @@ const fn smallest_viable_hash<P: Precision, B: Bits>() -> u8 {
         return 16;
     }
 
-    if P::EXPONENT <= 15
-        || P::EXPONENT == 16 && B::NUMBER_OF_BITS < 6
-    {
+    if P::EXPONENT <= 15 || P::EXPONENT == 16 && B::NUMBER_OF_BITS < 6 {
         return 24;
     }
 
@@ -53,7 +51,10 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
         hash_bits: u8,
         shift: u8,
     ) -> Self::Downgraded<'a> {
-        assert!(hash_bits > Self::SMALLEST_VIABLE_HASH_BITS || shift == 0 && hash_bits == Self::SMALLEST_VIABLE_HASH_BITS);
+        assert!(
+            hash_bits > Self::SMALLEST_VIABLE_HASH_BITS
+                || shift == 0 && hash_bits == Self::SMALLEST_VIABLE_HASH_BITS
+        );
         DowngradedIter::new(into_variant(hashes, number_of_hashes, hash_bits), shift)
     }
 
@@ -122,7 +123,10 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
     #[must_use]
     /// Downgrade the hash into a smaller hash.
     fn downgrade(hash: u64, hash_bits: u8, shift: u8) -> u64 {
-        debug_assert!(hash_bits > Self::SMALLEST_VIABLE_HASH_BITS || shift == 0 && hash_bits == Self::SMALLEST_VIABLE_HASH_BITS);
+        debug_assert!(
+            hash_bits > Self::SMALLEST_VIABLE_HASH_BITS
+                || shift == 0 && hash_bits == Self::SMALLEST_VIABLE_HASH_BITS
+        );
         debug_assert!(shift < hash_bits);
         hash >> shift
     }
@@ -154,14 +158,16 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
     fn insert_sorted_desc<'a>(
         hashes: &'a mut [u8],
         number_of_hashes: usize,
+        bit_index: usize,
         index: usize,
         register: u8,
         original_hash: u64,
         hash_bits: u8,
-    ) -> bool {
+    ) -> Result<Option<usize>, CompositeHashError> {
         insert_sorted_desc::<Self>(
             hashes,
             number_of_hashes,
+            bit_index,
             index,
             register,
             original_hash,
@@ -174,11 +180,14 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
     fn downgrade_inplace<'a>(
         hashes: &'a mut [u8],
         number_of_hashes: usize,
+        bit_index: usize,
         hash_bits: u8,
         shift: u8,
-    ) {
+    ) -> (u32, usize) {
+        assert_eq!(number_of_hashes * usize::from(hash_bits), bit_index);
+
         if shift == 0 {
-            return;
+            return (0, number_of_hashes * usize::from(hash_bits));
         }
 
         let hash_bytes = usize::from(hash_bits / 8);
@@ -193,12 +202,26 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
         debug_assert!(hash_bytes > 1);
         debug_assert!(shift_bytes > 0);
 
+        let mut duplicates = 0;
+
         for i in 0..number_of_hashes {
-            hashes.copy_within(
-                (i * hash_bytes + shift_bytes)..(i + 1) * hash_bytes,
-                i * (hash_bytes - shift_bytes),
-            );
+            let current_range = (i * hash_bytes + shift_bytes)..(i + 1) * hash_bytes;
+            if i > 0
+                && &hashes[current_range.clone()]
+                    == &hashes[(i - 1 - duplicates) * (hash_bytes - shift_bytes)
+                        ..(i - duplicates) * (hash_bytes - shift_bytes)]
+            {
+                duplicates += 1;
+                continue;
+            }
+
+            hashes.copy_within(current_range, (i - duplicates) * (hash_bytes - shift_bytes));
         }
+
+        (
+            u32::try_from(duplicates).unwrap(),
+            (number_of_hashes - duplicates) * usize::from(hash_bits - shift),
+        )
     }
 
     const SMALLEST_VIABLE_HASH_BITS: u8 = smallest_viable_hash::<P, B>();

@@ -4,7 +4,6 @@
 #![deny(unused_macro_rules)]
 #![deny(missing_docs)]
 
-use ahash::AHasher;
 use hyperloglog_rs::composite_hash::{current::CurrentHash, switch::SwitchHash, CompositeHash};
 use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
@@ -15,7 +14,6 @@ use serde::Serialize;
 use std::collections::HashMap;
 use test_utils::prelude::{append_csv, read_csv, write_csv};
 use twox_hash::XxHash64;
-use wyhash::WyHash;
 
 #[derive(Debug, Serialize, Deserialize)]
 /// Report of the gap between subsequent hashes in the Listhash variant of HyperLogLog.
@@ -69,19 +67,7 @@ fn count_duplicates<
 ) where
     P: ArrayRegister<B>,
 {
-    // We check that this particular combination was not already measured.
-    if let Ok(reports) = read_csv::<DuplicatesReport>("duplicates.csv") {
-        if reports.iter().any(|report| {
-            report.precision == P::EXPONENT
-                && report.bit_size == B::NUMBER_OF_BITS
-                && report.hasher == hash_name::<H>()
-                && report.composite_hash == composite_hash_name::<CH>()
-        }) {
-            return;
-        }
-    }
-
-    let iterations = 50_000;
+    let iterations = 10_000;
     let hll = Hybrid::<PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, H>, CH>::default();
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));
@@ -210,7 +196,7 @@ macro_rules! generate_count_duplicates_for_precision {
         progress_bar.tick();
 
         $(
-            generate_count_duplicates!($multiprogress, $precision, $bit_size, XxHash64, WyHash, AHasher);
+            generate_count_duplicates!($multiprogress, $precision, $bit_size, XxHash64);
             progress_bar.inc(1);
         )*
 

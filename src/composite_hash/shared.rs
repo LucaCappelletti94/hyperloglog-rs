@@ -1,5 +1,5 @@
 //! Utilities used across the composite hash submodule.
-use super::CompositeHash;
+use super::{CompositeHash, CompositeHashError};
 use core::slice::Iter;
 
 /// Iterator variants.
@@ -250,11 +250,12 @@ where
 pub(super) fn insert_sorted_desc<'a, CH>(
     hashes: &'a mut [u8],
     number_of_hashes: usize,
+    bit_index: usize,
     index: usize,
     register: u8,
     original_hash: u64,
     hash_bits: u8,
-) -> bool
+) -> Result<Option<usize>, CompositeHashError>
 where
     CH: CompositeHash,
 {
@@ -265,6 +266,8 @@ where
         hash_bits,
         CH::SMALLEST_VIABLE_HASH_BITS,
     );
+    assert!(hash_bits == 8 || hash_bits == 16 || hash_bits == 24 || hash_bits == 32);
+    assert!(bit_index == number_of_hashes * usize::from(hash_bits));
     let hash_bytes = usize::from(hash_bits / 8);
 
     match CH::find(
@@ -275,8 +278,23 @@ where
         original_hash,
         hash_bits,
     ) {
-        Ok(_) => false,
+        Ok(_) => {Ok(None)},
         Err((bits, encoded_hash)) => {
+
+            // We check that there is indeed no hash identical to the provided
+            // encoded hash:
+            debug_assert!(
+                CH::downgraded(hashes, number_of_hashes, hash_bits, 0).all(|hash| hash != encoded_hash),
+                "The hash ({encoded_hash}) must not be present in the hashes",
+            );
+
+            if bit_index / 8 + hash_bytes > hashes.len() {
+                if hash_bits == CH::SMALLEST_VIABLE_HASH_BITS {
+                    return Err(CompositeHashError::Saturation);
+                }
+                return Err(CompositeHashError::DowngradableSaturation);
+            }
+
             let index = bits / usize::from(hash_bits);
             assert!(
                 hashes.len() >= (number_of_hashes + 1) * hash_bytes,
@@ -327,7 +345,7 @@ where
                 }
                 _ => unreachable!(),
             }
-            true
+            Ok(Some((number_of_hashes + 1) * usize::from(hash_bits)))
         }
     }
 }

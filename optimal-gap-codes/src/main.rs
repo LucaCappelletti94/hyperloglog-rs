@@ -220,7 +220,7 @@ fn optimal_gap_codes<
                                 last_hash = Some(hash);
                                 continue;
                             }
-                            let gap = last_hash.map(|last_hash| last_hash - hash).unwrap_or(hash);
+                            let gap = last_hash.map(|last_hash| last_hash - hash - 1).unwrap();
                             entry.0.update(gap);
                             last_hash = Some(hash);
                         }
@@ -238,7 +238,7 @@ fn optimal_gap_codes<
                                 last_hash = Some(hash);
                                 continue;
                             }
-                            let gap = last_hash.map(|last_hash| last_hash - hash).unwrap_or(hash);
+                            let gap = last_hash.map(|last_hash| last_hash - hash - 1).unwrap();
                             entry.0.update(gap);
                             last_hash = Some(hash);
                         }

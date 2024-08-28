@@ -37,6 +37,7 @@ impl<'a> BitWriter<'a> {
     }
 
     pub fn seek(&mut self, bits_idx: usize) {
+        debug_assert!(bits_idx < self.data.len() * 64,);
         self.flush();
         self.word_idx = bits_idx / 64;
         let idx_in_word = bits_idx % 64;

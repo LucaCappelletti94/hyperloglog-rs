@@ -1,7 +1,9 @@
 //! The SwitchHash, which more accurately follows the HyperLogLog++ paper.
 
+use core::u64;
+
 use super::shared::{find, insert_sorted_desc, into_variant, DecodedIter, DowngradedIter};
-use super::CompositeHash;
+use super::{CompositeHash, CompositeHashError};
 use crate::{bits::Bits, prelude::Precision};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -47,15 +49,23 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     fn downgrade_inplace<'a>(
         hashes: &'a mut [u8],
         number_of_hashes: usize,
+        bit_index: usize,
         hash_bits: u8,
         shift: u8,
-    ) {
+    ) -> (u32, usize) {
+        assert_eq!(
+            bit_index,
+            usize::from(hash_bits) * number_of_hashes,
+        );            
+
         if shift == 0 {
-            return;
+            return (0, number_of_hashes * usize::from(hash_bits));
         }
 
         let hash_bytes = usize::from(hash_bits) / 8;
         let downgraded_hash_bytes = usize::from(hash_bits - shift) / 8;
+        let mut previous_downgraded_hash = u64::MAX;
+        let mut duplicates = 0;
 
         for i in 0..number_of_hashes {
             let current_hash = match hash_bytes {
@@ -75,10 +85,22 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
                 _ => unreachable!("The hash must be 2, 3 or 4 bytes."),
             };
             let downgraded_hash = Self::downgrade(current_hash, hash_bits, shift);
+            if downgraded_hash == previous_downgraded_hash {
+                duplicates += 1;
+                continue;
+            } else {
+                previous_downgraded_hash = downgraded_hash;
+            };
             let downgraded_bytes = downgraded_hash.to_le_bytes();
-            hashes[i * downgraded_hash_bytes..(i + 1) * downgraded_hash_bytes]
+            hashes[(i - duplicates) * downgraded_hash_bytes
+                ..(i - duplicates + 1) * downgraded_hash_bytes]
                 .copy_from_slice(&downgraded_bytes[..downgraded_hash_bytes]);
         }
+
+        (
+            u32::try_from(duplicates).unwrap(),
+            (number_of_hashes - duplicates) * usize::from(hash_bits - shift),
+        )
     }
 
     #[inline]
@@ -134,14 +156,16 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     fn insert_sorted_desc<'a>(
         hashes: &'a mut [u8],
         number_of_hashes: usize,
+        bit_index: usize,
         index: usize,
         register: u8,
         original_hash: u64,
         hash_bits: u8,
-    ) -> bool {
+    ) -> Result<Option<usize>, CompositeHashError> {
         insert_sorted_desc::<Self>(
             hashes,
             number_of_hashes,
+            bit_index,
             index,
             register,
             original_hash,

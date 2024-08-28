@@ -1,33 +1,34 @@
 //! Script to log and compare the progress of two variants of HLL.
 
+use hyperloglog_rs::composite_hash::*;
 use hyperloglog_rs::prelude::*;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use rayon::prelude::*;
-use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use test_utils::prelude::{compare_features, read_csv, write_csv};
 
 type HLL1 = Hybrid<
     PlusPlus<
-        Precision16,
-        Bits6,
-        <Precision16 as ArrayRegister<Bits6>>::Packed,
+        Precision4,
+        Bits4,
+        <Precision4 as ArrayRegister<Bits4>>::Packed,
         twox_hash::XxHash64,
     >,
-    hyperloglog_rs::composite_hash::current::CurrentHash<Precision16, Bits6>,
+    SwitchHash<Precision4, Bits4>,
 >;
 
 type HLL2 = Hybrid<
     PlusPlus<
-        Precision16,
-        Bits6,
-        <Precision16 as ArrayRegister<Bits6>>::Packed,
+        Precision4,
+        Bits4,
+        <Precision4 as ArrayRegister<Bits4>>::Packed,
         twox_hash::XxHash64,
     >,
-    hyperloglog_rs::composite_hash::switch::SwitchHash<Precision16, Bits6>,
+    GapHash<SwitchHash<Precision4, Bits4>>,
 >;
 
-const ITERATIONS: usize = 1_0000;
+const ITERATIONS: usize = 10_000;
 const MINIMUM_CARDINALITY_FOR_SAMPLING: u64 = 0;
 const MEASUREMENT_STEP: u64 = 1;
 
@@ -41,8 +42,8 @@ struct Report {
 fn main() {
     let random_state = 7_536_558_723_694_876_u64;
 
-    let max_hashes = HLL2::maximal_number_of_hashes();
-    let max = (max_hashes * 10) as u64;
+    let max_hashes = (1 << 4) * 4 / 6;
+    let max = (max_hashes * 2) as u64;
 
     let progress_bar = ProgressBar::new(ITERATIONS as u64);
     progress_bar.set_style(
@@ -70,7 +71,8 @@ fn main() {
                 if hashset.insert(value) {
                     let cardinality = hll.estimate_cardinality();
                     let exact_cardinality = hashset.len() as u64;
-                    let relative_error = (exact_cardinality as f64 - cardinality).abs() / exact_cardinality as f64;
+                    let relative_error =
+                        (exact_cardinality as f64 - cardinality).abs() / exact_cardinality as f64;
                     reports.push(Report {
                         relative_error,
                         cardinality: exact_cardinality,
@@ -84,7 +86,8 @@ fn main() {
             if measurement_step != 0 {
                 let cardinality = hll.estimate_cardinality();
                 let exact_cardinality = hashset.len() as u64;
-                let relative_error = (exact_cardinality as f64 - cardinality).abs() / exact_cardinality as f64;
+                let relative_error =
+                    (exact_cardinality as f64 - cardinality).abs() / exact_cardinality as f64;
                 reports.push(Report {
                     relative_error,
                     cardinality: exact_cardinality,

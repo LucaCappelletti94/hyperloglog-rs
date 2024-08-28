@@ -6,7 +6,7 @@ mod optimal_codes;
 mod prefix_free_codes;
 use bitreader::BitReader;
 use bitwriter::BitWriter;
-use prefix_free_codes::{CodeRead, CodeWrite, NoPrefixCode};
+use prefix_free_codes::{CodeRead, CodeSize, CodeWrite, NoPrefixCode};
 
 use super::*;
 
@@ -19,7 +19,7 @@ pub struct GapHash<CH> {
 /// and Bits and which PrefixFreeCode to use for which combination.
 pub trait PrefixFreeCode<const HS: u8> {
     /// Prefix-free code for when we are writing an hash of 32 bits.
-    type Code: CodeRead + CodeWrite + Default + 'static;
+    type Code: CodeSize + CodeRead + CodeWrite + Default + 'static;
 }
 
 impl<CH: CompositeHash> CompositeHash for GapHash<CH>
@@ -133,11 +133,12 @@ where
     fn insert_sorted_desc<'a>(
         hashes: &'a mut [u8],
         number_of_hashes: usize,
+        bit_index: usize,
         index: usize,
         register: u8,
         original_hash: u64,
         hash_bits: u8,
-    ) -> bool {
+    ) -> Result<Option<usize>, CompositeHashError> {
         // if hash_bits == 8
         //     && core::any::TypeId::of::<<CH as PrefixFreeCode<8>>::Code>()
         //         == core::any::TypeId::of::<NoPrefixCode<8>>()
@@ -165,6 +166,7 @@ where
             8 => insert_sorted_desc_with_writer::<<CH as PrefixFreeCode<8>>::Code, CH>(
                 hashes,
                 number_of_hashes,
+                bit_index,
                 index,
                 register,
                 original_hash,
@@ -173,6 +175,7 @@ where
             16 => insert_sorted_desc_with_writer::<<CH as PrefixFreeCode<16>>::Code, CH>(
                 hashes,
                 number_of_hashes,
+                bit_index,
                 index,
                 register,
                 original_hash,
@@ -181,6 +184,7 @@ where
             24 => insert_sorted_desc_with_writer::<<CH as PrefixFreeCode<24>>::Code, CH>(
                 hashes,
                 number_of_hashes,
+                bit_index,
                 index,
                 register,
                 original_hash,
@@ -189,6 +193,7 @@ where
             32 => insert_sorted_desc_with_writer::<<CH as PrefixFreeCode<32>>::Code, CH>(
                 hashes,
                 number_of_hashes,
+                bit_index,
                 index,
                 register,
                 original_hash,
@@ -203,35 +208,33 @@ where
     fn downgrade_inplace<'a>(
         hashes: &'a mut [u8],
         number_of_hashes: usize,
+        bit_index: usize,
         hash_bits: u8,
         shift: u8,
-    ) {
+    ) -> (u32, usize) {
         if shift == 0 {
-            return;
+            return (0, bit_index);
         }
 
         match hash_bits - shift {
             8 => downgrade_inplace_with_writer::<<CH as PrefixFreeCode<8>>::Code, CH>(
                 hashes,
                 number_of_hashes,
+                bit_index,
                 hash_bits,
                 shift,
             ),
             16 => downgrade_inplace_with_writer::<<CH as PrefixFreeCode<16>>::Code, CH>(
                 hashes,
                 number_of_hashes,
+                bit_index,
                 hash_bits,
                 shift,
             ),
             24 => downgrade_inplace_with_writer::<<CH as PrefixFreeCode<24>>::Code, CH>(
                 hashes,
                 number_of_hashes,
-                hash_bits,
-                shift,
-            ),
-            32 => downgrade_inplace_with_writer::<<CH as PrefixFreeCode<32>>::Code, CH>(
-                hashes,
-                number_of_hashes,
+                bit_index,
                 hash_bits,
                 shift,
             ),
@@ -246,9 +249,11 @@ where
 fn downgrade_inplace_with_writer<'a, CT: CodeWrite + 'static, CH: CompositeHash>(
     hashes: &'a mut [u8],
     number_of_hashes: usize,
+    bit_index: usize,
     hash_bits: u8,
     shift: u8,
-) where
+) -> (u32, usize)
+where
     CH: PrefixFreeCode<8> + PrefixFreeCode<16> + PrefixFreeCode<24> + PrefixFreeCode<32>,
 {
     // safe because the slice is originally allocated as u64s
@@ -281,33 +286,54 @@ fn downgrade_inplace_with_writer<'a, CT: CodeWrite + 'static, CH: CompositeHash>
         }
         value
     } else {
-        return;
+        debug_assert_eq!(bit_index, 0);
+        debug_assert_eq!(number_of_hashes, 0);
+        return (0, 0);
     };
 
+    let mut duplicates = 0;
+
     while let Some(value) = iter.next() {
-        CT::write(&mut writer, prev_value - value);
+        if value == prev_value {
+            duplicates += 1;
+            continue;
+        }
+
+        CT::write(&mut writer, prev_value - value - 1);
         prev_value = value;
 
-        debug_assert!(iter.last_buffered_bit_position() > writer.tell());
+        debug_assert!(
+            iter.last_buffered_bit_position() > writer.tell(),
+            "The reader last buffered bit ({}) must be greater than the writer tell ({}) after write ops.",
+            iter.last_buffered_bit_position(),
+            writer.tell()
+        );
     }
 
+    let writer_tell = writer.tell();
     drop(writer);
 
-    debug_assert!(
-        GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits - shift, 0)
-            .is_sorted_by(|a, b| b <= a)
-    );
+    debug_assert!(GapHash::<CH>::downgraded(
+        hashes,
+        number_of_hashes - duplicates,
+        hash_bits - shift,
+        0
+    )
+    .is_sorted_by(|a, b| b <= a));
+
+    (u32::try_from(duplicates).unwrap(), writer_tell)
 }
 
 #[allow(unsafe_code)]
 fn insert_sorted_desc_with_writer<'a, CW: CodeWrite + 'static, CH: CompositeHash>(
     hashes: &'a mut [u8],
     number_of_hashes: usize,
+    bit_index: usize,
     index: usize,
     register: u8,
     original_hash: u64,
     hash_bits: u8,
-) -> bool
+) -> Result<Option<usize>, CompositeHashError>
 where
     CH: PrefixFreeCode<8> + PrefixFreeCode<16> + PrefixFreeCode<24> + PrefixFreeCode<32>,
 {
@@ -327,7 +353,7 @@ where
     // We check that all hashes are still ordered in descending order
     assert!(
         GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits, 0)
-            .is_sorted_by(|a, b| b <= a)
+            .is_sorted_by(|a, b| b < a)
     );
 
     let hashes_64 = unsafe {
@@ -347,6 +373,7 @@ where
     let mut next_value = u64::MAX;
 
     let mut position = 0;
+    let mut last_read_bit_position = 0;
 
     while let Some(value) = iter.next() {
         // The values are sorted in descending order, so we can stop when we find a value
@@ -354,17 +381,89 @@ where
         if encoded >= value {
             // if the value is equal to the encoded value, we don't need to insert it
             if value == encoded {
-                return false;
+                return Ok(None);
             }
             next_value = value;
             break;
         }
 
-        writer.seek(iter.last_read_bit_position());
+        last_read_bit_position = iter.last_read_bit_position();
         prev_value = value;
         position += 1;
     }
 
+    // We check that we would be actually able to insert the new value, given the current
+    // bit index and the size the new value would require.
+
+    let new_value_size: usize = if prev_value == u64::MAX {
+        // If we are inserting this value as the first value, and there is a next value,
+        // we need to take into account that this first value would require 'hash_bits' bits
+        // and that the subsequent value would require a variable amount of bits depending
+        // of the current prefix-free code employed.
+        if next_value == u64::MAX {
+            usize::from(hash_bits)
+        } else {
+            let gap: u64 = encoded - next_value - 1;
+            match hash_bits {
+                8 => <CH as PrefixFreeCode<8>>::Code::size(gap),
+                16 => <CH as PrefixFreeCode<16>>::Code::size(gap),
+                24 => <CH as PrefixFreeCode<24>>::Code::size(gap),
+                32 => <CH as PrefixFreeCode<32>>::Code::size(gap),
+                _ => unreachable!(),
+            }
+        }
+    } else {
+        // If we are inserting this value in the middle of the list, we need to take into account
+        // that the previous value would require a variable amount of bits depending of the current
+        // prefix-free code employed and that the subsequent value would require a variable amount of
+        // bits depending of the current prefix-free code employed.
+        let gap1: u64 = prev_value - encoded - 1;
+        if next_value == u64::MAX {
+            match hash_bits {
+                8 => <CH as PrefixFreeCode<8>>::Code::size(gap1),
+                16 => <CH as PrefixFreeCode<16>>::Code::size(gap1),
+                24 => <CH as PrefixFreeCode<24>>::Code::size(gap1),
+                32 => <CH as PrefixFreeCode<32>>::Code::size(gap1),
+                _ => unreachable!(),
+            }
+        } else {
+            let gap2: u64 = encoded - next_value - 1;
+            let gap_removed: u64 = prev_value - next_value - 1;
+
+            match hash_bits {
+                8 => {
+                    <CH as PrefixFreeCode<8>>::Code::size(gap1)
+                        + <CH as PrefixFreeCode<8>>::Code::size(gap2)
+                        - <CH as PrefixFreeCode<8>>::Code::size(gap_removed)
+                }
+                16 => {
+                    <CH as PrefixFreeCode<16>>::Code::size(gap1)
+                        + <CH as PrefixFreeCode<16>>::Code::size(gap2)
+                        - <CH as PrefixFreeCode<16>>::Code::size(gap_removed)
+                }
+                24 => {
+                    <CH as PrefixFreeCode<24>>::Code::size(gap1)
+                        + <CH as PrefixFreeCode<24>>::Code::size(gap2)
+                        - <CH as PrefixFreeCode<24>>::Code::size(gap_removed)
+                }
+                32 => {
+                    <CH as PrefixFreeCode<32>>::Code::size(gap1)
+                        + <CH as PrefixFreeCode<32>>::Code::size(gap2)
+                        - <CH as PrefixFreeCode<32>>::Code::size(gap_removed)
+                }
+                _ => unreachable!(),
+            }
+        }
+    };
+
+    if bit_index + new_value_size > hashes.len() * 8 {
+        if hash_bits == CH::SMALLEST_VIABLE_HASH_BITS {
+            return Err(CompositeHashError::Saturation);
+        }
+        return Err(CompositeHashError::DowngradableSaturation);
+    }
+
+    writer.seek(last_read_bit_position);
     let insert_position = position;
 
     // If there is no previos value, we would need to write the encoded value itself but
@@ -401,10 +500,10 @@ where
             );
         }
 
-        CW::write(&mut writer, prev_value - encoded);
+        CW::write(&mut writer, prev_value - encoded - 1);
         debug_assert!(
             iter.last_buffered_bit_position() > writer.tell(),
-            "The reader last buffered bit  ({}) must be greater than the writer tell ({}) after write ops.",
+            "The reader last buffered bit ({}) must be greater than the writer tell ({}) after write ops.",
             iter.last_buffered_bit_position(),
             writer.tell()
         );
@@ -415,7 +514,7 @@ where
         prev_value = encoded;
 
         while let Some(value) = iter.next() {
-            CW::write(&mut writer, prev_value - next_value);
+            CW::write(&mut writer, prev_value - next_value - 1);
             debug_assert!(
                 iter.last_buffered_bit_position() > writer.tell(),
                 "The reader last buffered bit ({}) must be greater than the writer tell ({}) after write ops.",
@@ -427,15 +526,20 @@ where
             position += 1;
         }
 
-        CW::write(&mut writer, prev_value - next_value);
+        CW::write(&mut writer, prev_value - next_value - 1);
     }
 
     // We check that all hashes are still ordered in descending order
+    let writer_tell = writer.tell();
+
+    // We check that practice matches theory:
+    assert_eq!(writer_tell, bit_index + new_value_size);
+
     drop(writer);
 
     debug_assert!(
         GapHash::<CH>::downgraded(hashes, number_of_hashes + 1, hash_bits, 0)
-            .is_sorted_by(|a, b| b <= a)
+            .is_sorted_by(|a, b| b < a)
     );
     // We check if the decoded value was insert at position 'insert_position'
     debug_assert_eq!(
@@ -446,7 +550,7 @@ where
         register
     );
 
-    true
+    Ok(Some(writer_tell))
 }
 
 /// Iterator over downgraded hashes.
@@ -536,7 +640,7 @@ where
             self.previous,
         );
 
-        self.previous -= gap;
+        self.previous -= gap + 1;
 
         debug_assert!(
             self.previous.leading_zeros() >= 64 - u32::from(self.hash_bits),

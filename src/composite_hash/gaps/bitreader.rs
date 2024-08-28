@@ -3,14 +3,14 @@ pub struct BitReader<'a> {
     data: &'a [u32],
     word_idx: usize,
     buffer: u64,
-    look_ahead: [u32; 50],
+    look_ahead: [u32; 150],
     look_ahead_size: usize,
     bits_in_buffer: usize,
 }
 
 impl<'a> BitReader<'a> {
     pub fn new(data: &'a [u32]) -> Self {
-        let mut look_ahead: [u32; 50] = [0; 50];
+        let mut look_ahead: [u32; 150] = [0; 150];
 
         let look_ahead_size = core::cmp::min(look_ahead.len(), data.len());
 
@@ -45,7 +45,8 @@ impl<'a> BitReader<'a> {
         self.word_idx += 1;
 
         if self.word_idx + self.look_ahead.len() <= self.data.len() {
-            self.look_ahead[self.look_ahead.len() - 1] = self.data[self.word_idx + self.look_ahead.len() - 1];
+            self.look_ahead[self.look_ahead.len() - 1] =
+                self.data[self.word_idx + self.look_ahead.len() - 1];
         } else {
             self.look_ahead_size -= 1;
         }
@@ -90,12 +91,6 @@ impl<'a> BitReader<'a> {
     #[inline]
     pub fn read_unary(&mut self) -> u64 {
         debug_assert!(self.bits_in_buffer < 64);
-        debug_assert!(
-            self.data.len() > self.word_idx,
-            "Reader in illegal state: data len is {}, but word index is {}.",
-            self.data.len(),
-            self.word_idx
-        );
 
         let zeros: usize = self.buffer.leading_zeros() as _;
 
@@ -212,6 +207,37 @@ impl<'a> BitReader<'a> {
     }
 }
 
+pub fn len_rice(n: u64, b: usize) -> usize {
+    (n >> b) as usize + 1 + b
+}
+
+pub fn len_gamma(mut n: u64) -> usize {
+    n += 1;
+    let number_of_bits_to_write = n.ilog2();
+    2 * number_of_bits_to_write as usize + 1
+}
+
+pub fn len_exp_golomb(n: u64, k: usize) -> usize {
+    len_gamma(n >> k) + k
+}
+
+pub fn len_golomb(n: u64, b: u64) -> usize {
+    (n / b) as usize + 1 + len_minimal_binary(n % b, b)
+}
+
+pub fn len_minimal_binary(n: u64, max: u64) -> usize {
+    if max == 0 {
+        return 0;
+    }
+    let l = max.ilog2();
+    let limit = (1 << (l + 1)) - max;
+    let mut result = l as usize;
+    if n >= limit {
+        result += 1;
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use core::u32;
@@ -220,36 +246,9 @@ mod tests {
     use super::*;
     use crate::prelude::*;
 
-    fn len_gamma(mut n: u64) -> usize {
-        n += 1;
-        let number_of_bits_to_write = n.ilog2();
-        2 * number_of_bits_to_write as usize + 1
-    }
-
     fn len_delta(n: u64) -> usize {
         let l = (n + 1).ilog2();
         l as usize + len_gamma(l as _)
-    }
-
-    fn len_exp_golomb(n: u64, k: usize) -> usize {
-        len_gamma(n >> k) + k
-    }
-
-    fn len_golomb(n: u64, b: u64) -> usize {
-        (n / b) as usize + 1 + len_minimal_binary(n % b, b)
-    }
-
-    fn len_minimal_binary(n: u64, max: u64) -> usize {
-        if max == 0 {
-            return 0;
-        }
-        let l = max.ilog2();
-        let limit = (1 << (l + 1)) - max;
-        let mut result = l as usize;
-        if n >= limit {
-            result += 1;
-        }
-        result
     }
 
     fn len_pi(mut n: u64, k: u64) -> usize {
@@ -262,10 +261,6 @@ mod tests {
 
     fn len_pi_web(n: u64, k: u64) -> usize {
         1 + if n == 0 { 0 } else { len_pi(n - 1, k) }
-    }
-
-    fn len_rice(n: u64, b: usize) -> usize {
-        (n >> b) as usize + 1 + b
     }
 
     fn len_zeta(mut n: u64, k: u64) -> usize {
