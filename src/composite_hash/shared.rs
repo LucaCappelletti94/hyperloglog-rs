@@ -173,11 +173,11 @@ impl<'a, CH: CompositeHash> DowngradedIter<'a, CH> {
 #[inline]
 #[must_use]
 #[allow(unsafe_code)]
-pub(super) fn into_variant<'a>(
-    hashes: &'a [u8],
+pub(super) fn into_variant(
+    hashes: &[u8],
     number_of_hashes: usize,
     hash_bits: u8,
-) -> IterVariants<'a> {
+) -> IterVariants<'_> {
     assert!(hash_bits >= 8);
     assert!(hash_bits == 8 || hash_bits == 16 || hash_bits == 24 || hash_bits == 32);
     assert!(hashes.len() >= number_of_hashes * usize::from(hash_bits / 8));
@@ -207,10 +207,9 @@ pub(super) fn into_variant<'a>(
 }
 
 #[inline]
-#[must_use]
 #[allow(unsafe_code)]
-pub(super) fn find<'a, CH>(
-    hashes: &'a [u8],
+pub(super) fn find<CH>(
+    hashes: &[u8],
     number_of_hashes: usize,
     index: usize,
     register: u8,
@@ -261,7 +260,7 @@ where
             };
             let hash: u32 = u32::try_from(encoded_hash).unwrap();
             debug_assert_eq!(hashes.len(), number_of_hashes);
-            let result = hashes
+            hashes
                 // The hashes are sorted in a descending order, so we need to find the first hash that is less than the encoded hash.
                 .binary_search_by(|a| {
                     let mut four_bytes = [0; 4];
@@ -270,9 +269,7 @@ where
                     hash.cmp(&a)
                 })
                 .map(|index| index * usize::from(hash_bits))
-                .map_err(|index| (index * usize::from(hash_bits), encoded_hash));
-
-            result
+                .map_err(|index| (index * usize::from(hash_bits), encoded_hash))
         }
         4 => {
             // We transmute the hash to a u32, as we will be comparing it with other u32s.
@@ -292,10 +289,9 @@ where
 }
 
 #[inline]
-#[must_use]
 #[allow(unsafe_code)]
-pub(super) fn insert_sorted_desc<'a, CH>(
-    hashes: &'a mut [u8],
+pub(super) fn insert_sorted_desc<CH>(
+    hashes: &mut [u8],
     number_of_hashes: usize,
     bit_index: usize,
     index: usize,

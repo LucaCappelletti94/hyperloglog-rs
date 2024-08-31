@@ -1,6 +1,6 @@
 //! Marker struct for the hybrid approach, that keeps the hash explicit up until they fit into the registers.
 
-use crate::composite_hash::*;
+use crate::composite_hash::{CompositeHash, CompositeHashError, SwitchHash};
 use crate::prelude::*;
 use core::cmp::Ordering;
 use core::fmt::Debug;
@@ -486,6 +486,12 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
     #[inline]
     /// Returns an iterator over the current hashes if the counter is in hash list mode.
     /// The iterator is sorted in descending order.
+    ///
+    /// # Errors
+    /// Returns an error if the counter is not in hash list mode.
+    ///
+    /// # Panics
+    /// Panics if the number of bytes used for the hash is less than the smallest viable hash.
     pub fn hashes(&self) -> Result<CH::Downgraded<'_>, &'static str> {
         if self.is_hash_list() {
             let hash_bits = self.hash_bits();

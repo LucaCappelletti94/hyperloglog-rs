@@ -148,12 +148,6 @@ impl<'a> BitWriter<'a> {
         self.write_unary(n_bits as u64) + self.write_bits(value, n_bits as usize)
     }
 
-    pub fn write_delta(&mut self, mut value: u64) -> usize {
-        value += 1;
-        let n_bits = value.ilog2();
-        self.write_gamma(n_bits as u64) + self.write_bits(value, n_bits as usize)
-    }
-
     pub fn write_rice(&mut self, value: u64, b: u64) -> usize {
         self.write_unary(value >> b) + self.write_bits(value, b as usize)
     }
@@ -164,42 +158,6 @@ impl<'a> BitWriter<'a> {
 
     pub fn write_exp_golomb(&mut self, value: u64, b: u64) -> usize {
         self.write_gamma(value >> b) + self.write_bits(value, b as usize)
-    }
-
-    pub fn write_zeta(&mut self, mut value: u64, k: u64) -> usize {
-        value += 1;
-        let h = value.ilog2() as u64 / k;
-        let u = 1 << ((h + 1) * k);
-        let l = 1 << (h * k);
-
-        debug_assert!(l <= value, "{} <= {}", l, value);
-        debug_assert!(value < u, "{} < {}", value, u);
-
-        self.write_unary(h) + self.write_minimal_binary(value - l, u - l)
-    }
-
-    pub fn write_pi(&mut self, mut value: u64, k: u64) -> usize {
-        value += 1;
-        let r = value.ilog2() as usize;
-        let h = 1 + r;
-        let l = h.div_ceil(1 << k);
-        let v = (l * (1 << k) - h) as u64;
-        let rem = value & !(u64::MAX << r);
-
-        let mut written_bits = 0;
-        written_bits += self.write_unary((l - 1) as u64);
-        written_bits += self.write_bits(v, k as usize);
-        written_bits += self.write_bits(rem, r);
-
-        written_bits
-    }
-
-    pub fn write_pi_web(&mut self, value: u64, k: u64) -> usize {
-        if value == 0 {
-            self.write_bits(1, 1)
-        } else {
-            self.write_bits(0, 1) + self.write_pi(value - 1, k)
-        }
     }
 }
 

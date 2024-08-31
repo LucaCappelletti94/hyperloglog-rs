@@ -1,6 +1,4 @@
-//! The SwitchHash, which more accurately follows the HyperLogLog++ paper.
-
-use core::u64;
+//! The [`SwitchHash`], which more accurately follows the HyperLogLog++ paper.
 
 use super::shared::{find, insert_sorted_desc, into_variant, DecodedIter, DowngradedIter};
 use super::{CompositeHash, CompositeHashError};
@@ -67,8 +65,8 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     const SMALLEST_VIABLE_HASH_BITS: u8 = smallest_viable_switch_hash::<P, B>();
     const LARGEST_VIABLE_HASH_BITS: u8 = maximal_viable_switch_hash::<P, B>();
 
-    fn downgrade_inplace<'a>(
-        hashes: &'a mut [u8],
+    fn downgrade_inplace(
+        hashes: &mut [u8],
         number_of_hashes: usize,
         bit_index: usize,
         hash_bits: u8,
@@ -106,9 +104,8 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
             if downgraded_hash == previous_downgraded_hash {
                 duplicates += 1;
                 continue;
-            } else {
-                previous_downgraded_hash = downgraded_hash;
-            };
+            }
+            previous_downgraded_hash = downgraded_hash;
             let downgraded_bytes = downgraded_hash.to_le_bytes();
             hashes[(i - duplicates) * downgraded_hash_bytes
                 ..(i - duplicates + 1) * downgraded_hash_bytes]
@@ -123,13 +120,13 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
 
     #[inline]
     #[must_use]
-    fn downgraded<'a>(
-        hashes: &'a [u8],
+    fn downgraded(
+        hashes: &[u8],
         number_of_hashes: usize,
         hash_bits: u8,
         bit_index: usize,
         shift: u8,
-    ) -> Self::Downgraded<'a> {
+    ) -> Self::Downgraded<'_> {
         assert!(
             hash_bits > Self::SMALLEST_VIABLE_HASH_BITS
                 || shift == 0 && hash_bits == Self::SMALLEST_VIABLE_HASH_BITS
@@ -140,12 +137,12 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
 
     #[inline]
     #[must_use]
-    fn decoded<'a>(
-        hashes: &'a [u8],
+    fn decoded(
+        hashes: &[u8],
         number_of_hashes: usize,
         hash_bits: u8,
         bit_index: usize,
-    ) -> Self::Decoded<'a> {
+    ) -> Self::Decoded<'_> {
         assert!(
             hash_bits >= Self::SMALLEST_VIABLE_HASH_BITS,
             "The hash bits ({hash_bits}) must be greater or equal to the smallest viable hash bits ({})",
@@ -156,10 +153,9 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     }
 
     #[inline]
-    #[must_use]
     #[allow(unsafe_code)]
-    fn find<'a>(
-        hashes: &'a [u8],
+    fn find(
+        hashes: &[u8],
         number_of_hashes: usize,
         index: usize,
         register: u8,
@@ -179,10 +175,9 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     }
 
     #[inline]
-    #[must_use]
     #[allow(unsafe_code)]
-    fn insert_sorted_desc<'a>(
-        hashes: &'a mut [u8],
+    fn insert_sorted_desc(
+        hashes: &mut [u8],
         number_of_hashes: usize,
         bit_index: usize,
         index: usize,

@@ -43,12 +43,12 @@ pub trait CompositeHash: Send + Sync + Debug {
     type Downgraded<'a>: Iterator<Item = u64> + Debug + LastBufferedBit + ExactSizeIterator;
 
     /// Returns an iterator on the decoded indices and registers.
-    fn decoded<'a>(
-        hashes: &'a [u8],
+    fn decoded(
+        hashes: &[u8],
         number_of_hashes: usize,
         hash_bits: u8,
         bit_index: usize,
-    ) -> Self::Decoded<'a>;
+    ) -> Self::Decoded<'_>;
 
     /// Returns an iterator on the downgraded composite hashes.
     ///
@@ -58,13 +58,13 @@ pub trait CompositeHash: Send + Sync + Debug {
     /// * `hash_bits` - The number of bits for the hash to downgrade.
     /// * `bit_index` - The index, in bits, where the writer left off.
     /// * `shift` - The number of bits to shift the hash to the right.
-    fn downgraded<'a>(
-        hashes: &'a [u8],
+    fn downgraded(
+        hashes: &[u8],
         number_of_hashes: usize,
         hash_bits: u8,
         bit_index: usize,
         shift: u8,
-    ) -> Self::Downgraded<'a>;
+    ) -> Self::Downgraded<'_>;
 
     /// Encodes the provided register, index and original hash into a single 64-bit hash.
     ///
@@ -88,8 +88,12 @@ pub trait CompositeHash: Send + Sync + Debug {
     ///
     /// # Returns
     /// An option with the index, in bits, where the provided index, register and original hash are stored.
-    fn find<'a>(
-        hashes: &'a [u8],
+    ///
+    /// # Errors
+    /// * `CompositeHashError::Saturation` - The Hash List is saturated and cannot be downgraded.
+    /// * `CompositeHashError::DowngradableSaturation` - The Hash List is saturated but can be downgraded.
+    fn find(
+        hashes: &[u8],
         number_of_hashes: usize,
         index: usize,
         register: u8,
@@ -109,8 +113,12 @@ pub trait CompositeHash: Send + Sync + Debug {
     /// * `register` - The register from the hyperloglog, which is the leading number of bits + 1.
     /// * `original_hash` - The original hash that was used to generate the register.
     /// * `hash_bits` - The number of bits for the hash to encode.
-    fn insert_sorted_desc<'a>(
-        hashes: &'a mut [u8],
+    ///
+    /// # Errors
+    /// * `CompositeHashError::Saturation` - The Hash List is saturated and cannot be downgraded.
+    /// * `CompositeHashError::DowngradableSaturation` - The Hash List is saturated but can be downgraded.
+    fn insert_sorted_desc(
+        hashes: &mut [u8],
         number_of_hashes: usize,
         bit_index: usize,
         index: usize,
@@ -150,8 +158,8 @@ pub trait CompositeHash: Send + Sync + Debug {
     ///
     /// # Returns
     /// The number of newly created duplicated hashes that were removed and the new writer tell.
-    fn downgrade_inplace<'a>(
-        hashes: &'a mut [u8],
+    fn downgrade_inplace(
+        hashes: &mut [u8],
         number_of_hashes: usize,
         bit_index: usize,
         hash_bits: u8,
@@ -240,9 +248,7 @@ mod test_composite_hash {
             if let Err(CompositeHashError::DowngradableSaturation) = result {
                 let target_hash_bits = hash_bits - 8;
                 let shift = hash_bits - target_hash_bits;
-                println!(
-                    "Downgrading from {hash_bits} to {target_hash_bits}.",
-                );
+                println!("Downgrading from {hash_bits} to {target_hash_bits}.",);
 
                 let (number_of_duplicates, new_writer_tell) = CH::downgrade_inplace(
                     &mut encoded_hashes,

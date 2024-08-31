@@ -61,13 +61,13 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
 
     #[inline]
     #[must_use]
-    fn downgraded<'a>(
-        hashes: &'a [u8],
+    fn downgraded(
+        hashes: &[u8],
         number_of_hashes: usize,
         hash_bits: u8,
         bit_index: usize,
         shift: u8,
-    ) -> Self::Downgraded<'a> {
+    ) -> Self::Downgraded<'_> {
         assert!(
             hash_bits > Self::SMALLEST_VIABLE_HASH_BITS
                 || shift == 0 && hash_bits == Self::SMALLEST_VIABLE_HASH_BITS
@@ -78,12 +78,12 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
 
     #[inline]
     #[must_use]
-    fn decoded<'a>(
-        hashes: &'a [u8],
+    fn decoded(
+        hashes: &[u8],
         number_of_hashes: usize,
         hash_bits: u8,
         bit_index: usize,
-    ) -> Self::Decoded<'a> {
+    ) -> Self::Decoded<'_> {
         assert!(
             hash_bits >= Self::SMALLEST_VIABLE_HASH_BITS,
             "The hash bits ({hash_bits}) must be greater or equal to the smallest viable hash bits ({})",
@@ -156,10 +156,9 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
     }
 
     #[inline]
-    #[must_use]
     #[allow(unsafe_code)]
-    fn find<'a>(
-        hashes: &'a [u8],
+    fn find(
+        hashes: &[u8],
         number_of_hashes: usize,
         index: usize,
         register: u8,
@@ -179,10 +178,9 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
     }
 
     #[inline]
-    #[must_use]
     #[allow(unsafe_code)]
-    fn insert_sorted_desc<'a>(
-        hashes: &'a mut [u8],
+    fn insert_sorted_desc(
+        hashes: &mut [u8],
         number_of_hashes: usize,
         bit_index: usize,
         index: usize,
@@ -203,8 +201,8 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
 
     #[inline]
     /// Downgrade the hash into a smaller hash in place.
-    fn downgrade_inplace<'a>(
-        hashes: &'a mut [u8],
+    fn downgrade_inplace(
+        hashes: &mut [u8],
         number_of_hashes: usize,
         bit_index: usize,
         hash_bits: u8,
@@ -233,8 +231,8 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
         for i in 0..number_of_hashes {
             let current_range = (i * hash_bytes + shift_bytes)..(i + 1) * hash_bytes;
             if i > 0
-                && &hashes[current_range.clone()]
-                    == &hashes[(i - 1 - duplicates) * (hash_bytes - shift_bytes)
+                && hashes[current_range.clone()]
+                    == hashes[(i - 1 - duplicates) * (hash_bytes - shift_bytes)
                         ..(i - duplicates) * (hash_bytes - shift_bytes)]
             {
                 duplicates += 1;

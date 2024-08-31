@@ -225,7 +225,6 @@ pub fn test_array(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn test_precisions_and_bits(attr: TokenStream, item: TokenStream) -> TokenStream {
-
     // We parse the provided attributes, if any, which we expect to be a list of tuples with
     // the precision and bits to exclude from the test. We expect the format to be:
     // [(5, 4), (6,7),(9,5),], as a JSON deserializable string.
@@ -235,7 +234,10 @@ pub fn test_precisions_and_bits(attr: TokenStream, item: TokenStream) -> TokenSt
     let exclude: Vec<(u8, u8)> = if string_attr.is_empty() {
         vec![]
     } else {
-        serde_json::from_str(&string_attr).expect(&format!("Invalid format for the exclude attribute: '{}'", &string_attr))
+        serde_json::from_str(&string_attr).expect(&format!(
+            "Invalid format for the exclude attribute: '{}'",
+            &string_attr
+        ))
     };
 
     let exclude_ref = exclude.as_slice();

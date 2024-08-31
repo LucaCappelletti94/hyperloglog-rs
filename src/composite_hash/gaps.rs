@@ -1,5 +1,5 @@
 //! Gap-based composite hash implementation.
-use core::{marker::PhantomData, u64};
+use core::marker::PhantomData;
 mod bitreader;
 mod bitwriter;
 mod optimal_codes;
@@ -9,7 +9,7 @@ use bitreader::BitReader;
 use bitwriter::BitWriter;
 use prefix_free_codes::{CodeRead, CodeSize, CodeWrite};
 
-use super::*;
+use super::{CompositeHash, CompositeHashError, Debug, LastBufferedBit, Precision};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 /// Gap-based composite hash.
@@ -18,7 +18,7 @@ pub struct GapHash<CH> {
 }
 
 /// Trait defining the combination between a given combo of Precision
-/// and Bits and which PrefixFreeCode to use for which combination.
+/// and Bits and which `PrefixFreeCode` to use for which combination.
 pub trait PrefixFreeCode {
     /// Prefix-free code for when we are writing an hash of 8 bits.
     type Code8: CodeSize + CodeRead + CodeWrite + Default + 'static;
@@ -56,13 +56,13 @@ where
 
     #[inline]
     #[must_use]
-    fn downgraded<'a>(
-        hashes: &'a [u8],
+    fn downgraded(
+        hashes: &[u8],
         number_of_hashes: usize,
         hash_bits: u8,
         bit_index: usize,
         shift: u8,
-    ) -> Self::Downgraded<'a> {
+    ) -> Self::Downgraded<'_> {
         // If we are employing prefix-free codes, we use the DowngradedIter
         if Self::is_prefix_free_encoded(number_of_hashes, hash_bits, bit_index) {
             DispatchedDowngradedIter::PrefixCodeDowngradedIter(PrefixCodeDowngradedIter::new(
@@ -85,12 +85,12 @@ where
 
     #[inline]
     #[must_use]
-    fn decoded<'a>(
-        hashes: &'a [u8],
+    fn decoded(
+        hashes: &[u8],
         number_of_hashes: usize,
         hash_bits: u8,
         bit_index: usize,
-    ) -> Self::Decoded<'a> {
+    ) -> Self::Decoded<'_> {
         assert!(
             hash_bits >= Self::SMALLEST_VIABLE_HASH_BITS,
             "The hash bits ({hash_bits}) must be greater or equal to the smallest viable hash bits ({})",
@@ -141,10 +141,9 @@ where
     }
 
     #[inline]
-    #[must_use]
     #[allow(unsafe_code)]
-    fn find<'a>(
-        hashes: &'a [u8],
+    fn find(
+        hashes: &[u8],
         number_of_hashes: usize,
         index: usize,
         register: u8,
@@ -163,7 +162,7 @@ where
             let encoded_hash = Self::encode(index, register, original_hash, hash_bits);
             Self::downgraded(hashes, number_of_hashes, hash_bits, bit_index, 0)
                 .position(|hash| hash == encoded_hash)
-                .map_or_else(|| Err((index, encoded_hash)), |index| Ok(index))
+                .map_or_else(|| Err((index, encoded_hash)), Ok)
         } else {
             CH::find(
                 hashes,
@@ -178,10 +177,9 @@ where
     }
 
     #[inline]
-    #[must_use]
     #[allow(unsafe_code)]
-    fn insert_sorted_desc<'a>(
-        hashes: &'a mut [u8],
+    fn insert_sorted_desc(
+        hashes: &mut [u8],
         number_of_hashes: usize,
         bit_index: usize,
         index: usize,
@@ -189,7 +187,6 @@ where
         original_hash: u64,
         hash_bits: u8,
     ) -> Result<Option<usize>, CompositeHashError> {
-
         if !Self::is_prefix_free_encoded(number_of_hashes, hash_bits, bit_index) {
             match CH::insert_sorted_desc(
                 hashes,
@@ -202,33 +199,34 @@ where
             ) {
                 Err(CompositeHashError::DowngradableSaturation) => {
                     // Otherwise, we need to switch to prefix mode.
-                    let new_writer_tell = match hash_bits {
-                        8 => to_prefix_code_inplace_with_writer::<<CH as PrefixFreeCode>::Code8, CH>(
-                            hashes,
-                            number_of_hashes,
-                            bit_index,
-                            hash_bits,
-                        ),
-                        16 => to_prefix_code_inplace_with_writer::<<CH as PrefixFreeCode>::Code16, CH>(
-                            hashes,
-                            number_of_hashes,
-                            bit_index,
-                            hash_bits,
-                        ),
-                        24 => to_prefix_code_inplace_with_writer::<<CH as PrefixFreeCode>::Code24, CH>(
-                            hashes,
-                            number_of_hashes,
-                            bit_index,
-                            hash_bits,
-                        ),
-                        32 => to_prefix_code_inplace_with_writer::<<CH as PrefixFreeCode>::Code32, CH>(
-                            hashes,
-                            number_of_hashes,
-                            bit_index,
-                            hash_bits,
-                        ),
-                        _ => unreachable!(),
-                    };
+                    let new_writer_tell =
+                        match hash_bits {
+                            8 => to_prefix_code_inplace_with_writer::<
+                                <CH as PrefixFreeCode>::Code8,
+                                CH,
+                            >(
+                                hashes, number_of_hashes, bit_index, hash_bits
+                            ),
+                            16 => to_prefix_code_inplace_with_writer::<
+                                <CH as PrefixFreeCode>::Code16,
+                                CH,
+                            >(
+                                hashes, number_of_hashes, bit_index, hash_bits
+                            ),
+                            24 => to_prefix_code_inplace_with_writer::<
+                                <CH as PrefixFreeCode>::Code24,
+                                CH,
+                            >(
+                                hashes, number_of_hashes, bit_index, hash_bits
+                            ),
+                            32 => to_prefix_code_inplace_with_writer::<
+                                <CH as PrefixFreeCode>::Code32,
+                                CH,
+                            >(
+                                hashes, number_of_hashes, bit_index, hash_bits
+                            ),
+                            _ => unreachable!(),
+                        };
 
                     // And we try to insert the hash again.
                     return Self::insert_sorted_desc(
@@ -240,7 +238,7 @@ where
                         original_hash,
                         hash_bits,
                     );
-                },
+                }
                 result => return result,
             }
         }
@@ -288,8 +286,8 @@ where
 
     #[inline]
     /// Downgrade the hash into a smaller hash in place.
-    fn downgrade_inplace<'a>(
-        hashes: &'a mut [u8],
+    fn downgrade_inplace(
+        hashes: &mut [u8],
         number_of_hashes: usize,
         bit_index: usize,
         hash_bits: u8,
@@ -334,16 +332,13 @@ where
 }
 
 #[allow(unsafe_code)]
-fn downgrade_inplace_with_writer<'a, CW: CodeWrite, CH: CompositeHash>(
-    hashes: &'a mut [u8],
+fn downgrade_inplace_with_writer<CW: CodeWrite, CH: CompositeHash + PrefixFreeCode>(
+    hashes: &mut [u8],
     number_of_hashes: usize,
     bit_index: usize,
     hash_bits: u8,
     shift: u8,
-) -> (u32, usize)
-where
-    CH: PrefixFreeCode,
-{
+) -> (u32, usize) {
     // safe because the slice is originally allocated as u64s
     debug_assert!(hashes.len() % core::mem::size_of::<u64>() == 0);
     let hashes_64 = unsafe {
@@ -410,15 +405,15 @@ where
 }
 
 #[allow(unsafe_code)]
-fn to_prefix_code_inplace_with_writer<'a, CW: CodeWrite + 'static, CH: CompositeHash>(
-    hashes: &'a mut [u8],
+fn to_prefix_code_inplace_with_writer<
+    CW: CodeWrite + 'static,
+    CH: CompositeHash + PrefixFreeCode,
+>(
+    hashes: &mut [u8],
     number_of_hashes: usize,
     bit_index: usize,
     hash_bits: u8,
-) -> usize
-where
-    CH: PrefixFreeCode,
-{
+) -> usize {
     assert!(
         bit_index + usize::from(hash_bits) >= hashes.len() * 8,
         "This method should only be called upon preliminary saturation, but was called with bit index {bit_index} and hash bits {hash_bits} and total available bits {}.",
@@ -450,7 +445,7 @@ where
     position += 1;
     writer.write_bits(prev_value, usize::from(hash_bits));
 
-    while let Some(value) = iter.next() {
+    for value in iter {
         position += 1;
 
         let just_wrote_bits = CW::write(&mut writer, prev_value - value - 1);
@@ -482,7 +477,11 @@ where
 }
 
 #[allow(unsafe_code)]
-fn insert_sorted_desc_with_writer<'a, CW: CodeWrite + CodeSize + 'static, CH: CompositeHash>(
+fn insert_sorted_desc_with_writer<
+    'a,
+    CW: CodeWrite + CodeSize + 'static,
+    CH: CompositeHash + PrefixFreeCode,
+>(
     hashes: &'a mut [u8],
     number_of_hashes: usize,
     bit_index: usize,
@@ -490,10 +489,7 @@ fn insert_sorted_desc_with_writer<'a, CW: CodeWrite + CodeSize + 'static, CH: Co
     register: u8,
     original_hash: u64,
     hash_bits: u8,
-) -> Result<Option<usize>, CompositeHashError>
-where
-    CH: PrefixFreeCode,
-{
+) -> Result<Option<usize>, CompositeHashError> {
     debug_assert!(
         GapHash::<CH>::is_prefix_free_encoded(number_of_hashes, hash_bits, bit_index),
         "The hashes must be prefix-free encoded to be able to use prefix-free codes."
@@ -699,7 +695,6 @@ pub enum DispatchedDowngradedIter<'a, CH: CompositeHash> {
 }
 
 impl<'a, CH: CompositeHash> LastBufferedBit for DispatchedDowngradedIter<'a, CH> {
-    #[inline(always)]
     fn last_buffered_bit(&self) -> usize {
         match self {
             Self::PrefixCodeDowngradedIter(iter) => iter.last_buffered_bit(),
@@ -715,7 +710,6 @@ where
 {
     type Error = DispatchedDowngradedIter<'a, CH>;
 
-    #[inline(always)]
     fn try_from(value: DispatchedDowngradedIter<'a, CH>) -> Result<Self, Self::Error> {
         match value {
             DispatchedDowngradedIter::PrefixCodeDowngradedIter(iter) => Ok(iter),
@@ -730,7 +724,6 @@ where
 {
     type Item = u64;
 
-    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             Self::PrefixCodeDowngradedIter(iter) => iter.next(),
@@ -738,7 +731,6 @@ where
         }
     }
 
-    #[inline(always)]
     fn size_hint(&self) -> (usize, Option<usize>) {
         match self {
             Self::PrefixCodeDowngradedIter(iter) => iter.size_hint(),
@@ -751,7 +743,6 @@ impl<'a, CH: CompositeHash> ExactSizeIterator for DispatchedDowngradedIter<'a, C
 where
     CH: PrefixFreeCode,
 {
-    #[inline(always)]
     fn len(&self) -> usize {
         match self {
             Self::PrefixCodeDowngradedIter(iter) => iter.len(),
@@ -761,7 +752,7 @@ where
 }
 
 #[derive(Debug)]
-/// Bypass iterator which instead of executing any operation on the BitReader stream,
+/// Bypass iterator which instead of executing any operation on the [`BitReader`] stream,
 /// just reads u64 words up until the end of the stream.
 struct BypassIter<'a> {
     /// The bitstream to read from.
@@ -773,7 +764,6 @@ struct BypassIter<'a> {
 impl Iterator for BypassIter<'_> {
     type Item = (u64, usize);
 
-    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         if self.bitstream.last_read_bit_position() >= self.bit_index {
             return None;
@@ -784,7 +774,6 @@ impl Iterator for BypassIter<'_> {
 }
 
 impl ExactSizeIterator for BypassIter<'_> {
-    #[inline(always)]
     fn len(&self) -> usize {
         ceil(
             self.bit_index
@@ -795,14 +784,12 @@ impl ExactSizeIterator for BypassIter<'_> {
 }
 
 impl<'a> LastBufferedBit for BypassIter<'a> {
-    #[inline(always)]
     fn last_buffered_bit(&self) -> usize {
         self.bitstream.last_buffered_bit_position()
     }
 }
 
 impl<'a, CH: CompositeHash> From<PrefixCodeDowngradedIter<'a, CH>> for BypassIter<'a> {
-    #[inline(always)]
     fn from(iter: PrefixCodeDowngradedIter<'a, CH>) -> Self {
         Self {
             bitstream: iter.bitstream,
@@ -826,14 +813,12 @@ pub struct PrefixCodeDowngradedIter<'a, CH> {
 }
 
 impl<'a, CH: CompositeHash> From<PrefixCodeDowngradedIter<'a, CH>> for &'a [u8] {
-    #[inline(always)]
     fn from(iter: PrefixCodeDowngradedIter<'a, CH>) -> Self {
         iter.bitstream.into()
     }
 }
 
 impl<'a, CH: CompositeHash> LastBufferedBit for PrefixCodeDowngradedIter<'a, CH> {
-    #[inline(always)]
     fn last_buffered_bit(&self) -> usize {
         self.bitstream.last_buffered_bit_position()
     }
@@ -876,7 +861,6 @@ where
 {
     type Item = u64;
 
-    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         if self.number_of_hashes == self.current_iteration {
             return None;
@@ -925,7 +909,6 @@ where
         Some(CH::downgrade(self.previous, self.hash_bits, self.shift))
     }
 
-    #[inline(always)]
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.number_of_hashes, Some(self.number_of_hashes))
     }
@@ -935,7 +918,6 @@ impl<'a, CH: CompositeHash> ExactSizeIterator for PrefixCodeDowngradedIter<'a, C
 where
     CH: PrefixFreeCode,
 {
-    #[inline(always)]
     fn len(&self) -> usize {
         self.number_of_hashes
     }
@@ -951,7 +933,6 @@ pub enum DispatchedDecodedIter<'a, CH: CompositeHash> {
 }
 
 impl<'a, CH: CompositeHash> LastBufferedBit for DispatchedDecodedIter<'a, CH> {
-    #[inline(always)]
     fn last_buffered_bit(&self) -> usize {
         match self {
             Self::PrefixCodeDecodedIter(iter) => iter.last_buffered_bit(),
@@ -966,7 +947,6 @@ where
 {
     type Error = CH::Decoded<'a>;
 
-    #[inline(always)]
     fn try_from(value: DispatchedDecodedIter<'a, CH>) -> Result<Self, Self::Error> {
         match value {
             DispatchedDecodedIter::PrefixCodeDecodedIter(iter) => Ok(iter),
@@ -981,7 +961,6 @@ where
 {
     type Item = (u8, usize);
 
-    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             Self::PrefixCodeDecodedIter(iter) => iter.next(),
@@ -989,7 +968,6 @@ where
         }
     }
 
-    #[inline(always)]
     fn size_hint(&self) -> (usize, Option<usize>) {
         match self {
             Self::PrefixCodeDecodedIter(iter) => iter.size_hint(),
@@ -1002,7 +980,6 @@ impl<'a, CH: CompositeHash> ExactSizeIterator for DispatchedDecodedIter<'a, CH>
 where
     CH: PrefixFreeCode,
 {
-    #[inline(always)]
     fn len(&self) -> usize {
         match self {
             Self::PrefixCodeDecodedIter(iter) => iter.len(),
@@ -1018,7 +995,6 @@ pub struct PrefixCodeDecodedIter<'a, CH> {
 }
 
 impl<'a, CH: CompositeHash> LastBufferedBit for PrefixCodeDecodedIter<'a, CH> {
-    #[inline(always)]
     fn last_buffered_bit(&self) -> usize {
         self.iter.last_buffered_bit()
     }
@@ -1039,14 +1015,12 @@ where
 {
     type Item = (u8, usize);
 
-    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
             .next()
             .map(|hash| CH::decode(hash, self.iter.hash_bits - self.iter.shift))
     }
 
-    #[inline(always)]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }
@@ -1056,7 +1030,6 @@ impl<'a, CH: CompositeHash> ExactSizeIterator for PrefixCodeDecodedIter<'a, CH>
 where
     CH: PrefixFreeCode,
 {
-    #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
     }
