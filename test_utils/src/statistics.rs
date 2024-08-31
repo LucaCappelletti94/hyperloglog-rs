@@ -1,9 +1,9 @@
 //! This module contains functions for calculating statistics.
+use colored::*;
 use core::iter::Sum;
 use core::ops::Div;
 use stattest::test::StatisticalTest;
 use stattest::test::WilcoxonWTest;
-use colored::*;
 
 pub fn standard_deviation(values: &[f64], mean: f64) -> f64 {
     // The values are always less than `u32::MAX`, so we can safely convert them.
@@ -49,7 +49,6 @@ pub struct BenchmarkResults<'a> {
 }
 
 impl<'a> BenchmarkResults<'a> {
-
     /// Given the name of the feature provided, determines whether
     /// it should be to maximise (accuracy) or minimise (error, time, memory).
     fn estimate_feature_target(&self) -> bool {
@@ -58,23 +57,24 @@ impl<'a> BenchmarkResults<'a> {
 
         let feature = self.feature.to_lowercase();
 
-        if maximising_needles.iter().any(|needle| feature.contains(needle)) {
+        if maximising_needles
+            .iter()
+            .any(|needle| feature.contains(needle))
+        {
             return true;
         }
 
-        if minimising_needles.iter().any(|needle| feature.contains(needle)) {
+        if minimising_needles
+            .iter()
+            .any(|needle| feature.contains(needle))
+        {
             return false;
         }
 
         unimplemented!("Feature target not found for '{}'", self.feature);
     }
 
-    pub fn new(
-        feature: &'a str,
-        new_stats: Stats,
-        old_stats: Stats,
-        p_value: TestResult,
-    ) -> Self {
+    pub fn new(feature: &'a str, new_stats: Stats, old_stats: Stats, p_value: TestResult) -> Self {
         Self {
             feature,
             new_stats,
@@ -84,7 +84,7 @@ impl<'a> BenchmarkResults<'a> {
     }
 
     /// Prints out the benchmark results.
-    /// 
+    ///
     /// Specifically, it prints out the feature name, the new and old means,
     /// their standard deviations, and depending on the p-value, whether the
     /// difference is significant or not. Furthermore, depending on whether
@@ -133,7 +133,7 @@ impl<'a> BenchmarkResults<'a> {
                     "YES",
                     p_value
                 );
-            },
+            }
             TestResult::NotSignificant(p_value) => {
                 println!(
                     "{}: {} ({:.4})",
@@ -141,46 +141,29 @@ impl<'a> BenchmarkResults<'a> {
                     "NO",
                     p_value
                 );
-            },
+            }
             TestResult::Unknown => {
-                println!(
-                    "{}: {}",
-                    "Statistical Significance".red(),
-                    "UNKNOWN"
-                );
+                println!("{}: {}", "Statistical Significance".red(), "UNKNOWN");
             }
         }
 
         // Print the improvement percentage
-        match (self.new_stats.mean > self.old_stats.mean, self.estimate_feature_target()) {
+        match (
+            self.new_stats.mean > self.old_stats.mean,
+            self.estimate_feature_target(),
+        ) {
             (true, true) => {
-                println!(
-                    "{}: {:.2}%",
-                    "Improved by".green(),
-                    improvement_percentage
-                );
-            },
+                println!("{}: {:.2}%", "Improved by".green(), improvement_percentage);
+            }
             (true, false) => {
-                println!(
-                    "{}: {:.2}%",
-                    "Degraded by".red(),
-                    improvement_percentage
-                );
-            },
+                println!("{}: {:.2}%", "Degraded by".red(), improvement_percentage);
+            }
             (false, true) => {
-                println!(
-                    "{}: {:.2}%",
-                    "Degraded by".red(),
-                    improvement_percentage
-                );
-            },
+                println!("{}: {:.2}%", "Degraded by".red(), improvement_percentage);
+            }
             (false, false) => {
-                println!(
-                    "{}: {:.2}%",
-                    "Improved by".green(),
-                    improvement_percentage
-                );
-            },
+                println!("{}: {:.2}%", "Improved by".green(), improvement_percentage);
+            }
         }
 
         // Add spacing between results for readability

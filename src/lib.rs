@@ -9,6 +9,7 @@
 
 mod basicloglog;
 mod bits;
+pub mod composite_hash;
 mod estimator;
 pub mod hybrid;
 mod hyperloglog;
@@ -23,7 +24,6 @@ mod precisions;
 mod registers;
 pub mod sketches;
 mod utils;
-pub mod composite_hash;
 
 #[cfg(feature = "serde")]
 pub mod serde;

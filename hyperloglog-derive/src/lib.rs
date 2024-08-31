@@ -97,12 +97,7 @@ impl From<Type> for WordType {
 impl WordType {
     /// Returns all the variants.
     fn variants() -> Vec<Self> {
-        vec![
-            WordType::U8,
-            WordType::U16,
-            WordType::U32,
-            WordType::U64,
-        ]
+        vec![WordType::U8, WordType::U16, WordType::U32, WordType::U64]
     }
 }
 
@@ -228,9 +223,23 @@ pub fn test_array(attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-
 #[proc_macro_attribute]
-pub fn test_precisions_and_bits(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn test_precisions_and_bits(attr: TokenStream, item: TokenStream) -> TokenStream {
+
+    // We parse the provided attributes, if any, which we expect to be a list of tuples with
+    // the precision and bits to exclude from the test. We expect the format to be:
+    // [(5, 4), (6,7),(9,5),], as a JSON deserializable string.
+
+    let string_attr = attr.to_string();
+
+    let exclude: Vec<(u8, u8)> = if string_attr.is_empty() {
+        vec![]
+    } else {
+        serde_json::from_str(&string_attr).expect(&format!("Invalid format for the exclude attribute: '{}'", &string_attr))
+    };
+
+    let exclude_ref = exclude.as_slice();
+
     // Parse the input token stream (the function we're deriving for)
     let input = parse_macro_input!(item as ItemFn);
 
@@ -248,13 +257,13 @@ pub fn test_precisions_and_bits(_attr: TokenStream, item: TokenStream) -> TokenS
     // Generate the test functions
     let test_functions = precisions.iter().enumerate().flat_map(|(i, precision)| {
         let precision_exponent = i + 4;
-        (bits).iter().flat_map(move |bit| {
+        (4..=6).zip(bits.iter()).flat_map(move |(bit_size, bit)| {
+            if exclude_ref.contains(&(precision_exponent as u8, bit_size as u8)) {
+                return quote! {};
+            }
+
             let test_fn_name = Ident::new(
-                &format!(
-                    "{}_{}_{}",
-                    fn_name, precision, bit
-                )
-                .to_lowercase(),
+                &format!("{}_{}_{}", fn_name, precision, bit).to_lowercase(),
                 fn_name.span(),
             );
 
@@ -280,7 +289,6 @@ pub fn test_precisions_and_bits(_attr: TokenStream, item: TokenStream) -> TokenS
     // Convert the expanded code into a token stream
     TokenStream::from(expanded)
 }
-
 
 #[proc_macro_attribute]
 pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {

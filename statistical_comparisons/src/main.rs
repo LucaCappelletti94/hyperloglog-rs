@@ -1,12 +1,10 @@
+use ahash::AHasher;
 use hyperloglog_rs::prelude::*;
+use macro_test_utils::cardinality_benchmark;
 use statistical_comparisons::enumerations::*;
 use statistical_comparisons::reports_generator::SetTester;
-use twox_hash::{XxHash64, xxh3::Hash64 as XxH3};
+use twox_hash::{xxh3::Hash64 as XxH3, XxHash64};
 use wyhash::WyHash;
-use ahash::AHasher;
-use macro_test_utils::cardinality_benchmark;
-
-
 
 #[cardinality_benchmark]
 fn main() {

@@ -1,7 +1,6 @@
 //! This module contains the code to generate the reports for the cardinality and union tests.
 use std::collections::HashSet;
 
-use test_utils::prelude::{read_csv, write_csv};
 use crate::estimation_tests::cardinality_test;
 use crate::{
     estimation_tests::{ErrorReport, PerformanceReport},
@@ -10,9 +9,14 @@ use crate::{
 use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
 use strum::IntoEnumIterator;
+use test_utils::prelude::{read_csv, write_csv};
 
-fn prepare_reports<S, T1, T2>(test_for_hashset: T1, test: T2, test_name: &str, multiprogress: &MultiProgress)
-where
+fn prepare_reports<S, T1, T2>(
+    test_for_hashset: T1,
+    test: T2,
+    test_name: &str,
+    multiprogress: &MultiProgress,
+) where
     T1: Fn(&HashSet<u64>, &MultiProgress) -> Vec<PerformanceReport>,
     T2: Fn(&S, &MultiProgress) -> Vec<PerformanceReport>,
     S: Named
@@ -106,7 +110,12 @@ pub trait SetTester:
 {
     /// Prepare the reports for the cardinality test.
     fn prepare_cardinality_reports(multiprogress: &MultiProgress) {
-        prepare_reports::<Self, _, _>(cardinality_test, cardinality_test, "cardinality", multiprogress);
+        prepare_reports::<Self, _, _>(
+            cardinality_test,
+            cardinality_test,
+            "cardinality",
+            multiprogress,
+        );
     }
 
     // /// Prepare the reports for the union test.

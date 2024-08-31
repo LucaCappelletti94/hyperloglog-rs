@@ -26,11 +26,31 @@ pub(super) const fn smallest_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
         return 8;
     }
 
-    if P::EXPONENT < 10 || P::EXPONENT == 10 && B::NUMBER_OF_BITS < 6 {
+    if P::EXPONENT + B::NUMBER_OF_BITS <= 15 {
         return 16;
     }
 
     if P::EXPONENT < 18 || P::EXPONENT == 18 && B::NUMBER_OF_BITS < 6 {
+        return 24;
+    }
+
+    32
+}
+
+const fn maximal_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
+    if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
+        return 8;
+    }
+
+    if P::EXPONENT == 4 {
+        return 16;
+    }
+
+    if P::EXPONENT < 8 {
+        return 16;
+    }
+
+    if P::EXPONENT < 12 {
         return 24;
     }
 
@@ -45,6 +65,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     type Downgraded<'a> = DowngradedIter<'a, Self>;
 
     const SMALLEST_VIABLE_HASH_BITS: u8 = smallest_viable_switch_hash::<P, B>();
+    const LARGEST_VIABLE_HASH_BITS: u8 = maximal_viable_switch_hash::<P, B>();
 
     fn downgrade_inplace<'a>(
         hashes: &'a mut [u8],
@@ -53,10 +74,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         hash_bits: u8,
         shift: u8,
     ) -> (u32, usize) {
-        assert_eq!(
-            bit_index,
-            usize::from(hash_bits) * number_of_hashes,
-        );            
+        assert_eq!(bit_index, usize::from(hash_bits) * number_of_hashes,);
 
         if shift == 0 {
             return (0, number_of_hashes * usize::from(hash_bits));
@@ -109,23 +127,31 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         hashes: &'a [u8],
         number_of_hashes: usize,
         hash_bits: u8,
+        bit_index: usize,
         shift: u8,
     ) -> Self::Downgraded<'a> {
         assert!(
             hash_bits > Self::SMALLEST_VIABLE_HASH_BITS
                 || shift == 0 && hash_bits == Self::SMALLEST_VIABLE_HASH_BITS
         );
+        assert_eq!(bit_index, number_of_hashes * usize::from(hash_bits));
         DowngradedIter::new(into_variant(hashes, number_of_hashes, hash_bits), shift)
     }
 
     #[inline]
     #[must_use]
-    fn decoded<'a>(hashes: &'a [u8], number_of_hashes: usize, hash_bits: u8) -> Self::Decoded<'a> {
+    fn decoded<'a>(
+        hashes: &'a [u8],
+        number_of_hashes: usize,
+        hash_bits: u8,
+        bit_index: usize,
+    ) -> Self::Decoded<'a> {
         assert!(
             hash_bits >= Self::SMALLEST_VIABLE_HASH_BITS,
             "The hash bits ({hash_bits}) must be greater or equal to the smallest viable hash bits ({})",
             Self::SMALLEST_VIABLE_HASH_BITS,
         );
+        assert_eq!(bit_index, number_of_hashes * usize::from(hash_bits));
         DecodedIter::from(into_variant(hashes, number_of_hashes, hash_bits))
     }
 
@@ -139,6 +165,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         register: u8,
         original_hash: u64,
         hash_bits: u8,
+        bit_index: usize,
     ) -> Result<usize, (usize, u64)> {
         find::<Self>(
             hashes,
@@ -147,6 +174,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
             register,
             original_hash,
             hash_bits,
+            bit_index,
         )
     }
 
@@ -176,11 +204,12 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     fn downgrade(hash: u64, hash_bits: u8, shift: u8) -> u64 {
         debug_assert!(hash_bits >= Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS + shift);
 
-        if Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS == hash_bits {
-            if shift > 0 {
-                unreachable!("The hash is already at the lowest precision, you cannot shift it down by {shift} bits.");
-            }
+        if shift == 0 {
             return hash;
+        }
+
+        if Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS == hash_bits {
+            unreachable!("The hash is already at the lowest precision, you cannot shift it down by {shift} bits.");
         }
 
         if flag::<Self::Precision>(hash, hash_bits) {
@@ -215,6 +244,12 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
             index < 1 << Self::Precision::EXPONENT,
             "The index ({index}) must be less than 2^({})",
             Self::Precision::EXPONENT,
+        );
+        debug_assert!(
+            hash_bits >= Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS,
+            "The hash bits ({hash_bits}) must be greater or equal to the sum of the exponent ({}) and the number of bits ({})",
+            Self::Precision::EXPONENT,
+            Self::Bits::NUMBER_OF_BITS,
         );
         // We start by encoding the index in the rightmost bits of the hash.
         let mut composite_hash = (index as u64) << (hash_bits - Self::Precision::EXPONENT);

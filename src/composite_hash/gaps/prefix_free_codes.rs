@@ -107,31 +107,20 @@ impl<const B: usize> CodeWrite for ExpGolomb<B> {
     }
 }
 
-#[derive(Default)]
-/// No prefix code.
-pub struct NoPrefixCode<const HS: u8>;
-
-impl<const HS: u8> CodeSize for NoPrefixCode<HS> {
+impl CodeSize for () {
     fn size(_: u64) -> usize {
-        usize::from(HS)
+        unreachable!("No code to size")
     }
 }
 
-impl<const HS: u8> CodeRead for NoPrefixCode<HS> {
-    fn read(reader: &mut BitReader) -> u64 {
-        let value = reader.read_bits(HS as usize);
-        debug_assert!(value.leading_zeros() >= 32, "All the considered values encoded are hashes with at most 32 bits, and therefore at least 32 leading zeros. Read an hash {value:064b} with {} leading zeros", value.leading_zeros());
-        value
+impl CodeRead for () {
+    fn read(_: &mut BitReader) -> u64 {
+        unreachable!("No code to read")
     }
 }
 
-impl<const HS: u8> CodeWrite for NoPrefixCode<HS> {
-    fn write(writer: &mut BitWriter, value: u64) -> usize {
-        debug_assert!(
-            value.leading_zeros() >= 32,
-            "All the considered values encoded are hashes with at most 32 bits, and therefore at least 32 leading zeros. Got an hash {value:064b} with {} leading zeros",
-            value.leading_zeros()
-        );
-        writer.write_bits(value, HS as usize)
+impl CodeWrite for () {
+    fn write(_: &mut BitWriter, _: u64) -> usize {
+        unreachable!("No code to write")
     }
 }

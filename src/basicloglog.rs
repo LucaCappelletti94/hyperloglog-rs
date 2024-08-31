@@ -110,11 +110,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, Hasher: HasherType> HyperLogLog
     }
 
     /// Splits a hash into a register value and an index.
-    fn insert_register_value_and_index(
-        &mut self,
-        new_register_value: u8,
-        index: usize,
-    ) -> bool {
+    fn insert_register_value_and_index(&mut self, new_register_value: u8, index: usize) -> bool {
         // Count leading zeros.
         debug_assert!(
             new_register_value <= u8::try_from(B::MASK).unwrap(),

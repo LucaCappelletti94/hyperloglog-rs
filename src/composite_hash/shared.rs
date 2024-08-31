@@ -1,9 +1,10 @@
 //! Utilities used across the composite hash submodule.
-use super::{CompositeHash, CompositeHashError};
+use super::{CompositeHash, CompositeHashError, LastBufferedBit};
 use core::slice::Iter;
 
 /// Iterator variants.
 #[allow(non_camel_case_types)]
+#[derive(Debug)]
 pub(super) enum IterVariants<'a> {
     /// Variant for 8-bit hashes.
     u8(Iter<'a, u8>),
@@ -40,7 +41,7 @@ impl<'a> From<Iter<'a, u32>> for IterVariants<'a> {
 }
 
 impl<'a> IterVariants<'a> {
-    const fn hash_bits(&self) -> u8 {
+    pub(super) const fn hash_bits(&self) -> u8 {
         match self {
             IterVariants::u8(_) => 8,
             IterVariants::u16(_) => 16,
@@ -67,12 +68,32 @@ impl Iterator for IterVariants<'_> {
     }
 }
 
+impl<'a> ExactSizeIterator for IterVariants<'a> {
+    fn len(&self) -> usize {
+        match self {
+            IterVariants::u8(iter) => iter.len(),
+            IterVariants::u16(iter) => iter.len(),
+            IterVariants::u24(iter) => iter.len(),
+            IterVariants::u32(iter) => iter.len(),
+        }
+    }
+}
+
+#[derive(Debug)]
 /// An iterator over the decoded hashes.
 pub struct DecodedIter<'a, CH: CompositeHash> {
     /// The iterator variant.
     variant: IterVariants<'a>,
+    /// The initial length of the iterator.
+    number_of_hashes: usize,
     /// The composite hash type.
     _phantom: core::marker::PhantomData<CH>,
+}
+
+impl<'a, CH: CompositeHash> LastBufferedBit for DecodedIter<'a, CH> {
+    fn last_buffered_bit(&self) -> usize {
+        (self.number_of_hashes - self.variant.len()) * usize::from(self.variant.hash_bits())
+    }
 }
 
 impl<'a, CH: CompositeHash> Iterator for DecodedIter<'a, CH> {
@@ -86,22 +107,39 @@ impl<'a, CH: CompositeHash> Iterator for DecodedIter<'a, CH> {
     }
 }
 
+impl<'a, CH: CompositeHash> ExactSizeIterator for DecodedIter<'a, CH> {
+    fn len(&self) -> usize {
+        self.variant.len()
+    }
+}
+
 impl<'a, CH: CompositeHash> From<IterVariants<'a>> for DecodedIter<'a, CH> {
     fn from(variant: IterVariants<'a>) -> Self {
         DecodedIter {
+            number_of_hashes: variant.len(),
             variant,
             _phantom: core::marker::PhantomData,
         }
     }
 }
+
+#[derive(Debug)]
 /// An iterator over the decoded hashes.
 pub struct DowngradedIter<'a, CH> {
     /// The iterator variant.
     variant: IterVariants<'a>,
     /// The number of bits to shift.
     shift: u8,
+    /// The number of hashes when the iterator is newly created.
+    number_of_hashes: usize,
     /// The composite hash type.
     _phantom: core::marker::PhantomData<CH>,
+}
+
+impl<'a, CH: CompositeHash> LastBufferedBit for DowngradedIter<'a, CH> {
+    fn last_buffered_bit(&self) -> usize {
+        (self.number_of_hashes - self.variant.len()) * usize::from(self.variant.hash_bits())
+    }
 }
 
 impl<'a, CH: CompositeHash> Iterator for DowngradedIter<'a, CH> {
@@ -114,10 +152,17 @@ impl<'a, CH: CompositeHash> Iterator for DowngradedIter<'a, CH> {
     }
 }
 
+impl<'a, CH: CompositeHash> ExactSizeIterator for DowngradedIter<'a, CH> {
+    fn len(&self) -> usize {
+        self.variant.len()
+    }
+}
+
 impl<'a, CH: CompositeHash> DowngradedIter<'a, CH> {
     /// Create a new iterator from the provided iterator and the number of bits to shift.
     pub(super) fn new(variant: IterVariants<'a>, shift: u8) -> Self {
         DowngradedIter {
+            number_of_hashes: variant.len(),
             variant,
             shift,
             _phantom: core::marker::PhantomData,
@@ -171,6 +216,7 @@ pub(super) fn find<'a, CH>(
     register: u8,
     original_hash: u64,
     hash_bits: u8,
+    bit_index: usize,
 ) -> Result<usize, (usize, u64)>
 where
     CH: CompositeHash,
@@ -179,6 +225,7 @@ where
     assert!(hash_bits == 8 || hash_bits == 16 || hash_bits == 24 || hash_bits == 32);
     assert!(hash_bits >= CH::SMALLEST_VIABLE_HASH_BITS);
     assert!(hashes.len() >= number_of_hashes * usize::from(hash_bits / 8));
+    assert!(bit_index == number_of_hashes * usize::from(hash_bits));
     let encoded_hash = CH::encode(index, register, original_hash, hash_bits);
 
     let hashes: &[u8] = &hashes[..number_of_hashes * usize::from(hash_bits / 8)];
@@ -277,14 +324,15 @@ where
         register,
         original_hash,
         hash_bits,
+        bit_index,
     ) {
-        Ok(_) => {Ok(None)},
+        Ok(_) => Ok(None),
         Err((bits, encoded_hash)) => {
-
             // We check that there is indeed no hash identical to the provided
             // encoded hash:
             debug_assert!(
-                CH::downgraded(hashes, number_of_hashes, hash_bits, 0).all(|hash| hash != encoded_hash),
+                CH::downgraded(hashes, number_of_hashes, hash_bits, bit_index, 0)
+                    .all(|hash| hash != encoded_hash),
                 "The hash ({encoded_hash}) must not be present in the hashes",
             );
 

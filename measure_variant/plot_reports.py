@@ -19,22 +19,38 @@ def plot_all():
     latest_report.sort_values(by="cardinality", inplace=True)
     reference_report.sort_values(by="cardinality", inplace=True)
 
-    fig, axs = plt.subplots(1, 1, figsize=(10, 5))
+    fig, axs = plt.subplots(2, 1, figsize=(10, 10), sharex=True, sharey=False)
 
-    axs.plot(
+    axs[0].plot(
         latest_report.cardinality,
         latest_report.relative_error,
         label="Latest"
     )
-    axs.plot(
+    axs[0].plot(
         reference_report.cardinality,
         reference_report.relative_error, label="Reference", linestyle="--", alpha=0.7
     )
 
-    axs.set_title("Relative error")
-    axs.set_xlabel("Cardinality")
-    axs.set_ylabel("Relative error")
-    axs.legend()
+    axs[0].set_title("Relative error")
+    axs[0].set_xlabel("Cardinality")
+    axs[0].set_ylabel("Relative error")
+    axs[0].legend()
+
+
+    axs[1].plot(
+        latest_report.cardinality,
+        latest_report.estimated_cardinality,
+        label="Latest"
+    )
+    axs[1].plot(
+        reference_report.cardinality,
+        reference_report.estimated_cardinality, label="Reference", linestyle="--", alpha=0.7
+    )
+
+    axs[1].set_title("Estimated cardinality")
+    axs[1].set_xlabel("Cardinality")
+    axs[1].set_ylabel("Estimated cardinality")
+    axs[1].legend()
 
     fig.tight_layout()
     fig.savefig("comparison.png")

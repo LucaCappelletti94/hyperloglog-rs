@@ -68,6 +68,8 @@ impl<
             let hash_bytes = self.hash_bytes();
             assert!(hash_bytes >= CH::SMALLEST_VIABLE_HASH_BITS / 8);
             let (index, register, original_hash) = H::hash_and_register_and_index(element);
+            let writer_tell =
+                usize::try_from(decode_writer_tell(self.inner.harmonic_sum())).unwrap();
             CH::find(
                 self.inner.registers().as_ref(),
                 self.inner.get_number_of_zero_registers().to_usize(),
@@ -75,6 +77,7 @@ impl<
                 register,
                 original_hash,
                 self.hash_bytes() * 8,
+                writer_tell,
             )
             .is_ok()
         } else {
@@ -106,7 +109,7 @@ impl<
     fn insert(&mut self, element: &T) -> bool {
         if self.is_hash_list() {
             let hash_bytes = self.hash_bytes();
-            assert!(hash_bytes >= CH::SMALLEST_VIABLE_HASH_BITS / 8);
+            assert!(hash_bytes >= CH::SMALLEST_VIABLE_HASH_BITS / 8, "Expected the number of bytes used for the hash ({hash_bytes}) to be at least equal to the smallest viable hash ({})", CH::SMALLEST_VIABLE_HASH_BITS / 8);
             let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
             let writer_tell = decode_writer_tell(self.inner.harmonic_sum());
             let hashes = self.inner.registers_mut().as_mut();
@@ -403,7 +406,6 @@ mod test_encode_decode_target_hash {
         assert_eq!(decode_target_hash(harmonic_sum), 3);
         assert_eq!(decode_duplicates(harmonic_sum), 2);
         assert_eq!(decode_writer_tell(harmonic_sum), 10);
-        
     }
 }
 
@@ -423,7 +425,7 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
         // And then we apply to it the mask of the highest Composite Hash,
         // i.e. u32. Since the total number of Composite Hash we have is 4,
         // for this one we use the number 8, and we apply the mask to it.
-        encode_target_hash(inner.harmonic_sum_mut(), 4);
+        encode_target_hash(inner.harmonic_sum_mut(), CH::LARGEST_VIABLE_HASH_BITS / 8);
 
         Self {
             inner,
@@ -433,10 +435,10 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
 
     #[inline]
     /// Returns whether the counter is in hybrid mode.
-    fn is_hash_list(&self) -> bool {
+    pub fn is_hash_list(&self) -> bool {
         self.inner.harmonic_sum().to_bits().leading_zeros() == 0
     }
-    
+
     #[inline]
     /// Returns the number of bytes currently used for the hash.
     pub fn hash_bytes(&self) -> u8 {
@@ -484,7 +486,15 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
             assert!(hash_bytes >= CH::SMALLEST_VIABLE_HASH_BITS / 8);
             let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
             let hashes = self.inner.registers().as_ref();
-            Ok(CH::downgraded(hashes, number_of_hashes, hash_bytes * 8, 0))
+            let writer_tell =
+                usize::try_from(decode_writer_tell(self.inner.harmonic_sum())).unwrap();
+            Ok(CH::downgraded(
+                hashes,
+                number_of_hashes,
+                hash_bytes * 8,
+                writer_tell,
+                0,
+            ))
         } else {
             Err("The counter is not in hash list mode.")
         }
@@ -502,10 +512,13 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
         let hash_bits = self.hash_bytes() * 8;
         let hashes = self.inner.registers().as_ref();
         let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
+        let writer_tell = usize::try_from(decode_writer_tell(self.inner.harmonic_sum())).unwrap();
 
-        CH::decoded(hashes, number_of_hashes, hash_bits).for_each(|(new_register_value, index)| {
-            new_counter.insert_register_value_and_index(new_register_value, index);
-        });
+        CH::decoded(hashes, number_of_hashes, hash_bits, writer_tell).for_each(
+            |(new_register_value, index)| {
+                new_counter.insert_register_value_and_index(new_register_value, index);
+            },
+        );
 
         *self = Self {
             inner: new_counter,
@@ -540,8 +553,15 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
                 new_duplicates,
             ))
         };
-        
-        set_writer_tell(self.inner.harmonic_sum_mut(), u32::try_from(new_writer_tell).unwrap());
+
+        set_writer_tell(
+            self.inner.harmonic_sum_mut(),
+            u32::try_from(new_writer_tell).unwrap(),
+        );
+        debug_assert_eq!(
+            decode_writer_tell(self.inner.harmonic_sum()),
+            u32::try_from(new_writer_tell).unwrap()
+        );
         add_duplicates(self.inner.harmonic_sum_mut(), new_duplicates);
         encode_target_hash(self.inner.harmonic_sum_mut(), target_hash_bits / 8);
         debug_assert_eq!(self.hash_bytes(), target_hash_bits / 8);
@@ -556,10 +576,10 @@ impl<
     #[inline]
     fn estimate_cardinality(&self) -> f64 {
         if self.is_hash_list() {
-            f64::from(
-                self.inner.get_number_of_zero_registers()
-                    + decode_duplicates(self.inner.harmonic_sum()),
-            )
+            let preliminary_estimate = self.inner.get_number_of_zero_registers()
+                + decode_duplicates(self.inner.harmonic_sum());
+
+            f64::from(preliminary_estimate)
         } else {
             self.inner.estimate_cardinality()
         }
@@ -598,18 +618,24 @@ impl<
 
                 let left_hashes = self.inner.registers().as_ref();
                 let right_hashes = other.inner.registers().as_ref();
+                let left_bit_index =
+                    usize::try_from(decode_writer_tell(self.inner.harmonic_sum())).unwrap();
+                let right_bit_index =
+                    usize::try_from(decode_writer_tell(other.inner.harmonic_sum())).unwrap();
 
                 let intersection_cardinality = f64::from(intersection_from_sorted_iterators(
                     CH::downgraded(
                         left_hashes,
                         self.inner.get_number_of_zero_registers().to_usize(),
                         left_hash_bytes * 8,
+                        left_bit_index,
                         left_shift,
                     ),
                     CH::downgraded(
                         right_hashes,
                         other.inner.get_number_of_zero_registers().to_usize(),
                         right_hash_bytes * 8,
+                        right_bit_index,
                         right_shift,
                     ),
                 ));
@@ -624,11 +650,14 @@ impl<
                 assert!(self_hash >= CH::SMALLEST_VIABLE_HASH_BITS / 8);
                 let hash_bits = self.hash_bytes() * 8;
                 let hashes = self.inner.registers().as_ref();
+                let bit_index =
+                    usize::try_from(decode_writer_tell(self.inner.harmonic_sum())).unwrap();
 
                 assert!(CH::decoded(
                     hashes,
                     self.inner.get_number_of_zero_registers().to_usize(),
-                    hash_bits
+                    hash_bits,
+                    bit_index,
                 )
                 .is_sorted_by(|a, b| { b.1 <= a.1 }));
 
@@ -637,6 +666,7 @@ impl<
                         hashes,
                         self.inner.get_number_of_zero_registers().to_usize(),
                         hash_bits,
+                        bit_index,
                     ),
                     &other.inner,
                     self_cardinality,
@@ -690,16 +720,11 @@ mod tests {
 #[cfg(test)]
 mod test_hybrid_propertis {
     use super::*;
-    use gaps::PrefixFreeCode;
     use hyperloglog_derive::test_estimator;
     use twox_hash::XxHash;
 
     #[test_estimator]
-    fn test_plusplus_hybrid_properties<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>()
-    where
-        SwitchHash<P, B>:
-            PrefixFreeCode<8> + PrefixFreeCode<16> + PrefixFreeCode<24> + PrefixFreeCode<32>,
-    {
+    fn test_plusplus_hybrid_properties<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
         let mut hybrid: Hybrid<PlusPlus<P, B, R, H>> = Default::default();
         assert!(hybrid.is_hash_list());
         assert!(hybrid.is_empty());

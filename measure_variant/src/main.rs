@@ -10,31 +10,32 @@ use test_utils::prelude::{compare_features, read_csv, write_csv};
 
 type HLL1 = Hybrid<
     PlusPlus<
-        Precision4,
-        Bits4,
-        <Precision4 as ArrayRegister<Bits4>>::Packed,
+        Precision16,
+        Bits5,
+        <Precision16 as ArrayRegister<Bits5>>::Packed,
         twox_hash::XxHash64,
     >,
-    SwitchHash<Precision4, Bits4>,
+    SwitchHash<Precision16, Bits5>,
 >;
 
 type HLL2 = Hybrid<
     PlusPlus<
-        Precision4,
-        Bits4,
-        <Precision4 as ArrayRegister<Bits4>>::Packed,
+        Precision16,
+        Bits5,
+        <Precision16 as ArrayRegister<Bits5>>::Packed,
         twox_hash::XxHash64,
     >,
-    GapHash<SwitchHash<Precision4, Bits4>>,
+    GapHash<SwitchHash<Precision16, Bits5>>,
 >;
 
-const ITERATIONS: usize = 10_000;
+const ITERATIONS: usize = 1_000;
 const MINIMUM_CARDINALITY_FOR_SAMPLING: u64 = 0;
 const MEASUREMENT_STEP: u64 = 1;
 
 #[derive(Debug, Serialize, Deserialize, Default, Copy, Clone)]
 struct Report {
     relative_error: f64,
+    estimated_cardinality: u64,
     cardinality: u64,
 }
 
@@ -42,7 +43,7 @@ struct Report {
 fn main() {
     let random_state = 7_536_558_723_694_876_u64;
 
-    let max_hashes = (1 << 4) * 4 / 6;
+    let max_hashes = (1 << 16) * 5 / 12;
     let max = (max_hashes * 2) as u64;
 
     let progress_bar = ProgressBar::new(ITERATIONS as u64);
@@ -75,6 +76,7 @@ fn main() {
                         (exact_cardinality as f64 - cardinality).abs() / exact_cardinality as f64;
                     reports.push(Report {
                         relative_error,
+                        estimated_cardinality: cardinality as u64,
                         cardinality: exact_cardinality,
                     });
                     measurement_step = 0;
@@ -90,6 +92,7 @@ fn main() {
                     (exact_cardinality as f64 - cardinality).abs() / exact_cardinality as f64;
                 reports.push(Report {
                     relative_error,
+                    estimated_cardinality: cardinality as u64,
                     cardinality: exact_cardinality,
                 });
             }

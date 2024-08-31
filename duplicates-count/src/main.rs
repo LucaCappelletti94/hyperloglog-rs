@@ -90,9 +90,9 @@ fn count_duplicates<
                 let mut duplicates_report: HashMap<(u8, u8), (f64, u64, u64)> = HashMap::new();
 
                 for value in iter_random_values::<u64>(1_000_000, None, Some(random_state)) {
-                    let starting_hash_size: Option<u8> = hll.will_downgrade_upon_new_insert().then(|| {
-                        hll.hash_bytes() * 8
-                    }); 
+                    let starting_hash_size: Option<u8> = hll
+                        .will_downgrade_upon_new_insert()
+                        .then(|| hll.hash_bytes() * 8);
                     hll.insert(&value);
 
                     if let Some(starting_hash_size) = starting_hash_size {
@@ -122,8 +122,11 @@ fn count_duplicates<
             }),
         || HashMap::new(),
         |mut acc, report| {
-            for ((starting_hash_size, downgraded_hash_size), (rate, count, total_hashes)) in report {
-                let entry = acc.entry((starting_hash_size, downgraded_hash_size)).or_insert((0.0, 0, total_hashes));
+            for ((starting_hash_size, downgraded_hash_size), (rate, count, total_hashes)) in report
+            {
+                let entry = acc
+                    .entry((starting_hash_size, downgraded_hash_size))
+                    .or_insert((0.0, 0, total_hashes));
                 entry.0 += rate;
                 entry.1 += count;
             }
@@ -134,22 +137,24 @@ fn count_duplicates<
     let path = "duplicates.csv";
 
     append_csv(
-        duplicates_report.into_iter().map(|((starting_hash_size, downgraded_hash_size), (rate_sum, count_sum, total_hashes))| {
-            let duplicates_rate = rate_sum / iterations as f64;
-            let duplicates_count = count_sum as f64 / iterations as f64;
+        duplicates_report.into_iter().map(
+            |((starting_hash_size, downgraded_hash_size), (rate_sum, count_sum, total_hashes))| {
+                let duplicates_rate = rate_sum / iterations as f64;
+                let duplicates_count = count_sum as f64 / iterations as f64;
 
-            DuplicatesReport {
-                precision: P::EXPONENT,
-                bit_size: B::NUMBER_OF_BITS,
-                starting_hash_size,
-                downgraded_hash_size,
-                hasher: hash_name::<H>().to_string(),
-                composite_hash: composite_hash_name::<CH>().to_string(),
-                average_number_of_duplicates: duplicates_rate,
-                absolute_average_number_of_duplicates: duplicates_count,
-                total_number_of_hashes: total_hashes,
-            }
-        }),
+                DuplicatesReport {
+                    precision: P::EXPONENT,
+                    bit_size: B::NUMBER_OF_BITS,
+                    starting_hash_size,
+                    downgraded_hash_size,
+                    hasher: hash_name::<H>().to_string(),
+                    composite_hash: composite_hash_name::<CH>().to_string(),
+                    average_number_of_duplicates: duplicates_rate,
+                    absolute_average_number_of_duplicates: duplicates_count,
+                    total_number_of_hashes: total_hashes,
+                }
+            },
+        ),
         path,
     );
 }

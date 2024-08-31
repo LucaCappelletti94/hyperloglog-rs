@@ -1,6 +1,5 @@
 //! Submodule loading all of the reports for a given task, one by one to avoid an excessive memory peak,
 //! and then running the statistical tests.
-use test_utils::prelude::{read_csv, write_csv};
 use crate::estimation_tests::ErrorReport;
 use core::f64;
 use indicatif::ParallelProgressIterator;
@@ -10,6 +9,7 @@ use stattest::test::StatisticalTest;
 use stattest::test::WilcoxonWTest;
 use std::iter::Sum;
 use std::ops::Div;
+use test_utils::prelude::{read_csv, write_csv};
 
 fn float_formatter<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
 where

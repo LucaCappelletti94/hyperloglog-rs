@@ -3,8 +3,8 @@
 //! competitor libraries.
 //! Evaluation of set-like properties across different data structures.
 use crate::traits::TransparentMemSize;
-use indicatif::ParallelProgressIterator;
 use hyperloglog_rs::prelude::*;
+use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
 
 #[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
@@ -48,17 +48,23 @@ impl ErrorReport {
 }
 
 fn sample_interval_by_range(cardinality: u64) -> u64 {
-    if cardinality < 1_00 { // 10
+    if cardinality < 1_00 {
+        // 10
         10
-    } else if cardinality < 1_000 { // 10
+    } else if cardinality < 1_000 {
+        // 10
         100
-    } else if cardinality < 10_000 { // 10
+    } else if cardinality < 10_000 {
+        // 10
         1000
-    } else if cardinality < 100_000 { // 10
+    } else if cardinality < 100_000 {
+        // 10
         10_000
-    } else if cardinality < 1_000_000 { // 10
+    } else if cardinality < 1_000_000 {
+        // 10
         100_000
-    } else if cardinality <= 10_000_000 { // 10
+    } else if cardinality <= 10_000_000 {
+        // 10
         1_000_000
     } else {
         unimplemented!()
@@ -83,7 +89,8 @@ pub(crate) fn cardinality_test<
         indicatif::ProgressStyle::default_bar()
             .template(&format!(
                 "{estimator_name}: [{{elapsed_precise}}] {{bar:40.cyan/blue}} {{pos:>7}}/{{len:7}}"
-            )).unwrap()
+            ))
+            .unwrap()
             .progress_chars("##-"),
     );
 
@@ -91,22 +98,26 @@ pub(crate) fn cardinality_test<
         .into_par_iter()
         .progress_with(progress_bar)
         .flat_map(|thread_number| {
-            let sequence_random_state =
-                splitmix64(splitmix64(sequence_random_state.wrapping_mul(thread_number + 1)));
-            let mut sample_index_random_state =
-                splitmix64(splitmix64(sample_index_random_state.wrapping_mul(thread_number + 1)));
+            let sequence_random_state = splitmix64(splitmix64(
+                sequence_random_state.wrapping_mul(thread_number + 1),
+            ));
+            let mut sample_index_random_state = splitmix64(splitmix64(
+                sample_index_random_state.wrapping_mul(thread_number + 1),
+            ));
             let mut performance_reports = Vec::new();
             let mut estimator = estimator.clone();
             let mut next_sample_index = sample_interval_by_range(0);
 
             for (i, element) in
-                iter_random_values::<u64>(number_of_elements, None, Some(sequence_random_state)).enumerate()
+                iter_random_values::<u64>(number_of_elements, None, Some(sequence_random_state))
+                    .enumerate()
             {
                 estimator.insert(&element);
 
-                if next_sample_index == i as u64{
+                if next_sample_index == i as u64 {
                     sample_index_random_state = splitmix64(sample_index_random_state);
-                    next_sample_index += sample_index_random_state % sample_interval_by_range(i as u64);
+                    next_sample_index +=
+                        sample_index_random_state % sample_interval_by_range(i as u64);
 
                     let start = std::time::Instant::now();
                     let prediction = estimator.estimate_cardinality();
@@ -115,7 +126,7 @@ pub(crate) fn cardinality_test<
                     performance_reports.push(PerformanceReport {
                         prediction,
                         memory_requirement: estimator.transparent_mem_size(),
-                        time_requirement
+                        time_requirement,
                     });
                 }
             }

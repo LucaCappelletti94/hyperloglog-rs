@@ -77,11 +77,7 @@ impl<
     }
 
     #[inline]
-    fn insert_register_value_and_index(
-        &mut self,
-        new_register_value: u8,
-        index: usize,
-    ) -> bool {
+    fn insert_register_value_and_index(&mut self, new_register_value: u8, index: usize) -> bool {
         self.counter
             .insert_register_value_and_index(new_register_value, index)
     }
@@ -265,8 +261,8 @@ fn mle_union_cardinality<
             let left_reciprocal = left_smaller_k
                 * (y_register[2] * y_register[0] / (z_register[2] + y_register[2] * z_register[0])
                     - 1.0);
-            let right_reciprocal = right_smaller_k
-                * (y_register[2] * y_register[1] / zj_plus_yjoint_zright - 1.0);
+            let right_reciprocal =
+                right_smaller_k * (y_register[2] * y_register[1] / zj_plus_yjoint_zright - 1.0);
 
             let delta = [
                 left_reciprocal
@@ -366,10 +362,7 @@ impl<const N: usize, T: Default + Copy + Add<T, Output = T>> ElementWiseAddition
 }
 
 impl<const ERROR: i32, H: Correction> Correction for MLE<H, ERROR> {
-    fn correction(
-        harmonic_sum: f64,
-        number_of_zero_registers: u32,
-    ) -> f64 {
+    fn correction(harmonic_sum: f64, number_of_zero_registers: u32) -> f64 {
         H::correction(harmonic_sum, number_of_zero_registers)
     }
 }

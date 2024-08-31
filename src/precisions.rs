@@ -10,7 +10,18 @@ use core::fmt::Debug;
 #[cfg(feature = "mem_dbg")]
 use mem_dbg::{MemDbg, MemSize};
 
-use crate::utils::{FloatOps, Number, One, PositiveInteger, VariableWord};
+use crate::utils::{
+    linear_counting_correction, FloatOps, Number, One, PositiveInteger, VariableWord,
+};
+
+#[cfg(all(
+    not(feature = "std_ln"),
+    any(
+        all(feature = "beta", not(feature = "precomputed_beta")),
+        feature = "plusplus"
+    )
+))]
+use crate::utils::LN_VALUES;
 
 #[cfg(feature = "plusplus")]
 use crate::utils::Two;
@@ -26,15 +37,6 @@ include!(concat!(env!("OUT_DIR"), "/weights.rs"));
 
 #[cfg(feature = "zero_count_correction")]
 include!(concat!(env!("OUT_DIR"), "/linear_count_zeros.rs"));
-
-#[cfg(all(
-    not(feature = "std_ln"),
-    any(
-        all(feature = "beta", not(feature = "precomputed_beta")),
-        feature = "plusplus"
-    )
-))]
-include!(concat!(env!("OUT_DIR"), "/ln_values.rs"));
 
 #[cfg(all(feature = "beta", not(feature = "precomputed_beta")))]
 include!(concat!(env!("OUT_DIR"), "/beta.rs"));
@@ -186,7 +188,7 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     fn beta_estimate(harmonic_sum: f64, number_of_zero_registers: u32) -> f64 {
         #[cfg(feature = "zero_count_correction")]
         if number_of_zero_registers >= Self::LINEAR_COUNT_ZEROS {
-            return Self::small_correction(number_of_zero_registers);
+            return Self::linear_counting_correction(number_of_zero_registers);
         }
         #[cfg(not(feature = "precomputed_beta"))]
         let beta_horner = {
@@ -215,17 +217,8 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     #[inline]
     #[must_use]
     #[cfg(feature = "zero_count_correction")]
-    fn small_correction(number_of_zero_registers: u32) -> f64 {
-        #[cfg(not(feature = "std_ln"))]
-        return f64::integer_exp2(Self::EXPONENT)
-            * (f64::from(Self::EXPONENT) * core::f64::consts::LN_2
-                - LN_VALUES[number_of_zero_registers.to_usize()]);
-        #[cfg(feature = "std_ln")]
-        return f64::integer_exp2(Self::EXPONENT)
-            * f64::ln_1p(
-                (f64::from((1 << Self::EXPONENT) - number_of_zero_registers))
-                    / f64::from(number_of_zero_registers),
-            );
+    fn linear_counting_correction(number_of_zero_registers: u32) -> f64 {
+        linear_counting_correction(Self::EXPONENT, number_of_zero_registers)
     }
 
     #[must_use]
@@ -257,7 +250,7 @@ pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
     fn plusplus_estimate(harmonic_sum: f64, number_of_zeros: u32) -> f64 {
         #[cfg(feature = "zero_count_correction")]
         if number_of_zeros >= Self::LINEAR_COUNT_ZEROS {
-            return Self::small_correction(number_of_zeros);
+            return Self::linear_counting_correction(number_of_zeros);
         }
 
         let estimate =

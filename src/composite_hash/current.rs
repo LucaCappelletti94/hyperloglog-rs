@@ -36,6 +36,22 @@ const fn smallest_viable_hash<P: Precision, B: Bits>() -> u8 {
     32
 }
 
+const fn largest_viable_hash<P: Precision, B: Bits>() -> u8 {
+    if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
+        return 8;
+    }
+
+    if P::EXPONENT + B::NUMBER_OF_BITS + 2 <= 16 {
+        return 16;
+    }
+
+    if P::EXPONENT + B::NUMBER_OF_BITS + 4 <= 24 {
+        return 24;
+    }
+
+    32
+}
+
 impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
     type Precision = P;
     type Bits = B;
@@ -49,23 +65,31 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
         hashes: &'a [u8],
         number_of_hashes: usize,
         hash_bits: u8,
+        bit_index: usize,
         shift: u8,
     ) -> Self::Downgraded<'a> {
         assert!(
             hash_bits > Self::SMALLEST_VIABLE_HASH_BITS
                 || shift == 0 && hash_bits == Self::SMALLEST_VIABLE_HASH_BITS
         );
+        assert_eq!(bit_index, number_of_hashes * usize::from(hash_bits));
         DowngradedIter::new(into_variant(hashes, number_of_hashes, hash_bits), shift)
     }
 
     #[inline]
     #[must_use]
-    fn decoded<'a>(hashes: &'a [u8], number_of_hashes: usize, hash_bits: u8) -> Self::Decoded<'a> {
+    fn decoded<'a>(
+        hashes: &'a [u8],
+        number_of_hashes: usize,
+        hash_bits: u8,
+        bit_index: usize,
+    ) -> Self::Decoded<'a> {
         assert!(
             hash_bits >= Self::SMALLEST_VIABLE_HASH_BITS,
             "The hash bits ({hash_bits}) must be greater or equal to the smallest viable hash bits ({})",
             Self::SMALLEST_VIABLE_HASH_BITS,
         );
+        assert_eq!(bit_index, number_of_hashes * usize::from(hash_bits));
         DecodedIter::from(into_variant(hashes, number_of_hashes, hash_bits))
     }
 
@@ -141,6 +165,7 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
         register: u8,
         original_hash: u64,
         hash_bits: u8,
+        bit_index: usize,
     ) -> Result<usize, (usize, u64)> {
         find::<Self>(
             hashes,
@@ -149,6 +174,7 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
             register,
             original_hash,
             hash_bits,
+            bit_index,
         )
     }
 
@@ -225,6 +251,7 @@ impl<P: Precision, B: Bits> CompositeHash for CurrentHash<P, B> {
     }
 
     const SMALLEST_VIABLE_HASH_BITS: u8 = smallest_viable_hash::<P, B>();
+    const LARGEST_VIABLE_HASH_BITS: u8 = largest_viable_hash::<P, B>();
 }
 
 #[cfg(test)]

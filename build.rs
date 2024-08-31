@@ -418,7 +418,7 @@ fn write_ln_values(precisions: &[usize]) {
         maximal_number_of_registers.format_with_precision(0);
 
     let ln_values = format!(
-        "use core::f64::consts::{{LN_2, LN_10}};\n\n/// Precomputed natural log values for no-std log computations. \nstatic LN_VALUES: [f64; {formatted_maximal_number_of_registers}] = [\n{}\n];",
+        "use core::f64::consts::{{LN_2, LN_10}};\n\n/// Precomputed natural log values for no-std log computations. \npub(crate) static LN_VALUES: [f64; {formatted_maximal_number_of_registers}] = [\n{}\n];",
         (0..maximal_number_of_registers)
             .map(|x| if x > 0 {
                 format!("    {},", (x as f64).ln().format_with_precision(12))

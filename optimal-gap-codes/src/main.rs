@@ -14,6 +14,8 @@ use quote::quote;
 use syn::{File, Ident};
 
 use dsi_bitstream::prelude::{Code, CodesStats};
+#[cfg(feature = "prefix_free_codes")]
+use hyperloglog_rs::composite_hash::GapHash;
 use hyperloglog_rs::composite_hash::{current::CurrentHash, switch::SwitchHash, CompositeHash};
 use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
@@ -22,6 +24,7 @@ use rayon::prelude::*;
 use serde::Serialize;
 use serde::{Deserialize, Serializer};
 use std::collections::HashMap;
+use std::u64;
 use test_utils::prelude::{append_csv, read_csv, write_csv};
 use twox_hash::XxHash64;
 
@@ -32,7 +35,7 @@ where
     serializer.serialize_str(&format!("{value:.4}"))
 }
 
-type CS = CodesStats<50, 50, 50, 50, 50>;
+type CS = CodesStats<32, 32, 32, 32, 32>;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
 /// Report of the gap between subsequent hashes in the Listhash variant of HyperLogLog.
@@ -45,24 +48,18 @@ struct GapReport {
     /// The number of bits used for the hash in the hash list variant
     /// of the HyperLogLog.
     hash_size: u8,
-    /// The hasher used in the HyperLogLog.
-    hasher: String,
     /// The composite hash approach used to encode index and registers
     /// in the HyperLogLog.
     composite_hash: String,
     /// The optimal code identified to encode this particular parametrization
     /// of HashList HyperLogLog
     code: String,
-    /// The space usage of the optimal code.
-    space_usage: u64,
-    /// The uncompressed space usage if no code was used.
-    uncompressed_space_usage: u64,
     /// The rate of the optimal code.
     #[serde(serialize_with = "float_formatter")]
     rate: f64,
     /// Mean encoded gap size in bits.
     #[serde(serialize_with = "float_formatter")]
-    mean_gap_size: f64,
+    mean_compressed_size: f64,
     /// The number of hashes that can fit without the optimal code.
     number_of_hashes: u64,
     /// The number of hashes that can fit with the optimal code.
@@ -73,15 +70,7 @@ struct GapReport {
 }
 
 impl GapReport {
-    fn as_prefix_free_code_impl(&self) -> TokenStream {
-        let precision = Ident::new(
-            &format!("Precision{}", self.precision),
-            proc_macro2::Span::call_site(),
-        );
-        let bits = Ident::new(
-            &format!("Bits{}", self.bit_size),
-            proc_macro2::Span::call_site(),
-        );
+    fn code_token_stream(&self) -> TokenStream {
         let code = Ident::new(
             &self.code.split("(").next().unwrap(),
             proc_macro2::Span::call_site(),
@@ -102,49 +91,114 @@ impl GapReport {
             quote! { #code }
         };
 
-        let hash_size = self.hash_size;
-        let composite_hash = Ident::new(&self.composite_hash, proc_macro2::Span::call_site());
-
-        let precision_flag = format!("precision_{}", self.precision);
-
-        quote! {
-            #[cfg(feature = #precision_flag)]
-            impl super::PrefixFreeCode<#hash_size> for crate::composite_hash::#composite_hash<crate::precisions::#precision, crate::bits::#bits> {
-                type Code = super::prefix_free_codes::#code;
-            }
-        }
-    }
-
-    fn as_test_only_prefix_free_code_impl(
-        precision: u8,
-        bit_size: u8,
-        hash_size: u8,
-        composite_hash: &str,
-    ) -> TokenStream {
-        let bits = Ident::new(&format!("Bits{}", bit_size), proc_macro2::Span::call_site());
-
-        let hash_size = hash_size;
-        let composite_hash = Ident::new(&composite_hash, proc_macro2::Span::call_site());
-
-        let precision_flag = format!("precision_{}", precision);
-        let precision = Ident::new(
-            &format!("Precision{}", precision),
-            proc_macro2::Span::call_site(),
-        );
-
-        quote! {
-            #[cfg(feature = #precision_flag)]
-            #[cfg(test)]
-            impl super::PrefixFreeCode<#hash_size> for crate::composite_hash::#composite_hash<crate::precisions::#precision, crate::bits::#bits> {
-                type Code = super::prefix_free_codes::NoPrefixCode<#hash_size>;
-            }
-        }
+        quote! { super::prefix_free_codes::#code }
     }
 }
 
-/// Normalized the name of a hasher type.
-fn hash_name<H>() -> &'static str {
-    core::any::type_name::<H>().split("::").last().unwrap()
+fn as_prefix_free_code_impl(
+    gap_report_u8: Option<GapReport>,
+    gap_report_u16: Option<GapReport>,
+    gap_report_u24: Option<GapReport>,
+    gap_report_u32: Option<GapReport>,
+) -> TokenStream {
+    // We check that at least one of the gap reports is not None.
+    if gap_report_u8.is_none()
+        && gap_report_u16.is_none()
+        && gap_report_u24.is_none()
+        && gap_report_u32.is_none()
+    {
+        panic!("At least one gap report must be provided.");
+    }
+
+    // Gap report u8 must have hash size u8.
+    if let Some(gap_report) = gap_report_u8.as_ref() {
+        if gap_report.hash_size != 8 {
+            panic!("Gap report u8 must have hash size 8.");
+        }
+    }
+    // Gap report u16 must have hash size u16.
+    if let Some(gap_report) = gap_report_u16.as_ref() {
+        if gap_report.hash_size != 16 {
+            panic!("Gap report u16 must have hash size 16.");
+        }
+    }
+    // Gap report u24 must have hash size u24.
+    if let Some(gap_report) = gap_report_u24.as_ref() {
+        if gap_report.hash_size != 24 {
+            panic!("Gap report u24 must have hash size 24.");
+        }
+    }
+    // Gap report u32 must have hash size u32.
+    if let Some(gap_report) = gap_report_u32.as_ref() {
+        if gap_report.hash_size != 32 {
+            panic!("Gap report u32 must have hash size 32.");
+        }
+    }
+
+    // We get the first report that is not None.
+    let gap_report: &GapReport = gap_report_u8
+        .as_ref()
+        .or(gap_report_u16.as_ref())
+        .or(gap_report_u24.as_ref())
+        .or(gap_report_u32.as_ref())
+        .unwrap();
+
+    // We check that all gap reports have the same precision and bit size.
+    for maybe_gap_report in [
+        &gap_report_u8,
+        &gap_report_u16,
+        &gap_report_u24,
+        &gap_report_u32,
+    ] {
+        if let Some(maybe_gap_report) = maybe_gap_report {
+            if gap_report.precision != maybe_gap_report.precision
+                || gap_report.bit_size != maybe_gap_report.bit_size
+                || gap_report.composite_hash != maybe_gap_report.composite_hash
+            {
+                panic!("All gap reports must have the same precision and bit size.");
+            }
+        }
+    }
+
+    let precision = Ident::new(
+        &format!("Precision{}", gap_report.precision),
+        proc_macro2::Span::call_site(),
+    );
+    let bits = Ident::new(
+        &format!("Bits{}", gap_report.bit_size),
+        proc_macro2::Span::call_site(),
+    );
+
+    let code_u8 = gap_report_u8
+        .as_ref()
+        .map(|gap_report| gap_report.code_token_stream())
+        .unwrap_or_else(|| quote! { () });
+    let code_u16 = gap_report_u16
+        .as_ref()
+        .map(|gap_report| gap_report.code_token_stream())
+        .unwrap_or_else(|| quote! { () });
+    let code_u24 = gap_report_u24
+        .as_ref()
+        .map(|gap_report| gap_report.code_token_stream())
+        .unwrap_or_else(|| quote! { () });
+    let code_u32 = gap_report_u32
+        .as_ref()
+        .map(|gap_report| gap_report.code_token_stream())
+        .unwrap_or_else(|| quote! { () });
+
+    let composite_hash = Ident::new(&gap_report.composite_hash, proc_macro2::Span::call_site());
+
+    let precision_flag = format!("precision_{}", gap_report.precision);
+
+    quote! {
+        #[cfg(feature = #precision_flag)]
+        impl super::PrefixFreeCode for crate::composite_hash::#composite_hash<crate::precisions::#precision, crate::bits::#bits> {
+            type Code8 = #code_u8;
+            type Code16 = #code_u16;
+            type Code24 = #code_u24;
+            type Code32 = #code_u32;
+        }
+    }
 }
 
 /// Normalized the name of a composite hash type.
@@ -174,14 +228,13 @@ fn optimal_gap_codes<
         if reports.iter().any(|report| {
             report.precision == P::EXPONENT
                 && report.bit_size == B::NUMBER_OF_BITS
-                && report.hasher == hash_name::<H>()
                 && report.composite_hash == composite_hash_name::<CH>()
         }) {
             return;
         }
     }
 
-    let iterations = 20_000;
+    let iterations = 1_000;
     let hll = Hybrid::<PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, H>, CH>::default();
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));
@@ -201,48 +254,57 @@ fn optimal_gap_codes<
             .map(|i| {
                 let random_state = splitmix64(random_state.wrapping_mul(i + 1));
                 let mut hll = hll.clone();
+                let mut count: HashMap<u32, u32> = HashMap::new();
+                let mut total_count = 0;
+                let mut hash_bytes = hll.hash_bytes();
                 let mut gap_report: HashMap<u8, (CS, u64)> = HashMap::new();
 
                 for value in iter_random_values::<u64>(1_000_000, None, Some(random_state)) {
-                    hll.insert(&value);
-
-                    if hll.will_downgrade_upon_new_insert() {
-                        // We measure the hash at this point, which are sorted in
-                        // descending order.
-                        let hash_size = hll.hash_bytes() * 8;
-                        let mut last_hash: Option<u64> = None;
-                        for hash in hll.hashes().unwrap() {
-                            let entry = gap_report
-                                .entry(hash_size)
-                                .or_insert_with(|| (CS::default(), 0));
-                            entry.1 += 1;
-                            if last_hash.is_none() {
-                                last_hash = Some(hash);
-                                continue;
-                            }
-                            let gap = last_hash.map(|last_hash| last_hash - hash - 1).unwrap();
-                            entry.0.update(gap);
-                            last_hash = Some(hash);
-                        }
+                    if !hll.insert(&value) {
+                        continue;
                     }
-                    if hll.will_dehybridize_upon_new_insert() {
-                        // We measure the hash at this point.
-                        let hash_size = hll.hash_bytes() * 8;
-                        let mut last_hash: Option<u64> = None;
-                        for hash in hll.hashes().unwrap() {
-                            let entry = gap_report
-                                .entry(hash_size)
-                                .or_insert_with(|| (CS::default(), 0));
-                            entry.1 += 1;
-                            if last_hash.is_none() {
-                                last_hash = Some(hash);
-                                continue;
-                            }
-                            let gap = last_hash.map(|last_hash| last_hash - hash - 1).unwrap();
-                            entry.0.update(gap);
-                            last_hash = Some(hash);
+
+                    if hash_bytes != hll.hash_bytes() || !hll.is_hash_list() {
+                        let mut stats = CS::default();
+
+                        for (gap, count) in count.iter() {
+                            stats.update_many(u64::from(*gap), u64::from(*count));
                         }
-                        break;
+
+                        gap_report.insert(hash_bytes * 8, (stats, total_count));
+                        count.clear();
+
+                        if !hll.is_hash_list() {
+                            break;
+                        }
+
+                        hash_bytes = hll.hash_bytes();
+                        total_count = 0;
+                    }
+
+                    let number_of_hashes = hll.hashes().unwrap().len();
+                    let saturation_level = (1 << P::EXPONENT) * usize::from(B::NUMBER_OF_BITS)
+                        / usize::from(hll.hash_bytes() * 8);
+
+                    // If we have not yet reached saturation, we do not care about compressing
+                    // these gaps as they will not be yet needed nor the gap themselves will be
+                    // uniformely distributed.
+                    if number_of_hashes < saturation_level {
+                        continue;
+                    }
+
+                    // We measure the hash at this point, which are sorted in
+                    // descending order.
+                    let mut last_hash = u64::MAX;
+                    for hash in hll.hashes().unwrap() {
+                        total_count += 1;
+                        if last_hash == u64::MAX {
+                            last_hash = hash;
+                            continue;
+                        }
+                        let gap = last_hash - hash - 1;
+                        last_hash = hash;
+                        *count.entry(gap as u32).or_insert(0) += 1;
                     }
                 }
 
@@ -263,28 +325,28 @@ fn optimal_gap_codes<
 
     append_csv(
         gaps.iter().map(|(hash_size, (gap_report, total))| {
-            let (code, mut space_usage): (Code, u64) = gap_report.best_code();
+            let (code, space_usage): (Code, u64) = gap_report.best_code();
 
-            space_usage += u64::from(*hash_size) * iterations as u64;
-            let uncompressed_space_usage = u64::from(*hash_size) * *total as u64;
-            let rate = space_usage as f64 / uncompressed_space_usage as f64;
-            let mean_gap_size = space_usage as f64 / *total as f64;
-            let number_of_hashes = *total / iterations;
-            let number_of_hashes_with_code =
-                (uncompressed_space_usage as f64 / mean_gap_size / iterations as f64) as u64;
-            let extra_hashes = number_of_hashes_with_code.saturating_sub(number_of_hashes);
+            // We always represent the first hash as-is, not as an encoded gap.
+            let mean_compressed_size =
+                (f64::from(*hash_size) * iterations as f64 + space_usage as f64) / *total as f64;
+            let number_of_hashes = (1_u64 << P::EXPONENT)
+                * u64::try_from(B::NUMBER_OF_BITS_USIZE).unwrap()
+                / u64::from(*hash_size);
+            let rate = mean_compressed_size / f64::from(*hash_size);
+            let number_of_hashes_with_code = ((1_u64 << P::EXPONENT)
+                * u64::try_from(B::NUMBER_OF_BITS_USIZE).unwrap())
+                / (mean_compressed_size as u64);
+            let extra_hashes = (number_of_hashes_with_code as u64).saturating_sub(number_of_hashes);
 
             GapReport {
                 precision: P::EXPONENT,
                 bit_size: B::NUMBER_OF_BITS,
                 hash_size: *hash_size,
-                hasher: hash_name::<H>().to_string(),
                 composite_hash: composite_hash_name::<CH>().to_string(),
                 code: code.to_string(),
-                space_usage,
-                uncompressed_space_usage,
                 rate,
-                mean_gap_size,
+                mean_compressed_size,
                 number_of_hashes,
                 number_of_hashes_with_code,
                 extra_hashes,
@@ -404,7 +466,7 @@ fn main() {
         .filter(|report| {
             // If the report shows that the optimal code achieves less than 1 extra hash, we do not
             // generate the implementation.
-            report.extra_hashes > 0
+            report.extra_hashes > 1
         })
         .fold(HashMap::new(), |mut acc, report| {
             let key = (
@@ -417,33 +479,40 @@ fn main() {
             acc
         });
 
-    let valid_impls = reports
-        .iter()
-        .map(|(_, report)| report.as_prefix_free_code_impl());
+    let mut valid_impls = Vec::new();
 
-    let test_impls = (4..=18)
-        .flat_map(|precision| [4, 5, 6].map(|bits| (precision, bits)))
-        .flat_map(|(precision, bits)| [8, 16, 24, 32].map(|hash_size| (precision, bits, hash_size)))
-        .flat_map(|(precision, bits, hash_size)| {
-            ["CurrentHash", "SwitchHash"]
-                .map(move |composite_hash| (precision, bits, hash_size, composite_hash))
-        })
-        .filter(|(precision, bits, hash_size, composite_hash)| {
-            !reports.contains_key(&(*precision, *bits, *hash_size, composite_hash.to_string()))
-        })
-        .map(|(precision, bits, hash_size, composite_hash)| {
-            GapReport::as_test_only_prefix_free_code_impl(
-                precision,
-                bits,
-                hash_size,
-                composite_hash,
-            )
-        });
+    for precision in 4_u8..=18 {
+        for bit_size in 4_u8..=6 {
+            for composite_hash in ["CurrentHash", "SwitchHash"] {
+                let gap_report_u8 =
+                    reports.get(&(precision, bit_size, 8, composite_hash.to_string()));
+                let gap_report_u16 =
+                    reports.get(&(precision, bit_size, 16, composite_hash.to_string()));
+                let gap_report_u24 =
+                    reports.get(&(precision, bit_size, 24, composite_hash.to_string()));
+                let gap_report_u32 =
+                    reports.get(&(precision, bit_size, 32, composite_hash.to_string()));
+
+                if gap_report_u8.is_none()
+                    && gap_report_u16.is_none()
+                    && gap_report_u24.is_none()
+                    && gap_report_u32.is_none()
+                {
+                    continue;
+                }
+
+                valid_impls.push(as_prefix_free_code_impl(
+                    gap_report_u8.cloned(),
+                    gap_report_u16.cloned(),
+                    gap_report_u24.cloned(),
+                    gap_report_u32.cloned(),
+                ));
+            }
+        }
+    }
 
     let output = quote! {
         #(#valid_impls)*
-
-        #(#test_impls)*
     };
 
     // We write out the output token stream to '../src/composite_hash/gaps/optimal_codes.rs'.

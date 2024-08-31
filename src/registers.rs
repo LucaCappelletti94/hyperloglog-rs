@@ -23,15 +23,7 @@ impl<B: Bits> RegisterWord<B> for u64 {
 
 /// Trait marker for the registers.
 pub trait Registers<P: Precision, B: Bits>:
-    Eq
-    + PartialEq
-    + Clone
-    + Debug
-    + Send
-    + Sync
-    + Default
-    + AsMut<[u8]>
-    + AsRef<[u8]>
+    Eq + PartialEq + Clone + Debug + Send + Sync + Default + AsMut<[u8]> + AsRef<[u8]>
 {
     /// Iterator over the registers.
     type Iter<'register>: ExactSizeIterator<Item = u8>

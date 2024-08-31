@@ -3,14 +3,34 @@ pub struct BitReader<'a> {
     data: &'a [u32],
     word_idx: usize,
     buffer: u64,
-    look_ahead: [u32; 150],
+    look_ahead: [u32; 10],
     look_ahead_size: usize,
     bits_in_buffer: usize,
 }
 
+impl<'a> From<BitReader<'a>> for &'a [u32] {
+    #[inline(always)]
+    fn from(iter: BitReader<'a>) -> Self {
+        iter.data
+    }
+}
+
+impl<'a> From<BitReader<'a>> for &'a [u8] {
+    #[inline(always)]
+    #[allow(unsafe_code)]
+    fn from(iter: BitReader<'a>) -> Self {
+        unsafe {
+            core::slice::from_raw_parts(
+                iter.data.as_ptr() as *const u8,
+                iter.data.len() * core::mem::size_of::<u32>(),
+            )
+        }
+    }
+}
+
 impl<'a> BitReader<'a> {
     pub fn new(data: &'a [u32]) -> Self {
-        let mut look_ahead: [u32; 150] = [0; 150];
+        let mut look_ahead: [u32; 10] = [0; 10];
 
         let look_ahead_size = core::cmp::min(look_ahead.len(), data.len());
 
