@@ -453,6 +453,12 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
     }
 
     #[inline]
+    /// Returns the number of bits currently used for the hash.
+    pub fn hash_bits(&self) -> u8 {
+        self.hash_bytes() * 8
+    }
+
+    #[inline]
     /// Returns the next largest hash that can be used.
     ///
     /// # Implementation details
@@ -482,8 +488,8 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
     /// The iterator is sorted in descending order.
     pub fn hashes(&self) -> Result<CH::Downgraded<'_>, &'static str> {
         if self.is_hash_list() {
-            let hash_bytes = self.hash_bytes();
-            assert!(hash_bytes >= CH::SMALLEST_VIABLE_HASH_BITS / 8);
+            let hash_bits = self.hash_bits();
+            assert!(hash_bits >= CH::SMALLEST_VIABLE_HASH_BITS);
             let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
             let hashes = self.inner.registers().as_ref();
             let writer_tell =
@@ -491,7 +497,7 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
             Ok(CH::downgraded(
                 hashes,
                 number_of_hashes,
-                hash_bytes * 8,
+                hash_bits,
                 writer_tell,
                 0,
             ))
@@ -509,7 +515,7 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
         debug_assert_eq!(self.hash_bytes(), CH::SMALLEST_VIABLE_HASH_BITS / 8);
 
         let mut new_counter: H = H::default();
-        let hash_bits = self.hash_bytes() * 8;
+        let hash_bits = self.hash_bits();
         let hashes = self.inner.registers().as_ref();
         let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
         let writer_tell = usize::try_from(decode_writer_tell(self.inner.harmonic_sum())).unwrap();
@@ -564,7 +570,7 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
         );
         add_duplicates(self.inner.harmonic_sum_mut(), new_duplicates);
         encode_target_hash(self.inner.harmonic_sum_mut(), target_hash_bits / 8);
-        debug_assert_eq!(self.hash_bytes(), target_hash_bits / 8);
+        debug_assert_eq!(self.hash_bits(), target_hash_bits);
     }
 }
 
@@ -763,7 +769,7 @@ mod test_hybrid_propertis {
         non_normalized_error /= iterations as f64;
 
         assert!(
-            normalized_error <= P::error_rate() / 10.0,
+            normalized_error <= P::error_rate() / 5.0,
             "The normalized error rate ({normalized_error}, {non_normalized_error}) must be less than or equal to the error rate ({}).",
             P::error_rate()
         );

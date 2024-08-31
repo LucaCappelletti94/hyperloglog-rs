@@ -6,21 +6,21 @@ use hyperloglog_rs::prelude::*;
 
 type Switch = Hybrid<
     PlusPlus<
-        Precision10,
+        Precision12,
         Bits5,
-        <Precision10 as ArrayRegister<Bits5>>::Packed,
+        <Precision12 as ArrayRegister<Bits5>>::Packed,
         twox_hash::XxHash64,
     >,
-    SwitchHash<Precision10, Bits5>,
+    SwitchHash<Precision12, Bits5>,
 >;
 type Gap = Hybrid<
     PlusPlus<
-        Precision10,
+        Precision12,
         Bits5,
-        <Precision10 as ArrayRegister<Bits5>>::Packed,
+        <Precision12 as ArrayRegister<Bits5>>::Packed,
         twox_hash::XxHash64,
     >,
-    GapHash<SwitchHash<Precision10, Bits5>>,
+    GapHash<SwitchHash<Precision12, Bits5>>,
 >;
 
 fn bench_hash_list_insert(c: &mut Criterion) {

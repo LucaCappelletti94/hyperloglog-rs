@@ -14,7 +14,6 @@ use quote::quote;
 use syn::{File, Ident};
 
 use dsi_bitstream::prelude::{Code, CodesStats};
-#[cfg(feature = "prefix_free_codes")]
 use hyperloglog_rs::composite_hash::GapHash;
 use hyperloglog_rs::composite_hash::{current::CurrentHash, switch::SwitchHash, CompositeHash};
 use hyperloglog_rs::prelude::*;
@@ -205,7 +204,7 @@ fn as_prefix_free_code_impl(
 fn composite_hash_name<CH>() -> &'static str {
     core::any::type_name::<CH>()
         .split("<")
-        .next()
+        .nth(1)
         .unwrap()
         .split("::")
         .last()
@@ -234,7 +233,7 @@ fn optimal_gap_codes<
         }
     }
 
-    let iterations = 1_000;
+    let iterations = 100;
     let hll = Hybrid::<PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, H>, CH>::default();
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));
@@ -372,9 +371,9 @@ macro_rules! generate_optimal_gap_codes {
         progress_bar.tick();
 
         $(
-            optimal_gap_codes::<$precision, $bit_size, $hasher, CurrentHash<$precision, $bit_size>>($multiprogress);
+            optimal_gap_codes::<$precision, $bit_size, $hasher, GapHash<CurrentHash<$precision, $bit_size>>>($multiprogress);
             progress_bar.inc(1);
-            optimal_gap_codes::<$precision, $bit_size, $hasher, SwitchHash<$precision, $bit_size>>($multiprogress);
+            optimal_gap_codes::<$precision, $bit_size, $hasher, GapHash<SwitchHash<$precision, $bit_size>>>($multiprogress);
             progress_bar.inc(1);
         )*
 
@@ -433,8 +432,8 @@ fn main() {
     let multiprogress = &MultiProgress::new();
     generate_optimal_gap_codes_for_precisions!(
         multiprogress,
-        Precision4,
-        Precision5,
+        // Precision4,
+        // Precision5,
         Precision6,
         Precision7,
         Precision8,

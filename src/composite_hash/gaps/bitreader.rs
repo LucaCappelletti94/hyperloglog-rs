@@ -3,8 +3,6 @@ pub struct BitReader<'a> {
     data: &'a [u32],
     word_idx: usize,
     buffer: u64,
-    look_ahead: [u32; 10],
-    look_ahead_size: usize,
     bits_in_buffer: usize,
 }
 
@@ -30,18 +28,10 @@ impl<'a> From<BitReader<'a>> for &'a [u8] {
 
 impl<'a> BitReader<'a> {
     pub fn new(data: &'a [u32]) -> Self {
-        let mut look_ahead: [u32; 10] = [0; 10];
-
-        let look_ahead_size = core::cmp::min(look_ahead.len(), data.len());
-
-        look_ahead[..look_ahead_size].copy_from_slice(&data[..look_ahead_size]);
-
         Self {
             data,
             word_idx: 0,
             buffer: 0,
-            look_ahead,
-            look_ahead_size,
             bits_in_buffer: 0,
         }
     }
@@ -53,23 +43,13 @@ impl<'a> BitReader<'a> {
 
     /// Returns the position of the last bit that has been positioned in the read buffer.
     pub fn last_buffered_bit_position(&self) -> usize {
-        debug_assert!(self.word_idx + self.look_ahead_size <= self.data.len());
-        (self.word_idx + self.look_ahead_size) * 32 + self.bits_in_buffer
+        self.word_idx * 32 + self.bits_in_buffer
     }
 
     /// Returns the new word.
     fn new_word(&mut self) -> u32 {
-        let new_word = self.look_ahead[0];
-
-        self.look_ahead.rotate_left(1);
+        let new_word = self.data[self.word_idx];
         self.word_idx += 1;
-
-        if self.word_idx + self.look_ahead.len() <= self.data.len() {
-            self.look_ahead[self.look_ahead.len() - 1] =
-                self.data[self.word_idx + self.look_ahead.len() - 1];
-        } else {
-            self.look_ahead_size -= 1;
-        }
 
         new_word.to_be()
     }

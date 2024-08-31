@@ -324,7 +324,7 @@ for crate::composite_hash::SwitchHash<
     crate::bits::Bits6,
 > {
     type Code8 = ();
-    type Code16 = super::prefix_free_codes::Rice<8usize>;
+    type Code16 = super::prefix_free_codes::Rice<7usize>;
     type Code24 = super::prefix_free_codes::Rice<16usize>;
     type Code32 = ();
 }
@@ -369,7 +369,7 @@ for crate::composite_hash::SwitchHash<
 > {
     type Code8 = ();
     type Code16 = super::prefix_free_codes::Rice<7usize>;
-    type Code24 = super::prefix_free_codes::Rice<16usize>;
+    type Code24 = super::prefix_free_codes::Rice<15usize>;
     type Code32 = ();
 }
 #[cfg(feature = "precision_10")]
@@ -390,7 +390,7 @@ for crate::composite_hash::SwitchHash<
     crate::bits::Bits6,
 > {
     type Code8 = ();
-    type Code16 = ();
+    type Code16 = super::prefix_free_codes::Rice<6usize>;
     type Code24 = super::prefix_free_codes::Rice<15usize>;
     type Code32 = ();
 }
@@ -501,7 +501,7 @@ for crate::composite_hash::SwitchHash<
 > {
     type Code8 = ();
     type Code16 = ();
-    type Code24 = super::prefix_free_codes::Rice<14usize>;
+    type Code24 = super::prefix_free_codes::Rice<13usize>;
     type Code32 = super::prefix_free_codes::Rice<22usize>;
 }
 #[cfg(feature = "precision_12")]
@@ -567,7 +567,7 @@ for crate::composite_hash::SwitchHash<
 > {
     type Code8 = ();
     type Code16 = ();
-    type Code24 = super::prefix_free_codes::Rice<13usize>;
+    type Code24 = super::prefix_free_codes::Rice<12usize>;
     type Code32 = super::prefix_free_codes::Rice<21usize>;
 }
 #[cfg(feature = "precision_13")]
@@ -633,7 +633,7 @@ for crate::composite_hash::SwitchHash<
 > {
     type Code8 = ();
     type Code16 = ();
-    type Code24 = super::prefix_free_codes::Rice<12usize>;
+    type Code24 = super::prefix_free_codes::Rice<11usize>;
     type Code32 = super::prefix_free_codes::Rice<20usize>;
 }
 #[cfg(feature = "precision_14")]
@@ -677,7 +677,7 @@ for crate::composite_hash::SwitchHash<
 > {
     type Code8 = ();
     type Code16 = ();
-    type Code24 = super::prefix_free_codes::Rice<11usize>;
+    type Code24 = super::prefix_free_codes::Rice<10usize>;
     type Code32 = super::prefix_free_codes::Rice<19usize>;
 }
 #[cfg(feature = "precision_15")]
@@ -699,7 +699,7 @@ for crate::composite_hash::SwitchHash<
 > {
     type Code8 = ();
     type Code16 = ();
-    type Code24 = super::prefix_free_codes::Rice<11usize>;
+    type Code24 = super::prefix_free_codes::Rice<10usize>;
     type Code32 = super::prefix_free_codes::Rice<19usize>;
 }
 #[cfg(feature = "precision_15")]
@@ -711,7 +711,7 @@ for crate::composite_hash::CurrentHash<
     type Code8 = ();
     type Code16 = ();
     type Code24 = super::prefix_free_codes::Rice<10usize>;
-    type Code32 = super::prefix_free_codes::Rice<19usize>;
+    type Code32 = super::prefix_free_codes::Rice<18usize>;
 }
 #[cfg(feature = "precision_15")]
 impl super::PrefixFreeCode
@@ -722,7 +722,7 @@ for crate::composite_hash::SwitchHash<
     type Code8 = ();
     type Code16 = ();
     type Code24 = super::prefix_free_codes::Rice<10usize>;
-    type Code32 = super::prefix_free_codes::Rice<19usize>;
+    type Code32 = super::prefix_free_codes::Rice<18usize>;
 }
 #[cfg(feature = "precision_16")]
 impl super::PrefixFreeCode
@@ -743,7 +743,7 @@ for crate::composite_hash::SwitchHash<
 > {
     type Code8 = ();
     type Code16 = ();
-    type Code24 = super::prefix_free_codes::Rice<10usize>;
+    type Code24 = super::prefix_free_codes::Rice<9usize>;
     type Code32 = super::prefix_free_codes::Rice<18usize>;
 }
 #[cfg(feature = "precision_16")]
@@ -754,7 +754,7 @@ for crate::composite_hash::CurrentHash<
 > {
     type Code8 = ();
     type Code16 = ();
-    type Code24 = super::prefix_free_codes::Rice<10usize>;
+    type Code24 = super::prefix_free_codes::Rice<9usize>;
     type Code32 = super::prefix_free_codes::Rice<18usize>;
 }
 #[cfg(feature = "precision_16")]
@@ -765,7 +765,7 @@ for crate::composite_hash::SwitchHash<
 > {
     type Code8 = ();
     type Code16 = ();
-    type Code24 = super::prefix_free_codes::Rice<10usize>;
+    type Code24 = super::prefix_free_codes::Rice<9usize>;
     type Code32 = super::prefix_free_codes::Rice<18usize>;
 }
 #[cfg(feature = "precision_16")]
@@ -788,7 +788,7 @@ for crate::composite_hash::SwitchHash<
     type Code8 = ();
     type Code16 = ();
     type Code24 = super::prefix_free_codes::Rice<9usize>;
-    type Code32 = super::prefix_free_codes::Rice<18usize>;
+    type Code32 = super::prefix_free_codes::Rice<17usize>;
 }
 #[cfg(feature = "precision_17")]
 impl super::PrefixFreeCode
@@ -809,7 +809,7 @@ for crate::composite_hash::SwitchHash<
 > {
     type Code8 = ();
     type Code16 = ();
-    type Code24 = super::prefix_free_codes::Rice<9usize>;
+    type Code24 = super::prefix_free_codes::Rice<8usize>;
     type Code32 = super::prefix_free_codes::Rice<17usize>;
 }
 #[cfg(feature = "precision_17")]
@@ -831,7 +831,7 @@ for crate::composite_hash::SwitchHash<
 > {
     type Code8 = ();
     type Code16 = ();
-    type Code24 = super::prefix_free_codes::Rice<9usize>;
+    type Code24 = super::prefix_free_codes::Rice<8usize>;
     type Code32 = super::prefix_free_codes::Rice<17usize>;
 }
 #[cfg(feature = "precision_17")]
@@ -853,8 +853,8 @@ for crate::composite_hash::SwitchHash<
 > {
     type Code8 = ();
     type Code16 = ();
-    type Code24 = super::prefix_free_codes::Rice<8usize>;
-    type Code32 = super::prefix_free_codes::Rice<17usize>;
+    type Code24 = super::prefix_free_codes::Rice<7usize>;
+    type Code32 = super::prefix_free_codes::Rice<16usize>;
 }
 #[cfg(feature = "precision_18")]
 impl super::PrefixFreeCode
@@ -875,7 +875,7 @@ for crate::composite_hash::SwitchHash<
 > {
     type Code8 = ();
     type Code16 = ();
-    type Code24 = super::prefix_free_codes::Rice<8usize>;
+    type Code24 = super::prefix_free_codes::Rice<7usize>;
     type Code32 = super::prefix_free_codes::Rice<16usize>;
 }
 #[cfg(feature = "precision_18")]
@@ -897,7 +897,7 @@ for crate::composite_hash::SwitchHash<
 > {
     type Code8 = ();
     type Code16 = ();
-    type Code24 = super::prefix_free_codes::Rice<8usize>;
+    type Code24 = super::prefix_free_codes::Rice<7usize>;
     type Code32 = super::prefix_free_codes::Rice<16usize>;
 }
 #[cfg(feature = "precision_18")]

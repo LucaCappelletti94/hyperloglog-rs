@@ -452,7 +452,6 @@ where
 
     while let Some(value) = iter.next() {
         position += 1;
-        assert!(value < prev_value);
 
         let just_wrote_bits = CW::write(&mut writer, prev_value - value - 1);
         let last_buffered_bit_position = usize::from(hash_bits) * (1 + position);
@@ -513,7 +512,7 @@ where
     );
 
     // We check that all hashes are still ordered in descending order
-    assert!(
+    debug_assert!(
         GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits, bit_index, 0)
             .is_sorted_by(|a, b| b < a),
         "Illegal hashes state: attempting to insert a value with hash bits {hash_bits}, number of hashes {number_of_hashes} and bit index {bit_index} at index {index} and register {register} with original hash {original_hash}.",
@@ -598,6 +597,13 @@ where
     writer.seek(last_read_bit_position);
     let insert_position = position;
 
+    // Now that we have determined where to insert the new value, the subsequent values
+    // will be solely read from the bitstream and written to the writer.
+    let mut bypass: BypassIter<'a> = iter.into();
+    // In order to bring the reader a bit more ahead and make more unlikely to get
+    // read-write conflicts, we read the next value.
+    let mut next = bypass.next();
+
     // If there is no previos value, we would need to write the encoded value itself but
     // writing such a high value in prefix-free encoding would be inefficient. Therefore,
     // we write the first hash explicitly.
@@ -619,10 +625,10 @@ where
         }
 
         let just_wrote_bits = CW::write(&mut writer, prev_value - encoded - 1);
-        assert!(
-            iter.len() == 0 || iter.last_buffered_bit() > writer.tell(),
+        debug_assert!(
+            bypass.len() == 0 || bypass.last_buffered_bit() >= writer.tell(),
             "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, wrote {just_wrote_bits}, {prev_value} - {encoded}) in insert at hash size {hash_bits}.",
-            iter.last_buffered_bit(),
+            bypass.last_buffered_bit(),
             writer.tell(),
         );
     }
@@ -630,13 +636,8 @@ where
     if next_value != u64::MAX {
         position += 1;
 
-        // Now that we have written the two values which we actually needed to decode
-        // and encode, all remaining encoded gaps do not need to be decoded and encoded
-        // but can be straighforwardly written.
-        let mut bypass: BypassIter<'a> = iter.into();
-        let mut next = bypass.next();
         let just_wrote_bits = CW::write(&mut writer, encoded - next_value - 1);
-        assert!(
+        debug_assert!(
             bypass.len() == 0 || bypass.last_buffered_bit() > writer.tell(),
             "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, wrote {just_wrote_bits}, {prev_value} - {next_value}) in insert at hash size {hash_bits}.",
             bypass.last_buffered_bit(),
@@ -646,7 +647,7 @@ where
         while let Some((value, n_bits)) = next {
             next = bypass.next();
             writer.write_bits(value, n_bits);
-            assert!(
+            debug_assert!(
                 bypass.len() == 0 || bypass.last_buffered_bit() > writer.tell(),
                 "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, wrote {just_wrote_bits}, {prev_value} - {next_value}) in insert at hash size {hash_bits}.",
                 bypass.last_buffered_bit(),

@@ -26,11 +26,11 @@ pub(super) const fn smallest_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
         return 8;
     }
 
-    if P::EXPONENT + B::NUMBER_OF_BITS <= 15 {
+    if P::EXPONENT < 11 {
         return 16;
     }
 
-    if P::EXPONENT < 18 || P::EXPONENT == 18 && B::NUMBER_OF_BITS < 6 {
+    if P::EXPONENT < 18 || B::NUMBER_OF_BITS < 6 {
         return 24;
     }
 
