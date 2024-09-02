@@ -389,7 +389,7 @@ mod test_composite_hash {
                 let encoded_hash = CH::encode(index, register, original_hash, hash_bits);
 
                 // We check that the encoded hash indeed fits within the provided number of bits.
-                assert_eq!(encoded_hash >> hash_bits, 0);
+                assert_eq!(encoded_hash >> hash_bits, 0, "The encoded hash is too large for the provided number of bits.");
 
                 let (decoded_register, decoded_index) = CH::decode(encoded_hash, hash_bits);
                 assert_eq!(register, decoded_register, "Failed to recover the register at hash bits {hash_bits}. The hash is {encoded_hash:b}. The fake hash is {original_hash:064b}.");

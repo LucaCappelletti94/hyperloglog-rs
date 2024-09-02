@@ -250,6 +250,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         let mut composite_hash = (index as u64) << (hash_bits - Self::Precision::EXPONENT);
 
         // If the hash barely fits as-is, we do not need to do anything special.
+        // ERROR! TODO! FIX!
         if Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS == hash_bits {
             composite_hash |= u64::from(register);
             return composite_hash;
@@ -260,7 +261,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         // we are currently encoding minus the bits used for the index, instead of
         // storing the register value after the index, we store the higher bits of
         // the original hash after the index.
-        if register > Self::Bits::NUMBER_OF_BITS {
+        if register - 1 > Self::Bits::NUMBER_OF_BITS {
             // In this case, the composite hash has the following structure:
             //
             // [index (exponent bits) | flag = 1 | registers (bitsize) | hash remainder]

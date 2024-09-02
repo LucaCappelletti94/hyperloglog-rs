@@ -1,18 +1,24 @@
 """Script python to plot and compare the performance of the hybrid hashes with HLL"""
 
-import matplotlib.pyplot as plt
-import math
-from typing import Optional
-from tqdm import tqdm
-
+from typing import Optional, List, Dict, Tuple
 import decimal
 from decimal import Decimal
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+
 
 # Set precision high enough to handle large values
 decimal.getcontext().prec = 1000
 
 
 def compute_hll_error_rate(precision_bits: int) -> Decimal:
+    """Computes the error rate of HyperLogLog for a given precision.
+    
+    The error rate is computed as 1.04 / sqrt(2^precision_bits).
+
+    Parameters:
+        precision_bits (int): Number of bits used for the precision of HyperLogLog.
+    """
     # Number of registers m = 2^precision_bits
     m = Decimal(2**precision_bits)
 
@@ -23,105 +29,177 @@ def compute_hll_error_rate(precision_bits: int) -> Decimal:
 
 
 def compute_expected_collisions(
-    m_bits: int,           # Total bits in the hash
-    n_uniform_bits: int,   # Number of strictly uniform bits (p)
-    b_geometric_bits: int, # Geometric bits (b)
+    uniform_bits: int,           # Total bits in the hash
+    geometric_bits: int, # Geometric bits (b)
     m_samples: int,        # Number of samples (total hashes)
-    p: Decimal = Decimal(0.5),  # Geometric distribution parameter (typically 0.5)
+    saturation: bool
 ) -> Decimal:
-    # Effective number of bits in the hash (excluding the flag bit)
-    effective_bits = m_bits - 1
+    """Computes the expected number of collisions for the hybrid hash."""
+    if m_samples < 2:
+        return 0
     
-    # Maximum value 2^b - 1 (this is the maximum number of leading zeros that can be represented)
-    max_leading_zeros = (2 ** b_geometric_bits) - 1
-    
-    # Number of non-uniform bits that remain after subtracting the always-uniform bits and the flag bit
-    remaining_bits = effective_bits - n_uniform_bits
-    
-    # Calculate how many bits are taken based on the value of leading zeros
-    # Case 1: 2^b <= remaining_bits (leading zeros and additional bits are used)
-    # Here, all remaining bits are directly taken from the uniform hash
-    n_total_bits_case1 = n_uniform_bits + remaining_bits
-    # Case 2: 2^b > remaining_bits (write leading zeros using b bits, and remaining uniform bits)
-    n_total_bits_case2 = n_uniform_bits + (remaining_bits - b_geometric_bits)
-    
-    # Probabilities for each case (geometric distribution PMF)
-    P_case1 = Decimal(min(max_leading_zeros + 1, remaining_bits)) / (max_leading_zeros + 1)
-    P_case2 = Decimal(1) - P_case1
-    
-    # Number of possible distinct values for case 1
-    N_case1 = Decimal(2 ** n_total_bits_case1)
-    
-    # Number of possible distinct values for case 2
-    N_case2 = Decimal(2 ** n_total_bits_case2)
-    
-    # Expected number of unique values for case 1
-    expected_unique_case1 = N_case1 * (1 - (1 - Decimal(1) / N_case1) ** m_samples)
-    
-    # Expected number of unique values for case 2
-    expected_unique_case2 = N_case2 * (1 - (1 - Decimal(1) / N_case2) ** m_samples)
-    
-    # Weighted average of expected unique values based on the probabilities
-    expected_unique = (P_case1 * expected_unique_case1) + (P_case2 * expected_unique_case2)
-    
-    # Expected collisions is the total number of samples minus expected unique values
-    expected_collisions = Decimal(m_samples) - expected_unique
+    # First, we need to determine the number of hashes that can be
+    # stored in the provided hash size, considering that part of the
+    # hash size is composed by the geometric bits. Furthermore, we also
+    # need to consider that when the value stored in the geometric bits
+    # is less or equal to the number of geometric bits, we will store it
+    # using unary encoding, and use the newly freed bits to store more 
+    # uniform bits, hence expanding the number of hashes that can be stored.
 
-    return expected_collisions
+    # We determine the probability P(value of geometric bits <= geometric_bits)
+    if saturation:
+        p_geometric_bits = Decimal(0.0)
+    else:
+        uniform_bits = uniform_bits - 1
+        p_geometric_bits = Decimal(geometric_bits + 1.0) / Decimal(2.0**geometric_bits)
+
+    # The entropy provided by a geometric distribution with probability p = 1/2
+    # is 2. Hence, we can store 2 bits in the geometric bits.
+
+    # We weight the contributions of the possible values of the hash given the
+    # case where:
+
+    number_of_hashes = (
+        # value of geometric bits <= geometric_bits
+        Decimal(2**(uniform_bits + geometric_bits)) * p_geometric_bits +
+        # value of geometric bits > geometric_bits
+        Decimal(2**(uniform_bits + 2)) * (Decimal(1.0) - p_geometric_bits)
+    )
+
+    # We compute the expected number of collisions
+    return Decimal(m_samples) * Decimal(m_samples - 1) / Decimal(2 * number_of_hashes)
 
 
 def plot_errors():
     """Plots the expected error rate of HyperLogLog and the collision probability of the hybrid hash."""
     # Precision values for HyperLogLog
     precisions = list(range(4, 19))
+    bits = [4, 5, 6]
 
     # We make two plots: one with the absolute errors, and the other one with the errors
     # normalized by the expected hyperloglog error rate
-    fig, axes = plt.subplots(1, 1, figsize=(10, 10), dpi=100)
+    fig, axes = plt.subplots(1, len(bits), figsize=(10 * len(bits), 10), dpi=100)
 
     # Compute the expected error rate of HyperLogLog
     hll_error_rates = [compute_hll_error_rate(precision) for precision in precisions]
 
     # Plot the expected error rate of HyperLogLog
-    axes.plot(
-        precisions, hll_error_rates, label="HyperLogLog", color="blue", marker="o"
-    )
+    for ax in axes:
+        ax.plot(
+            precisions, hll_error_rates, label="HyperLogLog", color="blue", marker="o"
+        )
 
-    # Compute the collision probability of the hybrid hash
-    for hash_size in (8, 16, 24, 32, 40, 48, 56, 64):
-        for number_of_bits in (4, 5, 6):
-            mean_collisions = []
-            for precision in precisions:
-                if number_of_bits + precision > hash_size:
-                    continue
+    # We store the error rates for each combination of hash size, precisions and number of bits
+    # so that we can afterwards plot for each bit size the smallest hash size that still beats
+    # the HyperLogLog error rate
+    error_rates: Dict[int, List[Tuple[float, int, int]]] = {}
+    error_rates_best_non_zero: Dict[int, List[Tuple[float, int, int]]] = {}
+    immediately_after_error_rates: Dict[int, List[Tuple[float, int, int]]] = {}
+
+    # For each bit size
+    for number_of_bits in (4, 5, 6):
+        # We create a list with the error rate with smallest hash size
+        # that still beats the HyperLogLog error rate
+        bit_error_rates: List[Tuple[float, int, int]] = []
+        bit_immediately_after_error_rates: List[Tuple[float, int, int]] = []
+        bit_error_rates_best_non_zero: List[Tuple[float, int, int]] = []
+        for precision in precisions:
+            best_hash_size = 0
+            best_error_rate = 1.0
+            for hash_size in reversed(range(precision + number_of_bits, 33)):
                 maximal_number_of_hashes = int(
                     float((2**precision) * number_of_bits) / float(hash_size)
                 )
                 expected_collisions = compute_expected_collisions(
-                    m_bits=hash_size,
-                    n_uniform_bits=precision,
-                    b_geometric_bits=number_of_bits,
+                    uniform_bits=hash_size - number_of_bits,
+                    geometric_bits=number_of_bits,
                     m_samples=maximal_number_of_hashes,
+                    saturation=precision + number_of_bits == hash_size
                 )
-                mean_collisions.append(expected_collisions / maximal_number_of_hashes)
+                error_rate = expected_collisions / maximal_number_of_hashes
 
-            # Plot the collision probability of the hybrid hash
-            axes.plot(
-                precisions[:len(mean_collisions)],
-                mean_collisions,
-                label=f"(m={hash_size}, b={number_of_bits})",
-                marker="o",
+                if error_rate > hll_error_rates[precision - 4] / 100 and len(bit_error_rates_best_non_zero) < precision - 3:
+                    bit_error_rates_best_non_zero.append((error_rate, precision, hash_size))
+
+                if error_rate >= hll_error_rates[precision - 4]:
+                    bit_immediately_after_error_rates.append((error_rate, precision, hash_size))
+                    break
+
+                best_hash_size = hash_size
+                best_error_rate = error_rate
+
+            if best_error_rate < hll_error_rates[precision - 4]:
+                bit_error_rates.append((best_error_rate, precision, best_hash_size))
+        
+        error_rates[number_of_bits] = bit_error_rates
+        immediately_after_error_rates[number_of_bits] = bit_immediately_after_error_rates
+        error_rates_best_non_zero[number_of_bits] = bit_error_rates_best_non_zero
+
+    # Next, we plot the error rates for each bit size, including also
+    # the annotation at each datapoint of which hash size is being used
+    for (number_of_bits, ax) in zip(bits, axes):
+        bit_error_rates = error_rates[number_of_bits]
+        bit_immediately_after_error_rates = immediately_after_error_rates[number_of_bits]
+        bit_error_rates_best_non_zero = error_rates_best_non_zero[number_of_bits]
+
+        assert len(bit_immediately_after_error_rates) > 0
+
+        ax.plot(
+            [precision for _, precision, _ in bit_error_rates],
+            [error_rate for error_rate, _, _ in bit_error_rates],
+            label=f"Smallest viable hash (b={number_of_bits})",
+            marker="o",
+        )
+        ax.plot(
+            [precision for _, precision, _ in bit_immediately_after_error_rates],
+            [error_rate for error_rate, _, _ in bit_immediately_after_error_rates],
+            label=f"Immediately after (b={number_of_bits})",
+            marker="o",
+        )
+
+        ax.plot(
+            [precision for _, precision, _ in bit_error_rates_best_non_zero],
+            [error_rate for error_rate, _, _ in bit_error_rates_best_non_zero],
+            label=f"Largest sensible hash (b={number_of_bits})",
+            marker="o",
+        )
+
+        for (error_rate, precision, hash_size) in bit_error_rates:
+            ax.annotate(
+                f"u{hash_size}",
+                (precision, error_rate),
+                textcoords="offset points",
+                xytext=(0, 5),
+                ha="center",
+            )
+        
+        for (error_rate, precision, hash_size) in bit_immediately_after_error_rates:
+            ax.annotate(
+                f"u{hash_size}",
+                (precision, error_rate),
+                textcoords="offset points",
+                xytext=(0, 5),
+                ha="center",
             )
 
-    # Set the title and labels
-    axes.set_title("Error Rate vs Precision")
-    axes.set_xlabel("Precision")
-    axes.set_ylabel("Error Rate")
-    axes.set_yscale("log")
-    axes.legend(ncol=2)
+        for (error_rate, precision, hash_size) in bit_error_rates_best_non_zero:
+            ax.annotate(
+                f"u{hash_size}",
+                (precision, error_rate),
+                textcoords="offset points",
+                xytext=(0, 5),
+                ha="center",
+            )
 
-    # Set the grid
-    axes.grid(True, which="both", linestyle="--")
+        # Set the title and labels
+        ax.set_title("Error Rate vs Precision")
+        ax.set_xlabel("Precision")
+        ax.set_ylabel("Error Rate")
+        ax.set_yscale("log")
+        ax.legend()
+
+        # Set the grid
+        ax.grid(True, which="both", linestyle="--")
 
     fig.tight_layout()
 
@@ -157,10 +235,10 @@ def hybrid_approach_absolute_error(cardinality: int, precision: int, bits: int, 
             continue
 
         expected_collisions = compute_expected_collisions(
-            m_bits=hash_size,
-            n_uniform_bits=precision,
-            b_geometric_bits=6,
-            m_samples=maximal_number_of_hashes
+            uniform_bits=hash_size - 6,
+            geometric_bits=6,
+            m_samples=maximal_number_of_hashes,
+            saturation=precision + 6 == hash_size
         )
         if expected_collisions / cardinality < hyper_log_log_error_rate_at_precision:
             hash_size_identified = hash_size
