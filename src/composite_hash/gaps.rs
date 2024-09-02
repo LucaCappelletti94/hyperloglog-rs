@@ -197,7 +197,7 @@ where
                 original_hash,
                 hash_bits,
             ) {
-                Err(CompositeHashError::DowngradableSaturation) => {
+                Err(_) => {
                     // Otherwise, we need to switch to prefix mode.
                     let new_writer_tell =
                         match hash_bits {
@@ -414,6 +414,11 @@ fn to_prefix_code_inplace_with_writer<
     bit_index: usize,
     hash_bits: u8,
 ) -> usize {
+
+    #[cfg(test)]
+    #[cfg(feature="std")]
+    println!("to_prefix_code_inplace_with_writer({}, {}, {}, {})", number_of_hashes, bit_index, hash_bits, hashes.len());
+
     assert!(
         bit_index + usize::from(hash_bits) >= hashes.len() * 8,
         "This method should only be called upon preliminary saturation, but was called with bit index {bit_index} and hash bits {hash_bits} and total available bits {}.",
@@ -514,18 +519,14 @@ fn insert_sorted_desc_with_writer<
         "Illegal hashes state: attempting to insert a value with hash bits {hash_bits}, number of hashes {number_of_hashes} and bit index {bit_index} at index {index} and register {register} with original hash {original_hash}.",
     );
 
-    let hashes_64 = unsafe {
-        core::slice::from_raw_parts_mut(
-            hashes.as_mut_ptr() as *mut u64,
-            hashes.len() / core::mem::size_of::<u64>(),
-        )
-    };
+    let hashes_ref: &[u8] =
+        unsafe { core::slice::from_raw_parts(hashes.as_ptr() as *const u8, hashes.len()) };
 
     let encoded = CH::encode(index, register, original_hash, hash_bits);
 
     // iter until we find where we should insert
     let mut iter: PrefixCodeDowngradedIter<'a, CH> =
-        GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits, bit_index, 0)
+        GapHash::<CH>::downgraded(hashes_ref, number_of_hashes, hash_bits, bit_index, 0)
             .try_into()
             .unwrap();
 
@@ -553,9 +554,12 @@ fn insert_sorted_desc_with_writer<
     }
 
     // We check that we would be actually able to insert the new value, given the current
-    // bit index and the size the new value would require.
+    // bit index and the size the new value would require. Note that this is NOT the number
+    // of bits that would be required to encode the value, but the number of bits that will
+    // be added to the bitstream. This is strictly greater than the number of bits that will
+    // be changed in the bitstream.
 
-    let new_value_size: usize = if prev_value == u64::MAX {
+    let number_of_inserted_bits: usize = if prev_value == u64::MAX {
         // If we are inserting this value as the first value, and there is a next value,
         // we need to take into account that this first value would require 'hash_bits' bits
         // and that the subsequent value would require a variable amount of bits depending
@@ -581,14 +585,23 @@ fn insert_sorted_desc_with_writer<
         }
     };
 
-    if bit_index + new_value_size > hashes.len() * 8 {
+    let new_bit_index = bit_index + number_of_inserted_bits;
+
+    if new_bit_index > hashes_ref.len() * 8 {
         if hash_bits == CH::SMALLEST_VIABLE_HASH_BITS {
             return Err(CompositeHashError::Saturation);
         }
         return Err(CompositeHashError::DowngradableSaturation);
     }
 
-    let mut writer = BitWriter::new(hashes_64);
+    let hashes64 = unsafe {
+        core::slice::from_raw_parts_mut(
+            hashes.as_mut_ptr() as *mut u64,
+            hashes.len() / core::mem::size_of::<u64>(),
+        )
+    };
+
+    let mut writer = BitWriter::new(hashes64);
 
     writer.seek(last_read_bit_position);
     let insert_position = position;
@@ -651,17 +664,17 @@ fn insert_sorted_desc_with_writer<
             );
             position += 1;
         }
+
+        // We check that all hashes are still ordered in descending order
+        let writer_tell = writer.tell();
+
+        // We check that practice matches theory:
+        assert_eq!(
+            writer_tell,
+            new_bit_index,
+            "Expected writer tell to match bit index {bit_index} + value variation {number_of_inserted_bits} = ({new_bit_index})"
+        );
     }
-
-    // We check that all hashes are still ordered in descending order
-    let writer_tell = writer.tell();
-
-    // We check that practice matches theory:
-    assert_eq!(
-        writer_tell,
-        bit_index + new_value_size,
-        "Expected writer tell to match bit index {bit_index} + value variation {new_value_size}"
-    );
 
     drop(writer);
 
@@ -669,20 +682,20 @@ fn insert_sorted_desc_with_writer<
         hashes,
         number_of_hashes + 1,
         hash_bits,
-        writer_tell,
+        new_bit_index,
         0
     )
     .is_sorted_by(|a, b| b < a));
     // We check if the decoded value was insert at position 'insert_position'
     debug_assert_eq!(
-        GapHash::<CH>::decoded(hashes, number_of_hashes + 1, hash_bits, writer_tell)
+        GapHash::<CH>::decoded(hashes, number_of_hashes + 1, hash_bits, new_bit_index)
             .nth(insert_position)
             .unwrap()
             .0,
         register
     );
 
-    Ok(Some(writer_tell))
+    Ok(Some(new_bit_index))
 }
 
 #[derive(Debug)]

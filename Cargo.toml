@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [".", "hyperloglog-derive", "optimal-gap-codes", "measure_variant", "statistical_comparisons", "statistical_comparisons/macro_test_utils", "test_utils", "duplicates-count", "hash_list_correction"]
+members = [".", "hyperloglog-derive", "optimal-gap-codes", "measure_variant", "statistical_comparisons", "statistical_comparisons/macro_test_utils", "test_utils", "hash_list_correction"]
 
 [package]
 name = "hyperloglog-rs"

@@ -2,7 +2,6 @@
 
 use crate::{bits::Bits, prelude::Precision};
 use core::fmt::Debug;
-pub mod current;
 
 #[cfg(feature = "prefix_free_codes")]
 pub mod gaps;
@@ -11,7 +10,6 @@ pub use gaps::GapHash;
 
 mod shared;
 pub mod switch;
-pub use current::CurrentHash;
 pub use switch::SwitchHash;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -188,16 +186,20 @@ mod test_composite_hash {
     where
         CH::Precision: ArrayRegister<CH::Bits>,
     {
-        let number_of_hashes = (1 << CH::Precision::EXPONENT)
-            * usize::from(CH::Bits::NUMBER_OF_BITS)
+        let number_of_bits = (1 << CH::Precision::EXPONENT) * usize::from(CH::Bits::NUMBER_OF_BITS);
+
+        let number_of_hashes = number_of_bits
             / usize::from(CH::SMALLEST_VIABLE_HASH_BITS);
 
+        assert!(number_of_bits >= 64);
+        assert!(number_of_hashes > 2);
+
         // We create an array where we will store the hashes.
-        let mut reference_hashes = vec![0; number_of_hashes];
+        let mut reference_hashes = vec![0; number_of_hashes * 3];
         // Since we do not have an array that keeps track of the number of hashes we have inserted, we will use a counter.
         let mut number_of_inserted_hashes = 0;
         // We allow a relatively small number of bits for the hash, so to force the degradation and saturation events.
-        let mut encoded_hashes = vec![u64::MAX; ceil(number_of_hashes, 8)];
+        let mut encoded_hashes = vec![u64::MAX; ceil(number_of_bits, 64)];
         let mut encoded_hashes: &mut [u8] = unsafe {
             core::slice::from_raw_parts_mut(
                 encoded_hashes.as_mut_ptr() as *mut u8,
@@ -210,7 +212,10 @@ mod test_composite_hash {
         // We start from the maximal number of bits for the hash.
         let mut hash_bits = CH::LARGEST_VIABLE_HASH_BITS;
 
-        for random_value in iter_random_values::<u64>(number_of_hashes as u64, None, None) {
+        // Flag to check whether saturation was reached.
+        let mut saturation_reached = false;
+
+        for random_value in iter_random_values::<u64>(number_of_hashes as u64 * 3, None, None) {
             // We start each iteration by checking that the hashes are consistent.
             for (reference_hash, hash) in reference_hashes.iter().copied().zip(CH::downgraded(
                 &encoded_hashes,
@@ -219,7 +224,10 @@ mod test_composite_hash {
                 writer_tell,
                 0,
             )) {
-                assert_eq!(reference_hash, hash);
+                assert_eq!(
+                    reference_hash, hash,
+                    "The reference hash ({reference_hash:064b}) does not match the downgraded hash ({hash:064b}). Working with hash bits {hash_bits}.",
+                );
             }
 
             let (index, register, original_hash) =
@@ -242,6 +250,7 @@ mod test_composite_hash {
             );
 
             if let Err(CompositeHashError::Saturation) = result {
+                saturation_reached = true;
                 break;
             }
 
@@ -357,6 +366,8 @@ mod test_composite_hash {
                     .unwrap(),
             );
         }
+
+        assert!(saturation_reached);
     }
 
     #[allow(unsafe_code)]
@@ -413,32 +424,12 @@ mod test_composite_hash {
     }
 
     #[test_precisions_and_bits]
-    fn test_current_hash<P: Precision, B: Bits>()
-    where
-        P: ArrayRegister<B>,
-    {
-        test_composite_hash_stateless_operations::<current::CurrentHash<P, B>>();
-        test_composite_hash::<current::CurrentHash<P, B>>();
-    }
-
-    #[test_precisions_and_bits]
     fn test_switch_hash<P: Precision, B: Bits>()
     where
         P: ArrayRegister<B>,
     {
         test_composite_hash_stateless_operations::<switch::SwitchHash<P, B>>();
         test_composite_hash::<switch::SwitchHash<P, B>>();
-    }
-
-    #[test_precisions_and_bits([[5, 4], [4, 5], [4, 6]])]
-    #[cfg(feature = "prefix_free_codes")]
-    fn test_gap_current_hash<P: Precision, B: Bits>()
-    where
-        P: ArrayRegister<B>,
-        current::CurrentHash<P, B>: PrefixFreeCode,
-    {
-        test_composite_hash_stateless_operations::<gaps::GapHash<current::CurrentHash<P, B>>>();
-        test_composite_hash::<gaps::GapHash<current::CurrentHash<P, B>>>();
     }
 
     #[test_precisions_and_bits([[5, 4], [4, 5], [4, 6]])]

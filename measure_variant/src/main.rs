@@ -10,25 +10,25 @@ use test_utils::prelude::{compare_features, read_csv, write_csv};
 
 type HLL1 = Hybrid<
     PlusPlus<
-        Precision16,
+        Precision17,
         Bits6,
-        <Precision16 as ArrayRegister<Bits6>>::Packed,
+        <Precision17 as ArrayRegister<Bits6>>::Packed,
         twox_hash::XxHash64,
     >,
-    SwitchHash<Precision16, Bits6>,
+    SwitchHash<Precision17, Bits6>,
 >;
 
 type HLL2 = Hybrid<
     PlusPlus<
-        Precision16,
+        Precision17,
         Bits6,
-        <Precision16 as ArrayRegister<Bits6>>::Packed,
+        <Precision17 as ArrayRegister<Bits6>>::Packed,
         twox_hash::XxHash64,
     >,
-    GapHash<SwitchHash<Precision16, Bits6>>,
+    GapHash<SwitchHash<Precision17, Bits6>>,
 >;
 
-const ITERATIONS: usize = 1_000;
+const ITERATIONS: usize = 100;
 const MINIMUM_CARDINALITY_FOR_SAMPLING: u64 = 0;
 const MEASUREMENT_STEP: u64 = 1;
 
@@ -43,8 +43,8 @@ struct Report {
 fn main() {
     let random_state = 7_536_558_723_694_876_u64;
 
-    let max_hashes = (1 << 16) * 6 / 8;
-    let max = (max_hashes * 2) as u64;
+    let max_hashes = (1 << 17) * 6 / 8;
+    let max = max_hashes as u64;
 
     let progress_bar = ProgressBar::new(ITERATIONS as u64);
     progress_bar.set_style(
@@ -70,7 +70,10 @@ fn main() {
                 hll.insert(&value);
 
                 if hashset.insert(value) {
-                    let cardinality = hll.estimate_cardinality();
+                    let mut cardinality = hll.estimate_cardinality();
+                    if hll.is_hash_list() {
+                        cardinality = (1.0 + 0.0048384760745443225 * cardinality / 83774.0) * cardinality;
+                    }
                     let exact_cardinality = hashset.len() as u64;
                     let relative_error =
                         (exact_cardinality as f64 - cardinality).abs() / exact_cardinality as f64;

@@ -15,7 +15,7 @@ use syn::{File, Ident};
 
 use dsi_bitstream::prelude::{Code, CodesStats};
 use hyperloglog_rs::composite_hash::GapHash;
-use hyperloglog_rs::composite_hash::{current::CurrentHash, switch::SwitchHash, CompositeHash};
+use hyperloglog_rs::composite_hash::{switch::SwitchHash, CompositeHash};
 use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
@@ -359,25 +359,9 @@ fn optimal_gap_codes<
 /// bit size and hasher types.
 macro_rules! generate_optimal_gap_codes {
     ($multiprogress:ident, $precision:ty, $bit_size:ty, $($hasher:ty),*) => {
-        let progress_bar = $multiprogress.add(ProgressBar::new(2 as u64));
-
-        progress_bar.set_style(
-            ProgressStyle::default_bar()
-                .template("[{elapsed_precise} | {eta}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
-                .unwrap()
-                .progress_chars("##-"),
-        );
-
-        progress_bar.tick();
-
         $(
-            optimal_gap_codes::<$precision, $bit_size, $hasher, GapHash<CurrentHash<$precision, $bit_size>>>($multiprogress);
-            progress_bar.inc(1);
             optimal_gap_codes::<$precision, $bit_size, $hasher, GapHash<SwitchHash<$precision, $bit_size>>>($multiprogress);
-            progress_bar.inc(1);
         )*
-
-        progress_bar.finish_and_clear();
     };
 }
 
