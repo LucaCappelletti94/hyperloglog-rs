@@ -1,6 +1,8 @@
 //! Marker struct for the hybrid approach, that keeps the hash explicit up until they fit into the registers.
 
-use crate::composite_hash::{CompositeHash, CompositeHashError, SwitchHash};
+use crate::composite_hash::{
+    BirthDayParadoxCorrection, CompositeHash, CompositeHashError, SwitchHash,
+};
 use crate::prelude::*;
 use core::cmp::Ordering;
 use core::fmt::Debug;
@@ -440,6 +442,32 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
     }
 
     #[inline]
+    /// Returns the number of duplicates present in the hash list.
+    ///
+    /// # Errors
+    /// Returns an error if the counter is not in hash list mode.
+    pub fn duplicates(&self) -> Result<u32, &'static str> {
+        if self.is_hash_list() {
+            Ok(decode_duplicates(self.inner.harmonic_sum()))
+        } else {
+            Err("The counter is not in hash list mode.")
+        }
+    }
+
+    #[inline]
+    /// Returns the number of hashes in the hash list, not including the duplicates.
+    ///
+    /// # Errors
+    /// Returns an error if the counter is not in hash list mode.
+    pub fn number_of_hashes(&self) -> Result<u32, &'static str> {
+        if self.is_hash_list() {
+            Ok(self.inner.get_number_of_zero_registers())
+        } else {
+            Err("The counter is not in hash list mode.")
+        }
+    }
+
+    #[inline]
     /// Returns the number of bytes currently used for the hash.
     pub fn hash_bytes(&self) -> u8 {
         debug_assert!(self.is_hash_list());
@@ -588,10 +616,17 @@ impl<
     #[inline]
     fn estimate_cardinality(&self) -> f64 {
         if self.is_hash_list() {
-            let preliminary_estimate = self.inner.get_number_of_zero_registers()
-                + decode_duplicates(self.inner.harmonic_sum());
+            let preliminary_estimate =
+                self.number_of_hashes().unwrap() + self.duplicates().unwrap();
+            // let exponent = self.hash_bits() - H::Bits::NUMBER_OF_BITS + 2;
 
-            f64::from(preliminary_estimate)
+            // if (1 << exponent) - preliminary_estimate < (1 << H::Precision::EXPONENT) {
+            //     linear_counting_correction(exponent, (1 << exponent) - preliminary_estimate)
+            // } else {
+                // f64::from(preliminary_estimate)
+            // }
+
+            <CH as BirthDayParadoxCorrection>::birthday_paradox_correction(preliminary_estimate)
         } else {
             self.inner.estimate_cardinality()
         }
@@ -736,7 +771,10 @@ mod test_hybrid_propertis {
     use twox_hash::XxHash;
 
     #[test_estimator]
-    fn test_plusplus_hybrid_properties<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
+    fn test_plusplus_hybrid_properties<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>()
+    where
+        SwitchHash<P, B>: CompositeHash<Precision = P, Bits = B>,
+    {
         let mut hybrid: Hybrid<PlusPlus<P, B, R, H>> = Default::default();
         assert!(hybrid.is_hash_list());
         assert!(hybrid.is_empty());

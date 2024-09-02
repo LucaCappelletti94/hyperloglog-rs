@@ -10,23 +10,23 @@ use test_utils::prelude::{compare_features, read_csv, write_csv};
 
 type HLL1 = Hybrid<
     PlusPlus<
-        Precision10,
-        Bits6,
-        <Precision10 as ArrayRegister<Bits6>>::Packed,
+        Precision11,
+        Bits5,
+        <Precision11 as ArrayRegister<Bits5>>::Packed,
         twox_hash::XxHash64,
     >,
-    SwitchHash<Precision10, Bits6>,
+    SwitchHash<Precision11, Bits5>,
 >;
 
-type HLL2 = Hybrid<
-    PlusPlus<
-        Precision10,
-        Bits6,
-        <Precision10 as ArrayRegister<Bits6>>::Packed,
-        twox_hash::XxHash64,
-    >,
-    GapHash<SwitchHash<Precision10, Bits6>>,
->;
+// type HLL2 = Hybrid<
+//     PlusPlus<
+//         Precision10,
+//         Bits6,
+//         <Precision10 as ArrayRegister<Bits6>>::Packed,
+//         twox_hash::XxHash64,
+//     >,
+//     GapHash<SwitchHash<Precision10, Bits6>>,
+// >;
 
 const ITERATIONS: usize = 100;
 const MINIMUM_CARDINALITY_FOR_SAMPLING: u64 = 0;
@@ -43,7 +43,7 @@ struct Report {
 fn main() {
     let random_state = 7_536_558_723_694_876_u64;
 
-    let max_hashes = (1 << 10) * 6 / 6;
+    let max_hashes = (1 << 11) * 5 / 12;
     let max = max_hashes as u64;
 
     let progress_bar = ProgressBar::new(ITERATIONS as u64);
@@ -62,7 +62,7 @@ fn main() {
         .map(|i| {
             let mut measurement_step = 0;
             let thread_random_state = splitmix64(random_state.wrapping_mul(i as u64 + 1));
-            let mut hll = HLL2::default();
+            let mut hll = HLL1::default();
             let mut reports: Vec<Report> = Vec::with_capacity((size) as usize);
             let mut hashset: HashSet<u64> = HashSet::default();
 
@@ -71,9 +71,9 @@ fn main() {
 
                 if hashset.insert(value) {
                     let mut cardinality = hll.estimate_cardinality();
-                    if hll.is_hash_list() {
-                        cardinality = (1.0 + 0.0048384760745443225 * cardinality / 83774.0) * cardinality;
-                    }
+                    // if hll.is_hash_list() {
+                    //     cardinality = (1.0 + 0.0048384760745443225 * cardinality / 83774.0) * cardinality;
+                    // }
                     let exact_cardinality = hashset.len() as u64;
                     let relative_error =
                         (exact_cardinality as f64 - cardinality).abs() / exact_cardinality as f64;

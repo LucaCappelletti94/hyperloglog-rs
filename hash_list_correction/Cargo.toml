@@ -4,3 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+hyperloglog-rs = {path = "../", features = ["all_precisions", "std"]}
+syn = "2.0"
+quote = "1.0"
+proc-macro2 = "1.0"
+prettyplease = "0.2"
+indicatif = { version = "0.17.8", features = ["rayon"] }
+rayon = "1.10.0"
+twox-hash = "1.6.3"
+test_utils = {path="../test_utils"}
+serde = { version = "1.0.208", features = ["derive"] }

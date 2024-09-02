@@ -24,15 +24,11 @@ pub(super) const fn smallest_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
         return 8;
     }
 
-    if P::EXPONENT < 11 {
+    if P::EXPONENT + B::NUMBER_OF_BITS <= 16 {
         return 16;
     }
 
-    if P::EXPONENT < 18 || B::NUMBER_OF_BITS < 6 {
-        return 24;
-    }
-
-    32
+    24
 }
 
 const fn maximal_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
@@ -40,22 +36,21 @@ const fn maximal_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
         return 8;
     }
 
-    if P::EXPONENT == 4 {
-        return 16;
-    }
-
     if P::EXPONENT < 8 {
         return 16;
     }
 
-    if P::EXPONENT < 18 || B::NUMBER_OF_BITS < 6 {
+    if P::EXPONENT < 14 {
         return 24;
     }
 
     32
 }
 
-impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
+impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B>
+where
+    SwitchHash<P, B>: super::BirthDayParadoxCorrection,
+{
     type Precision = P;
     type Bits = B;
 

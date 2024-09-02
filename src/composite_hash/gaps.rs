@@ -4,7 +4,7 @@ mod bitreader;
 mod bitwriter;
 mod optimal_codes;
 mod prefix_free_codes;
-use crate::utils::ceil;
+use crate::{bits::Bits, utils::ceil};
 use bitreader::BitReader;
 use bitwriter::BitWriter;
 use prefix_free_codes::{CodeRead, CodeSize, CodeWrite};
@@ -44,9 +44,64 @@ impl<CH: CompositeHash> GapHash<CH> {
     }
 }
 
+pub(super) const fn smallest_viable_gap_hash<P: Precision, B: Bits>() -> u8 {
+    assert!(P::EXPONENT >= 4);
+    assert!(B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5 || B::NUMBER_OF_BITS == 6);
+    assert!(P::EXPONENT <= 18);
+    match (P::EXPONENT, B::NUMBER_OF_BITS) {
+        (4, 4) => 8,
+        (4, 5) => 9,
+        (4, 6) => 10,
+        (5, 4) => 9,
+        (5, 5) => 10,
+        (5, 6) => 11,
+        (6, 4) => 10,
+        (6, 5) => 11,
+        (6, 6) => 12,
+        (7, 4) => 11,
+        (7, 5) => 12,
+        (7, 6) => 13,
+        (8, 4) => 12,
+        (8, 5) => 13,
+        (8, 6) => 14,
+        (9, 4) => 13,
+        (9, 5) => 14,
+        (9, 6) => 16,
+        (10, 4) => 15,
+        (10, 5) => 16,
+        (10, 6) => 17,
+        (11, 4) => 16,
+        (11, 5) => 17,
+        (11, 6) => 18,
+        (12, 4) => 17,
+        (12, 5) => 18,
+        (12, 6) => 19,
+        (13, 4) => 19,
+        (13, 5) => 20,
+        (13, 6) => 21,
+        (14, 4) => 20,
+        (14, 5) => 21,
+        (14, 6) => 22,
+        (15, 4) => 22,
+        (15, 5) => 23,
+        (15, 6) => 24,
+        (16, 4) => 23,
+        (16, 5) => 24,
+        (16, 6) => 25,
+        (17, 4) => 24,
+        (17, 5) => 25,
+        (17, 6) => 26,
+        (18, 4) => 26,
+        (18, 5) => 27,
+        (18, 6) => 28,
+        _ => unreachable!(),
+    }
+}
+
 impl<CH: CompositeHash> CompositeHash for GapHash<CH>
 where
     CH: PrefixFreeCode,
+    Self: super::BirthDayParadoxCorrection,
 {
     type Precision = <CH as CompositeHash>::Precision;
     type Bits = <CH as CompositeHash>::Bits;
@@ -327,7 +382,7 @@ where
         }
     }
 
-    const SMALLEST_VIABLE_HASH_BITS: u8 = CH::SMALLEST_VIABLE_HASH_BITS;
+    const SMALLEST_VIABLE_HASH_BITS: u8 = smallest_viable_gap_hash::<Self::Precision, Self::Bits>();
     const LARGEST_VIABLE_HASH_BITS: u8 = CH::LARGEST_VIABLE_HASH_BITS;
 }
 
@@ -338,7 +393,10 @@ fn downgrade_inplace_with_writer<CW: CodeWrite, CH: CompositeHash + PrefixFreeCo
     bit_index: usize,
     hash_bits: u8,
     shift: u8,
-) -> (u32, usize) {
+) -> (u32, usize)
+where
+    GapHash<CH>: super::BirthDayParadoxCorrection,
+{
     // safe because the slice is originally allocated as u64s
     debug_assert!(hashes.len() % core::mem::size_of::<u64>() == 0);
     let hashes_64 = unsafe {
@@ -405,19 +463,24 @@ fn downgrade_inplace_with_writer<CW: CodeWrite, CH: CompositeHash + PrefixFreeCo
 }
 
 #[allow(unsafe_code)]
-fn to_prefix_code_inplace_with_writer<
-    CW: CodeWrite + 'static,
-    CH: CompositeHash + PrefixFreeCode,
->(
+fn to_prefix_code_inplace_with_writer<CW: CodeWrite + 'static, CH: CompositeHash + PrefixFreeCode>(
     hashes: &mut [u8],
     number_of_hashes: usize,
     bit_index: usize,
     hash_bits: u8,
-) -> usize {
-
+) -> usize
+where
+    GapHash<CH>: super::BirthDayParadoxCorrection,
+{
     #[cfg(test)]
-    #[cfg(feature="std")]
-    println!("to_prefix_code_inplace_with_writer({}, {}, {}, {})", number_of_hashes, bit_index, hash_bits, hashes.len());
+    #[cfg(feature = "std")]
+    println!(
+        "to_prefix_code_inplace_with_writer({}, {}, {}, {})",
+        number_of_hashes,
+        bit_index,
+        hash_bits,
+        hashes.len()
+    );
 
     assert!(
         bit_index + usize::from(hash_bits) >= hashes.len() * 8,
@@ -494,7 +557,10 @@ fn insert_sorted_desc_with_writer<
     register: u8,
     original_hash: u64,
     hash_bits: u8,
-) -> Result<Option<usize>, CompositeHashError> {
+) -> Result<Option<usize>, CompositeHashError>
+where
+    GapHash<CH>: super::BirthDayParadoxCorrection,
+{
     debug_assert!(
         GapHash::<CH>::is_prefix_free_encoded(number_of_hashes, hash_bits, bit_index),
         "The hashes must be prefix-free encoded to be able to use prefix-free codes."
