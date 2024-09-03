@@ -10,12 +10,12 @@ use test_utils::prelude::{compare_features, read_csv, write_csv};
 
 type HLL1 = Hybrid<
     PlusPlus<
-        Precision11,
-        Bits5,
-        <Precision11 as ArrayRegister<Bits5>>::Packed,
+        Precision18,
+        Bits6,
+        <Precision18 as ArrayRegister<Bits6>>::Packed,
         twox_hash::XxHash64,
     >,
-    SwitchHash<Precision11, Bits5>,
+    SwitchHash<Precision18, Bits6>,
 >;
 
 // type HLL2 = Hybrid<
@@ -43,7 +43,7 @@ struct Report {
 fn main() {
     let random_state = 7_536_558_723_694_876_u64;
 
-    let max_hashes = (1 << 11) * 5 / 12;
+    let max_hashes = (1 << 18) * 6 / 16;
     let max = max_hashes as u64;
 
     let progress_bar = ProgressBar::new(ITERATIONS as u64);
@@ -70,10 +70,7 @@ fn main() {
                 hll.insert(&value);
 
                 if hashset.insert(value) {
-                    let mut cardinality = hll.estimate_cardinality();
-                    // if hll.is_hash_list() {
-                    //     cardinality = (1.0 + 0.0048384760745443225 * cardinality / 83774.0) * cardinality;
-                    // }
+                    let cardinality = hll.estimate_cardinality();
                     let exact_cardinality = hashset.len() as u64;
                     let relative_error =
                         (exact_cardinality as f64 - cardinality).abs() / exact_cardinality as f64;

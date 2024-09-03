@@ -24,26 +24,32 @@ pub enum CompositeHashError {
 
 /// Trait defining constants and methods needed to apply the BirthDay Paradox correction.
 pub trait BirthDayParadoxCorrection {
-    /// The minimal value after which the correction is applied.
-    const MINIMAL_CARDINALITY_FOR_CORRECTION: f64;
-    /// The maximal value after which the correction is applied.
-    const MAXIMAL_CARDINALITY_FOR_CORRECTION: f64;
-    /// The expected maximal error rate.
-    const MAXIMAL_ERROR_RATE: f64;
+    /// The relative errors for the BirthDay Paradox correction.
+    const RELATIVE_ERRORS: [f64; 7];
+    /// The cardinalities for the BirthDay Paradox correction.
+    const CARDINALITIES: [u32; 7];
 
     /// Returns the corrected cardinality.
     fn birthday_paradox_correction(cardinality: u32) -> f64 {
-        let cardinality = f64::from(cardinality);
-        if cardinality <= Self::MINIMAL_CARDINALITY_FOR_CORRECTION {
+        if cardinality < Self::CARDINALITIES[0] {
             return f64::from(cardinality);
         }
 
-        cardinality
-            * (1.0
-                + Self::MAXIMAL_ERROR_RATE
-                    * (cardinality - Self::MINIMAL_CARDINALITY_FOR_CORRECTION)
-                    / (Self::MAXIMAL_CARDINALITY_FOR_CORRECTION
-                        - Self::MINIMAL_CARDINALITY_FOR_CORRECTION))
+        if cardinality >= Self::CARDINALITIES[6] {
+            return f64::from(cardinality) * (1.0 + Self::RELATIVE_ERRORS[6]);
+        }
+
+        for i in 0..6 {
+            if cardinality < Self::CARDINALITIES[i + 1] {
+                let relative_error = (f64::from(cardinality - Self::CARDINALITIES[i])
+                    / f64::from(Self::CARDINALITIES[i + 1] - Self::CARDINALITIES[i]))
+                    * (Self::RELATIVE_ERRORS[i + 1] - Self::RELATIVE_ERRORS[i])
+                    + Self::RELATIVE_ERRORS[i];
+                return f64::from(cardinality) * (1.0 + relative_error);
+            }
+        }
+
+        unreachable!();
     }
 }
 
