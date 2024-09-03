@@ -813,7 +813,7 @@ mod test_hybrid_propertis {
         non_normalized_error /= iterations as f64;
 
         assert!(
-            normalized_error <= P::error_rate() / 5.0,
+            normalized_error <= P::error_rate() / 13.0,
             "The normalized error rate ({normalized_error}, {non_normalized_error}) must be less than or equal to the error rate ({}).",
             P::error_rate()
         );
