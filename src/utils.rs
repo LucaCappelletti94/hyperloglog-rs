@@ -80,6 +80,17 @@ pub const fn ceil(numerator: usize, denominator: usize) -> usize {
 }
 
 #[inline]
+#[must_use]
+/// Calculates the integer floor of the division of `numerator` by `denominator`.
+/// 
+/// # Arguments
+/// * `numerator` - The numerator of the division.
+/// * `denominator` - The denominator of the division.
+pub const fn floor(numerator: usize, denominator: usize) -> usize {
+    numerator / denominator
+}
+
+#[inline]
 /// Applies a correction to the provided union cardinality estimate.
 pub(crate) fn correct_union_estimate(
     left_cardinality: f64,

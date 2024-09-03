@@ -266,7 +266,7 @@ mod test_composite_hash {
                     CH::Precision,
                     CH::Bits,
                     <CH::Precision as ArrayRegister<CH::Bits>>::Packed,
-                >>::hash_and_register_and_index(&random_value);
+                >>::index_and_register_and_hash(&random_value);
 
             let reference_encoded_hash = CH::encode(index, register, original_hash, hash_bits);
 
@@ -415,7 +415,7 @@ mod test_composite_hash {
                         CH::Precision,
                         CH::Bits,
                         <CH::Precision as ArrayRegister<CH::Bits>>::Packed,
-                    >>::hash_and_register_and_index(&random_value);
+                    >>::index_and_register_and_hash(&random_value);
 
                 let encoded_hash = CH::encode(index, register, original_hash, hash_bits);
 

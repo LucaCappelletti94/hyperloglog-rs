@@ -69,7 +69,7 @@ impl<
         if self.is_hash_list() {
             let hash_bytes = self.hash_bytes();
             assert!(hash_bytes >= CH::SMALLEST_VIABLE_HASH_BITS / 8);
-            let (index, register, original_hash) = H::hash_and_register_and_index(element);
+            let (index, register, original_hash) = H::index_and_register_and_hash(element);
             let writer_tell =
                 usize::try_from(decode_writer_tell(self.inner.harmonic_sum())).unwrap();
             CH::find(
@@ -115,7 +115,7 @@ impl<
             let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
             let writer_tell = decode_writer_tell(self.inner.harmonic_sum());
             let hashes = self.inner.registers_mut().as_mut();
-            let (index, register, original_hash) = H::hash_and_register_and_index(element);
+            let (index, register, original_hash) = H::index_and_register_and_hash(element);
 
             match CH::insert_sorted_desc(
                 hashes,

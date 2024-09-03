@@ -15,6 +15,83 @@ pub struct SwitchHash<P: Precision, B: Bits> {
     _bits: core::marker::PhantomData<B>,
 }
 
+pub(super) struct HashFragment {
+    pub(super) index: usize,
+    pub(super) register_flag: Option<bool>,
+    pub(super) register: u8,
+    pub(super) hash_remainder: u16,
+}
+
+impl HashFragment {
+    pub(super) fn hash_remainder_size<P: Precision, B: Bits>(hash_bits: u8) -> u8 {
+        if hash_bits == P::EXPONENT + B::NUMBER_OF_BITS {
+            return 0;
+        }
+        hash_bits - 1 - P::EXPONENT - B::NUMBER_OF_BITS
+    }
+
+    fn restored_hash<P: Precision>(&self, hash_bits: u8) -> u64 {
+        u64::from(self.hash_remainder) << (P::EXPONENT + 1 + (64 - hash_bits))
+    }
+}
+
+impl<P: Precision, B: Bits> SwitchHash<P, B> {
+    /// Returns the provided SwitchHash splitted into its components.
+    pub(super) fn split_hash(hash: u64, hash_bits: u8) -> HashFragment {
+        // We extract the index from the leftmost bits of the hash.
+        let index = usize::try_from(hash >> (hash_bits - P::EXPONENT)).unwrap();
+
+        // If the hash barely fits as is, we do not need to do anything special.
+        if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
+            let register = u8::try_from(hash & B::MASK).unwrap();
+            return HashFragment {
+                index,
+                register_flag: None,
+                register,
+                hash_remainder: 0,
+            };
+        }
+
+        let register_flag = flag::<P>(hash, hash_bits);
+
+        // If the flag bit is set to 1, we have a composite hash with the following structure:
+        // [index (exponent bits) | flag = 1 | registers (bitsize) | hash remainder]
+        if register_flag {
+            let shift = hash_bits - 1 - P::EXPONENT - B::NUMBER_OF_BITS;
+            let register = u8::try_from((hash >> shift) & B::MASK).unwrap();
+
+            let hash_remainder_mask = (1 << shift) - 1;
+            let hash_remainder = u16::try_from(hash & hash_remainder_mask).unwrap();
+
+            HashFragment {
+                index,
+                register_flag: Some(true),
+                register,
+                hash_remainder,
+            }
+        } else {
+            // Otherwise, we have a composite hash with the following structure:
+            // [index (exponent bits) | flag = 0 | original hash leading values]
+            // Therefore, we shift left by exponent bits and the flag bit to get
+            // the leading values of the original hash to the rightmost bits,
+            // and then we can count the leading zeros to get the register value.
+            let shift = P::EXPONENT + 1 + (64 - hash_bits);
+            let restored_hash = !(hash << shift);
+            let hash_remainder = u16::try_from(restored_hash >> shift).unwrap();
+
+            let leading_zeros = (restored_hash | (1_u64 << (64_u64 - B::MASK))).leading_zeros();
+            let register = u8::try_from(leading_zeros + 1).unwrap();
+
+            HashFragment {
+                index,
+                register_flag: Some(false),
+                register,
+                hash_remainder,
+            }
+        }
+    }
+}
+
 fn flag<P: Precision>(hash: u64, hash_bits: u8) -> bool {
     ((hash >> (hash_bits - P::EXPONENT - 1)) & 1) == 1
 }
@@ -40,7 +117,7 @@ const fn maximal_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
         return 16;
     }
 
-    if P::EXPONENT < 14 {
+    if P::EXPONENT < 15 {
         return 24;
     }
 
@@ -202,15 +279,16 @@ where
             unreachable!("The hash is already at the lowest precision, you cannot shift it down by {shift} bits.");
         }
 
-        if flag::<Self::Precision>(hash, hash_bits) {
+        let fragmented = Self::split_hash(hash, hash_bits);
+
+        if fragmented.register_flag.unwrap() {
             // If the register is stored explicitly, we can shift the hash to the right
             // and remove the extra padding to reduce it to the smaller variant.
             if hash_bits - shift == Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS {
                 // We also need to remove the flag bit, otherwise we would delete
                 // a bit of the register value.
-                let (register, index) = Self::decode(hash, hash_bits);
-
-                ((index as u64) << Self::Bits::NUMBER_OF_BITS) | u64::from(register)
+                ((fragmented.index as u64) << Self::Bits::NUMBER_OF_BITS)
+                    | u64::from(fragmented.register)
             } else {
                 hash >> shift
             }
@@ -218,10 +296,12 @@ where
             // Otherwise, we need to handle the case with the register stored as the leading
             // zeros of the original hash. We extract the leading zeros and shift it back to
             // the leftmost bits to restore them to their original position.
-            let (register, index) = Self::decode(hash, hash_bits);
-            let restored_hash = !(hash << (Self::Precision::EXPONENT + 1 + (64 - hash_bits)));
-            debug_assert_eq!(restored_hash.leading_zeros(), u32::from(register) - 1);
-            Self::encode(index, register, restored_hash, hash_bits - shift)
+            Self::encode(
+                fragmented.index,
+                fragmented.register,
+                fragmented.restored_hash::<Self::Precision>(hash_bits),
+                hash_bits - shift,
+            )
         }
     }
 
@@ -334,43 +414,16 @@ where
             hash.leading_zeros(),
         );
 
-        // We extract the index from the leftmost bits of the hash.
-        let index = usize::try_from(hash >> (hash_bits - Self::Precision::EXPONENT)).unwrap();
+        let fragmented = Self::split_hash(hash, hash_bits);
 
         debug_assert!(
-            index < 1 << Self::Precision::EXPONENT,
-            "While decoding the hash ({hash:064b}), the index ({index}) must be less than 2^({})",
+            fragmented.index < 1 << Self::Precision::EXPONENT,
+            "While decoding the hash ({hash:064b}), the index ({}) must be less than 2^({})",
+            fragmented.index,
             Self::Precision::EXPONENT
         );
 
-        // If the hash barely fits as is, we do not need to do anything special.
-        if Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS == hash_bits {
-            let register = u8::try_from(hash & Self::Bits::MASK).unwrap();
-            return (register, index);
-        }
-
-        // If the flag bit is set to 1, we have a composite hash with the following structure:
-        // [index (exponent bits) | flag = 1 | registers (bitsize) | hash remainder]
-        let register = if flag::<Self::Precision>(hash, hash_bits) {
-            u8::try_from(
-                (hash >> (hash_bits - Self::Bits::NUMBER_OF_BITS - Self::Precision::EXPONENT - 1))
-                    & Self::Bits::MASK,
-            )
-            .unwrap()
-        } else {
-            // Otherwise, we have a composite hash with the following structure:
-            // [index (exponent bits) | flag = 0 | original hash leading values]
-            // Therefore, we shift left by exponent bits and the flag bit to get
-            // the leading values of the original hash to the rightmost bits,
-            // and then we can count the leading zeros to get the register value.
-            let mut restored_hash = !(hash << (Self::Precision::EXPONENT + 1 + (64 - hash_bits)));
-            restored_hash |= 1_u64 << (64_u64 - Self::Bits::MASK);
-
-            let leading_zeros = restored_hash.leading_zeros();
-            u8::try_from(leading_zeros + 1).unwrap()
-        };
-
-        (register, index)
+        (fragmented.register, fragmented.index as usize)
     }
 }
 

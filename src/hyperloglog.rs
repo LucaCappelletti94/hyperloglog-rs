@@ -103,13 +103,13 @@ pub trait HyperLogLog:
     #[inline]
     /// Hashes the element and returns the register value and the index of the register.
     fn register_and_index<T: Hash>(element: &T) -> (u8, usize) {
-        let (index, register, _) = Self::hash_and_register_and_index::<T>(element);
+        let (index, register, _) = Self::index_and_register_and_hash::<T>(element);
         (register, index)
     }
 
     #[inline]
     /// Hashes the element and returns the register value and the index of the register.
-    fn hash_and_register_and_index<T: Hash>(element: &T) -> (usize, u8, u64) {
+    fn index_and_register_and_hash<T: Hash>(element: &T) -> (usize, u8, u64) {
         let mut hasher = Self::Hasher::default();
         element.hash(&mut hasher);
         let hash = hasher.finish();

@@ -4,17 +4,92 @@ mod bitreader;
 mod bitwriter;
 mod optimal_codes;
 mod prefix_free_codes;
+use crate::utils::VariableWord;
 use crate::{bits::Bits, utils::ceil};
 use bitreader::BitReader;
 use bitwriter::BitWriter;
 use prefix_free_codes::{CodeRead, CodeSize, CodeWrite};
 
-use super::{CompositeHash, CompositeHashError, Debug, LastBufferedBit, Precision};
+use super::BirthDayParadoxCorrection;
+use super::{
+    switch::HashFragment, CompositeHash, CompositeHashError, Debug, LastBufferedBit, Precision,
+    SwitchHash,
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 /// Gap-based composite hash.
 pub struct GapHash<CH> {
     _phantom: PhantomData<CH>,
+}
+
+/// TODO! ACTUALLY IMPLEMENT THIS THING! THIS IS A PLACEHOLDER!
+impl<CH: BirthDayParadoxCorrection> BirthDayParadoxCorrection for GapHash<CH> {
+    const CARDINALITIES: [u32; 7] = CH::CARDINALITIES;
+    const RELATIVE_ERRORS: [f64; 7] = CH::RELATIVE_ERRORS;
+}
+
+/// Struct representing the portions to be encoded in the gap encoding.
+pub struct GapFragment {
+    /// The bits expected to have uniform distribution.
+    pub uniform: u64,
+    /// The bits expected to have geometric distribution.
+    pub geometric: u8,
+}
+
+impl<P: Precision, B: Bits> GapHash<SwitchHash<P, B>> {
+    #[inline]
+    /// Returns the gap encoding for the given SwitchHash.
+    pub fn into_gap_fragment(
+        previous_hash: u64,
+        hash_to_encode: u64,
+        hash_bits: u8,
+    ) -> GapFragment {
+        let previous_fragment = SwitchHash::<P, B>::split_hash(previous_hash, hash_bits);
+        let fragment_to_encode = SwitchHash::<P, B>::split_hash(hash_to_encode, hash_bits);
+
+        debug_assert!(
+            previous_fragment.index >= fragment_to_encode.index,
+            "The previous index ({}) must be greater or equal to the second index ({})",
+            previous_fragment.index,
+            fragment_to_encode.index
+        );
+
+        debug_assert!(
+            previous_fragment.index > fragment_to_encode.index
+                || previous_fragment.register >= fragment_to_encode.register,
+            "The previous register ({}) must be greater or equal to the second register ({})",
+            previous_fragment.register,
+            fragment_to_encode.register
+        );
+
+        // The uniform portion of the hash is composed by the index and the hash remainder.
+        let previous_uniform = u64::try_from(
+            previous_fragment.index << HashFragment::hash_remainder_size::<P, B>(hash_bits),
+        )
+        .unwrap()
+            | u64::from(previous_fragment.hash_remainder);
+        let second_uniform = u64::try_from(
+            fragment_to_encode.index << HashFragment::hash_remainder_size::<P, B>(hash_bits),
+        )
+        .unwrap()
+            | u64::from(fragment_to_encode.hash_remainder);
+
+        // The geometric portion of the hash is composed by the difference between the registers
+        // when the indices are equal, otherwise it is the fragment to encode register itself.
+        let geometric = if previous_fragment.index == fragment_to_encode.index {
+            previous_fragment.register - fragment_to_encode.register
+        } else {
+            fragment_to_encode.register
+        };
+
+        let uniform = if previous_uniform > second_uniform {
+            (previous_uniform - second_uniform) << 1
+        } else {
+            ((second_uniform - previous_uniform) << 1) | 1
+        };
+
+        GapFragment { uniform, geometric }
+    }
 }
 
 /// Trait defining the combination between a given combo of Precision
@@ -41,60 +116,6 @@ impl<CH: CompositeHash> GapHash<CH> {
     ) -> bool {
         hash_bits < CH::LARGEST_VIABLE_HASH_BITS
             || number_of_hashes * usize::from(hash_bits) > bit_index
-    }
-}
-
-pub(super) const fn smallest_viable_gap_hash<P: Precision, B: Bits>() -> u8 {
-    assert!(P::EXPONENT >= 4);
-    assert!(B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5 || B::NUMBER_OF_BITS == 6);
-    assert!(P::EXPONENT <= 18);
-    match (P::EXPONENT, B::NUMBER_OF_BITS) {
-        (4, 4) => 8,
-        (4, 5) => 9,
-        (4, 6) => 10,
-        (5, 4) => 9,
-        (5, 5) => 10,
-        (5, 6) => 11,
-        (6, 4) => 10,
-        (6, 5) => 11,
-        (6, 6) => 12,
-        (7, 4) => 11,
-        (7, 5) => 12,
-        (7, 6) => 13,
-        (8, 4) => 12,
-        (8, 5) => 13,
-        (8, 6) => 14,
-        (9, 4) => 13,
-        (9, 5) => 14,
-        (9, 6) => 16,
-        (10, 4) => 15,
-        (10, 5) => 16,
-        (10, 6) => 17,
-        (11, 4) => 16,
-        (11, 5) => 17,
-        (11, 6) => 18,
-        (12, 4) => 17,
-        (12, 5) => 18,
-        (12, 6) => 19,
-        (13, 4) => 19,
-        (13, 5) => 20,
-        (13, 6) => 21,
-        (14, 4) => 20,
-        (14, 5) => 21,
-        (14, 6) => 22,
-        (15, 4) => 22,
-        (15, 5) => 23,
-        (15, 6) => 24,
-        (16, 4) => 23,
-        (16, 5) => 24,
-        (16, 6) => 25,
-        (17, 4) => 24,
-        (17, 5) => 25,
-        (17, 6) => 26,
-        (18, 4) => 26,
-        (18, 5) => 27,
-        (18, 6) => 28,
-        _ => unreachable!(),
     }
 }
 
@@ -382,7 +403,7 @@ where
         }
     }
 
-    const SMALLEST_VIABLE_HASH_BITS: u8 = smallest_viable_gap_hash::<Self::Precision, Self::Bits>();
+    const SMALLEST_VIABLE_HASH_BITS: u8 = Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS;
     const LARGEST_VIABLE_HASH_BITS: u8 = CH::LARGEST_VIABLE_HASH_BITS;
 }
 
