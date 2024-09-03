@@ -9,7 +9,7 @@ extern crate quote;
 extern crate syn;
 
 use core::ops::{Add, Div, Sub};
-use hyperloglog_rs::composite_hash::gaps::{GapFragment, PrefixFreeCode};
+use hyperloglog_rs::composite_hash::gaps::GapFragment;
 use prettyplease::unparse;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -36,59 +36,21 @@ where
     serializer.serialize_str(&format!("{value:.4}"))
 }
 
-const MAX_CODE_COEFFICIENT: usize = 30;
-
 #[derive(Debug, Copy, Clone)]
 /// Collector of statistics for the different prefix-free codes.
 pub struct CodesStats {
     /// The total number of elements observed.
     pub total: u64,
     /// The total space used to store the elements if
-    /// they were stored using the unary code.
-    pub unary: u64,
-    /// The total space used to store the elements if
-    /// they were stored using the gamma code.
-    pub gamma: u64,
-    /// The total space used to store the elements if
-    /// they were stored using the delta code.
-    pub delta: u64,
-    /// The total space used to store the elements if
-    /// they were stored using the omega code.
-    pub omega: u64,
-    /// The total space used to store the elements if
-    /// they were stored using the zeta code.
-    pub zeta: [u64; MAX_CODE_COEFFICIENT],
-    /// The total space used to store the elements if
-    /// they were stored using the Golomb code.
-    pub golomb: [u64; MAX_CODE_COEFFICIENT],
-    /// The total space used to store the elements if
-    /// they were stored using the exponential Golomb code.
-    pub exp_golomb: [u64; MAX_CODE_COEFFICIENT],
-    /// The total space used to store the elements if
     /// they were stored using the Rice code.
-    pub rice: [u64; MAX_CODE_COEFFICIENT],
-    /// The total space used to store the elements if
-    /// they were stored using the Pi code.
-    pub pi: [u64; MAX_CODE_COEFFICIENT],
-    /// The total space used to store the elements if
-    /// they were stored using the Pi web code.
-    pub pi_web: [u64; MAX_CODE_COEFFICIENT],
+    pub rice: [u64; 30],
 }
 
 impl core::default::Default for CodesStats {
     fn default() -> Self {
         Self {
             total: 0,
-            unary: 0,
-            gamma: 0,
-            delta: 0,
-            omega: 0,
-            zeta: [0; MAX_CODE_COEFFICIENT],
-            golomb: [0; MAX_CODE_COEFFICIENT],
-            exp_golomb: [0; MAX_CODE_COEFFICIENT],
-            rice: [0; MAX_CODE_COEFFICIENT],
-            pi: [0; MAX_CODE_COEFFICIENT],
-            pi_web: [0; MAX_CODE_COEFFICIENT],
+            rice: [0; 30],
         }
     }
 }
@@ -109,51 +71,6 @@ impl CodesStats {
         let unary_encoded_register = u64::from(gap.geometric) + 1;
         self.total += 1;
 
-        let mut unary_delta = unary_encoded_register + (gap.uniform + 1);
-        if vbyte {
-            unary_delta = ceil(unary_delta, 8) * 8;
-        }
-        self.unary += unary_delta;
-        let mut gamma_delta = unary_encoded_register + len_gamma(gap.uniform) as u64;
-        if vbyte {
-            gamma_delta = ceil(gamma_delta, 8) * 8;
-        }
-        self.gamma += gamma_delta;
-        let mut delta_delta = unary_encoded_register + len_delta(gap.uniform) as u64;
-        if vbyte {
-            delta_delta = ceil(delta_delta, 8) * 8;
-        }
-        self.delta += delta_delta;
-        let mut omega_delta = unary_encoded_register + len_omega(gap.uniform) as u64;
-        if vbyte {
-            omega_delta = ceil(omega_delta, 8) * 8;
-        }
-        self.omega += omega_delta;
-
-        for (k, val) in self.zeta.iter_mut().enumerate() {
-            let mut zeta_delta =
-                unary_encoded_register + (len_zeta(gap.uniform, (k + 1) as _) as u64);
-            if vbyte {
-                zeta_delta = ceil(zeta_delta, 8) * 8;
-            }
-            *val += zeta_delta;
-        }
-        for (b, val) in self.golomb.iter_mut().enumerate() {
-            let mut golomb_delta =
-                unary_encoded_register + (len_golomb(gap.uniform, (b + 1) as _) as u64);
-            if vbyte {
-                golomb_delta = ceil(golomb_delta, 8) * 8;
-            }
-            *val += golomb_delta;
-        }
-        for (k, val) in self.exp_golomb.iter_mut().enumerate() {
-            let mut exp_golomb_delta =
-                unary_encoded_register + (len_exp_golomb(gap.uniform, k as _) as u64);
-            if vbyte {
-                exp_golomb_delta = ceil(exp_golomb_delta, 8) * 8;
-            }
-            *val += exp_golomb_delta;
-        }
         for (log2_b, val) in self.rice.iter_mut().enumerate() {
             let mut rice_delta =
                 unary_encoded_register + (len_rice(gap.uniform, log2_b as _) as u64);
@@ -161,22 +78,6 @@ impl CodesStats {
                 rice_delta = ceil(rice_delta, 8) * 8;
             }
             *val += rice_delta;
-        }
-        // +2 because π0 = gamma and π1 = zeta_2
-        for (k, val) in self.pi.iter_mut().enumerate() {
-            let mut pi_delta = unary_encoded_register + (len_pi(gap.uniform, (k + 2) as _) as u64);
-            if vbyte {
-                pi_delta = ceil(pi_delta, 8) * 8;
-            }
-            *val += pi_delta;
-        }
-        for (k, val) in self.pi_web.iter_mut().enumerate() {
-            let mut pi_web_delta =
-                unary_encoded_register + (len_pi_web(gap.uniform, k as _) as u64);
-            if vbyte {
-                pi_web_delta = ceil(pi_web_delta, 8) * 8;
-            }
-            *val += pi_web_delta;
         }
     }
 
@@ -187,51 +88,6 @@ impl CodesStats {
         let unary_encoded_register = u64::from(gap.geometric) + 1;
         self.total -= 1;
 
-        let mut unary_delta = unary_encoded_register + (gap.uniform + 1);
-        if vbyte {
-            unary_delta = ceil(unary_delta, 8) * 8;
-        }
-        self.unary -= unary_delta;
-        let mut gamma_delta = unary_encoded_register + len_gamma(gap.uniform) as u64;
-        if vbyte {
-            gamma_delta = ceil(gamma_delta, 8) * 8;
-        }
-        self.gamma -= gamma_delta;
-        let mut delta_delta = unary_encoded_register + len_delta(gap.uniform) as u64;
-        if vbyte {
-            delta_delta = ceil(delta_delta, 8) * 8;
-        }
-        self.delta -= delta_delta;
-        let mut omega_delta = unary_encoded_register + len_omega(gap.uniform) as u64;
-        if vbyte {
-            omega_delta = ceil(omega_delta, 8) * 8;
-        }
-        self.omega -= omega_delta;
-
-        for (k, val) in self.zeta.iter_mut().enumerate() {
-            let mut zeta_delta =
-                unary_encoded_register + (len_zeta(gap.uniform, (k + 1) as _) as u64);
-            if vbyte {
-                zeta_delta = ceil(zeta_delta, 8) * 8;
-            }
-            *val -= zeta_delta;
-        }
-        for (b, val) in self.golomb.iter_mut().enumerate() {
-            let mut golomb_delta =
-                unary_encoded_register + (len_golomb(gap.uniform, (b + 1) as _) as u64);
-            if vbyte {
-                golomb_delta = ceil(golomb_delta, 8) * 8;
-            }
-            *val -= golomb_delta;
-        }
-        for (k, val) in self.exp_golomb.iter_mut().enumerate() {
-            let mut exp_golomb_delta =
-                unary_encoded_register + (len_exp_golomb(gap.uniform, k as _) as u64);
-            if vbyte {
-                exp_golomb_delta = ceil(exp_golomb_delta, 8) * 8;
-            }
-            *val -= exp_golomb_delta;
-        }
         for (log2_b, val) in self.rice.iter_mut().enumerate() {
             let mut rice_delta =
                 unary_encoded_register + (len_rice(gap.uniform, log2_b as _) as u64);
@@ -240,54 +96,19 @@ impl CodesStats {
             }
             *val -= rice_delta;
         }
-        // +2 because π0 = gamma and π1 = zeta_2
-        for (k, val) in self.pi.iter_mut().enumerate() {
-            let mut pi_delta = unary_encoded_register + (len_pi(gap.uniform, (k + 2) as _) as u64);
-            if vbyte {
-                pi_delta = ceil(pi_delta, 8) * 8;
-            }
-            *val -= pi_delta;
-        }
-        for (k, val) in self.pi_web.iter_mut().enumerate() {
-            let mut pi_web_delta =
-                unary_encoded_register + (len_pi_web(gap.uniform, k as _) as u64);
-            if vbyte {
-                pi_web_delta = ceil(pi_web_delta, 8) * 8;
-            }
-            *val -= pi_web_delta;
-        }
     }
 
     /// Combines additively this stats with another one.
     pub fn add(&mut self, rhs: &Self) {
         self.total += rhs.total;
-        self.unary += rhs.unary;
-        self.gamma += rhs.gamma;
-        self.delta += rhs.delta;
-        self.omega += rhs.omega;
-        for (a, b) in self.zeta.iter_mut().zip(rhs.zeta.iter()) {
-            *a += *b;
-        }
-        for (a, b) in self.golomb.iter_mut().zip(rhs.golomb.iter()) {
-            *a += *b;
-        }
-        for (a, b) in self.exp_golomb.iter_mut().zip(rhs.exp_golomb.iter()) {
-            *a += *b;
-        }
         for (a, b) in self.rice.iter_mut().zip(rhs.rice.iter()) {
-            *a += *b;
-        }
-        for (a, b) in self.pi.iter_mut().zip(rhs.pi.iter()) {
-            *a += *b;
-        }
-        for (a, b) in self.pi_web.iter_mut().zip(rhs.pi_web.iter()) {
             *a += *b;
         }
     }
 
     /// Return the best code for the stream and its space usage.
     pub fn best_code(&self) -> (Code, u64) {
-        let mut best = self.unary;
+        let mut best = u64::MAX;
         let mut best_code = Code::Unary;
 
         macro_rules! check {
@@ -306,30 +127,6 @@ impl CodesStats {
                 },
                 *val
             );
-        }
-
-        check!(Code::Gamma, self.gamma);
-        check!(Code::Delta, self.delta);
-        check!(Code::Omega, self.omega);
-
-        for (b, val) in self.golomb.iter().enumerate() {
-            check!(Code::Golomb { b: (b + 1) as _ }, *val);
-        }
-
-        for (k, val) in self.exp_golomb.iter().enumerate() {
-            check!(Code::ExpGolomb { k: k as _ }, *val);
-        }
-        
-        for (k, val) in self.zeta.iter().enumerate() {
-            check!(Code::Zeta { k: (k + 1) as _ }, *val);
-        }
-        
-        
-        for (k, val) in self.pi.iter().enumerate() {
-            check!(Code::Pi { k: (k + 2) as _ }, *val);
-        }
-        for (k, val) in self.pi_web.iter().enumerate() {
-            check!(Code::PiWeb { k: k as _ }, *val);
         }
 
         (best_code, best)
@@ -529,12 +326,14 @@ where
         }
     }
 
-    let iterations = 800_000 / (1 << (P::EXPONENT - 4));
+    let iterations = 1_600_000 / (1 << (P::EXPONENT - 4));
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));
     progress_bar.set_style(
         ProgressStyle::default_bar()
-            .template("Samples: [{elapsed_precise} | {eta}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+            .template(
+                "Samples: [{elapsed_precise} | {eta}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
+            )
             .unwrap()
             .progress_chars("##-"),
     );
