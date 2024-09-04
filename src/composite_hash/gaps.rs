@@ -60,7 +60,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
         // The geometric portion of the hash is composed by the difference between the registers
         // when the indices are equal, otherwise it is the fragment to encode register itself.
         let geometric = if previous_fragment.index == fragment_to_encode.index {
-            previous_fragment.register - fragment_to_encode.register - 1
+            previous_fragment.register - fragment_to_encode.register
         } else {
             fragment_to_encode.register - 1
         };
