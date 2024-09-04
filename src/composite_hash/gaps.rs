@@ -35,6 +35,8 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
         hash_to_encode: u64,
         hash_bits: u8,
     ) -> GapFragment {
+        assert!(previous_hash > hash_to_encode);
+
         let previous_fragment = SwitchHash::<P, B>::split_hash(previous_hash, hash_bits);
         let fragment_to_encode = SwitchHash::<P, B>::split_hash(hash_to_encode, hash_bits);
 
@@ -60,7 +62,27 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
         // The geometric portion of the hash is composed by the difference between the registers
         // when the indices are equal, otherwise it is the fragment to encode register itself.
         let geometric = if previous_fragment.index == fragment_to_encode.index {
-            previous_fragment.register - fragment_to_encode.register
+            if previous_fragment.hash_remainder <= fragment_to_encode.hash_remainder {
+                // If the previous hash (which MUST be larger than the current) has an identical
+                // index and a smaller or equal hash remainder, the register difference must be
+                // what makes the previous hash larger. Therefore, we know that these registers
+                // must differ by at least 1.
+                assert!(
+                    previous_fragment.register > fragment_to_encode.register,
+                    "The previous register ({}) must be greater than the second register ({}), having hashes {} and {}, indices {} and {} and hash remainder {} and {}",
+                    previous_fragment.register,
+                    fragment_to_encode.register,
+                    previous_hash,
+                    hash_to_encode,
+                    previous_fragment.index,
+                    fragment_to_encode.index,
+                    previous_fragment.hash_remainder,
+                    fragment_to_encode.hash_remainder
+                );
+                previous_fragment.register - fragment_to_encode.register - 1
+            } else {
+                previous_fragment.register - fragment_to_encode.register
+            }
         } else {
             fragment_to_encode.register - 1
         };

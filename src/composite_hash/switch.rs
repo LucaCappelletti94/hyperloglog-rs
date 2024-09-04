@@ -35,7 +35,7 @@ impl<P: Precision, B: Bits> HashFragment<P, B> {
     }
 
     fn restored_hash(&self, hash_bits: u8) -> u64 {
-        u64::from(self.hash_remainder) << (P::EXPONENT + 1 + (64 - hash_bits))
+        !(u64::from(self.hash_remainder) << (P::EXPONENT + 1 + 64 - hash_bits))
     }
 
     fn register_flag(&self) -> bool {
@@ -82,9 +82,8 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
         // [index (exponent bits) | flag = 1 | registers (bitsize) | hash remainder]
         if register_flag {
             let shift = hash_bits - 1 - P::EXPONENT - B::NUMBER_OF_BITS;
-            let register = u8::try_from((hash >> shift) & B::MASK).unwrap();
-
             let hash_remainder_mask = (1 << shift) - 1;
+            let register = u8::try_from((hash >> shift) & B::MASK).unwrap();
             let hash_remainder = u16::try_from(hash & hash_remainder_mask).unwrap();
 
             HashFragment {
@@ -102,7 +101,8 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
             // and then we can count the leading zeros to get the register value.
             let shift = P::EXPONENT + 1 + (64 - hash_bits);
             let restored_hash = !(hash << shift);
-            let hash_remainder = u16::try_from(restored_hash >> shift).unwrap();
+            let hash_remainder_mask = (1 << (hash_bits - 1 - P::EXPONENT)) - 1;
+            let hash_remainder = u16::try_from(hash & hash_remainder_mask).unwrap();
 
             let leading_zeros = (restored_hash | (1_u64 << (64_u64 - B::MASK))).leading_zeros();
             let register = u8::try_from(leading_zeros + 1).unwrap();
