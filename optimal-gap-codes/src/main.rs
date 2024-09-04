@@ -68,12 +68,12 @@ impl CodesStats {
     /// Inserts a gap into the stats.
     pub fn insert(&mut self, gap: GapFragment, vbyte: bool) {
         // Register contribution to the total.
-        let unary_encoded_register = u64::from(gap.geometric) + 1;
+        let encoded_register = u64::from(gap.geometric) + 1;
         self.total += 1;
 
         for (log2_b, val) in self.rice.iter_mut().enumerate() {
             let mut rice_delta =
-                unary_encoded_register + (len_rice(gap.uniform, log2_b as _) as u64);
+                encoded_register + (len_rice(gap.uniform, log2_b as _) as u64);
             if vbyte {
                 rice_delta = ceil(rice_delta, 8) * 8;
             }
@@ -85,12 +85,12 @@ impl CodesStats {
     /// Removes the contribution of a gap from the stats.
     pub fn remove(&mut self, gap: GapFragment, vbyte: bool) {
         // Register contribution to the total.
-        let unary_encoded_register = u64::from(gap.geometric) + 1;
+        let encoded_register = u64::from(gap.geometric) + 1;
         self.total -= 1;
 
         for (log2_b, val) in self.rice.iter_mut().enumerate() {
             let mut rice_delta =
-                unary_encoded_register + (len_rice(gap.uniform, log2_b as _) as u64);
+                encoded_register + (len_rice(gap.uniform, log2_b as _) as u64);
             if vbyte {
                 rice_delta = ceil(rice_delta, 8) * 8;
             }
@@ -457,7 +457,7 @@ macro_rules! generate_optimal_gap_codes_for_precision {
 /// Procedural macro to generate the optimal_gap_codes function for the provided precisions.
 macro_rules! generate_optimal_gap_codes_for_precisions {
     ($multiprogress:ident, $($precision:ty),*) => {
-        let progress_bar = $multiprogress.add(ProgressBar::new(18-4));
+        let progress_bar = $multiprogress.add(ProgressBar::new(15));
 
         progress_bar.set_style(
             ProgressStyle::default_bar()

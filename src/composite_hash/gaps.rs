@@ -37,8 +37,8 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
     ) -> GapFragment {
         assert!(previous_hash > hash_to_encode);
 
-        let previous_fragment = SwitchHash::<P, B>::split_hash(previous_hash, hash_bits);
-        let fragment_to_encode = SwitchHash::<P, B>::split_hash(hash_to_encode, hash_bits);
+        let previous_fragment = SwitchHash::<P, B>::scompose_hash(previous_hash, hash_bits);
+        let fragment_to_encode = SwitchHash::<P, B>::scompose_hash(hash_to_encode, hash_bits);
 
         debug_assert!(
             previous_fragment.index >= fragment_to_encode.index,
@@ -55,45 +55,51 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
             fragment_to_encode.register
         );
 
-        // The uniform portion of the hash is composed by the index and the hash remainder.
-        let previous_uniform = previous_fragment.uniform(hash_bits);
-        let to_encode_uniform = fragment_to_encode.uniform(hash_bits);
+        // When P::EXPONENT + B::NUMBER_OF_BITS == hash_bits, there is absolutely
+        // no hash remainder to include in the uniform portion of the hash, as that
+        // part of the hash is solely composed of the index. 
+        if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
+            let uniform = u64::try_from(previous_fragment.index - fragment_to_encode.index).unwrap();
 
-        // The geometric portion of the hash is composed by the difference between the registers
-        // when the indices are equal, otherwise it is the fragment to encode register itself.
-        let geometric = if previous_fragment.index == fragment_to_encode.index {
-            if previous_fragment.hash_remainder <= fragment_to_encode.hash_remainder {
-                // If the previous hash (which MUST be larger than the current) has an identical
-                // index and a smaller or equal hash remainder, the register difference must be
-                // what makes the previous hash larger. Therefore, we know that these registers
-                // must differ by at least 1.
-                assert!(
-                    previous_fragment.register > fragment_to_encode.register,
-                    "The previous register ({}) must be greater than the second register ({}), having hashes {} and {}, indices {} and {} and hash remainder {} and {}",
-                    previous_fragment.register,
-                    fragment_to_encode.register,
-                    previous_hash,
-                    hash_to_encode,
-                    previous_fragment.index,
-                    fragment_to_encode.index,
-                    previous_fragment.hash_remainder,
-                    fragment_to_encode.hash_remainder
-                );
+            let geometric = if previous_fragment.index == fragment_to_encode.index {
                 previous_fragment.register - fragment_to_encode.register - 1
             } else {
-                previous_fragment.register - fragment_to_encode.register
+                fragment_to_encode.register - 1
+            };
+
+            GapFragment {
+                uniform,
+                geometric
             }
         } else {
-            fragment_to_encode.register - 1
-        };
+            // The uniform portion of the hash is composed by the index and the hash remainder.
+            let previous_uniform = previous_fragment.uniform(hash_bits);
+            let to_encode_uniform = fragment_to_encode.uniform(hash_bits);
 
-        let uniform = if previous_uniform > to_encode_uniform {
-            ((previous_uniform - to_encode_uniform) << 1) - 1
-        } else {
-            (to_encode_uniform - previous_uniform) << 1
-        };
+            // The geometric portion of the hash is composed by the difference between the registers
+            // when the indices are equal, otherwise it is the fragment to encode register itself.
+            let geometric = if previous_fragment.index == fragment_to_encode.index {
+                if previous_fragment.hash_remainder <= fragment_to_encode.hash_remainder {
+                    // Since hashes must be strictly in descending order, and the indices are equal,
+                    // and the previous hash remainder is equal or less than the hash remainder to encode,
+                    // we can safely assume that the previous register is strictly greater than the register to encode.
+                    previous_fragment.register - fragment_to_encode.register - 1
+                } else {
+                    // Otherwise, the previous register may be equal or greater to the register to encode.
+                    previous_fragment.register - fragment_to_encode.register
+                }
+            } else {
+                fragment_to_encode.register - 1
+            };
 
-        GapFragment { uniform, geometric }
+            let uniform = if previous_uniform > to_encode_uniform {
+                ((previous_uniform - to_encode_uniform) << 1) - 1
+            } else {
+                (to_encode_uniform - previous_uniform) << 1
+            };
+            GapFragment { uniform, geometric }
+        }
+
     }
 
     #[inline]
@@ -102,26 +108,101 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
         previous_hash: u64,
         hash_bits: u8,
     ) -> u64 {
-        let previous_fragment = SwitchHash::<P, B>::split_hash(previous_hash, hash_bits);
+        let previous_fragment = SwitchHash::<P, B>::scompose_hash(previous_hash, hash_bits);
+
+        // When P::EXPONENT + B::NUMBER_OF_BITS == hash_bits, there is absolutely
+        // no hash remainder to include in the uniform portion of the hash, as that
+        // part of the hash is solely composed of the index.
+        if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
+            let to_decode_index = previous_fragment.index - usize::try_from(fragment.uniform).unwrap();
+            let register = if previous_fragment.index == to_decode_index {
+                previous_fragment.register - fragment.geometric - 1
+            } else {
+                fragment.geometric + 1
+            };
+
+            return SwitchHash::<P, B>::compose_hash(to_decode_index, register, 0, hash_bits);
+        }
+
         let previous_uniform = previous_fragment.uniform(hash_bits);
 
         let to_decode_uniform = if fragment.uniform & 1 == 0 {
-            previous_uniform - (fragment.uniform >> 1)
+            previous_uniform + (fragment.uniform >> 1)
         } else {
-            previous_uniform + (fragment.uniform >> 1) + 1
+            previous_uniform - ((fragment.uniform >> 1) + 1)
         };
-
         let (to_decode_index, to_decode_hash_remainder) = HashFragment::<P, B>::scompose_uniform(to_decode_uniform, hash_bits);
 
-        let to_decode_register = if to_decode_index == previous_fragment.index {
-            previous_fragment.register - fragment.geometric
+        let to_decode_register = if previous_fragment.index == to_decode_index {
+            if previous_fragment.hash_remainder <= to_decode_hash_remainder {
+                previous_fragment.register - fragment.geometric - 1
+            } else {
+                previous_fragment.register - fragment.geometric
+            }
         } else {
             fragment.geometric + 1
         };
 
         SwitchHash::<P, B>::compose_hash(to_decode_index, to_decode_register, to_decode_hash_remainder, hash_bits)
     }
+}
 
+#[cfg(test)]
+mod test_compose_scompose_gap {
+    use crate::prelude::*;
+    use crate::utils::iter_random_values;
+    use hyperloglog_derive::test_precisions_and_bits;
+
+    use super::*;
+
+    #[test_precisions_and_bits]
+    fn test_compose_scompose_gap<P: Precision, B: Bits>()
+    where
+        P: ArrayRegister<B>,
+    {
+        for (first, second) in iter_random_values::<u64>(10_000, None, None).zip(iter_random_values::<u64>(10_000, None, Some(675_398_754_524_577))) {
+            let (first_index, first_register, first_original_hash) =
+                <PlusPlus<P, B, <P as ArrayRegister<B>>::Packed>>::index_and_register_and_hash(
+                    &first,
+                );
+            let (second_index, second_register, second_original_hash) =
+                <PlusPlus<P, B, <P as ArrayRegister<B>>::Packed>>::index_and_register_and_hash(
+                    &second,
+                );
+            for hash_bits in SwitchHash::<P, B>::SMALLEST_VIABLE_HASH_BITS
+                ..=SwitchHash::<P, B>::LARGEST_VIABLE_HASH_BITS
+            {
+                let first_encoded_hash =
+                    SwitchHash::<P, B>::encode(first_index, first_register, first_original_hash, hash_bits);
+                let second_encoded_hash = SwitchHash::<P, B>::encode(
+                    second_index,
+                    second_register,
+                    second_original_hash,
+                    hash_bits,
+                );
+
+                // We for happenstance the two hashes are identical, which may happen while testing
+                // lots of cases expecially for small hash sizes, we skip the test.
+                if first_encoded_hash == second_encoded_hash {
+                    continue;
+                }
+
+                let (smaller, larger) = if first_encoded_hash < second_encoded_hash {
+                    (first_encoded_hash, second_encoded_hash)
+                } else {
+                    (second_encoded_hash, first_encoded_hash)
+                };
+
+                let fragment = GapHash::<P, B>::into_gap_fragment(larger, smaller, hash_bits);
+                let decoded_hash = GapHash::<P, B>::from_gap_fragment(fragment, larger, hash_bits);
+
+                assert_eq!(smaller, decoded_hash);
+            }
+        }
+    }
+}
+
+impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
     /// Returns whether the hashes are currently to be considered prefix-free-encoded.
     #[inline]
     #[must_use]
