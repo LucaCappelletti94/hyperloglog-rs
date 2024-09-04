@@ -1,5 +1,5 @@
 use hyperloglog_derive::test_estimator;
-use hyperloglog_rs::{composite_hash::{BirthDayParadoxCorrection, SwitchHash}, prelude::*};
+use hyperloglog_rs::prelude::*;
 use twox_hash::XxHash;
 
 /// Test the HyperLogLog implementation with the provided precision and bits
@@ -139,34 +139,22 @@ fn test_mle_beta<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
 
 #[test_estimator]
 #[cfg(feature = "mle")]
-fn test_hybrid_mle_plusplus<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>()
-where
-    SwitchHash<P, B>: BirthDayParadoxCorrection,
-{
+fn test_hybrid_mle_plusplus<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
     test_approximated_counter_at_precision_and_bits::<P, Hybrid<MLE<PlusPlus<P, B, R, H>>>>();
 }
 
 #[test_estimator]
 #[cfg(feature = "mle")]
-fn test_hybrid_mle_beta<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>()
-where
-    SwitchHash<P, B>: BirthDayParadoxCorrection,
-{
+fn test_hybrid_mle_beta<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
     test_approximated_counter_at_precision_and_bits::<P, Hybrid<MLE<LogLogBeta<P, B, R, H>>>>();
 }
 
 #[test_estimator]
-fn test_hybrid_plusplus<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>()
-where
-    SwitchHash<P, B>: BirthDayParadoxCorrection,
-{
+fn test_hybrid_plusplus<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
     test_approximated_counter_at_precision_and_bits::<P, Hybrid<PlusPlus<P, B, R, H>>>();
 }
 
 #[test_estimator]
-fn test_hybrid_beta<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>()
-where
-    SwitchHash<P, B>: BirthDayParadoxCorrection,
-{
+fn test_hybrid_beta<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
     test_approximated_counter_at_precision_and_bits::<P, Hybrid<LogLogBeta<P, B, R, H>>>();
 }

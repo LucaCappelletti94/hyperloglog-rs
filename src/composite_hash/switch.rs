@@ -1,6 +1,9 @@
 //! The [`SwitchHash`], which more accurately follows the HyperLogLog++ paper.
 
 use super::shared::{find, insert_sorted_desc, into_variant, DecodedIter, DowngradedIter};
+use super::switch_birthday_paradox::{
+    SWITCH_HASH_BIRTHDAY_PARADOX_CARDINALITIES, SWITCH_HASH_BIRTHDAY_PARADOX_ERRORS,
+};
 use super::{CompositeHash, CompositeHashError};
 use crate::{bits::Bits, prelude::Precision};
 
@@ -15,29 +18,49 @@ pub struct SwitchHash<P: Precision, B: Bits> {
     _bits: core::marker::PhantomData<B>,
 }
 
-pub(super) struct HashFragment {
+pub(super) struct HashFragment<P: Precision, B: Bits> {
     pub(super) index: usize,
-    pub(super) register_flag: Option<bool>,
     pub(super) register: u8,
     pub(super) hash_remainder: u16,
+    _precision: core::marker::PhantomData<P>,
+    _bits: core::marker::PhantomData<B>,
 }
 
-impl HashFragment {
-    pub(super) fn hash_remainder_size<P: Precision, B: Bits>(hash_bits: u8) -> u8 {
+impl<P: Precision, B: Bits> HashFragment<P, B> {
+    pub(super) fn hash_remainder_size(hash_bits: u8) -> u8 {
         if hash_bits == P::EXPONENT + B::NUMBER_OF_BITS {
             return 0;
         }
         hash_bits - 1 - P::EXPONENT - B::NUMBER_OF_BITS
     }
 
-    fn restored_hash<P: Precision>(&self, hash_bits: u8) -> u64 {
+    fn restored_hash(&self, hash_bits: u8) -> u64 {
         u64::from(self.hash_remainder) << (P::EXPONENT + 1 + (64 - hash_bits))
+    }
+
+    fn register_flag(&self) -> bool {
+        self.register - 1 > B::NUMBER_OF_BITS
+    }
+
+    pub(super) fn uniform(&self, hash_bits: u8) -> u64 {
+        u64::try_from(self.index << Self::hash_remainder_size(hash_bits)).unwrap()
+            | u64::from(self.hash_remainder)
+    }
+
+    pub(super) fn scompose_uniform(
+        uniform: u64,
+        hash_bits: u8,
+    ) -> (usize, u16) {
+        let remainder_size = Self::hash_remainder_size(hash_bits);
+        let index = usize::try_from(uniform >> remainder_size).unwrap();
+        let hash_remainder = u16::try_from(uniform & ((1 << remainder_size) - 1)).unwrap();
+        (index, hash_remainder)
     }
 }
 
 impl<P: Precision, B: Bits> SwitchHash<P, B> {
     /// Returns the provided SwitchHash splitted into its components.
-    pub(super) fn split_hash(hash: u64, hash_bits: u8) -> HashFragment {
+    pub(super) fn split_hash(hash: u64, hash_bits: u8) -> HashFragment<P, B> {
         // We extract the index from the leftmost bits of the hash.
         let index = usize::try_from(hash >> (hash_bits - P::EXPONENT)).unwrap();
 
@@ -46,9 +69,10 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
             let register = u8::try_from(hash & B::MASK).unwrap();
             return HashFragment {
                 index,
-                register_flag: None,
                 register,
                 hash_remainder: 0,
+                _precision: core::marker::PhantomData,
+                _bits: core::marker::PhantomData,
             };
         }
 
@@ -65,9 +89,10 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
 
             HashFragment {
                 index,
-                register_flag: Some(true),
                 register,
                 hash_remainder,
+                _precision: core::marker::PhantomData,
+                _bits: core::marker::PhantomData,
             }
         } else {
             // Otherwise, we have a composite hash with the following structure:
@@ -84,11 +109,34 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
 
             HashFragment {
                 index,
-                register_flag: Some(false),
                 register,
                 hash_remainder,
+                _precision: core::marker::PhantomData,
+                _bits: core::marker::PhantomData,
             }
         }
+    }
+
+    pub(super) fn compose_hash(index: usize, register: u8, hash_remainder: u16, hash_bits: u8) -> u64 {
+        let mut hash = u64::try_from(index << (hash_bits - P::EXPONENT)).unwrap();
+
+        if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
+            return hash | u64::from(register);
+        }
+
+        if register - 1 > B::NUMBER_OF_BITS {
+            let shift = hash_bits - 1 - P::EXPONENT - B::NUMBER_OF_BITS;
+            hash |= u64::from(register) << shift;
+            hash |= u64::from(hash_remainder);
+            hash |= 1 << (hash_bits - P::EXPONENT - 1);
+        } else {
+            let shift = P::EXPONENT + 1 + (64 - hash_bits);
+            let restored_hash = !(u64::from(hash_remainder) << shift) >> shift;
+            
+            hash |= u64::from(restored_hash);
+        }
+
+        hash
     }
 }
 
@@ -124,10 +172,7 @@ const fn maximal_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
     32
 }
 
-impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B>
-where
-    SwitchHash<P, B>: super::BirthDayParadoxCorrection,
-{
+impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     type Precision = P;
     type Bits = B;
 
@@ -136,6 +181,10 @@ where
 
     const SMALLEST_VIABLE_HASH_BITS: u8 = smallest_viable_switch_hash::<P, B>();
     const LARGEST_VIABLE_HASH_BITS: u8 = maximal_viable_switch_hash::<P, B>();
+    const BIRTHDAY_CARDINALITIES: [u32; 6] = SWITCH_HASH_BIRTHDAY_PARADOX_CARDINALITIES
+        [P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
+    const BIRTHDAY_RELATIVE_ERRORS: [f64; 6] = SWITCH_HASH_BIRTHDAY_PARADOX_ERRORS
+        [P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
 
     fn downgrade_inplace(
         hashes: &mut [u8],
@@ -281,7 +330,7 @@ where
 
         let fragmented = Self::split_hash(hash, hash_bits);
 
-        if fragmented.register_flag.unwrap() {
+        if fragmented.register_flag() {
             // If the register is stored explicitly, we can shift the hash to the right
             // and remove the extra padding to reduce it to the smaller variant.
             if hash_bits - shift == Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS {
@@ -299,7 +348,7 @@ where
             Self::encode(
                 fragmented.index,
                 fragmented.register,
-                fragmented.restored_hash::<Self::Precision>(hash_bits),
+                fragmented.restored_hash(hash_bits),
                 hash_bits - shift,
             )
         }

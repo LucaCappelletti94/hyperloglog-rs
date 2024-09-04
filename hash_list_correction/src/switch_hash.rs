@@ -4,7 +4,7 @@ use hyperloglog_rs::composite_hash::CompositeHash;
 use prettyplease::unparse;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{File, Ident};
+use syn::File;
 
 use hyperloglog_rs::composite_hash::switch::SwitchHash;
 use hyperloglog_rs::prelude::*;
@@ -17,7 +17,7 @@ use std::collections::HashSet;
 use test_utils::prelude::{read_csv, write_csv};
 use twox_hash::XxHash64;
 
-const NUMBER_OF_DISCONTINUITIES: usize = 7;
+const NUMBER_OF_DISCONTINUITIES: usize = 6;
 
 fn small_float_formatter<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -39,22 +39,26 @@ struct SwitchHashCorrection {
     precision: u8,
     bits: u8,
     relative_errors: [f64; NUMBER_OF_DISCONTINUITIES],
-    cardialities: [u32; NUMBER_OF_DISCONTINUITIES]
+    cardinalities: [u32; NUMBER_OF_DISCONTINUITIES],
 }
 
 impl SwitchHashCorrection {
     /// Returns the estimated cardinality for the provided cardinality.
     fn estimate_error(&self, cardinality_estimate: u32) -> f64 {
-        if cardinality_estimate >= self.cardialities[NUMBER_OF_DISCONTINUITIES - 1] {
-            return self.relative_errors[NUMBER_OF_DISCONTINUITIES - 1];
+        if cardinality_estimate >= self.cardinalities[NUMBER_OF_DISCONTINUITIES - 1] {
+            return self.relative_errors[NUMBER_OF_DISCONTINUITIES - 1]
+                * f64::from(cardinality_estimate)
+                / f64::from(self.cardinalities[NUMBER_OF_DISCONTINUITIES - 1]);
         }
 
-        if cardinality_estimate <= self.cardialities[0] {
-            return self.relative_errors[0];
+        if cardinality_estimate <= self.cardinalities[0] {
+            return self.relative_errors[0] * f64::from(cardinality_estimate)
+                / f64::from(self.cardinalities[0]).max(1.0);
         }
 
         // Otherwise, we find the partition that contains the cardinality estimate.
-        let partition = self.cardialities
+        let partition = self
+            .cardinalities
             .windows(2)
             .enumerate()
             .find(|(_, window)| {
@@ -64,7 +68,10 @@ impl SwitchHashCorrection {
             .unwrap()
             .0;
 
-        let (lower, upper) = (self.cardialities[partition], self.cardialities[partition + 1]);
+        let (lower, upper) = (
+            self.cardinalities[partition],
+            self.cardinalities[partition + 1],
+        );
         let (lower_error, upper_error) = (
             self.relative_errors[partition],
             self.relative_errors[partition + 1],
@@ -73,33 +80,6 @@ impl SwitchHashCorrection {
         let slope = (upper_error - lower_error) / f64::from(upper - lower);
 
         lower_error + slope * f64::from(cardinality_estimate - lower)
-    }
-
-    /// Implements the BirthDayParadoxCorrection trait for the SwitchHash struct at
-    /// the associated precision and bit size.
-    fn to_birthday_correction(&self) -> TokenStream {
-        let precision = self.precision;
-        let bits = self.bits;
-        let relative_errors = self.relative_errors;
-        let cardialities = self.cardialities;
-        let ident_precision: Ident = Ident::new(
-            &format!("Precision{}", precision),
-            proc_macro2::Span::call_site(),
-        );
-        let ident_bits: Ident =
-            Ident::new(&format!("Bits{}", bits), proc_macro2::Span::call_site());
-        let precision_flag = format!("precision_{}", precision);
-        let precision_flag = quote! {
-            #[cfg(feature = #precision_flag)]
-        };
-
-        quote! {
-            #precision_flag
-            impl crate::composite_hash::BirthDayParadoxCorrection for crate::composite_hash::SwitchHash<crate::precisions::#ident_precision, crate::bits::#ident_bits> {
-                const RELATIVE_ERRORS: [f64; #NUMBER_OF_DISCONTINUITIES] = [#(#relative_errors),*];
-                const CARDINALITIES: [u32; #NUMBER_OF_DISCONTINUITIES] = [#(#cardialities),*];
-            }
-        }
     }
 }
 
@@ -173,7 +153,8 @@ where
                             );
                             let exact_cardinality =
                                 f64::from(u32::try_from(hash_set.len()).unwrap());
-                            let error = (exact_cardinality - cardinality).abs() / exact_cardinality.max(1.0);
+                            let error = (exact_cardinality - cardinality).abs()
+                                / exact_cardinality.max(1.0);
                             report.push(CardinalityError { cardinality, error });
 
                             hash_set.insert(value);
@@ -243,9 +224,9 @@ where
     // by default to the top k values.
     angular_coefficients.pop();
 
-    assert!(NUMBER_OF_DISCONTINUITIES > 2);
+    assert!(NUMBER_OF_DISCONTINUITIES > 1);
     assert!(NUMBER_OF_DISCONTINUITIES < total_report.len());
-    let k = NUMBER_OF_DISCONTINUITIES - 2;
+    let k = NUMBER_OF_DISCONTINUITIES - 1;
 
     // We find the top k values with the highest angular coefficients.
     angular_coefficients.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
@@ -263,11 +244,9 @@ where
         .map(|(index, _)| total_report.get(*index).unwrap())
         .collect();
 
-    // We add the first and last values to the top k values.
-    let first_report = total_report.first().unwrap();
+    // We add the last values to the top k values.
     let last_report = total_report.last().unwrap();
 
-    top_k_reports.push(first_report);
     top_k_reports.push(last_report);
 
     // We sort the top k values by the estimated cardinality.
@@ -277,14 +256,26 @@ where
     let correction = SwitchHashCorrection {
         precision: P::EXPONENT,
         bits: B::NUMBER_OF_BITS,
-        relative_errors: top_k_reports.iter().map(|report| report.error).collect::<Vec<f64>>().try_into().unwrap(),
-        cardialities: top_k_reports.iter().map(|report| report.cardinality.round() as u32).collect::<Vec<u32>>().try_into().unwrap(),
+        relative_errors: top_k_reports
+            .iter()
+            .map(|report| report.error)
+            .collect::<Vec<f64>>()
+            .try_into()
+            .unwrap(),
+        cardinalities: top_k_reports
+            .iter()
+            .map(|report| report.cardinality.round() as u32)
+            .collect::<Vec<u32>>()
+            .try_into()
+            .unwrap(),
     };
 
     // We estimate how well the correction performs.
     let estimated_error = total_report
         .iter()
-        .map(|report| (report.error - correction.estimate_error(report.cardinality.round() as u32)).abs())
+        .map(|report| {
+            (report.error - correction.estimate_error(report.cardinality.round() as u32)).abs()
+        })
         .sum::<f64>();
 
     // Rate of improvement.
@@ -348,10 +339,7 @@ macro_rules! generate_switch_hash_correction_for_precisions {
 }
 
 pub fn compute_switch_hash_correction() {
-    let mut reports: Vec<(
-        SwitchHashCorrection,
-        CorrectionPerformance,
-    )> = Vec::new();
+    let mut reports: Vec<(SwitchHashCorrection, CorrectionPerformance)> = Vec::new();
     let multiprogress = &MultiProgress::new();
     generate_switch_hash_correction_for_precisions!(
         reports,
@@ -376,13 +364,62 @@ pub fn compute_switch_hash_correction() {
 
     write_csv(reports.iter().map(|(_, c)| c), "switch_hash_correction.csv");
 
-    let valid_impls: Vec<TokenStream> = reports
-        .iter()
-        .map(|(report, _)| report.to_birthday_correction())
-        .collect();
+    let cardinalities = (4..=18)
+        .map(|exponent| {
+            let bytes = (4..=6)
+                .map(|bit_size| {
+                    let (correction, _) = reports
+                        .iter()
+                        .find(|(correction, _)| {
+                            correction.precision == exponent && correction.bits == bit_size
+                        })
+                        .unwrap();
+                    let cardinalities = correction.cardinalities;
+                    quote! {
+                        [#(#cardinalities),*]
+                    }
+                })
+                .collect::<Vec<TokenStream>>();
+            quote! {
+                [#(#bytes),*]
+            }
+        })
+        .collect::<Vec<TokenStream>>();
+
+    let errors = (4..=18)
+        .map(|exponent| {
+            let bytes = (4..=6)
+                .map(|bit_size| {
+                    let (correction, _) = reports
+                        .iter()
+                        .find(|(correction, _)| {
+                            correction.precision == exponent && correction.bits == bit_size
+                        })
+                        .unwrap();
+                    let errors = correction.relative_errors;
+                    quote! {
+                        [#(#errors),*]
+                    }
+                })
+                .collect::<Vec<TokenStream>>();
+            quote! {
+                [#(#bytes),*]
+            }
+        })
+        .collect::<Vec<TokenStream>>();
 
     let output = quote! {
-        #(#valid_impls)*
+        //! Correction coefficients for the switch hash birthday paradox.
+
+        /// The cardinalities for the switch hash birthday paradox.
+        pub(super) const SWITCH_HASH_BIRTHDAY_PARADOX_CARDINALITIES: [[[u32; 6]; 3]; 15] = [
+            #(#cardinalities),*
+        ];
+
+        /// The relative errors for the switch hash birthday paradox.
+        pub(super) const SWITCH_HASH_BIRTHDAY_PARADOX_ERRORS: [[[f64; 6]; 3]; 15] = [
+            #(#errors),*
+        ];
     };
 
     // We write out the output token stream to '../src/composite_hash/switch_birthday_paradox.rs'

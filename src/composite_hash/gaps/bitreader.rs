@@ -113,110 +113,26 @@ impl<'a> BitReader<'a> {
         }
     }
 
-    // #[inline]
-    // pub fn skip_bits(&mut self, mut n_bits: usize) {
-    //     debug_assert!(self.bits_in_buffer < 64);
-    //     debug_assert!(
-    //         self.data.len() > self.word_idx,
-    //         "Reader in illegal state: data len is {}, but word index is {}.",
-    //         self.data.len(),
-    //         self.word_idx
-    //     );
-
-    //     if n_bits <= self.bits_in_buffer {
-    //         self.bits_in_buffer -= n_bits;
-    //         self.buffer <<= n_bits;
-    //         return;
-    //     }
-
-    //     n_bits -= self.bits_in_buffer;
-
-    //     while n_bits > 32 {
-    //         self.word_idx += 1;
-    //         n_bits -= 32;
-    //     }
-
-    //     let new_word = self.data[self.word_idx];
-    //     self.word_idx += 1;
-    //     self.bits_in_buffer = 32 - n_bits;
-
-    //     self.buffer = (new_word as u64) << (64 - 1 - self.bits_in_buffer) << 1;
-    // }
-
-    pub fn read_minimal_binary(&mut self, max: u64) -> u64 {
-        let l = max.ilog2();
-        let mut prefix = self.read_bits(l as _);
-        let limit = (1 << (l + 1)) - max;
-
-        if prefix < limit {
-            prefix
-        } else {
-            prefix <<= 1;
-            prefix |= self.read_bits(1);
-            prefix - limit
-        }
-    }
-
-    pub fn read_gamma(&mut self) -> u64 {
-        let len = self.read_unary();
-        self.read_bits(len as usize) + (1 << len) - 1
-    }
-
-    pub fn read_delta(&mut self) -> u64 {
-        let len = self.read_gamma();
-        self.read_bits(len as usize) + (1 << len) - 1
-    }
-
-    pub fn read_golomb(&mut self, b: usize) -> u64 {
-        self.read_unary() * b as u64 + self.read_minimal_binary(b as u64)
-    }
-
-    pub fn read_rice(&mut self, b: usize) -> u64 {
-        (self.read_unary() << b) + self.read_bits(b)
-    }
-
-    pub fn read_exp_golomb(&mut self, b: usize) -> u64 {
-        (self.read_gamma() << b) + self.read_bits(b)
-    }
-
-    pub fn read_zeta(&mut self, k: usize) -> u64 {
-        let h = self.read_unary();
-        let u = 1 << ((h + 1) * k as u64);
-        let l = 1 << (h * k as u64);
-        let res = self.read_minimal_binary(u - l);
-        l + res - 1
+    pub fn read_rice(&mut self, b: u8) -> u64 {
+        (self.read_unary() << b) + self.read_bits(usize::from(b))
     }
 }
 
-pub fn len_rice(n: u64, b: usize) -> usize {
-    (n >> b) as usize + 1 + b
+/// Returns the number of bits required to encode a given value using a Rice code.
+/// 
+/// # Arguments
+/// * `n` - The value to be encoded.
+/// * `b` - The number of bits used to encode the remainder.
+pub fn len_rice(n: u64, b: u8) -> usize {
+    usize::try_from(n >> b).unwrap() + 1 + usize::from(b)
 }
 
-pub fn len_gamma(mut n: u64) -> usize {
-    n += 1;
-    let number_of_bits_to_write = n.ilog2();
-    2 * number_of_bits_to_write as usize + 1
-}
-
-pub fn len_exp_golomb(n: u64, k: usize) -> usize {
-    len_gamma(n >> k) + k
-}
-
-pub fn len_golomb(n: u64, b: u64) -> usize {
-    (n / b) as usize + 1 + len_minimal_binary(n % b, b)
-}
-
-pub fn len_minimal_binary(n: u64, max: u64) -> usize {
-    if max == 0 {
-        return 0;
-    }
-    let l = max.ilog2();
-    let limit = (1 << (l + 1)) - max;
-    let mut result = l as usize;
-    if n >= limit {
-        result += 1;
-    }
-    result
+/// Returns the number of bits required to encode a given value using a unary code.
+/// 
+/// # Arguments
+/// * `n` - The value to be encoded.
+pub fn len_unary(n: u8) -> usize {
+    usize::from(n) + 1
 }
 
 #[cfg(test)]
@@ -266,92 +182,6 @@ mod tests {
 
     #[test]
     #[allow(unsafe_code)]
-    fn test_read_write_minimal_binary() {
-        let mut expected = [0u64; 1000];
-        let mut buffer = [0u64; 2000];
-
-        {
-            let mut writer = BitWriter::new(&mut buffer);
-
-            for (i, value) in iter_random_values::<u32>(1_000, None, None).enumerate() {
-                writer.write_minimal_binary(value as u64, u32::MAX.into());
-                expected[i] = value as u64;
-            }
-        }
-
-        let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
-
-        for value in expected {
-            assert_eq!(
-                reader.read_minimal_binary(u32::MAX.into()),
-                value,
-                "Minimal binary encoded value does not match the expected value."
-            );
-        }
-    }
-
-    #[test]
-    #[allow(unsafe_code)]
-    fn test_read_write_gamma() {
-        let mut expected = [0u64; 1000];
-        let mut buffer = [0u64; 2000];
-
-        {
-            let mut writer = BitWriter::new(&mut buffer);
-
-            for (i, value) in iter_random_values::<u32>(1_000, None, None).enumerate() {
-                writer.write_gamma(value as u64);
-                expected[i] = value as u64;
-            }
-        }
-
-        let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
-
-        for value in expected {
-            assert_eq!(
-                reader.read_gamma(),
-                value,
-                "Gamma encoded value does not match the expected value."
-            );
-        }
-    }
-
-    #[test]
-    #[allow(unsafe_code)]
-    fn test_read_write_golomb() {
-        let mut expected = [0u64; 100];
-        let mut buffer = [0u64; 2850];
-
-        {
-            let mut writer = BitWriter::new(&mut buffer);
-
-            for (i, value) in
-                iter_random_values::<u16>(expected.len() as u64, None, None).enumerate()
-            {
-                writer.write_golomb(value as u64, 37);
-                expected[i] = value as u64;
-            }
-        }
-
-        let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
-
-        for value in expected {
-            assert_eq!(
-                reader.read_golomb(37),
-                value,
-                "Golomb encoded value does not match the expected value."
-            );
-        }
-    }
-
-    #[test]
-    #[allow(unsafe_code)]
     fn test_read_write_rice() {
         let mut expected = [0u64; 1000];
         let mut buffer = [0u64; 2000];
@@ -384,42 +214,6 @@ mod tests {
                 reader.read_rice(17),
                 value,
                 "Rice encoded value does not match the expected value."
-            );
-        }
-    }
-
-    #[test]
-    #[allow(unsafe_code)]
-    fn test_read_write_exp_golomb() {
-        let mut expected = [0u64; 1000];
-        let mut buffer = [0u64; 2000];
-        let max_value = u32::MAX;
-
-        debug_assert!(
-            len_exp_golomb(u64::from(max_value), 17) * expected.len() / 64 < buffer.len(),
-            "The buffer len ({}) is not enough to store the upper bound of the encoded values ({}).",
-            buffer.len(),
-            len_exp_golomb(u64::from(max_value), 17) * expected.len() / 64
-        );
-
-        {
-            let mut writer = BitWriter::new(&mut buffer);
-
-            for (i, value) in iter_random_values::<u32>(1_000, None, None).enumerate() {
-                writer.write_exp_golomb(value as u64, 17);
-                expected[i] = value as u64;
-            }
-        }
-
-        let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
-
-        for value in expected {
-            assert_eq!(
-                reader.read_exp_golomb(17),
-                value,
-                "Exponential Golomb encoded value does not match the expected value."
             );
         }
     }

@@ -1,8 +1,6 @@
 //! Marker struct for the hybrid approach, that keeps the hash explicit up until they fit into the registers.
 
-use crate::composite_hash::{
-    BirthDayParadoxCorrection, CompositeHash, CompositeHashError, SwitchHash,
-};
+use crate::composite_hash::{CompositeHash, CompositeHashError, SwitchHash};
 use crate::prelude::*;
 use core::cmp::Ordering;
 use core::fmt::Debug;
@@ -623,10 +621,10 @@ impl<
             // if (1 << exponent) - preliminary_estimate < (1 << H::Precision::EXPONENT) {
             //     linear_counting_correction(exponent, (1 << exponent) - preliminary_estimate)
             // } else {
-                // f64::from(preliminary_estimate)
+            // f64::from(preliminary_estimate)
             // }
 
-            <CH as BirthDayParadoxCorrection>::birthday_paradox_correction(preliminary_estimate)
+            CH::birthday_paradox_correction(preliminary_estimate)
         } else {
             self.inner.estimate_cardinality()
         }

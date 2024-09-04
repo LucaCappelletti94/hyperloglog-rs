@@ -3,31 +3,22 @@ use core::marker::PhantomData;
 mod bitreader;
 mod bitwriter;
 mod optimal_codes;
-mod prefix_free_codes;
-use crate::utils::VariableWord;
-use crate::{bits::Bits, utils::ceil};
-use bitreader::BitReader;
-use bitwriter::BitWriter;
-use prefix_free_codes::{CodeRead, CodeSize, CodeWrite};
-
-use super::BirthDayParadoxCorrection;
 use super::{
     switch::HashFragment, CompositeHash, CompositeHashError, Debug, LastBufferedBit, Precision,
     SwitchHash,
 };
+use crate::{bits::Bits, utils::ceil};
+use bitreader::{len_rice, len_unary, BitReader};
+use bitwriter::BitWriter;
+use optimal_codes::{OPTIMAL_RICE_COEFFICIENTS, OPTIMAL_VBYTE_RICE_COEFFICIENTS};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 /// Gap-based composite hash.
-pub struct GapHash<CH> {
-    _phantom: PhantomData<CH>,
+pub struct GapHash<P: Precision, B: Bits, const VBYTE: bool = true> {
+    switch: PhantomData<SwitchHash<P, B>>,
 }
 
-/// TODO! ACTUALLY IMPLEMENT THIS THING! THIS IS A PLACEHOLDER!
-impl<CH: BirthDayParadoxCorrection> BirthDayParadoxCorrection for GapHash<CH> {
-    const CARDINALITIES: [u32; 7] = CH::CARDINALITIES;
-    const RELATIVE_ERRORS: [f64; 7] = CH::RELATIVE_ERRORS;
-}
-
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 /// Struct representing the portions to be encoded in the gap encoding.
 pub struct GapFragment {
     /// The bits expected to have uniform distribution.
@@ -36,7 +27,7 @@ pub struct GapFragment {
     pub geometric: u8,
 }
 
-impl<P: Precision, B: Bits> GapHash<SwitchHash<P, B>> {
+impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
     #[inline]
     /// Returns the gap encoding for the given SwitchHash.
     pub fn into_gap_fragment(
@@ -63,49 +54,52 @@ impl<P: Precision, B: Bits> GapHash<SwitchHash<P, B>> {
         );
 
         // The uniform portion of the hash is composed by the index and the hash remainder.
-        let previous_uniform = u64::try_from(
-            previous_fragment.index << HashFragment::hash_remainder_size::<P, B>(hash_bits),
-        )
-        .unwrap()
-            | u64::from(previous_fragment.hash_remainder);
-        let second_uniform = u64::try_from(
-            fragment_to_encode.index << HashFragment::hash_remainder_size::<P, B>(hash_bits),
-        )
-        .unwrap()
-            | u64::from(fragment_to_encode.hash_remainder);
+        let previous_uniform = previous_fragment.uniform(hash_bits);
+        let to_encode_uniform = fragment_to_encode.uniform(hash_bits);
 
         // The geometric portion of the hash is composed by the difference between the registers
         // when the indices are equal, otherwise it is the fragment to encode register itself.
         let geometric = if previous_fragment.index == fragment_to_encode.index {
-            previous_fragment.register - fragment_to_encode.register
+            previous_fragment.register - fragment_to_encode.register - 1
         } else {
-            fragment_to_encode.register
+            fragment_to_encode.register - 1
         };
 
-        let uniform = if previous_uniform > second_uniform {
-            (previous_uniform - second_uniform) << 1
+        let uniform = if previous_uniform > to_encode_uniform {
+            ((previous_uniform - to_encode_uniform) << 1) - 1
         } else {
-            ((second_uniform - previous_uniform) << 1) | 1
+            (to_encode_uniform - previous_uniform) << 1
         };
 
         GapFragment { uniform, geometric }
     }
-}
 
-/// Trait defining the combination between a given combo of Precision
-/// and Bits and which `PrefixFreeCode` to use for which combination.
-pub trait PrefixFreeCode {
-    /// Prefix-free code for when we are writing an hash of 8 bits.
-    type Code8: CodeSize + CodeRead + CodeWrite + Default + 'static;
-    /// Prefix-free code for when we are writing an hash of 16 bits.
-    type Code16: CodeSize + CodeRead + CodeWrite + Default + 'static;
-    /// Prefix-free code for when we are writing an hash of 24 bits.
-    type Code24: CodeSize + CodeRead + CodeWrite + Default + 'static;
-    /// Prefix-free code for when we are writing an hash of 32 bits.
-    type Code32: CodeSize + CodeRead + CodeWrite + Default + 'static;
-}
+    #[inline]
+    fn from_gap_fragment(
+        fragment: GapFragment,
+        previous_hash: u64,
+        hash_bits: u8,
+    ) -> u64 {
+        let previous_fragment = SwitchHash::<P, B>::split_hash(previous_hash, hash_bits);
+        let previous_uniform = previous_fragment.uniform(hash_bits);
 
-impl<CH: CompositeHash> GapHash<CH> {
+        let to_decode_uniform = if fragment.uniform & 1 == 0 {
+            previous_uniform - (fragment.uniform >> 1)
+        } else {
+            previous_uniform + (fragment.uniform >> 1) + 1
+        };
+
+        let (to_decode_index, to_decode_hash_remainder) = HashFragment::<P, B>::scompose_uniform(to_decode_uniform, hash_bits);
+
+        let to_decode_register = if to_decode_index == previous_fragment.index {
+            previous_fragment.register - fragment.geometric
+        } else {
+            fragment.geometric + 1
+        };
+
+        SwitchHash::<P, B>::compose_hash(to_decode_index, to_decode_register, to_decode_hash_remainder, hash_bits)
+    }
+
     /// Returns whether the hashes are currently to be considered prefix-free-encoded.
     #[inline]
     #[must_use]
@@ -114,21 +108,29 @@ impl<CH: CompositeHash> GapHash<CH> {
         hash_bits: u8,
         bit_index: usize,
     ) -> bool {
-        hash_bits < CH::LARGEST_VIABLE_HASH_BITS
+        hash_bits < Self::LARGEST_VIABLE_HASH_BITS
             || number_of_hashes * usize::from(hash_bits) > bit_index
+    }
+
+    #[inline]
+    const fn b(hash_bits: u8) -> u8 {
+        if VBYTE {
+            OPTIMAL_VBYTE_RICE_COEFFICIENTS[P::EXPONENT as usize - 4]
+                [B::NUMBER_OF_BITS as usize - 4]
+                [hash_bits as usize - Self::SMALLEST_VIABLE_HASH_BITS as usize]
+        } else {
+            OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4]
+                [hash_bits as usize - Self::SMALLEST_VIABLE_HASH_BITS as usize]
+        }
     }
 }
 
-impl<CH: CompositeHash> CompositeHash for GapHash<CH>
-where
-    CH: PrefixFreeCode,
-    Self: super::BirthDayParadoxCorrection,
-{
-    type Precision = <CH as CompositeHash>::Precision;
-    type Bits = <CH as CompositeHash>::Bits;
+impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, VBYTE> {
+    type Precision = P;
+    type Bits = B;
 
-    type Decoded<'a> = DispatchedDecodedIter<'a, CH>;
-    type Downgraded<'a> = DispatchedDowngradedIter<'a, CH>;
+    type Decoded<'a> = DispatchedDecodedIter<'a, P, B, VBYTE>;
+    type Downgraded<'a> = DispatchedDowngradedIter<'a, P, B, VBYTE>;
 
     #[inline]
     #[must_use]
@@ -149,7 +151,7 @@ where
                 shift,
             ))
         } else {
-            DispatchedDowngradedIter::InnerDowngradedIter(CH::downgraded(
+            DispatchedDowngradedIter::InnerDowngradedIter(SwitchHash::<P, B>::downgraded(
                 hashes,
                 number_of_hashes,
                 hash_bits,
@@ -180,7 +182,7 @@ where
                 bit_index,
             ))
         } else {
-            DispatchedDecodedIter::InnerDecodedIter(CH::decoded(
+            DispatchedDecodedIter::InnerDecodedIter(SwitchHash::<P, B>::decoded(
                 hashes,
                 number_of_hashes,
                 hash_bits,
@@ -199,21 +201,21 @@ where
             "The index ({index}) must be less than 2^({})",
             Self::Precision::EXPONENT,
         );
-        CH::encode(index, register, original_hash, hash_bits)
+        SwitchHash::<P, B>::encode(index, register, original_hash, hash_bits)
     }
 
     #[must_use]
     #[inline]
     /// Decode the hash into the register value and index.
     fn decode(hash: u64, hash_bits: u8) -> (u8, usize) {
-        CH::decode(hash, hash_bits)
+        SwitchHash::<P, B>::decode(hash, hash_bits)
     }
 
     #[inline]
     #[must_use]
     /// Downgrade the hash into a smaller hash.
     fn downgrade(hash: u64, hash_bits: u8, shift: u8) -> u64 {
-        CH::downgrade(hash, hash_bits, shift)
+        SwitchHash::<P, B>::downgrade(hash, hash_bits, shift)
     }
 
     #[inline]
@@ -240,7 +242,7 @@ where
                 .position(|hash| hash == encoded_hash)
                 .map_or_else(|| Err((index, encoded_hash)), Ok)
         } else {
-            CH::find(
+            SwitchHash::<P, B>::find(
                 hashes,
                 number_of_hashes,
                 index,
@@ -264,7 +266,7 @@ where
         hash_bits: u8,
     ) -> Result<Option<usize>, CompositeHashError> {
         if !Self::is_prefix_free_encoded(number_of_hashes, hash_bits, bit_index) {
-            match CH::insert_sorted_desc(
+            return match SwitchHash::<P, B>::insert_sorted_desc(
                 hashes,
                 number_of_hashes,
                 bit_index,
@@ -274,38 +276,84 @@ where
                 hash_bits,
             ) {
                 Err(_) => {
-                    // Otherwise, we need to switch to prefix mode.
-                    let new_writer_tell =
-                        match hash_bits {
-                            8 => to_prefix_code_inplace_with_writer::<
-                                <CH as PrefixFreeCode>::Code8,
-                                CH,
-                            >(
-                                hashes, number_of_hashes, bit_index, hash_bits
-                            ),
-                            16 => to_prefix_code_inplace_with_writer::<
-                                <CH as PrefixFreeCode>::Code16,
-                                CH,
-                            >(
-                                hashes, number_of_hashes, bit_index, hash_bits
-                            ),
-                            24 => to_prefix_code_inplace_with_writer::<
-                                <CH as PrefixFreeCode>::Code24,
-                                CH,
-                            >(
-                                hashes, number_of_hashes, bit_index, hash_bits
-                            ),
-                            32 => to_prefix_code_inplace_with_writer::<
-                                <CH as PrefixFreeCode>::Code32,
-                                CH,
-                            >(
-                                hashes, number_of_hashes, bit_index, hash_bits
-                            ),
-                            _ => unreachable!(),
-                        };
+                    assert!(
+                        bit_index + usize::from(hash_bits) >= hashes.len() * 8,
+                        "This method should only be called upon preliminary saturation, but was called with bit index {bit_index} and hash bits {hash_bits} and total available bits {}.",
+                        hashes.len() * 8
+                    );
+
+                    // safe because the slice is originally allocated as u64s
+                    debug_assert!(hashes.len() % core::mem::size_of::<u64>() == 0);
+                    let hashes_64 = unsafe {
+                        core::slice::from_raw_parts_mut(
+                            hashes.as_mut_ptr() as *mut u64,
+                            hashes.len() / core::mem::size_of::<u64>(),
+                        )
+                    };
+
+                    debug_assert!(Self::downgraded(
+                        hashes,
+                        number_of_hashes,
+                        hash_bits,
+                        bit_index,
+                        0
+                    )
+                    .is_sorted_by(|a, b| b < a));
+
+                    let mut writer = BitWriter::new(hashes_64);
+
+                    let mut iter = SwitchHash::<P, B>::downgraded(
+                        hashes,
+                        number_of_hashes,
+                        hash_bits,
+                        bit_index,
+                        0,
+                    );
+                    let mut position = 0;
+
+                    // We write the first hash explicitly, as otherwise it would be
+                    // written in a very inefficient way.
+                    let mut previous_hash = iter.next().unwrap();
+                    position += 1;
+                    writer.write_bits(previous_hash, usize::from(hash_bits));
+
+                    for value in iter {
+                        position += 1;
+
+                        let fragment = Self::into_gap_fragment(previous_hash, value, hash_bits);
+
+                        writer.write_rice(fragment.uniform, Self::b(hash_bits));
+                        writer.write_unary(u64::from(fragment.geometric));
+                        let last_buffered_bit_position = usize::from(hash_bits) * (1 + position);
+
+                        debug_assert!(
+                            last_buffered_bit_position >= writer.tell(),
+                            "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, {previous_hash} - {value}) in prefix-coding at hash size {hash_bits}.",
+                            last_buffered_bit_position,
+                            writer.tell(),
+                        );
+                        previous_hash = value;
+                    }
+
+                    let new_writer_tell = writer.tell();
+                    drop(writer);
+
+                    debug_assert!(
+                        new_writer_tell < bit_index,
+                        "The conversion to prefix-free codes at bit size {hash_bits} should decrease the bit index, but got writer tell {new_writer_tell} and bit index {bit_index}."
+                    );
+
+                    debug_assert!(Self::downgraded(
+                        hashes,
+                        number_of_hashes,
+                        hash_bits,
+                        new_writer_tell,
+                        0
+                    )
+                    .is_sorted_by(|a, b| b < a));
 
                     // And we try to insert the hash again.
-                    return Self::insert_sorted_desc(
+                    Self::insert_sorted_desc(
                         hashes,
                         number_of_hashes,
                         new_writer_tell,
@@ -313,54 +361,197 @@ where
                         register,
                         original_hash,
                         hash_bits,
-                    );
+                    )
                 }
-                result => return result,
-            }
+                result => result,
+            };
         }
 
-        match hash_bits {
-            8 => insert_sorted_desc_with_writer::<<CH as PrefixFreeCode>::Code8, CH>(
-                hashes,
-                number_of_hashes,
-                bit_index,
-                index,
-                register,
-                original_hash,
-                hash_bits,
-            ),
-            16 => insert_sorted_desc_with_writer::<<CH as PrefixFreeCode>::Code16, CH>(
-                hashes,
-                number_of_hashes,
-                bit_index,
-                index,
-                register,
-                original_hash,
-                hash_bits,
-            ),
-            24 => insert_sorted_desc_with_writer::<<CH as PrefixFreeCode>::Code24, CH>(
-                hashes,
-                number_of_hashes,
-                bit_index,
-                index,
-                register,
-                original_hash,
-                hash_bits,
-            ),
-            32 => insert_sorted_desc_with_writer::<<CH as PrefixFreeCode>::Code32, CH>(
-                hashes,
-                number_of_hashes,
-                bit_index,
-                index,
-                register,
-                original_hash,
-                hash_bits,
-            ),
-            _ => unreachable!(),
+        debug_assert!(
+            Self::is_prefix_free_encoded(number_of_hashes, hash_bits, bit_index),
+            "The hashes must be prefix-free encoded to be able to use prefix-free codes."
+        );
+
+        // We check that all hashes are still ordered in descending order
+        debug_assert!(
+            Self::downgraded(hashes, number_of_hashes, hash_bits, bit_index, 0)
+                .is_sorted_by(|a, b| b < a),
+            "Illegal hashes state: attempting to insert a value with hash bits {hash_bits}, number of hashes {number_of_hashes} and bit index {bit_index} at index {index} and register {register} with original hash {original_hash}.",
+        );
+
+        let hashes_ref: &[u8] =
+            unsafe { core::slice::from_raw_parts(hashes.as_ptr() as *const u8, hashes.len()) };
+
+        let encoded = Self::encode(index, register, original_hash, hash_bits);
+
+        // iter until we find where we should insert
+        let mut iter: PrefixCodeDowngradedIter<'_, P, B, VBYTE> =
+            Self::downgraded(hashes_ref, number_of_hashes, hash_bits, bit_index, 0)
+                .try_into()
+                .unwrap();
+
+        let mut previous_hash = None;
+        let mut next_value = None;
+
+        let mut position = 0;
+        let mut last_read_bit_position = 0;
+
+        while let Some(value) = iter.next() {
+            // The values are sorted in descending order, so we can stop when we find a value
+            // that is less than or equal to the value we want to insert
+            if encoded >= value {
+                // if the value is equal to the encoded value, we don't need to insert it
+                if value == encoded {
+                    return Ok(None);
+                }
+                next_value = Some(value);
+                break;
+            }
+
+            last_read_bit_position = iter.last_read_bit_position();
+            previous_hash = Some(value);
+            position += 1;
         }
+
+        let prev_to_current_gap = previous_hash
+            .map(|previous_hash| Self::into_gap_fragment(previous_hash, encoded, hash_bits));
+
+        let current_to_next_gap =
+            next_value.map(|next_value| Self::into_gap_fragment(encoded, next_value, hash_bits));
+
+        let prev_to_next_gap = previous_hash.and_then(|previous_hash| {
+            next_value
+                .map(|next_value| Self::into_gap_fragment(previous_hash, next_value, hash_bits))
+        });
+
+        // We check that we would be actually able to insert the new value, given the current
+        // bit index and the size the new value would require.
+        let number_of_inserted_bits =
+            prev_to_current_gap.map_or(usize::from(hash_bits), |prev_to_current_gap| {
+                len_rice(prev_to_current_gap.uniform, Self::b(hash_bits))
+                    + len_unary(prev_to_current_gap.geometric)
+            }) + current_to_next_gap.map_or(0, |current_to_next_gap| {
+                len_rice(current_to_next_gap.uniform, Self::b(hash_bits))
+                    + len_unary(current_to_next_gap.geometric)
+            }) - prev_to_next_gap.map_or(0, |prev_to_next_gap| {
+                len_rice(prev_to_next_gap.uniform, Self::b(hash_bits))
+                    + len_unary(prev_to_next_gap.geometric)
+            });
+
+        let new_bit_index = bit_index + number_of_inserted_bits;
+
+        if new_bit_index > hashes_ref.len() * 8 {
+            if hash_bits == Self::SMALLEST_VIABLE_HASH_BITS {
+                return Err(CompositeHashError::Saturation);
+            }
+            return Err(CompositeHashError::DowngradableSaturation);
+        }
+
+        let hashes64 = unsafe {
+            core::slice::from_raw_parts_mut(
+                hashes.as_mut_ptr() as *mut u64,
+                hashes.len() / core::mem::size_of::<u64>(),
+            )
+        };
+
+        let mut writer = BitWriter::new(hashes64);
+
+        writer.seek(last_read_bit_position);
+        let insert_position = position;
+
+        // Now that we have determined where to insert the new value, the subsequent values
+        // will be solely read from the bitstream and written to the writer.
+        let mut bypass: BypassIter<'_> = iter.into();
+        // In order to bring the reader a bit more ahead and make more unlikely to get
+        // read-write conflicts, we read the next value.
+        let mut next = bypass.next();
+
+        // If there is no previos value, we would need to write the encoded value itself but
+        // writing such a high value in prefix-free encoding would be inefficient. Therefore,
+        // we write the first hash explicitly.
+        if let Some(prev_to_current_gap) = prev_to_current_gap {
+            if position == 1 {
+                debug_assert_eq!(
+                    writer.tell(),
+                    usize::from(hash_bits),
+                    "The writer tell must be {hash_bits} (the hash bits) if there is a single previous value"
+                );
+            }
+
+            writer.write_rice(prev_to_current_gap.uniform, Self::b(hash_bits));
+            writer.write_unary(u64::from(prev_to_current_gap.geometric));
+
+            debug_assert!(
+                bypass.len() == 0 || bypass.last_buffered_bit() >= writer.tell(),
+                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}) in insert at hash size {hash_bits}.",
+                bypass.last_buffered_bit(),
+                writer.tell(),
+            );
+        } else {
+            debug_assert_eq!(
+                writer.tell(),
+                0,
+                "The writer tell must be 0 if there is no previous value"
+            );
+
+            writer.write_bits(encoded, usize::from(hash_bits));
+        }
+
+        if let Some(current_to_next_gap) = current_to_next_gap {
+            position += 1;
+
+            writer.write_rice(current_to_next_gap.uniform, Self::b(hash_bits));
+            writer.write_unary(u64::from(current_to_next_gap.geometric));
+            debug_assert!(
+                bypass.len() == 0 || bypass.last_buffered_bit() > writer.tell(),
+                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}) in insert at hash size {hash_bits}.",
+                bypass.last_buffered_bit(),
+                writer.tell(),
+            );
+
+            while let Some((value, n_bits)) = next {
+                next = bypass.next();
+                writer.write_bits(value, n_bits);
+                debug_assert!(
+                    bypass.len() == 0 || bypass.last_buffered_bit() > writer.tell(),
+                    "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}) in insert at hash size {hash_bits}.",
+                    bypass.last_buffered_bit(),
+                    writer.tell(),
+                );
+                position += 1;
+            }
+
+            // We check that all hashes are still ordered in descending order
+            let writer_tell = writer.tell();
+
+            // We check that practice matches theory:
+            assert_eq!(
+                writer_tell,
+                new_bit_index,
+                "Expected writer tell to match bit index {bit_index} + value variation {number_of_inserted_bits} = ({new_bit_index})"
+            );
+        }
+
+        drop(writer);
+
+        debug_assert!(
+            Self::downgraded(hashes, number_of_hashes + 1, hash_bits, new_bit_index, 0)
+                .is_sorted_by(|a, b| b < a)
+        );
+        // We check if the decoded value was insert at position 'insert_position'
+        debug_assert_eq!(
+            Self::decoded(hashes, number_of_hashes + 1, hash_bits, new_bit_index)
+                .nth(insert_position)
+                .unwrap()
+                .0,
+            register
+        );
+
+        Ok(Some(new_bit_index))
     }
 
     #[inline]
+    #[allow(unsafe_code)]
     /// Downgrade the hash into a smaller hash in place.
     fn downgrade_inplace(
         hashes: &mut [u8],
@@ -374,427 +565,99 @@ where
         }
 
         if !Self::is_prefix_free_encoded(number_of_hashes, hash_bits, bit_index) {
-            return CH::downgrade_inplace(hashes, number_of_hashes, bit_index, hash_bits, shift);
+            return SwitchHash::<P, B>::downgrade_inplace(
+                hashes,
+                number_of_hashes,
+                bit_index,
+                hash_bits,
+                shift,
+            );
         }
 
-        match hash_bits - shift {
-            8 => downgrade_inplace_with_writer::<<CH as PrefixFreeCode>::Code8, CH>(
-                hashes,
-                number_of_hashes,
-                bit_index,
-                hash_bits,
-                shift,
-            ),
-            16 => downgrade_inplace_with_writer::<<CH as PrefixFreeCode>::Code16, CH>(
-                hashes,
-                number_of_hashes,
-                bit_index,
-                hash_bits,
-                shift,
-            ),
-            24 => downgrade_inplace_with_writer::<<CH as PrefixFreeCode>::Code24, CH>(
-                hashes,
-                number_of_hashes,
-                bit_index,
-                hash_bits,
-                shift,
-            ),
-            _ => unreachable!(),
+        // safe because the slice is originally allocated as u64s
+        debug_assert!(hashes.len() % core::mem::size_of::<u64>() == 0);
+        let hashes_64 = unsafe {
+            core::slice::from_raw_parts_mut(
+                hashes.as_mut_ptr() as *mut u64,
+                hashes.len() / core::mem::size_of::<u64>(),
+            )
+        };
+
+        let mut writer = BitWriter::new(hashes_64);
+
+        debug_assert!(
+            Self::downgraded(hashes, number_of_hashes, hash_bits, bit_index, 0)
+                .is_sorted_by(|a, b| b < a)
+        );
+
+        let mut iter = Self::downgraded(hashes, number_of_hashes, hash_bits, bit_index, shift);
+        let mut position = 0;
+
+        // We write the first hash explicitly, as otherwise it would be
+        // written in a very inefficient way.
+        let mut previous_hash = if let Some(value) = iter.next() {
+            writer.write_bits(value, usize::from(hash_bits - shift));
+            value
+        } else {
+            debug_assert_eq!(bit_index, 0);
+            debug_assert_eq!(number_of_hashes, 0);
+            return (0, 0);
+        };
+
+        let mut duplicates = 0;
+
+        while let Some(value) = iter.next() {
+            position += 1;
+            if value == previous_hash {
+                duplicates += 1;
+                continue;
+            }
+
+            let fragment = Self::into_gap_fragment(previous_hash, value, hash_bits);
+
+            writer.write_rice(fragment.uniform, Self::b(hash_bits));
+            writer.write_unary(u64::from(fragment.geometric));
+
+            debug_assert!(
+                iter.last_buffered_bit() > writer.tell(),
+                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, {previous_hash} - {value}) in downgrade at hash size {hash_bits} with shift {shift}.",
+                iter.last_buffered_bit(),
+                writer.tell(),
+            );
+            previous_hash = value;
         }
+
+        let writer_tell = writer.tell();
+        drop(writer);
+
+        debug_assert!(Self::downgraded(
+            hashes,
+            number_of_hashes - duplicates,
+            hash_bits - shift,
+            writer_tell,
+            0
+        )
+        .is_sorted_by(|a, b| b < a));
+
+        (u32::try_from(duplicates).unwrap(), writer_tell)
     }
 
     const SMALLEST_VIABLE_HASH_BITS: u8 = Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS;
-    const LARGEST_VIABLE_HASH_BITS: u8 = CH::LARGEST_VIABLE_HASH_BITS;
-}
-
-#[allow(unsafe_code)]
-fn downgrade_inplace_with_writer<CW: CodeWrite, CH: CompositeHash + PrefixFreeCode>(
-    hashes: &mut [u8],
-    number_of_hashes: usize,
-    bit_index: usize,
-    hash_bits: u8,
-    shift: u8,
-) -> (u32, usize)
-where
-    GapHash<CH>: super::BirthDayParadoxCorrection,
-{
-    // safe because the slice is originally allocated as u64s
-    debug_assert!(hashes.len() % core::mem::size_of::<u64>() == 0);
-    let hashes_64 = unsafe {
-        core::slice::from_raw_parts_mut(
-            hashes.as_mut_ptr() as *mut u64,
-            hashes.len() / core::mem::size_of::<u64>(),
-        )
-    };
-
-    let mut writer = BitWriter::new(hashes_64);
-
-    debug_assert!(
-        GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits, bit_index, 0)
-            .is_sorted_by(|a, b| b < a)
-    );
-
-    let mut iter = GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits, bit_index, shift);
-    let mut position = 0;
-
-    // We write the first hash explicitly, as otherwise it would be
-    // written in a very inefficient way.
-    let mut prev_value = if let Some(value) = iter.next() {
-        writer.write_bits(value, usize::from(hash_bits - shift));
-        value
-    } else {
-        debug_assert_eq!(bit_index, 0);
-        debug_assert_eq!(number_of_hashes, 0);
-        return (0, 0);
-    };
-
-    let mut duplicates = 0;
-
-    while let Some(value) = iter.next() {
-        position += 1;
-        if value == prev_value {
-            duplicates += 1;
-            continue;
-        }
-
-        let just_wrote_bits = CW::write(&mut writer, prev_value - value - 1);
-
-        debug_assert!(
-            iter.last_buffered_bit() > writer.tell(),
-            "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, wrote {just_wrote_bits}, {prev_value} - {value}) in downgrade at hash size {hash_bits} with shift {shift}.",
-            iter.last_buffered_bit(),
-            writer.tell(),
-        );
-        prev_value = value;
-    }
-
-    let writer_tell = writer.tell();
-    drop(writer);
-
-    debug_assert!(GapHash::<CH>::downgraded(
-        hashes,
-        number_of_hashes - duplicates,
-        hash_bits - shift,
-        writer_tell,
-        0
-    )
-    .is_sorted_by(|a, b| b < a));
-
-    (u32::try_from(duplicates).unwrap(), writer_tell)
-}
-
-#[allow(unsafe_code)]
-fn to_prefix_code_inplace_with_writer<CW: CodeWrite + 'static, CH: CompositeHash + PrefixFreeCode>(
-    hashes: &mut [u8],
-    number_of_hashes: usize,
-    bit_index: usize,
-    hash_bits: u8,
-) -> usize
-where
-    GapHash<CH>: super::BirthDayParadoxCorrection,
-{
-    #[cfg(test)]
-    #[cfg(feature = "std")]
-    println!(
-        "to_prefix_code_inplace_with_writer({}, {}, {}, {})",
-        number_of_hashes,
-        bit_index,
-        hash_bits,
-        hashes.len()
-    );
-
-    assert!(
-        bit_index + usize::from(hash_bits) >= hashes.len() * 8,
-        "This method should only be called upon preliminary saturation, but was called with bit index {bit_index} and hash bits {hash_bits} and total available bits {}.",
-        hashes.len() * 8
-    );
-
-    // safe because the slice is originally allocated as u64s
-    debug_assert!(hashes.len() % core::mem::size_of::<u64>() == 0);
-    let hashes_64 = unsafe {
-        core::slice::from_raw_parts_mut(
-            hashes.as_mut_ptr() as *mut u64,
-            hashes.len() / core::mem::size_of::<u64>(),
-        )
-    };
-
-    debug_assert!(
-        GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits, bit_index, 0)
-            .is_sorted_by(|a, b| b < a)
-    );
-
-    let mut writer = BitWriter::new(hashes_64);
-
-    let mut iter = CH::downgraded(hashes, number_of_hashes, hash_bits, bit_index, 0);
-    let mut position = 0;
-
-    // We write the first hash explicitly, as otherwise it would be
-    // written in a very inefficient way.
-    let mut prev_value = iter.next().unwrap();
-    position += 1;
-    writer.write_bits(prev_value, usize::from(hash_bits));
-
-    for value in iter {
-        position += 1;
-
-        let just_wrote_bits = CW::write(&mut writer, prev_value - value - 1);
-        let last_buffered_bit_position = usize::from(hash_bits) * (1 + position);
-
-        debug_assert!(
-            last_buffered_bit_position >= writer.tell(),
-            "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, wrote {just_wrote_bits}, {prev_value} - {value}) in prefix-coding at hash size {hash_bits}.",
-            last_buffered_bit_position,
-            writer.tell(),
-        );
-        prev_value = value;
-    }
-
-    let writer_tell = writer.tell();
-    drop(writer);
-
-    debug_assert!(
-        writer_tell < bit_index,
-        "The conversion to prefix-free codes at bit size {hash_bits} should decrease the bit index, but got writer tell {writer_tell} and bit index {bit_index}."
-    );
-
-    debug_assert!(
-        GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits, writer_tell, 0)
-            .is_sorted_by(|a, b| b < a)
-    );
-
-    writer_tell
-}
-
-#[allow(unsafe_code)]
-fn insert_sorted_desc_with_writer<
-    'a,
-    CW: CodeWrite + CodeSize + 'static,
-    CH: CompositeHash + PrefixFreeCode,
->(
-    hashes: &'a mut [u8],
-    number_of_hashes: usize,
-    bit_index: usize,
-    index: usize,
-    register: u8,
-    original_hash: u64,
-    hash_bits: u8,
-) -> Result<Option<usize>, CompositeHashError>
-where
-    GapHash<CH>: super::BirthDayParadoxCorrection,
-{
-    debug_assert!(
-        GapHash::<CH>::is_prefix_free_encoded(number_of_hashes, hash_bits, bit_index),
-        "The hashes must be prefix-free encoded to be able to use prefix-free codes."
-    );
-    debug_assert!(register > 0);
-    debug_assert!(
-        index < 1 << <CH as CompositeHash>::Precision::EXPONENT,
-        "The index ({index}) must be less than 2^({})",
-        <CH as CompositeHash>::Precision::EXPONENT,
-    );
-    // safe because the slice is originally allocated as u64s
-    debug_assert!(
-        hashes.len() % core::mem::size_of::<u64>() == 0,
-        "Expected the length of the hashes to be a multiple of the size of u64, but got {}",
-        hashes.len()
-    );
-
-    // We check that all hashes are still ordered in descending order
-    debug_assert!(
-        GapHash::<CH>::downgraded(hashes, number_of_hashes, hash_bits, bit_index, 0)
-            .is_sorted_by(|a, b| b < a),
-        "Illegal hashes state: attempting to insert a value with hash bits {hash_bits}, number of hashes {number_of_hashes} and bit index {bit_index} at index {index} and register {register} with original hash {original_hash}.",
-    );
-
-    let hashes_ref: &[u8] =
-        unsafe { core::slice::from_raw_parts(hashes.as_ptr() as *const u8, hashes.len()) };
-
-    let encoded = CH::encode(index, register, original_hash, hash_bits);
-
-    // iter until we find where we should insert
-    let mut iter: PrefixCodeDowngradedIter<'a, CH> =
-        GapHash::<CH>::downgraded(hashes_ref, number_of_hashes, hash_bits, bit_index, 0)
-            .try_into()
-            .unwrap();
-
-    let mut prev_value = u64::MAX;
-    let mut next_value = u64::MAX;
-
-    let mut position = 0;
-    let mut last_read_bit_position = 0;
-
-    while let Some(value) = iter.next() {
-        // The values are sorted in descending order, so we can stop when we find a value
-        // that is less than or equal to the value we want to insert
-        if encoded >= value {
-            // if the value is equal to the encoded value, we don't need to insert it
-            if value == encoded {
-                return Ok(None);
-            }
-            next_value = value;
-            break;
-        }
-
-        last_read_bit_position = iter.last_read_bit_position();
-        prev_value = value;
-        position += 1;
-    }
-
-    // We check that we would be actually able to insert the new value, given the current
-    // bit index and the size the new value would require. Note that this is NOT the number
-    // of bits that would be required to encode the value, but the number of bits that will
-    // be added to the bitstream. This is strictly greater than the number of bits that will
-    // be changed in the bitstream.
-
-    let number_of_inserted_bits: usize = if prev_value == u64::MAX {
-        // If we are inserting this value as the first value, and there is a next value,
-        // we need to take into account that this first value would require 'hash_bits' bits
-        // and that the subsequent value would require a variable amount of bits depending
-        // of the current prefix-free code employed.
-        if next_value == u64::MAX {
-            usize::from(hash_bits)
-        } else {
-            CW::size(encoded - next_value - 1)
-        }
-    } else {
-        // If we are inserting this value in the middle of the list, we need to take into account
-        // that the previous value would require a variable amount of bits depending of the current
-        // prefix-free code employed and that the subsequent value would require a variable amount of
-        // bits depending of the current prefix-free code employed.
-        let gap1: u64 = prev_value - encoded - 1;
-        if next_value == u64::MAX {
-            CW::size(gap1)
-        } else {
-            let gap2: u64 = encoded - next_value - 1;
-            let gap_removed: u64 = prev_value - next_value - 1;
-
-            CW::size(gap1) + CW::size(gap2) - CW::size(gap_removed)
-        }
-    };
-
-    let new_bit_index = bit_index + number_of_inserted_bits;
-
-    if new_bit_index > hashes_ref.len() * 8 {
-        if hash_bits == CH::SMALLEST_VIABLE_HASH_BITS {
-            return Err(CompositeHashError::Saturation);
-        }
-        return Err(CompositeHashError::DowngradableSaturation);
-    }
-
-    let hashes64 = unsafe {
-        core::slice::from_raw_parts_mut(
-            hashes.as_mut_ptr() as *mut u64,
-            hashes.len() / core::mem::size_of::<u64>(),
-        )
-    };
-
-    let mut writer = BitWriter::new(hashes64);
-
-    writer.seek(last_read_bit_position);
-    let insert_position = position;
-
-    // Now that we have determined where to insert the new value, the subsequent values
-    // will be solely read from the bitstream and written to the writer.
-    let mut bypass: BypassIter<'a> = iter.into();
-    // In order to bring the reader a bit more ahead and make more unlikely to get
-    // read-write conflicts, we read the next value.
-    let mut next = bypass.next();
-
-    // If there is no previos value, we would need to write the encoded value itself but
-    // writing such a high value in prefix-free encoding would be inefficient. Therefore,
-    // we write the first hash explicitly.
-    if prev_value == u64::MAX {
-        debug_assert_eq!(
-            writer.tell(),
-            0,
-            "The writer tell must be 0 if there is no previous value"
-        );
-
-        writer.write_bits(encoded, usize::from(hash_bits));
-    } else {
-        if position == 1 {
-            debug_assert_eq!(
-                writer.tell(),
-                usize::from(hash_bits),
-                "The writer tell must be {hash_bits} (the hash bits) if there is a single previous value"
-            );
-        }
-
-        let just_wrote_bits = CW::write(&mut writer, prev_value - encoded - 1);
-        debug_assert!(
-            bypass.len() == 0 || bypass.last_buffered_bit() >= writer.tell(),
-            "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, wrote {just_wrote_bits}, {prev_value} - {encoded}) in insert at hash size {hash_bits}.",
-            bypass.last_buffered_bit(),
-            writer.tell(),
-        );
-    }
-
-    if next_value != u64::MAX {
-        position += 1;
-
-        let just_wrote_bits = CW::write(&mut writer, encoded - next_value - 1);
-        debug_assert!(
-            bypass.len() == 0 || bypass.last_buffered_bit() > writer.tell(),
-            "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, wrote {just_wrote_bits}, {prev_value} - {next_value}) in insert at hash size {hash_bits}.",
-            bypass.last_buffered_bit(),
-            writer.tell(),
-        );
-
-        while let Some((value, n_bits)) = next {
-            next = bypass.next();
-            writer.write_bits(value, n_bits);
-            debug_assert!(
-                bypass.len() == 0 || bypass.last_buffered_bit() > writer.tell(),
-                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, wrote {just_wrote_bits}, {prev_value} - {next_value}) in insert at hash size {hash_bits}.",
-                bypass.last_buffered_bit(),
-                writer.tell(),
-            );
-            position += 1;
-        }
-
-        // We check that all hashes are still ordered in descending order
-        let writer_tell = writer.tell();
-
-        // We check that practice matches theory:
-        assert_eq!(
-            writer_tell,
-            new_bit_index,
-            "Expected writer tell to match bit index {bit_index} + value variation {number_of_inserted_bits} = ({new_bit_index})"
-        );
-    }
-
-    drop(writer);
-
-    debug_assert!(GapHash::<CH>::downgraded(
-        hashes,
-        number_of_hashes + 1,
-        hash_bits,
-        new_bit_index,
-        0
-    )
-    .is_sorted_by(|a, b| b < a));
-    // We check if the decoded value was insert at position 'insert_position'
-    debug_assert_eq!(
-        GapHash::<CH>::decoded(hashes, number_of_hashes + 1, hash_bits, new_bit_index)
-            .nth(insert_position)
-            .unwrap()
-            .0,
-        register
-    );
-
-    Ok(Some(new_bit_index))
+    const LARGEST_VIABLE_HASH_BITS: u8 = SwitchHash::<P, B>::LARGEST_VIABLE_HASH_BITS;
+    const BIRTHDAY_CARDINALITIES: [u32; 6] = SwitchHash::<P, B>::BIRTHDAY_CARDINALITIES;
+    const BIRTHDAY_RELATIVE_ERRORS: [f64; 6] = SwitchHash::<P, B>::BIRTHDAY_RELATIVE_ERRORS;
 }
 
 #[derive(Debug)]
 /// Iterator over downgraded hashes.
-pub enum DispatchedDowngradedIter<'a, CH: CompositeHash> {
+pub enum DispatchedDowngradedIter<'a, P: Precision, B: Bits, const VBYTE: bool> {
     /// Variants for when the prefix-free codes are used.
-    PrefixCodeDowngradedIter(PrefixCodeDowngradedIter<'a, CH>),
+    PrefixCodeDowngradedIter(PrefixCodeDowngradedIter<'a, P, B, VBYTE>),
     /// Variants for when the prefix-free codes are not used.
-    InnerDowngradedIter(CH::Downgraded<'a>),
+    InnerDowngradedIter(<SwitchHash::<P, B> as CompositeHash>::Downgraded<'a>),
 }
 
-impl<'a, CH: CompositeHash> LastBufferedBit for DispatchedDowngradedIter<'a, CH> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit for DispatchedDowngradedIter<'a, P, B, VBYTE> {
     fn last_buffered_bit(&self) -> usize {
         match self {
             Self::PrefixCodeDowngradedIter(iter) => iter.last_buffered_bit(),
@@ -803,14 +666,12 @@ impl<'a, CH: CompositeHash> LastBufferedBit for DispatchedDowngradedIter<'a, CH>
     }
 }
 
-impl<'a, CH: CompositeHash> TryFrom<DispatchedDowngradedIter<'a, CH>>
-    for PrefixCodeDowngradedIter<'a, CH>
-where
-    CH: PrefixFreeCode,
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> TryFrom<DispatchedDowngradedIter<'a, P, B, VBYTE>>
+    for PrefixCodeDowngradedIter<'a, P, B, VBYTE>
 {
-    type Error = DispatchedDowngradedIter<'a, CH>;
+    type Error = DispatchedDowngradedIter<'a, P, B, VBYTE>;
 
-    fn try_from(value: DispatchedDowngradedIter<'a, CH>) -> Result<Self, Self::Error> {
+    fn try_from(value: DispatchedDowngradedIter<'a, P, B, VBYTE>) -> Result<Self, Self::Error> {
         match value {
             DispatchedDowngradedIter::PrefixCodeDowngradedIter(iter) => Ok(iter),
             DispatchedDowngradedIter::InnerDowngradedIter(_) => Err(value),
@@ -818,10 +679,7 @@ where
     }
 }
 
-impl<'a, CH: CompositeHash> Iterator for DispatchedDowngradedIter<'a, CH>
-where
-    CH: PrefixFreeCode,
-{
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for DispatchedDowngradedIter<'a, P, B, VBYTE> {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -839,10 +697,7 @@ where
     }
 }
 
-impl<'a, CH: CompositeHash> ExactSizeIterator for DispatchedDowngradedIter<'a, CH>
-where
-    CH: PrefixFreeCode,
-{
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator for DispatchedDowngradedIter<'a, P, B, VBYTE> {
     fn len(&self) -> usize {
         match self {
             Self::PrefixCodeDowngradedIter(iter) => iter.len(),
@@ -889,8 +744,8 @@ impl<'a> LastBufferedBit for BypassIter<'a> {
     }
 }
 
-impl<'a, CH: CompositeHash> From<PrefixCodeDowngradedIter<'a, CH>> for BypassIter<'a> {
-    fn from(iter: PrefixCodeDowngradedIter<'a, CH>) -> Self {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> From<PrefixCodeDowngradedIter<'a, P, B, VBYTE>> for BypassIter<'a> {
+    fn from(iter: PrefixCodeDowngradedIter<'a, P, B, VBYTE>) -> Self {
         Self {
             bitstream: iter.bitstream,
             bit_index: iter.bit_index,
@@ -900,7 +755,7 @@ impl<'a, CH: CompositeHash> From<PrefixCodeDowngradedIter<'a, CH>> for BypassIte
 
 #[derive(Debug)]
 /// Iterator over downgraded hashes.
-pub struct PrefixCodeDowngradedIter<'a, CH> {
+pub struct PrefixCodeDowngradedIter<'a, P: Precision, B: Bits, const VBYTE: bool> {
     bitstream: BitReader<'a>,
     previous: u64,
     number_of_hashes: usize,
@@ -909,22 +764,22 @@ pub struct PrefixCodeDowngradedIter<'a, CH> {
     current_iteration: usize,
     hash_bits: u8,
     shift: u8,
-    _phantom: PhantomData<CH>,
+    _phantom: PhantomData<GapHash<P, B, VBYTE>>,
 }
 
-impl<'a, CH: CompositeHash> From<PrefixCodeDowngradedIter<'a, CH>> for &'a [u8] {
-    fn from(iter: PrefixCodeDowngradedIter<'a, CH>) -> Self {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> From<PrefixCodeDowngradedIter<'a, P, B, VBYTE>> for &'a [u8] {
+    fn from(iter: PrefixCodeDowngradedIter<'a, P, B, VBYTE>) -> Self {
         iter.bitstream.into()
     }
 }
 
-impl<'a, CH: CompositeHash> LastBufferedBit for PrefixCodeDowngradedIter<'a, CH> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit for PrefixCodeDowngradedIter<'a, P, B, VBYTE> {
     fn last_buffered_bit(&self) -> usize {
         self.bitstream.last_buffered_bit_position()
     }
 }
 
-impl<'a, CH: CompositeHash> PrefixCodeDowngradedIter<'a, CH> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> PrefixCodeDowngradedIter<'a, P, B, VBYTE> {
     fn last_read_bit_position(&self) -> usize {
         self.bitstream.last_read_bit_position()
     }
@@ -955,10 +810,7 @@ impl<'a, CH: CompositeHash> PrefixCodeDowngradedIter<'a, CH> {
     }
 }
 
-impl<'a, CH: CompositeHash> Iterator for PrefixCodeDowngradedIter<'a, CH>
-where
-    CH: PrefixFreeCode,
-{
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeDowngradedIter<'a, P, B, VBYTE> {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -969,34 +821,15 @@ where
 
         if self.current_iteration == 1 {
             self.previous = self.bitstream.read_bits(usize::from(self.hash_bits));
-            return Some(CH::downgrade(self.previous, self.hash_bits, self.shift));
+            return Some(GapHash::<P, B>::downgrade(self.previous, self.hash_bits, self.shift));
         }
 
-        let gap = match self.hash_bits {
-            8 => <CH as PrefixFreeCode>::Code8::read(&mut self.bitstream),
-            16 => <CH as PrefixFreeCode>::Code16::read(&mut self.bitstream),
-            24 => <CH as PrefixFreeCode>::Code24::read(&mut self.bitstream),
-            32 => <CH as PrefixFreeCode>::Code32::read(&mut self.bitstream),
-            _ => unreachable!(),
-        };
+        let uniform = self.bitstream.read_rice(GapHash::<P, B>::b(self.hash_bits));
+        let geometric = u8::try_from(self.bitstream.read_unary()).unwrap();
 
-        debug_assert!(
-            gap.leading_zeros() >= 64 - u32::from(self.hash_bits),
-            "A gap {gap} between hash of {} bits cannot have more than {} leading zeros, but got {}.",
-            self.hash_bits,
-            64 - u32::from(self.hash_bits),
-            gap.leading_zeros(),
-        );
+        let fragment = GapFragment { uniform, geometric };
 
-        debug_assert!(
-            gap <= self.previous,
-            "{}/{}) Since the hashes are meant to be sorted in descending order, the gap ({gap}) must be less than the previous hash ({}).",
-            self.current_iteration,
-            self.number_of_hashes,
-            self.previous,
-        );
-
-        self.previous -= gap + 1;
+        self.previous = GapHash::<P, B>::from_gap_fragment(fragment, self.previous, self.hash_bits);
 
         debug_assert!(
             self.previous.leading_zeros() >= 64 - u32::from(self.hash_bits),
@@ -1006,7 +839,7 @@ where
             64 - u32::from(self.hash_bits),
         );
 
-        Some(CH::downgrade(self.previous, self.hash_bits, self.shift))
+        Some(GapHash::<P, B>::downgrade(self.previous, self.hash_bits, self.shift))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -1014,10 +847,7 @@ where
     }
 }
 
-impl<'a, CH: CompositeHash> ExactSizeIterator for PrefixCodeDowngradedIter<'a, CH>
-where
-    CH: PrefixFreeCode,
-{
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator for PrefixCodeDowngradedIter<'a, P, B, VBYTE> {
     fn len(&self) -> usize {
         self.number_of_hashes
     }
@@ -1025,14 +855,14 @@ where
 
 #[derive(Debug)]
 /// Iterator over decoded hashes.
-pub enum DispatchedDecodedIter<'a, CH: CompositeHash> {
+pub enum DispatchedDecodedIter<'a, P: Precision, B: Bits, const VBYTE: bool> {
     /// Variants for when the prefix-free codes are used.
-    PrefixCodeDecodedIter(PrefixCodeDecodedIter<'a, CH>),
+    PrefixCodeDecodedIter(PrefixCodeDecodedIter<'a, P, B, VBYTE>),
     /// Variants for when the prefix-free codes are not used.
-    InnerDecodedIter(CH::Decoded<'a>),
+    InnerDecodedIter(<SwitchHash::<P, B> as CompositeHash>::Decoded<'a>),
 }
 
-impl<'a, CH: CompositeHash> LastBufferedBit for DispatchedDecodedIter<'a, CH> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit for DispatchedDecodedIter<'a, P, B, VBYTE> {
     fn last_buffered_bit(&self) -> usize {
         match self {
             Self::PrefixCodeDecodedIter(iter) => iter.last_buffered_bit(),
@@ -1041,13 +871,12 @@ impl<'a, CH: CompositeHash> LastBufferedBit for DispatchedDecodedIter<'a, CH> {
     }
 }
 
-impl<'a, CH: CompositeHash> TryFrom<DispatchedDecodedIter<'a, CH>> for PrefixCodeDecodedIter<'a, CH>
-where
-    CH: PrefixFreeCode,
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> TryFrom<DispatchedDecodedIter<'a, P, B, VBYTE>>
+    for PrefixCodeDecodedIter<'a, P, B, VBYTE>
 {
-    type Error = CH::Decoded<'a>;
+    type Error = <SwitchHash::<P, B> as CompositeHash>::Decoded<'a>;
 
-    fn try_from(value: DispatchedDecodedIter<'a, CH>) -> Result<Self, Self::Error> {
+    fn try_from(value: DispatchedDecodedIter<'a, P, B, VBYTE>) -> Result<Self, Self::Error> {
         match value {
             DispatchedDecodedIter::PrefixCodeDecodedIter(iter) => Ok(iter),
             DispatchedDecodedIter::InnerDecodedIter(inner) => Err(inner),
@@ -1055,10 +884,7 @@ where
     }
 }
 
-impl<'a, CH: CompositeHash> Iterator for DispatchedDecodedIter<'a, CH>
-where
-    CH: PrefixFreeCode,
-{
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for DispatchedDecodedIter<'a, P, B, VBYTE> {
     type Item = (u8, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1076,10 +902,7 @@ where
     }
 }
 
-impl<'a, CH: CompositeHash> ExactSizeIterator for DispatchedDecodedIter<'a, CH>
-where
-    CH: PrefixFreeCode,
-{
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator for DispatchedDecodedIter<'a, P, B, VBYTE> {
     fn len(&self) -> usize {
         match self {
             Self::PrefixCodeDecodedIter(iter) => iter.len(),
@@ -1090,17 +913,17 @@ where
 
 #[derive(Debug)]
 /// Iterator over decoded hashes.
-pub struct PrefixCodeDecodedIter<'a, CH> {
-    iter: PrefixCodeDowngradedIter<'a, CH>,
+pub struct PrefixCodeDecodedIter<'a, P: Precision, B: Bits, const VBYTE: bool> {
+    iter: PrefixCodeDowngradedIter<'a, P, B, VBYTE>,
 }
 
-impl<'a, CH: CompositeHash> LastBufferedBit for PrefixCodeDecodedIter<'a, CH> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit for PrefixCodeDecodedIter<'a, P, B, VBYTE> {
     fn last_buffered_bit(&self) -> usize {
         self.iter.last_buffered_bit()
     }
 }
 
-impl<'a, CH: CompositeHash> PrefixCodeDecodedIter<'a, CH> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> PrefixCodeDecodedIter<'a, P, B, VBYTE> {
     #[allow(unsafe_code)]
     fn new(hashes: &'a [u8], number_of_hashes: usize, hash_bits: u8, bit_index: usize) -> Self {
         Self {
@@ -1109,16 +932,13 @@ impl<'a, CH: CompositeHash> PrefixCodeDecodedIter<'a, CH> {
     }
 }
 
-impl<'a, CH: CompositeHash> Iterator for PrefixCodeDecodedIter<'a, CH>
-where
-    CH: PrefixFreeCode,
-{
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeDecodedIter<'a, P, B, VBYTE> {
     type Item = (u8, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
             .next()
-            .map(|hash| CH::decode(hash, self.iter.hash_bits - self.iter.shift))
+            .map(|hash| GapHash::<P, B>::decode(hash, self.iter.hash_bits - self.iter.shift))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -1126,10 +946,7 @@ where
     }
 }
 
-impl<'a, CH: CompositeHash> ExactSizeIterator for PrefixCodeDecodedIter<'a, CH>
-where
-    CH: PrefixFreeCode,
-{
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator for PrefixCodeDecodedIter<'a, P, B, VBYTE> {
     fn len(&self) -> usize {
         self.iter.len()
     }

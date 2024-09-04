@@ -128,36 +128,8 @@ impl<'a> BitWriter<'a> {
         code_length as usize
     }
 
-    pub fn write_minimal_binary(&mut self, value: u64, max: u64) -> usize {
-        let l = max.ilog2();
-        let limit = (1 << (l + 1)) - max;
-
-        if value < limit {
-            self.write_bits(value, l as _)
-        } else {
-            let to_write = value + limit;
-            self.write_bits(to_write >> 1, l as _);
-            self.write_bits(to_write & 1, 1);
-            (l + 1) as usize
-        }
-    }
-
-    pub fn write_gamma(&mut self, mut value: u64) -> usize {
-        value += 1;
-        let n_bits = value.ilog2();
-        self.write_unary(n_bits as u64) + self.write_bits(value, n_bits as usize)
-    }
-
-    pub fn write_rice(&mut self, value: u64, b: u64) -> usize {
+    pub fn write_rice(&mut self, value: u64, b: u8) -> usize {
         self.write_unary(value >> b) + self.write_bits(value, b as usize)
-    }
-
-    pub fn write_golomb(&mut self, value: u64, b: u64) -> usize {
-        self.write_unary(value / b) + self.write_minimal_binary(value % b, b)
-    }
-
-    pub fn write_exp_golomb(&mut self, value: u64, b: u64) -> usize {
-        self.write_gamma(value >> b) + self.write_bits(value, b as usize)
     }
 }
 
@@ -182,29 +154,6 @@ mod testing_writer {
             expected,
             "Buffer is not as expected. Buffer[0] Xor Expected: {:064b}",
             (buffer[0] ^ expected[0]).to_be()
-        );
-    }
-
-    #[test]
-    fn test_hand_picked() {
-        let mut buffer: [u64; 1] = [
-            0b01110111_11000010_11110100_00100011_11101100_10100100_11001010_10000001_u64.to_be(),
-        ];
-
-        let mut writer = BitWriter::new(&mut buffer);
-        writer.seek(13);
-        writer.write_gamma(100); // 100 -> 101 = 64 + 32 + 4 + 1= 0000001100101
-        drop(writer);
-
-        let expected: [u64; 1] = [
-            0b01110111_11000_0000001100101_100011_11101100_10100100_11001010_10000001_u64.to_be(),
-        ];
-
-        assert_eq!(
-            buffer,
-            expected,
-            "Buffer is not as expected. Xor: {:064b}",
-            (buffer[0] ^ expected[0]).to_be(),
         );
     }
 }

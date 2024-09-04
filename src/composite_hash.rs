@@ -22,37 +22,6 @@ pub enum CompositeHashError {
     Saturation,
 }
 
-/// Trait defining constants and methods needed to apply the BirthDay Paradox correction.
-pub trait BirthDayParadoxCorrection {
-    /// The relative errors for the BirthDay Paradox correction.
-    const RELATIVE_ERRORS: [f64; 7];
-    /// The cardinalities for the BirthDay Paradox correction.
-    const CARDINALITIES: [u32; 7];
-
-    /// Returns the corrected cardinality.
-    fn birthday_paradox_correction(cardinality: u32) -> f64 {
-        if cardinality < Self::CARDINALITIES[0] {
-            return f64::from(cardinality);
-        }
-
-        if cardinality >= Self::CARDINALITIES[6] {
-            return f64::from(cardinality) * (1.0 + Self::RELATIVE_ERRORS[6]);
-        }
-
-        for i in 0..6 {
-            if cardinality < Self::CARDINALITIES[i + 1] {
-                let relative_error = (f64::from(cardinality - Self::CARDINALITIES[i])
-                    / f64::from(Self::CARDINALITIES[i + 1] - Self::CARDINALITIES[i]))
-                    * (Self::RELATIVE_ERRORS[i + 1] - Self::RELATIVE_ERRORS[i])
-                    + Self::RELATIVE_ERRORS[i];
-                return f64::from(cardinality) * (1.0 + relative_error);
-            }
-        }
-
-        unreachable!();
-    }
-}
-
 /// A reader buffer with a known last buffered bit.
 pub trait LastBufferedBit {
     /// Returns the last buffered bit.
@@ -60,7 +29,7 @@ pub trait LastBufferedBit {
 }
 
 /// A composite hash is a 64-bit hash that encodes a register, index and original hash.
-pub trait CompositeHash: Send + Sync + Debug + BirthDayParadoxCorrection {
+pub trait CompositeHash: Send + Sync + Debug {
     /// The precision of the hyperloglog.
     type Precision: Precision;
     /// The number of bits for the hash.
@@ -196,6 +165,41 @@ pub trait CompositeHash: Send + Sync + Debug + BirthDayParadoxCorrection {
         shift: u8,
     ) -> (u32, usize);
 
+    /// Returns the corrected cardinality.
+    fn birthday_paradox_correction(cardinality: u32) -> f64 {
+        if cardinality < Self::BIRTHDAY_CARDINALITIES[0] {
+            return f64::from(cardinality)
+                * (1.0
+                    + Self::BIRTHDAY_RELATIVE_ERRORS[0] * f64::from(cardinality)
+                        / f64::from(Self::BIRTHDAY_CARDINALITIES[0])).max(1.0);
+        }
+
+        if cardinality >= Self::BIRTHDAY_CARDINALITIES[5] {
+            return f64::from(cardinality)
+                * (1.0
+                    + Self::BIRTHDAY_RELATIVE_ERRORS[5] * f64::from(cardinality)
+                        / f64::from(Self::BIRTHDAY_CARDINALITIES[5]));
+        }
+
+        for i in 0..6 {
+            if cardinality < Self::BIRTHDAY_CARDINALITIES[i + 1] {
+                let relative_error = (f64::from(cardinality - Self::BIRTHDAY_CARDINALITIES[i])
+                    / f64::from(
+                        Self::BIRTHDAY_CARDINALITIES[i + 1] - Self::BIRTHDAY_CARDINALITIES[i],
+                    ))
+                    * (Self::BIRTHDAY_RELATIVE_ERRORS[i + 1] - Self::BIRTHDAY_RELATIVE_ERRORS[i])
+                    + Self::BIRTHDAY_RELATIVE_ERRORS[i];
+                return f64::from(cardinality) * (1.0 + relative_error);
+            }
+        }
+
+        unreachable!();
+    }
+
+    /// The cardinalities for the birthday paradox correction.
+    const BIRTHDAY_CARDINALITIES: [u32; 6];
+    /// The relative errors for the birthday paradox correction.
+    const BIRTHDAY_RELATIVE_ERRORS: [f64; 6];
     /// Returns the smallest viable hash for the current precision and number of bits.
     const SMALLEST_VIABLE_HASH_BITS: u8;
     /// Returns the largest viable hash for the current precision and number of bits.
@@ -209,8 +213,6 @@ mod test_composite_hash {
 
     use super::*;
     use crate::prelude::*;
-    #[cfg(feature = "prefix_free_codes")]
-    use gaps::PrefixFreeCode;
     use hyperloglog_derive::test_precisions_and_bits;
 
     #[allow(unsafe_code)]
@@ -462,21 +464,17 @@ mod test_composite_hash {
     fn test_switch_hash<P: Precision, B: Bits>()
     where
         P: ArrayRegister<B>,
-        switch::SwitchHash<P, B>: BirthDayParadoxCorrection,
     {
         test_composite_hash_stateless_operations::<switch::SwitchHash<P, B>>();
         test_composite_hash::<switch::SwitchHash<P, B>>();
     }
 
-    // #[test_precisions_and_bits([[5, 4], [4, 5], [4, 6]])]
-    // #[cfg(feature = "prefix_free_codes")]
-    // fn test_gap_switch_hash<P: Precision, B: Bits>()
-    // where
-    //     P: ArrayRegister<B>,
-    //     switch::SwitchHash<P, B>: PrefixFreeCode + BirthDayParadoxCorrection,
-    //     gaps::GapHash<switch::SwitchHash<P, B>>: BirthDayParadoxCorrection,
-    // {
-    //     test_composite_hash_stateless_operations::<gaps::GapHash<switch::SwitchHash<P, B>>>();
-    //     test_composite_hash::<gaps::GapHash<switch::SwitchHash<P, B>>>();
-    // }
+    #[test_precisions_and_bits([[5, 4], [4, 5], [4, 6]])]
+    fn test_gap_switch_hash<P: Precision, B: Bits>()
+    where
+        P: ArrayRegister<B>,
+    {
+        test_composite_hash_stateless_operations::<gaps::GapHash<P, B, false>>();
+        test_composite_hash::<gaps::GapHash<P, B, false>>();
+    }
 }
