@@ -28,7 +28,7 @@ pub(super) struct HashFragment<P: Precision, B: Bits> {
 
 impl<P: Precision, B: Bits> HashFragment<P, B> {
     #[inline]
-    pub(super) fn hash_remainder_size(hash_bits: u8) -> u8 {
+    pub(super) const fn hash_remainder_size(hash_bits: u8) -> u8 {
         if hash_bits == P::EXPONENT + B::NUMBER_OF_BITS {
             return 0;
         }
