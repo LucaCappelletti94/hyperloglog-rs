@@ -23,7 +23,7 @@ mod plusplus;
 mod precisions;
 mod registers;
 pub mod sketches;
-mod utils;
+pub mod utils;
 
 #[cfg(feature = "serde")]
 pub mod serde;

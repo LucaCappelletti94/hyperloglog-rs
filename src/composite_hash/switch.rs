@@ -64,6 +64,7 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
         // If the hash barely fits as is, we do not need to do anything special.
         if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
             let register = u8::try_from(hash & B::MASK).unwrap();
+            debug_assert!(register > 0);
             return HashFragment {
                 index,
                 register,
@@ -81,6 +82,10 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
             let shift = hash_bits - 1 - P::EXPONENT - B::NUMBER_OF_BITS;
             let hash_remainder_mask = (1 << shift) - 1;
             let register = u8::try_from((hash >> shift) & B::MASK).unwrap();
+            debug_assert!(
+                register > 0,
+                "The register value ({register}) must be greater than 0. Obtained from hash {hash:064b} with bits {hash_bits}"
+            );
             let hash_remainder = u16::try_from(hash & hash_remainder_mask).unwrap();
 
             HashFragment {
@@ -103,6 +108,7 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
 
             let leading_zeros = (restored_hash | (1_u64 << (64_u64 - B::MASK))).leading_zeros();
             let register = u8::try_from(leading_zeros + 1).unwrap();
+            debug_assert!(register > 0);
 
             HashFragment {
                 index,
@@ -120,6 +126,8 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
         hash_remainder: u16,
         hash_bits: u8,
     ) -> u64 {
+        debug_assert!(register > 0);
+
         let mut hash = u64::try_from(index << (hash_bits - P::EXPONENT)).unwrap();
 
         if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
@@ -228,9 +236,9 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
 
     const SMALLEST_VIABLE_HASH_BITS: u8 = smallest_viable_switch_hash::<P, B>();
     const LARGEST_VIABLE_HASH_BITS: u8 = maximal_viable_switch_hash::<P, B>();
-    const BIRTHDAY_CARDINALITIES: [u32; 6] = SWITCH_HASH_BIRTHDAY_PARADOX_CARDINALITIES
+    const BIRTHDAY_CARDINALITIES: &[u32] = SWITCH_HASH_BIRTHDAY_PARADOX_CARDINALITIES
         [P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
-    const BIRTHDAY_RELATIVE_ERRORS: [f64; 6] = SWITCH_HASH_BIRTHDAY_PARADOX_ERRORS
+    const BIRTHDAY_RELATIVE_ERRORS: &[f64] = SWITCH_HASH_BIRTHDAY_PARADOX_ERRORS
         [P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
 
     fn downgrade_inplace(
@@ -286,6 +294,18 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         )
     }
 
+    fn target_downgraded_hash_bits(
+        _number_of_hashes: usize,
+        _bit_index: usize,
+        hash_bits: u8,
+    ) -> u8 {
+        if hash_bits == Self::SMALLEST_VIABLE_HASH_BITS {
+            unreachable!("The hash bits ({hash_bits}) must be greater than the smallest viable hash bits ({})", Self::SMALLEST_VIABLE_HASH_BITS);
+        }
+
+        hash_bits - 8
+    }
+
     #[inline]
     #[must_use]
     fn downgraded(
@@ -295,10 +315,6 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         bit_index: usize,
         shift: u8,
     ) -> Self::Downgraded<'_> {
-        assert!(
-            hash_bits > Self::SMALLEST_VIABLE_HASH_BITS
-                || shift == 0 && hash_bits == Self::SMALLEST_VIABLE_HASH_BITS
-        );
         assert_eq!(bit_index, number_of_hashes * usize::from(hash_bits));
         DowngradedIter::new(into_variant(hashes, number_of_hashes, hash_bits), shift)
     }
@@ -376,6 +392,19 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         }
 
         let fragmented = Self::scompose_hash(hash, hash_bits);
+
+        debug_assert!(
+            fragmented.index < 1 << Self::Precision::EXPONENT,
+            "The index ({}) must be less than 2^({})",
+            fragmented.index,
+            Self::Precision::EXPONENT,
+        );
+
+        debug_assert!(
+            fragmented.register > 0,
+            "The register value ({}) must be greater than 0",
+            fragmented.register
+        );
 
         if fragmented.register_flag() {
             // If the register is stored explicitly, we can shift the hash to the right

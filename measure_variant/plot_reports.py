@@ -7,7 +7,6 @@ column with the relative error of respectively the latest and reference variants
 
 import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np
 
 
 def plot_all():

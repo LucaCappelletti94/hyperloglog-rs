@@ -72,8 +72,7 @@ impl CodesStats {
         self.total += 1;
 
         for (log2_b, val) in self.rice.iter_mut().enumerate() {
-            let mut rice_delta =
-                encoded_register + (len_rice(gap.uniform, log2_b as _) as u64);
+            let mut rice_delta = encoded_register + (len_rice(gap.uniform, log2_b as _) as u64);
             if vbyte {
                 rice_delta = ceil(rice_delta, 8) * 8;
             }
@@ -89,8 +88,7 @@ impl CodesStats {
         self.total -= 1;
 
         for (log2_b, val) in self.rice.iter_mut().enumerate() {
-            let mut rice_delta =
-                encoded_register + (len_rice(gap.uniform, log2_b as _) as u64);
+            let mut rice_delta = encoded_register + (len_rice(gap.uniform, log2_b as _) as u64);
             if vbyte {
                 rice_delta = ceil(rice_delta, 8) * 8;
             }
@@ -386,6 +384,9 @@ where
     // We sort the gap reports by hash size.
     gaps.sort_by_key(|(hash_size, _)| *hash_size);
 
+    // We determine the largest hash size that can be used.
+    let max_hash_size = gaps.iter().map(|(hash_size, _)| *hash_size).max().unwrap();
+
     let path = "optimal-gap-codes.csv";
 
     append_csv(
@@ -397,7 +398,7 @@ where
                 _ => unreachable!(),
             };
 
-            let byte_padded_hash_size: u8 = ceil(*hash_size, 8) * 8;
+            let byte_padded_hash_size: u8 = ceil(max_hash_size, 8) * 8;
 
             // We always represent the first hash as-is, not as an encoded gap.
             let mean_compressed_size = (f64::from(*hash_size) * iterations as f64
@@ -405,10 +406,11 @@ where
                 / gap_report.total as f64;
             let number_of_hashes = (1_u64 << P::EXPONENT) * u64::from(B::NUMBER_OF_BITS)
                 / u64::from(byte_padded_hash_size);
-            let rate = mean_compressed_size / f64::from(byte_padded_hash_size);
-            let number_of_hashes_with_code = ((1_u64 << P::EXPONENT)
-                * u64::from(B::NUMBER_OF_BITS))
-                / (mean_compressed_size as u64);
+            let number_of_hashes_with_code = 1
+                + ((((1_u64 << P::EXPONENT) * u64::from(B::NUMBER_OF_BITS)) - u64::from(*hash_size))
+                    as f64
+                    / mean_compressed_size) as u64;
+            let rate = number_of_hashes as f64 / number_of_hashes_with_code as f64;
             let extra_hashes = (number_of_hashes_with_code as u64).saturating_sub(number_of_hashes);
 
             GapReport {
@@ -516,7 +518,7 @@ fn main() {
                             report.precision == exponent
                                 && report.bit_size == byte
                                 && report.vbyte
-                                && report.extra_hashes > 2
+                                && report.rate < 0.7
                         })
                         .map(|report| report.rice_coefficient);
                     quote! {
@@ -542,7 +544,7 @@ fn main() {
                             report.precision == exponent
                                 && report.bit_size == byte
                                 && !report.vbyte
-                                && report.extra_hashes > 2
+                                && report.rate < 0.7
                         })
                         .map(|report| report.rice_coefficient);
                     quote! {

@@ -12,6 +12,7 @@ mod shared;
 pub mod switch;
 mod switch_birthday_paradox;
 pub use switch::SwitchHash;
+mod gap_birthday_paradox;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Enumeration of errors that can occur when downgrading a composite hash.
@@ -165,31 +166,40 @@ pub trait CompositeHash: Send + Sync + Debug {
         shift: u8,
     ) -> (u32, usize);
 
+    /// Returns the target downgraded hash bits for the provided hash bits.
+    ///
+    /// # Arguments
+    /// * `number_of_hashes` - The number of hashes stored in the slice.
+    /// * `bit_index` - The index, in bits, where the writer left off.
+    /// * `hash_bits` - The number of bits for the hash to downgrade.
+    fn target_downgraded_hash_bits(number_of_hashes: usize, bit_index: usize, hash_bits: u8) -> u8;
+
     /// Returns the corrected cardinality.
     fn birthday_paradox_correction(cardinality: u32) -> f64 {
         if cardinality < Self::BIRTHDAY_CARDINALITIES[0] {
             return f64::from(cardinality)
-                * (1.0
-                    + Self::BIRTHDAY_RELATIVE_ERRORS[0] * f64::from(cardinality)
-                        / f64::from(Self::BIRTHDAY_CARDINALITIES[0])).max(1.0);
+                + Self::BIRTHDAY_RELATIVE_ERRORS[0] * f64::from(cardinality)
+                    / f64::from(Self::BIRTHDAY_CARDINALITIES[0]).max(1.0);
         }
 
-        if cardinality >= Self::BIRTHDAY_CARDINALITIES[5] {
+        if cardinality >= Self::BIRTHDAY_CARDINALITIES[Self::BIRTHDAY_CARDINALITIES.len() - 1] {
             return f64::from(cardinality)
-                * (1.0
-                    + Self::BIRTHDAY_RELATIVE_ERRORS[5] * f64::from(cardinality)
-                        / f64::from(Self::BIRTHDAY_CARDINALITIES[5]));
+                + Self::BIRTHDAY_RELATIVE_ERRORS[Self::BIRTHDAY_CARDINALITIES.len() - 1]
+                    * f64::from(cardinality)
+                    / f64::from(
+                        Self::BIRTHDAY_CARDINALITIES[Self::BIRTHDAY_CARDINALITIES.len() - 1],
+                    );
         }
 
-        for i in 0..6 {
+        for i in 0..Self::BIRTHDAY_CARDINALITIES.len() - 1 {
             if cardinality < Self::BIRTHDAY_CARDINALITIES[i + 1] {
-                let relative_error = (f64::from(cardinality - Self::BIRTHDAY_CARDINALITIES[i])
+                let bias = (f64::from(cardinality - Self::BIRTHDAY_CARDINALITIES[i])
                     / f64::from(
                         Self::BIRTHDAY_CARDINALITIES[i + 1] - Self::BIRTHDAY_CARDINALITIES[i],
                     ))
                     * (Self::BIRTHDAY_RELATIVE_ERRORS[i + 1] - Self::BIRTHDAY_RELATIVE_ERRORS[i])
                     + Self::BIRTHDAY_RELATIVE_ERRORS[i];
-                return f64::from(cardinality) * (1.0 + relative_error);
+                return f64::from(cardinality) + bias;
             }
         }
 
@@ -197,9 +207,9 @@ pub trait CompositeHash: Send + Sync + Debug {
     }
 
     /// The cardinalities for the birthday paradox correction.
-    const BIRTHDAY_CARDINALITIES: [u32; 6];
+    const BIRTHDAY_CARDINALITIES: &[u32];
     /// The relative errors for the birthday paradox correction.
-    const BIRTHDAY_RELATIVE_ERRORS: [f64; 6];
+    const BIRTHDAY_RELATIVE_ERRORS: &[f64];
     /// Returns the smallest viable hash for the current precision and number of bits.
     const SMALLEST_VIABLE_HASH_BITS: u8;
     /// Returns the largest viable hash for the current precision and number of bits.
@@ -207,7 +217,6 @@ pub trait CompositeHash: Send + Sync + Debug {
 }
 
 #[cfg(test)]
-#[cfg(feature = "std")]
 mod test_composite_hash {
     use core::u64;
 
@@ -216,6 +225,7 @@ mod test_composite_hash {
     use hyperloglog_derive::test_precisions_and_bits;
 
     #[allow(unsafe_code)]
+    #[cfg(feature = "std")]
     fn test_composite_hash<CH: CompositeHash>()
     where
         CH::Precision: ArrayRegister<CH::Bits>,
@@ -228,7 +238,7 @@ mod test_composite_hash {
         assert!(number_of_hashes > 2);
 
         // We create an array where we will store the hashes.
-        let mut reference_hashes = vec![0; number_of_hashes * 3];
+        let mut reference_hashes = vec![0; number_of_hashes * 6];
         // Since we do not have an array that keeps track of the number of hashes we have inserted, we will use a counter.
         let mut number_of_inserted_hashes = 0;
         // We allow a relatively small number of bits for the hash, so to force the degradation and saturation events.
@@ -248,7 +258,7 @@ mod test_composite_hash {
         // Flag to check whether saturation was reached.
         let mut saturation_reached = false;
 
-        for random_value in iter_random_values::<u64>(number_of_hashes as u64 * 3, None, None) {
+        for random_value in iter_random_values::<u64>(number_of_hashes as u64 * 20, None, None) {
             // We start each iteration by checking that the hashes are consistent.
             for (reference_hash, hash) in reference_hashes.iter().copied().zip(CH::downgraded(
                 &encoded_hashes,
@@ -288,7 +298,11 @@ mod test_composite_hash {
             }
 
             if let Err(CompositeHashError::DowngradableSaturation) = result {
-                let target_hash_bits = hash_bits - 8;
+                let target_hash_bits = CH::target_downgraded_hash_bits(
+                    number_of_inserted_hashes,
+                    writer_tell,
+                    hash_bits,
+                );
                 let shift = hash_bits - target_hash_bits;
                 println!("Downgrading from {hash_bits} to {target_hash_bits}.",);
 
@@ -299,6 +313,8 @@ mod test_composite_hash {
                     hash_bits,
                     shift,
                 );
+
+                println!("Downgraded removing {number_of_duplicates} duplicates.");
 
                 let mut last_reference_hash = u64::MAX;
                 let mut reference_duplicates = 0;
@@ -438,13 +454,12 @@ mod test_composite_hash {
                     "Failed to downgrade by 0 bits. The hash is {encoded_hash:064b}."
                 );
 
-                for shift in 1..4 {
-                    if hash_bits.saturating_sub(shift * 8) < CH::SMALLEST_VIABLE_HASH_BITS {
+                for shift in 1..32 {
+                    if hash_bits.saturating_sub(shift) < CH::SMALLEST_VIABLE_HASH_BITS {
                         break;
                     }
-                    let target_hash_bits = hash_bits - shift * 8;
-                    let shift_bits = shift * 8;
-                    let downgraded_hash = CH::downgrade(encoded_hash, hash_bits, shift_bits);
+                    let target_hash_bits = hash_bits - shift;
+                    let downgraded_hash = CH::downgrade(encoded_hash, hash_bits, shift);
                     let (downgraded_register, downgraded_index) =
                         CH::decode(downgraded_hash, target_hash_bits);
 
@@ -466,15 +481,19 @@ mod test_composite_hash {
         P: ArrayRegister<B>,
     {
         test_composite_hash_stateless_operations::<switch::SwitchHash<P, B>>();
+
+        #[cfg(feature = "std")]
         test_composite_hash::<switch::SwitchHash<P, B>>();
     }
 
-    #[test_precisions_and_bits([[5, 4], [4, 5], [4, 6]])]
+    #[test_precisions_and_bits]
     fn test_gap_switch_hash<P: Precision, B: Bits>()
     where
         P: ArrayRegister<B>,
     {
         test_composite_hash_stateless_operations::<gaps::GapHash<P, B, false>>();
+
+        #[cfg(feature = "std")]
         test_composite_hash::<gaps::GapHash<P, B, false>>();
     }
 }

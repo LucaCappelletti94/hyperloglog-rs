@@ -11,10 +11,14 @@ use crate::{bits::Bits, utils::ceil};
 use bitreader::{len_rice, len_unary, BitReader};
 use bitwriter::BitWriter;
 use optimal_codes::{OPTIMAL_RICE_COEFFICIENTS, OPTIMAL_VBYTE_RICE_COEFFICIENTS};
+use super::gap_birthday_paradox::{
+    GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES,
+    GAP_HASH_BIRTHDAY_PARADOX_ERRORS
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 /// Gap-based composite hash.
-pub struct GapHash<P: Precision, B: Bits, const VBYTE: bool = true> {
+pub struct GapHash<P: Precision, B: Bits, const VBYTE: bool = false> {
     switch: PhantomData<SwitchHash<P, B>>,
 }
 
@@ -35,21 +39,15 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
         hash_to_encode: u64,
         hash_bits: u8,
     ) -> GapFragment {
-        assert!(previous_hash > hash_to_encode);
+        debug_assert!(previous_hash > hash_to_encode);
 
         let previous_fragment = SwitchHash::<P, B>::scompose_hash(previous_hash, hash_bits);
         let fragment_to_encode = SwitchHash::<P, B>::scompose_hash(hash_to_encode, hash_bits);
 
         debug_assert!(
-            previous_fragment.index >= fragment_to_encode.index,
-            "The previous index ({}) must be greater or equal to the second index ({})",
-            previous_fragment.index,
-            fragment_to_encode.index
-        );
-
-        debug_assert!(
             previous_fragment.index > fragment_to_encode.index
-                || previous_fragment.register >= fragment_to_encode.register,
+                || previous_fragment.register > fragment_to_encode.register
+                || previous_fragment.hash_remainder > fragment_to_encode.hash_remainder,
             "The previous register ({}) must be greater or equal to the second register ({})",
             previous_fragment.register,
             fragment_to_encode.register
@@ -57,9 +55,10 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
 
         // When P::EXPONENT + B::NUMBER_OF_BITS == hash_bits, there is absolutely
         // no hash remainder to include in the uniform portion of the hash, as that
-        // part of the hash is solely composed of the index. 
+        // part of the hash is solely composed of the index.
         if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
-            let uniform = u64::try_from(previous_fragment.index - fragment_to_encode.index).unwrap();
+            let uniform =
+                u64::try_from(previous_fragment.index - fragment_to_encode.index).unwrap();
 
             let geometric = if previous_fragment.index == fragment_to_encode.index {
                 previous_fragment.register - fragment_to_encode.register - 1
@@ -67,10 +66,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
                 fragment_to_encode.register - 1
             };
 
-            GapFragment {
-                uniform,
-                geometric
-            }
+            GapFragment { uniform, geometric }
         } else {
             // The uniform portion of the hash is composed by the index and the hash remainder.
             let previous_uniform = previous_fragment.uniform(hash_bits);
@@ -83,6 +79,14 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
                     // Since hashes must be strictly in descending order, and the indices are equal,
                     // and the previous hash remainder is equal or less than the hash remainder to encode,
                     // we can safely assume that the previous register is strictly greater than the register to encode.
+                    debug_assert!(
+                        previous_fragment.register > fragment_to_encode.register,
+                        "When the indices are equal and the previous hash remainder ({}) is less or equal to the hash remainder to encode ({}), the previous register ({}) must be strictly greater than the register to encode ({}), otherwise the order would not be maintained.",
+                        previous_fragment.hash_remainder,
+                        fragment_to_encode.hash_remainder,
+                        previous_fragment.register,
+                        fragment_to_encode.register
+                    );
                     previous_fragment.register - fragment_to_encode.register - 1
                 } else {
                     // Otherwise, the previous register may be equal or greater to the register to encode.
@@ -99,29 +103,35 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
             };
             GapFragment { uniform, geometric }
         }
-
     }
 
     #[inline]
-    fn from_gap_fragment(
-        fragment: GapFragment,
-        previous_hash: u64,
-        hash_bits: u8,
-    ) -> u64 {
+    fn from_gap_fragment(fragment: GapFragment, previous_hash: u64, hash_bits: u8) -> u64 {
         let previous_fragment = SwitchHash::<P, B>::scompose_hash(previous_hash, hash_bits);
 
         // When P::EXPONENT + B::NUMBER_OF_BITS == hash_bits, there is absolutely
         // no hash remainder to include in the uniform portion of the hash, as that
         // part of the hash is solely composed of the index.
         if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
-            let to_decode_index = previous_fragment.index - usize::try_from(fragment.uniform).unwrap();
+            let to_decode_index =
+                previous_fragment.index - usize::try_from(fragment.uniform).unwrap();
             let register = if previous_fragment.index == to_decode_index {
                 previous_fragment.register - fragment.geometric - 1
             } else {
                 fragment.geometric + 1
             };
 
-            return SwitchHash::<P, B>::compose_hash(to_decode_index, register, 0, hash_bits);
+            let recomposed_hash =
+                SwitchHash::<P, B>::compose_hash(to_decode_index, register, 0, hash_bits);
+
+            debug_assert!(
+                recomposed_hash < previous_hash,
+                "The recomposed hash ({}) must be less than the previous hash ({})",
+                recomposed_hash,
+                previous_hash
+            );
+
+            return recomposed_hash;
         }
 
         let previous_uniform = previous_fragment.uniform(hash_bits);
@@ -131,7 +141,8 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
         } else {
             previous_uniform - ((fragment.uniform >> 1) + 1)
         };
-        let (to_decode_index, to_decode_hash_remainder) = HashFragment::<P, B>::scompose_uniform(to_decode_uniform, hash_bits);
+        let (to_decode_index, to_decode_hash_remainder) =
+            HashFragment::<P, B>::scompose_uniform(to_decode_uniform, hash_bits);
 
         let to_decode_register = if previous_fragment.index == to_decode_index {
             if previous_fragment.hash_remainder <= to_decode_hash_remainder {
@@ -143,7 +154,21 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
             fragment.geometric + 1
         };
 
-        SwitchHash::<P, B>::compose_hash(to_decode_index, to_decode_register, to_decode_hash_remainder, hash_bits)
+        let recomposed_hash = SwitchHash::<P, B>::compose_hash(
+            to_decode_index,
+            to_decode_register,
+            to_decode_hash_remainder,
+            hash_bits,
+        );
+
+        debug_assert!(
+            recomposed_hash < previous_hash,
+            "The recomposed hash ({}) must be less than the previous hash ({})",
+            recomposed_hash,
+            previous_hash
+        );
+
+        recomposed_hash
     }
 }
 
@@ -160,7 +185,9 @@ mod test_compose_scompose_gap {
     where
         P: ArrayRegister<B>,
     {
-        for (first, second) in iter_random_values::<u64>(10_000, None, None).zip(iter_random_values::<u64>(10_000, None, Some(675_398_754_524_577))) {
+        for (first, second) in iter_random_values::<u64>(10_000, None, None).zip(
+            iter_random_values::<u64>(10_000, None, Some(675_398_754_524_577)),
+        ) {
             let (first_index, first_register, first_original_hash) =
                 <PlusPlus<P, B, <P as ArrayRegister<B>>::Packed>>::index_and_register_and_hash(
                     &first,
@@ -172,8 +199,12 @@ mod test_compose_scompose_gap {
             for hash_bits in SwitchHash::<P, B>::SMALLEST_VIABLE_HASH_BITS
                 ..=SwitchHash::<P, B>::LARGEST_VIABLE_HASH_BITS
             {
-                let first_encoded_hash =
-                    SwitchHash::<P, B>::encode(first_index, first_register, first_original_hash, hash_bits);
+                let first_encoded_hash = SwitchHash::<P, B>::encode(
+                    first_index,
+                    first_register,
+                    first_original_hash,
+                    hash_bits,
+                );
                 let second_encoded_hash = SwitchHash::<P, B>::encode(
                     second_index,
                     second_register,
@@ -216,14 +247,35 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
     }
 
     #[inline]
-    const fn b(hash_bits: u8) -> u8 {
+    fn b(hash_bits: u8) -> u8 {
         if VBYTE {
             OPTIMAL_VBYTE_RICE_COEFFICIENTS[P::EXPONENT as usize - 4]
                 [B::NUMBER_OF_BITS as usize - 4]
                 [hash_bits as usize - Self::SMALLEST_VIABLE_HASH_BITS as usize]
         } else {
+            debug_assert!(
+                usize::from(hash_bits)
+                    < usize::from(Self::SMALLEST_VIABLE_HASH_BITS)
+                        + Self::number_of_rice_coefficients(),
+                "The hash bits ({hash_bits}) must be smaller than {}, at precision {} and bits {}.",
+                usize::from(Self::SMALLEST_VIABLE_HASH_BITS) + Self::number_of_rice_coefficients(),
+                P::EXPONENT,
+                B::NUMBER_OF_BITS
+            );
             OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4]
                 [hash_bits as usize - Self::SMALLEST_VIABLE_HASH_BITS as usize]
+        }
+    }
+
+    #[inline]
+    const fn number_of_rice_coefficients() -> usize {
+        if VBYTE {
+            OPTIMAL_VBYTE_RICE_COEFFICIENTS[P::EXPONENT as usize - 4]
+                [B::NUMBER_OF_BITS as usize - 4]
+                .len()
+        } else {
+            OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4]
+                .len()
         }
     }
 }
@@ -385,75 +437,22 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                         hashes.len() * 8
                     );
 
-                    // safe because the slice is originally allocated as u64s
-                    debug_assert!(hashes.len() % core::mem::size_of::<u64>() == 0);
-                    let hashes_64 = unsafe {
-                        core::slice::from_raw_parts_mut(
-                            hashes.as_mut_ptr() as *mut u64,
-                            hashes.len() / core::mem::size_of::<u64>(),
-                        )
+                    // We check whether we can dowgrade to the current hash bits, or if we need to
+                    // downgrade to a smaller hash bits.
+                    if usize::from(hash_bits)
+                        >= usize::from(Self::SMALLEST_VIABLE_HASH_BITS)
+                            + Self::number_of_rice_coefficients()
+                    {
+                        return Err(CompositeHashError::DowngradableSaturation);
                     };
 
-                    debug_assert!(Self::downgraded(
-                        hashes,
-                        number_of_hashes,
-                        hash_bits,
-                        bit_index,
-                        0
-                    )
-                    .is_sorted_by(|a, b| b < a));
+                    let (duplicates, new_writer_tell) =
+                        Self::downgrade_inplace(hashes, number_of_hashes, bit_index, hash_bits, 0);
 
-                    let mut writer = BitWriter::new(hashes_64);
-
-                    let mut iter = SwitchHash::<P, B>::downgraded(
-                        hashes,
-                        number_of_hashes,
-                        hash_bits,
-                        bit_index,
-                        0,
+                    debug_assert_eq!(
+                        duplicates, 0,
+                        "There should be no duplicates when first prefix-coding a new value."
                     );
-                    let mut position = 0;
-
-                    // We write the first hash explicitly, as otherwise it would be
-                    // written in a very inefficient way.
-                    let mut previous_hash = iter.next().unwrap();
-                    position += 1;
-                    writer.write_bits(previous_hash, usize::from(hash_bits));
-
-                    for value in iter {
-                        position += 1;
-
-                        let fragment = Self::into_gap_fragment(previous_hash, value, hash_bits);
-
-                        writer.write_rice(fragment.uniform, Self::b(hash_bits));
-                        writer.write_unary(u64::from(fragment.geometric));
-                        let last_buffered_bit_position = usize::from(hash_bits) * (1 + position);
-
-                        debug_assert!(
-                            last_buffered_bit_position >= writer.tell(),
-                            "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, {previous_hash} - {value}) in prefix-coding at hash size {hash_bits}.",
-                            last_buffered_bit_position,
-                            writer.tell(),
-                        );
-                        previous_hash = value;
-                    }
-
-                    let new_writer_tell = writer.tell();
-                    drop(writer);
-
-                    debug_assert!(
-                        new_writer_tell < bit_index,
-                        "The conversion to prefix-free codes at bit size {hash_bits} should decrease the bit index, but got writer tell {new_writer_tell} and bit index {bit_index}."
-                    );
-
-                    debug_assert!(Self::downgraded(
-                        hashes,
-                        number_of_hashes,
-                        hash_bits,
-                        new_writer_tell,
-                        0
-                    )
-                    .is_sorted_by(|a, b| b < a));
 
                     // And we try to insert the hash again.
                     Self::insert_sorted_desc(
@@ -539,7 +538,11 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
             }) - prev_to_next_gap.map_or(0, |prev_to_next_gap| {
                 len_rice(prev_to_next_gap.uniform, Self::b(hash_bits))
                     + len_unary(prev_to_next_gap.geometric)
-            });
+            }) - if prev_to_current_gap.is_none() && current_to_next_gap.is_some() {
+                usize::from(hash_bits)
+            } else {
+                0
+            };
 
         let new_bit_index = bit_index + number_of_inserted_bits;
 
@@ -605,6 +608,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
 
             writer.write_rice(current_to_next_gap.uniform, Self::b(hash_bits));
             writer.write_unary(u64::from(current_to_next_gap.geometric));
+
             debug_assert!(
                 bypass.len() == 0 || bypass.last_buffered_bit() > writer.tell(),
                 "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}) in insert at hash size {hash_bits}.",
@@ -663,20 +667,6 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
         hash_bits: u8,
         shift: u8,
     ) -> (u32, usize) {
-        if shift == 0 {
-            return (0, bit_index);
-        }
-
-        if !Self::is_prefix_free_encoded(number_of_hashes, hash_bits, bit_index) {
-            return SwitchHash::<P, B>::downgrade_inplace(
-                hashes,
-                number_of_hashes,
-                bit_index,
-                hash_bits,
-                shift,
-            );
-        }
-
         // safe because the slice is originally allocated as u64s
         debug_assert!(hashes.len() % core::mem::size_of::<u64>() == 0);
         let hashes_64 = unsafe {
@@ -709,29 +699,46 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
 
         let mut duplicates = 0;
 
-        while let Some(value) = iter.next() {
+        let mut maybe_next = iter.next();
+        position += 1;
+        let mut maybe_double_next = iter.next();
+        position += 1;
+
+        while let Some(next) = maybe_next {
+            maybe_next = maybe_double_next;
+            maybe_double_next = iter.next();
             position += 1;
-            if value == previous_hash {
+
+            if next == previous_hash {
                 duplicates += 1;
                 continue;
             }
 
-            let fragment = Self::into_gap_fragment(previous_hash, value, hash_bits);
+            let fragment = Self::into_gap_fragment(previous_hash, next, hash_bits - shift);
 
-            writer.write_rice(fragment.uniform, Self::b(hash_bits));
+            writer.write_rice(fragment.uniform, Self::b(hash_bits - shift));
             writer.write_unary(u64::from(fragment.geometric));
 
             debug_assert!(
-                iter.last_buffered_bit() > writer.tell(),
-                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, {previous_hash} - {value}) in downgrade at hash size {hash_bits} with shift {shift}.",
+                iter.last_buffered_bit() >= writer.tell(),
+                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, {previous_hash} - {next}) in downgrade at hash size {hash_bits} with shift {shift}. Precision: {}, Bits: {}.",
                 iter.last_buffered_bit(),
                 writer.tell(),
+                P::EXPONENT,
+                B::NUMBER_OF_BITS
             );
-            previous_hash = value;
+            previous_hash = next;
         }
 
         let writer_tell = writer.tell();
         drop(writer);
+
+        debug_assert!(
+            writer_tell <= bit_index,
+            "PFC-ing at bit size {hash_bits} with shift {shift} should decrease the bit index ({bit_index}), but got writer tell {writer_tell}. Precision: {}, Bits: {}.",
+            P::EXPONENT,
+            B::NUMBER_OF_BITS
+        );
 
         debug_assert!(Self::downgraded(
             hashes,
@@ -745,10 +752,34 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
         (u32::try_from(duplicates).unwrap(), writer_tell)
     }
 
+    #[inline]
+    fn target_downgraded_hash_bits(_number_of_hashes: usize, _bit_index: usize, hash_bits: u8) -> u8 {
+        if hash_bits == Self::SMALLEST_VIABLE_HASH_BITS {
+            unreachable!("The hash bits ({hash_bits}) must be greater than the smallest viable hash bits ({})", Self::SMALLEST_VIABLE_HASH_BITS);
+        }
+
+        // In some cases, there may be a jump from the largest viable hash bits and the next
+        // larger compressible hash bits.
+
+        if hash_bits == Self::LARGEST_VIABLE_HASH_BITS {
+            let target_hash_bits = Self::SMALLEST_VIABLE_HASH_BITS
+                + u8::try_from(Self::number_of_rice_coefficients()).unwrap()
+                - 1;
+
+            if target_hash_bits == hash_bits {
+                hash_bits - 1
+            } else {
+                target_hash_bits
+            }
+        } else {
+            hash_bits - 1
+        }
+    }
+
     const SMALLEST_VIABLE_HASH_BITS: u8 = Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS;
     const LARGEST_VIABLE_HASH_BITS: u8 = SwitchHash::<P, B>::LARGEST_VIABLE_HASH_BITS;
-    const BIRTHDAY_CARDINALITIES: [u32; 6] = SwitchHash::<P, B>::BIRTHDAY_CARDINALITIES;
-    const BIRTHDAY_RELATIVE_ERRORS: [f64; 6] = SwitchHash::<P, B>::BIRTHDAY_RELATIVE_ERRORS;
+    const BIRTHDAY_CARDINALITIES: &[u32] = GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
+    const BIRTHDAY_RELATIVE_ERRORS: &[f64] = GAP_HASH_BIRTHDAY_PARADOX_ERRORS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
 }
 
 #[derive(Debug)]
@@ -757,10 +788,12 @@ pub enum DispatchedDowngradedIter<'a, P: Precision, B: Bits, const VBYTE: bool> 
     /// Variants for when the prefix-free codes are used.
     PrefixCodeDowngradedIter(PrefixCodeDowngradedIter<'a, P, B, VBYTE>),
     /// Variants for when the prefix-free codes are not used.
-    InnerDowngradedIter(<SwitchHash::<P, B> as CompositeHash>::Downgraded<'a>),
+    InnerDowngradedIter(<SwitchHash<P, B> as CompositeHash>::Downgraded<'a>),
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit for DispatchedDowngradedIter<'a, P, B, VBYTE> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit
+    for DispatchedDowngradedIter<'a, P, B, VBYTE>
+{
     fn last_buffered_bit(&self) -> usize {
         match self {
             Self::PrefixCodeDowngradedIter(iter) => iter.last_buffered_bit(),
@@ -769,7 +802,8 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit for Dispatche
     }
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> TryFrom<DispatchedDowngradedIter<'a, P, B, VBYTE>>
+impl<'a, P: Precision, B: Bits, const VBYTE: bool>
+    TryFrom<DispatchedDowngradedIter<'a, P, B, VBYTE>>
     for PrefixCodeDowngradedIter<'a, P, B, VBYTE>
 {
     type Error = DispatchedDowngradedIter<'a, P, B, VBYTE>;
@@ -782,7 +816,9 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> TryFrom<DispatchedDowngradedI
     }
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for DispatchedDowngradedIter<'a, P, B, VBYTE> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator
+    for DispatchedDowngradedIter<'a, P, B, VBYTE>
+{
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -800,7 +836,9 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for DispatchedDowngr
     }
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator for DispatchedDowngradedIter<'a, P, B, VBYTE> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator
+    for DispatchedDowngradedIter<'a, P, B, VBYTE>
+{
     fn len(&self) -> usize {
         match self {
             Self::PrefixCodeDowngradedIter(iter) => iter.len(),
@@ -847,7 +885,9 @@ impl<'a> LastBufferedBit for BypassIter<'a> {
     }
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> From<PrefixCodeDowngradedIter<'a, P, B, VBYTE>> for BypassIter<'a> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> From<PrefixCodeDowngradedIter<'a, P, B, VBYTE>>
+    for BypassIter<'a>
+{
     fn from(iter: PrefixCodeDowngradedIter<'a, P, B, VBYTE>) -> Self {
         Self {
             bitstream: iter.bitstream,
@@ -870,13 +910,17 @@ pub struct PrefixCodeDowngradedIter<'a, P: Precision, B: Bits, const VBYTE: bool
     _phantom: PhantomData<GapHash<P, B, VBYTE>>,
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> From<PrefixCodeDowngradedIter<'a, P, B, VBYTE>> for &'a [u8] {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> From<PrefixCodeDowngradedIter<'a, P, B, VBYTE>>
+    for &'a [u8]
+{
     fn from(iter: PrefixCodeDowngradedIter<'a, P, B, VBYTE>) -> Self {
         iter.bitstream.into()
     }
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit for PrefixCodeDowngradedIter<'a, P, B, VBYTE> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit
+    for PrefixCodeDowngradedIter<'a, P, B, VBYTE>
+{
     fn last_buffered_bit(&self) -> usize {
         self.bitstream.last_buffered_bit_position()
     }
@@ -913,7 +957,9 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> PrefixCodeDowngradedIter<'a, 
     }
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeDowngradedIter<'a, P, B, VBYTE> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator
+    for PrefixCodeDowngradedIter<'a, P, B, VBYTE>
+{
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -924,7 +970,11 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeDowngr
 
         if self.current_iteration == 1 {
             self.previous = self.bitstream.read_bits(usize::from(self.hash_bits));
-            return Some(GapHash::<P, B>::downgrade(self.previous, self.hash_bits, self.shift));
+            return Some(GapHash::<P, B>::downgrade(
+                self.previous,
+                self.hash_bits,
+                self.shift,
+            ));
         }
 
         let uniform = self.bitstream.read_rice(GapHash::<P, B>::b(self.hash_bits));
@@ -932,7 +982,12 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeDowngr
 
         let fragment = GapFragment { uniform, geometric };
 
-        self.previous = GapHash::<P, B>::from_gap_fragment(fragment, self.previous, self.hash_bits);
+        let current = GapHash::<P, B>::from_gap_fragment(fragment, self.previous, self.hash_bits);
+        debug_assert!(
+            self.previous > current,
+            "The previous hash ({}) must be greater or equal to the current hash ({current})",
+            self.previous,
+        );
 
         debug_assert!(
             self.previous.leading_zeros() >= 64 - u32::from(self.hash_bits),
@@ -942,7 +997,17 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeDowngr
             64 - u32::from(self.hash_bits),
         );
 
-        Some(GapHash::<P, B>::downgrade(self.previous, self.hash_bits, self.shift))
+        let current_downgraded = GapHash::<P, B>::downgrade(current, self.hash_bits, self.shift);
+
+        debug_assert!(
+            current_downgraded
+                <= GapHash::<P, B>::downgrade(self.previous, self.hash_bits, self.shift),
+            "The current hash ({current_downgraded}) must be less than the previous hash ({})",
+            GapHash::<P, B>::downgrade(self.previous, self.hash_bits, self.shift)
+        );
+        self.previous = current;
+
+        Some(current_downgraded)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -950,7 +1015,9 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeDowngr
     }
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator for PrefixCodeDowngradedIter<'a, P, B, VBYTE> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator
+    for PrefixCodeDowngradedIter<'a, P, B, VBYTE>
+{
     fn len(&self) -> usize {
         self.number_of_hashes
     }
@@ -962,10 +1029,12 @@ pub enum DispatchedDecodedIter<'a, P: Precision, B: Bits, const VBYTE: bool> {
     /// Variants for when the prefix-free codes are used.
     PrefixCodeDecodedIter(PrefixCodeDecodedIter<'a, P, B, VBYTE>),
     /// Variants for when the prefix-free codes are not used.
-    InnerDecodedIter(<SwitchHash::<P, B> as CompositeHash>::Decoded<'a>),
+    InnerDecodedIter(<SwitchHash<P, B> as CompositeHash>::Decoded<'a>),
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit for DispatchedDecodedIter<'a, P, B, VBYTE> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit
+    for DispatchedDecodedIter<'a, P, B, VBYTE>
+{
     fn last_buffered_bit(&self) -> usize {
         match self {
             Self::PrefixCodeDecodedIter(iter) => iter.last_buffered_bit(),
@@ -977,7 +1046,7 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit for Dispatche
 impl<'a, P: Precision, B: Bits, const VBYTE: bool> TryFrom<DispatchedDecodedIter<'a, P, B, VBYTE>>
     for PrefixCodeDecodedIter<'a, P, B, VBYTE>
 {
-    type Error = <SwitchHash::<P, B> as CompositeHash>::Decoded<'a>;
+    type Error = <SwitchHash<P, B> as CompositeHash>::Decoded<'a>;
 
     fn try_from(value: DispatchedDecodedIter<'a, P, B, VBYTE>) -> Result<Self, Self::Error> {
         match value {
@@ -987,7 +1056,9 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> TryFrom<DispatchedDecodedIter
     }
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for DispatchedDecodedIter<'a, P, B, VBYTE> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator
+    for DispatchedDecodedIter<'a, P, B, VBYTE>
+{
     type Item = (u8, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1005,7 +1076,9 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for DispatchedDecode
     }
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator for DispatchedDecodedIter<'a, P, B, VBYTE> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator
+    for DispatchedDecodedIter<'a, P, B, VBYTE>
+{
     fn len(&self) -> usize {
         match self {
             Self::PrefixCodeDecodedIter(iter) => iter.len(),
@@ -1020,7 +1093,9 @@ pub struct PrefixCodeDecodedIter<'a, P: Precision, B: Bits, const VBYTE: bool> {
     iter: PrefixCodeDowngradedIter<'a, P, B, VBYTE>,
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit for PrefixCodeDecodedIter<'a, P, B, VBYTE> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit
+    for PrefixCodeDecodedIter<'a, P, B, VBYTE>
+{
     fn last_buffered_bit(&self) -> usize {
         self.iter.last_buffered_bit()
     }
@@ -1035,7 +1110,9 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> PrefixCodeDecodedIter<'a, P, 
     }
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeDecodedIter<'a, P, B, VBYTE> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator
+    for PrefixCodeDecodedIter<'a, P, B, VBYTE>
+{
     type Item = (u8, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1049,7 +1126,9 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeDecode
     }
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator for PrefixCodeDecodedIter<'a, P, B, VBYTE> {
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator
+    for PrefixCodeDecodedIter<'a, P, B, VBYTE>
+{
     fn len(&self) -> usize {
         self.iter.len()
     }

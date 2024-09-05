@@ -9,7 +9,11 @@ extern crate syn;
 
 mod switch_hash;
 use switch_hash::compute_switch_hash_correction;
+mod gap_hash;
+use gap_hash::compute_gap_hash_correction;
+mod utils;
 
 fn main() {
     compute_switch_hash_correction();
+    compute_gap_hash_correction();
 }

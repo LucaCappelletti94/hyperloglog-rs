@@ -65,8 +65,8 @@ impl<
     #[inline]
     fn may_contain(&self, element: &T) -> bool {
         if self.is_hash_list() {
-            let hash_bytes = self.hash_bytes();
-            assert!(hash_bytes >= CH::SMALLEST_VIABLE_HASH_BITS / 8);
+            let hash_bits = self.hash_bits();
+            assert!(hash_bits >= CH::SMALLEST_VIABLE_HASH_BITS);
             let (index, register, original_hash) = H::index_and_register_and_hash(element);
             let writer_tell =
                 usize::try_from(decode_writer_tell(self.inner.harmonic_sum())).unwrap();
@@ -76,7 +76,7 @@ impl<
                 index,
                 register,
                 original_hash,
-                self.hash_bytes() * 8,
+                self.hash_bits(),
                 writer_tell,
             )
             .is_ok()
@@ -108,8 +108,8 @@ impl<
     #[inline]
     fn insert(&mut self, element: &T) -> bool {
         if self.is_hash_list() {
-            let hash_bytes = self.hash_bytes();
-            assert!(hash_bytes >= CH::SMALLEST_VIABLE_HASH_BITS / 8, "Expected the number of bytes used for the hash ({hash_bytes}) to be at least equal to the smallest viable hash ({})", CH::SMALLEST_VIABLE_HASH_BITS / 8);
+            let hash_bits = self.hash_bits();
+            assert!(hash_bits >= CH::SMALLEST_VIABLE_HASH_BITS, "Expected the number of bytes used for the hash ({hash_bits}) to be at least equal to the smallest viable hash ({})", CH::SMALLEST_VIABLE_HASH_BITS);
             let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
             let writer_tell = decode_writer_tell(self.inner.harmonic_sum());
             let hashes = self.inner.registers_mut().as_mut();
@@ -122,7 +122,7 @@ impl<
                 index,
                 register,
                 original_hash,
-                hash_bytes * 8,
+                hash_bits,
             ) {
                 Ok(inserted_position) => {
                     *self.inner.number_of_zero_registers_mut() +=
@@ -282,20 +282,22 @@ impl<H: Named + HyperLogLog, CH: CompositeHash<Precision = H::Precision, Bits = 
     }
 }
 
+const TARGET_HASH_MASK: u64 =
+    0b0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0001_1111;
+
 #[allow(unsafe_code)]
 #[expect(
     clippy::transmute_ptr_to_ptr,
     reason = "We are transmuting a mutable reference to a mutable reference, which is safe."
 )]
 fn encode_target_hash(float: &mut f64, target_hash: u8) {
-    debug_assert!(target_hash == 1 || target_hash == 2 || target_hash == 3 || target_hash == 4);
+    debug_assert!(target_hash >= 8 && target_hash <= 32);
     let harmonic_sum_as_u64: &mut u64 = unsafe { core::mem::transmute(float) };
-    *harmonic_sum_as_u64 =
-        (*harmonic_sum_as_u64 & 0xFFFF_FFFF_FFFF_FFF0_u64) | u64::from(target_hash);
+    *harmonic_sum_as_u64 = (*harmonic_sum_as_u64 & !TARGET_HASH_MASK) | u64::from(target_hash - 8);
 }
 
 fn decode_target_hash(float: f64) -> u8 {
-    u8::try_from(float.to_bits() & 0xF).unwrap()
+    u8::try_from(float.to_bits() & TARGET_HASH_MASK).unwrap() + 8
 }
 
 #[allow(unsafe_code)]
@@ -305,18 +307,18 @@ fn decode_target_hash(float: f64) -> u8 {
 )]
 /// Adds the count of duplicates to the harmonic sum.
 fn add_duplicates(float: &mut f64, new_duplicates: u32) {
-    let expected_maximum_duplicates = 0xF_FFFF;
+    let expected_maximum_duplicates: u64 = 0xF_FFFF;
     let current_duplicates = decode_duplicates(*float);
     let new_duplicates = current_duplicates + new_duplicates;
-    assert!(new_duplicates <= expected_maximum_duplicates);
+    assert!(u64::from(new_duplicates) <= expected_maximum_duplicates);
 
     let harmonic_sum_as_u64: &mut u64 = unsafe { core::mem::transmute(float) };
-    *harmonic_sum_as_u64 =
-        (*harmonic_sum_as_u64 & 0xFFFF_FFFF_FF00_000F_u64) | u64::from(new_duplicates) << 4;
+    *harmonic_sum_as_u64 = (*harmonic_sum_as_u64 & !(expected_maximum_duplicates << 5))
+        | (u64::from(new_duplicates) << 5);
 }
 
 fn decode_duplicates(float: f64) -> u32 {
-    u32::try_from(float.to_bits() >> 4 & 0xF_FFFF).unwrap()
+    u32::try_from((float.to_bits() >> 5) & 0xF_FFFF).unwrap()
 }
 
 #[allow(unsafe_code)]
@@ -327,15 +329,15 @@ fn decode_duplicates(float: f64) -> u32 {
 /// Sets the provided bit index to the harmonic sum.
 fn set_writer_tell(float: &mut f64, bit_index: u32) {
     let expected_maximum_duplicates = 0xFF_FFFF;
-    assert!(bit_index <= expected_maximum_duplicates);
+    assert!(u64::from(bit_index) <= expected_maximum_duplicates);
 
     let harmonic_sum_as_u64: &mut u64 = unsafe { core::mem::transmute(float) };
     *harmonic_sum_as_u64 =
-        (*harmonic_sum_as_u64 & 0xFFFF_0000_00FF_FFFF_u64) | u64::from(bit_index) << 24;
+        (*harmonic_sum_as_u64 & !(expected_maximum_duplicates << 25)) | u64::from(bit_index) << 25;
 }
 
 fn decode_writer_tell(float: f64) -> u32 {
-    u32::try_from(float.to_bits() >> 24 & 0xFF_FFFF).unwrap()
+    u32::try_from(float.to_bits() >> 25 & 0xFF_FFFF).unwrap()
 }
 
 #[cfg(test)]
@@ -346,14 +348,10 @@ mod test_encode_decode_target_hash {
     fn test_encode_decode_target_hash() {
         // The harmonic flag is initialized to minus infinity.
         let mut harmonic_sum = f64::NEG_INFINITY;
-        encode_target_hash(&mut harmonic_sum, 1);
-        assert_eq!(decode_target_hash(harmonic_sum), 1);
-        encode_target_hash(&mut harmonic_sum, 2);
-        assert_eq!(decode_target_hash(harmonic_sum), 2);
-        encode_target_hash(&mut harmonic_sum, 3);
-        assert_eq!(decode_target_hash(harmonic_sum), 3);
-        encode_target_hash(&mut harmonic_sum, 4);
-        assert_eq!(decode_target_hash(harmonic_sum), 4);
+        for hash_bits in 8..=32 {
+            encode_target_hash(&mut harmonic_sum, hash_bits);
+            assert_eq!(decode_target_hash(harmonic_sum), hash_bits);
+        }
 
         // We check that the harmonic sum has still a leading number of zeros
         // equal to zero, as we have initialized it to minus infinity and we
@@ -390,20 +388,20 @@ mod test_encode_decode_target_hash {
     #[test]
     fn test_mixed_encode_decode_operations() {
         let mut harmonic_sum = f64::NEG_INFINITY;
-        encode_target_hash(&mut harmonic_sum, 1);
-        assert_eq!(decode_target_hash(harmonic_sum), 1);
+        encode_target_hash(&mut harmonic_sum, 8);
+        assert_eq!(decode_target_hash(harmonic_sum), 8);
         add_duplicates(&mut harmonic_sum, 1);
         assert_eq!(decode_duplicates(harmonic_sum), 1);
         set_writer_tell(&mut harmonic_sum, 1);
-        assert_eq!(decode_target_hash(harmonic_sum), 1);
+        assert_eq!(decode_target_hash(harmonic_sum), 8);
         assert_eq!(decode_duplicates(harmonic_sum), 1);
         assert_eq!(decode_writer_tell(harmonic_sum), 1);
-        encode_target_hash(&mut harmonic_sum, 3);
-        assert_eq!(decode_target_hash(harmonic_sum), 3);
+        encode_target_hash(&mut harmonic_sum, 24);
+        assert_eq!(decode_target_hash(harmonic_sum), 24);
         add_duplicates(&mut harmonic_sum, 1);
         assert_eq!(decode_duplicates(harmonic_sum), 2);
         set_writer_tell(&mut harmonic_sum, 10);
-        assert_eq!(decode_target_hash(harmonic_sum), 3);
+        assert_eq!(decode_target_hash(harmonic_sum), 24);
         assert_eq!(decode_duplicates(harmonic_sum), 2);
         assert_eq!(decode_writer_tell(harmonic_sum), 10);
     }
@@ -425,7 +423,7 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
         // And then we apply to it the mask of the highest Composite Hash,
         // i.e. u32. Since the total number of Composite Hash we have is 4,
         // for this one we use the number 8, and we apply the mask to it.
-        encode_target_hash(inner.harmonic_sum_mut(), CH::LARGEST_VIABLE_HASH_BITS / 8);
+        encode_target_hash(inner.harmonic_sum_mut(), CH::LARGEST_VIABLE_HASH_BITS);
 
         Self {
             inner,
@@ -466,47 +464,16 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
     }
 
     #[inline]
-    /// Returns the number of bytes currently used for the hash.
-    pub fn hash_bytes(&self) -> u8 {
-        debug_assert!(self.is_hash_list());
-        let hash_bytes = decode_target_hash(self.inner.harmonic_sum());
-        debug_assert!(
-            hash_bytes >= CH::SMALLEST_VIABLE_HASH_BITS / 8,
-            "The number of bytes used for the hash ({hash_bytes}) must be at least equal to the smallest viable hash ({})",
-            CH::SMALLEST_VIABLE_HASH_BITS / 8
-        );
-        hash_bytes
-    }
-
-    #[inline]
     /// Returns the number of bits currently used for the hash.
     pub fn hash_bits(&self) -> u8 {
-        self.hash_bytes() * 8
-    }
-
-    #[inline]
-    /// Returns the next largest hash that can be used.
-    ///
-    /// # Implementation details
-    /// The next largest hash is the first hash that allows the underlying
-    /// registers vector to store the current number of hash (in the size of
-    /// the target hash) and the next hash.
-    fn downgrade_maximal_hash_bytes(&self) -> u8 {
-        let number_of_hash = self.inner.get_number_of_zero_registers().to_usize();
-        let current_hash = decode_target_hash(self.inner.harmonic_sum());
-        let smallest_viable_hash = CH::SMALLEST_VIABLE_HASH_BITS / 8;
+        debug_assert!(self.is_hash_list());
+        let hash_bits = decode_target_hash(self.inner.harmonic_sum());
         debug_assert!(
-            current_hash > smallest_viable_hash,
-            "The current hash ({current_hash}) must be at least equal to the smallest viable hash ({smallest_viable_hash})",
+            hash_bits >= CH::SMALLEST_VIABLE_HASH_BITS,
+            "The number of bytes used for the hash ({hash_bits}) must be at least equal to the smallest viable hash ({})",
+            CH::SMALLEST_VIABLE_HASH_BITS
         );
-
-        for i in (smallest_viable_hash..current_hash).rev() {
-            if (number_of_hash + 1) * usize::from(i * 8) <= H::Registers::bitsize() {
-                return i;
-            }
-        }
-
-        smallest_viable_hash
+        hash_bits
     }
 
     #[inline]
@@ -541,10 +508,8 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
     #[inline]
     /// Converts the Hybrid counter to a regular [`HyperLogLog`] counter.
     fn dehybridize(&mut self) {
-        let hash_bytes = self.hash_bytes();
-        assert!(hash_bytes >= CH::SMALLEST_VIABLE_HASH_BITS / 8);
         debug_assert!(self.is_hash_list());
-        debug_assert_eq!(self.hash_bytes(), CH::SMALLEST_VIABLE_HASH_BITS / 8);
+        debug_assert_eq!(self.hash_bits(), CH::SMALLEST_VIABLE_HASH_BITS);
 
         let mut new_counter: H = H::default();
         let hash_bits = self.hash_bits();
@@ -571,11 +536,14 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
         debug_assert!(self.is_hash_list());
 
         let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
-        let current_hash = self.hash_bytes();
-        let current_hash_bits = current_hash * 8;
-        let target_hash_bits = self.downgrade_maximal_hash_bytes() * 8;
-
+        let current_hash_bits = self.hash_bits();
         let writer_tell = decode_writer_tell(self.inner.harmonic_sum());
+        let target_hash_bits = CH::target_downgraded_hash_bits(
+            number_of_hashes,
+            usize::try_from(writer_tell).unwrap(),
+            current_hash_bits,
+        );
+
         let slice = self.inner.registers_mut().as_mut();
 
         let (new_duplicates, new_writer_tell) = CH::downgrade_inplace(
@@ -601,7 +569,7 @@ impl<H: Hybridazable, CH: CompositeHash<Precision = H::Precision, Bits = H::Bits
             u32::try_from(new_writer_tell).unwrap()
         );
         add_duplicates(self.inner.harmonic_sum_mut(), new_duplicates);
-        encode_target_hash(self.inner.harmonic_sum_mut(), target_hash_bits / 8);
+        encode_target_hash(self.inner.harmonic_sum_mut(), target_hash_bits);
         debug_assert_eq!(self.hash_bits(), target_hash_bits);
     }
 }
@@ -614,17 +582,9 @@ impl<
     #[inline]
     fn estimate_cardinality(&self) -> f64 {
         if self.is_hash_list() {
-            let preliminary_estimate =
-                self.number_of_hashes().unwrap() + self.duplicates().unwrap();
-            // let exponent = self.hash_bits() - H::Bits::NUMBER_OF_BITS + 2;
-
-            // if (1 << exponent) - preliminary_estimate < (1 << H::Precision::EXPONENT) {
-            //     linear_counting_correction(exponent, (1 << exponent) - preliminary_estimate)
-            // } else {
-            // f64::from(preliminary_estimate)
-            // }
-
-            CH::birthday_paradox_correction(preliminary_estimate)
+            CH::birthday_paradox_correction(
+                self.number_of_hashes().unwrap() + self.duplicates().unwrap(),
+            )
         } else {
             self.inner.estimate_cardinality()
         }
@@ -645,20 +605,20 @@ impl<
     ) -> f64 {
         match (self.is_hash_list(), other.is_hash_list()) {
             (true, true) => {
-                let left_hash_bytes = self.hash_bytes();
-                let right_hash_bytes = other.hash_bytes();
-                assert!(left_hash_bytes >= CH::SMALLEST_VIABLE_HASH_BITS / 8);
-                assert!(right_hash_bytes >= CH::SMALLEST_VIABLE_HASH_BITS / 8);
+                let left_hash_bits = self.hash_bits();
+                let right_hash_bits = other.hash_bits();
+                assert!(left_hash_bits >= CH::SMALLEST_VIABLE_HASH_BITS);
+                assert!(right_hash_bits >= CH::SMALLEST_VIABLE_HASH_BITS);
 
-                let left_shift = if left_hash_bytes <= right_hash_bytes {
+                let left_shift = if left_hash_bits <= right_hash_bits {
                     0
                 } else {
-                    (left_hash_bytes - right_hash_bytes) * 8
+                    left_hash_bits - right_hash_bits
                 };
-                let right_shift = if right_hash_bytes <= left_hash_bytes {
+                let right_shift = if right_hash_bits <= left_hash_bits {
                     0
                 } else {
-                    (right_hash_bytes - left_hash_bytes) * 8
+                    right_hash_bits - left_hash_bits
                 };
 
                 let left_hashes = self.inner.registers().as_ref();
@@ -672,14 +632,14 @@ impl<
                     CH::downgraded(
                         left_hashes,
                         self.inner.get_number_of_zero_registers().to_usize(),
-                        left_hash_bytes * 8,
+                        left_hash_bits,
                         left_bit_index,
                         left_shift,
                     ),
                     CH::downgraded(
                         right_hashes,
                         other.inner.get_number_of_zero_registers().to_usize(),
-                        right_hash_bytes * 8,
+                        right_hash_bits,
                         right_bit_index,
                         right_shift,
                     ),
@@ -691,9 +651,8 @@ impl<
                 correct_union_estimate(self_cardinality, other_cardinality, union_cardinality)
             }
             (true, false) => {
-                let self_hash = self.hash_bytes();
-                assert!(self_hash >= CH::SMALLEST_VIABLE_HASH_BITS / 8);
-                let hash_bits = self.hash_bytes() * 8;
+                let hash_bits = self.hash_bits();
+                assert!(hash_bits >= CH::SMALLEST_VIABLE_HASH_BITS);
                 let hashes = self.inner.registers().as_ref();
                 let bit_index =
                     usize::try_from(decode_writer_tell(self.inner.harmonic_sum())).unwrap();
@@ -792,7 +751,7 @@ mod test_hybrid_propertis {
             assert!(
                 !hybrid.insert(&random_state),
                 "The Hybrid counter should NOT already contain the element {random_state}. Hash size: {}. Iteration n. {iterations}. Hash list status: {}",
-                hybrid.hash_bytes(),
+                hybrid.hash_bits(),
                 hybrid.is_hash_list()
             );
             assert!(

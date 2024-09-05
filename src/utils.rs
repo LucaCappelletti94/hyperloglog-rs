@@ -22,7 +22,7 @@ pub use hasher_type::HasherType;
 pub use matrix::Matrix;
 pub(crate) use number::{FloatOps, Number, PositiveInteger};
 pub use random::*;
-pub(crate) use variable_word::VariableWord;
+pub use variable_word::VariableWord;
 
 #[cfg(all(
     not(feature = "std_ln"),
