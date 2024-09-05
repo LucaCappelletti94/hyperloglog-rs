@@ -231,7 +231,7 @@ mod test_composite_hash {
         CH::Precision: ArrayRegister<CH::Bits>,
     {
         let mut random_state = 498_123_456_789;
-        let number_of_iterations = core::cmp::min(1, 100_000 / (1 << (CH::Precision::EXPONENT - 4)));
+        let number_of_iterations = core::cmp::min(1, 25_000 / (1 << (CH::Precision::EXPONENT - 4)));
 
         for _ in 0..number_of_iterations {
             let number_of_bits =
@@ -504,5 +504,16 @@ mod test_composite_hash {
 
         #[cfg(feature = "std")]
         test_composite_hash::<gaps::GapHash<P, B, false>>();
+    }
+
+    #[test_precisions_and_bits]
+    fn test_gap_switch_hash_vbyte<P: Precision, B: Bits>()
+    where
+        P: ArrayRegister<B>,
+    {
+        test_composite_hash_stateless_operations::<gaps::GapHash<P, B, true>>();
+
+        #[cfg(feature = "std")]
+        test_composite_hash::<gaps::GapHash<P, B, true>>();
     }
 }

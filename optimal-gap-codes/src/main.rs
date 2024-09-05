@@ -38,7 +38,7 @@ where
 
 #[derive(Debug, Copy, Clone)]
 /// Collector of statistics for the different prefix-free codes.
-pub struct CodesStats {
+pub struct CodesStats<const VBYTE: bool> {
     /// The total number of elements observed.
     pub total: u64,
     /// The quantity of space needed to store the geometric and
@@ -53,13 +53,17 @@ pub struct CodesStats {
     pub unstable: [[bool; 4]; 20],
 }
 
-impl CodesStats {
+impl<const VBYTE: bool> CodesStats<VBYTE> {
     /// Returns a new instance of the CodesStats.
     ///
     /// # Arguments
     /// * `hash_bits` - The number of bits used to encode the hash.
     ///                 The first hash is always encoded as-is.
-    fn new(hash_bits: u64) -> Self {
+    fn new(mut hash_bits: u64) -> Self {
+        if VBYTE {
+            hash_bits = ceil(hash_bits, 8) * 8;
+        }
+
         Self {
             total: 1,
             rice: [[hash_bits; 4]; 20],
@@ -76,17 +80,17 @@ where
     (numerator + denominator - I::ONE) / denominator
 }
 
-impl CodesStats {
+impl<const VBYTE: bool> CodesStats<VBYTE> {
     #[inline]
     /// Inserts a gap into the stats.
-    pub fn insert(&mut self, gap: GapFragment, vbyte: bool) {
+    pub fn insert(&mut self, gap: GapFragment) {
         self.total += 1;
 
         for (i_log2_b, row) in self.rice.iter_mut().enumerate() {
             for (j_log2_b, val) in row.iter_mut().enumerate() {
                 let mut rice_delta = (len_rice(gap.uniform, i_log2_b as _) as u64)
                     + (len_rice(u64::from(gap.geometric), j_log2_b as _) as u64);
-                if vbyte {
+                if VBYTE {
                     rice_delta = ceil(rice_delta, 8) * 8;
                 }
                 *val += rice_delta;
@@ -96,7 +100,7 @@ impl CodesStats {
 
     #[inline]
     /// Removes the contribution of a gap from the stats.
-    pub fn remove(&mut self, gap: GapFragment, vbyte: bool) {
+    pub fn remove(&mut self, gap: GapFragment) {
         // Register contribution to the total.
         self.total -= 1;
 
@@ -104,7 +108,7 @@ impl CodesStats {
             for (j_log2_b, val) in row.iter_mut().enumerate() {
                 let mut rice_delta = (len_rice(gap.uniform, i_log2_b as _) as u64)
                     + (len_rice(u64::from(gap.geometric), j_log2_b as _) as u64);
-                if vbyte {
+                if VBYTE {
                     rice_delta = ceil(rice_delta, 8) * 8;
                 }
                 *val -= rice_delta;
@@ -193,7 +197,7 @@ struct GapReport {
 type H<P, B> = PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, twox_hash::XxHash>;
 
 /// Measures the gap between subsequent hashes in the Listhash variant of HyperLogLog.
-fn optimal_gap_codes<P: Precision, B: Bits>(multiprogress: &MultiProgress, vbyte: bool)
+fn optimal_gap_codes<P: Precision, B: Bits, const VBYTE: bool>(multiprogress: &MultiProgress)
 where
     P: ArrayRegister<B>,
 {
@@ -202,13 +206,13 @@ where
         if reports.iter().any(|report| {
             report.precision == P::EXPONENT
                 && report.bit_size == B::NUMBER_OF_BITS
-                && report.vbyte == vbyte
+                && report.vbyte == VBYTE
         }) {
             return;
         }
     }
 
-    let iterations = 4_000_000 / (1 << (P::EXPONENT - 4));
+    let iterations = 2_000_000 / (1 << (P::EXPONENT - 4));
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));
     progress_bar.set_style(
@@ -222,13 +226,13 @@ where
 
     let random_state = 6_539_823_745_562_884_u64;
 
-    let gaps: HashMap<u8, CodesStats> = ParallelIterator::reduce(
+    let gaps: HashMap<u8, CodesStats<VBYTE>> = ParallelIterator::reduce(
         (0..iterations)
             .into_par_iter()
             .progress_with(progress_bar)
             .map(|i| {
                 let random_state = splitmix64(random_state.wrapping_mul(i + 1));
-                let mut gap_report: HashMap<u8, CodesStats> = HashMap::new();
+                let mut gap_report: HashMap<u8, CodesStats<VBYTE>> = HashMap::new();
                 let mut hash_bits = SwitchHash::<P, B>::LARGEST_VIABLE_HASH_BITS;
                 let number_of_bits = (1usize << P::EXPONENT) * usize::from(B::NUMBER_OF_BITS);
                 let preliminary_saturation_threshold = number_of_bits / usize::from(hash_bits);
@@ -265,13 +269,13 @@ where
                         let mut stats = CodesStats::new(u64::from(hash_bits));
 
                         for window in reference_hashes.windows(2) {
-                            let gap = GapHash::<P, B, false>::into_gap_fragment(
+                            let gap = GapHash::<P, B, VBYTE>::into_gap_fragment(
                                 window[0].0,
                                 window[1].0,
                                 hash_bits,
                             );
 
-                            stats.insert(gap, vbyte);
+                            stats.insert(gap);
                         }
 
                         stats.update_unstable(number_of_bits as u64);
@@ -285,36 +289,33 @@ where
                     // First, we insert the gap from previous_hash to encoded_hash.
                     if let Some(previous_hash) = previous_hash {
                         gap_report.get_mut(&hash_bits).unwrap().insert(
-                            GapHash::<P, B, false>::into_gap_fragment(
+                            GapHash::<P, B, VBYTE>::into_gap_fragment(
                                 previous_hash,
                                 encoded_hash,
                                 hash_bits,
                             ),
-                            vbyte,
                         );
                     }
 
                     // Then, we insert the gap from encoded_hash to next_hash.
                     if let Some(next_hash) = next_hash {
                         gap_report.get_mut(&hash_bits).unwrap().insert(
-                            GapHash::<P, B, false>::into_gap_fragment(
+                            GapHash::<P, B, VBYTE>::into_gap_fragment(
                                 encoded_hash,
                                 next_hash,
                                 hash_bits,
                             ),
-                            vbyte,
                         );
                     }
 
                     // We remove the previous gap, if it exists.
                     if let (Some(previous_hash), Some(next_hash)) = (previous_hash, next_hash) {
                         gap_report.get_mut(&hash_bits).unwrap().remove(
-                            GapHash::<P, B, false>::into_gap_fragment(
+                            GapHash::<P, B, VBYTE>::into_gap_fragment(
                                 previous_hash,
                                 next_hash,
                                 hash_bits,
                             ),
-                            vbyte,
                         );
                     }
 
@@ -329,34 +330,31 @@ where
                         // We remove the previous gap, if it exists.
                         if let (Some(previous_hash), Some(next_hash)) = (previous_hash, next_hash) {
                             gap_report.get_mut(&hash_bits).unwrap().insert(
-                                GapHash::<P, B, false>::into_gap_fragment(
+                                GapHash::<P, B, VBYTE>::into_gap_fragment(
                                     previous_hash,
                                     next_hash,
                                     hash_bits,
                                 ),
-                                vbyte,
                             );
                         }
 
                         if let Some(previous_hash) = previous_hash {
                             gap_report.get_mut(&hash_bits).unwrap().remove(
-                                GapHash::<P, B, false>::into_gap_fragment(
+                                GapHash::<P, B, VBYTE>::into_gap_fragment(
                                     previous_hash,
                                     encoded_hash,
                                     hash_bits,
                                 ),
-                                vbyte,
                             );
                         }
 
                         if let Some(next_hash) = next_hash {
                             gap_report.get_mut(&hash_bits).unwrap().remove(
-                                GapHash::<P, B, false>::into_gap_fragment(
+                                GapHash::<P, B, VBYTE>::into_gap_fragment(
                                     encoded_hash,
                                     next_hash,
                                     hash_bits,
                                 ),
-                                vbyte,
                             );
                         }
 
@@ -382,13 +380,13 @@ where
                         let mut stats = CodesStats::new(u64::from(hash_bits));
 
                         for window in reference_hashes.windows(2) {
-                            let gap = GapHash::<P, B, false>::into_gap_fragment(
+                            let gap = GapHash::<P, B, VBYTE>::into_gap_fragment(
                                 window[0].0,
                                 window[1].0,
                                 hash_bits,
                             );
 
-                            stats.insert(gap, vbyte);
+                            stats.insert(gap);
                         }
 
                         stats.update_unstable(number_of_bits as u64);
@@ -443,7 +441,7 @@ where
                 precision: P::EXPONENT,
                 bit_size: B::NUMBER_OF_BITS,
                 hash_size: *hash_size,
-                vbyte,
+                vbyte: VBYTE,
                 uniform_rice_coefficient,
                 geometric_rice_coefficient,
                 rate,
@@ -473,9 +471,9 @@ macro_rules! generate_optimal_gap_codes_for_precision {
         progress_bar.tick();
 
         $(
-            optimal_gap_codes::<$precision, $bit_size>($multiprogress, true);
+            optimal_gap_codes::<$precision, $bit_size, true>($multiprogress);
             progress_bar.inc(1);
-            optimal_gap_codes::<$precision, $bit_size>($multiprogress, false);
+            optimal_gap_codes::<$precision, $bit_size, false>($multiprogress);
             progress_bar.inc(1);
         )*
 
@@ -539,7 +537,7 @@ fn main() {
         .map(|exponent| {
             let bytes = (4..=6)
                 .map(|byte| {
-                    let rice_coefficients = reports
+                    let mut selected_reports = reports
                         .iter()
                         .filter(|report| {
                             report.precision == exponent
@@ -548,14 +546,42 @@ fn main() {
                                 && report.extra_hashes > 2
                                 && report.rate < 0.8
                         })
-                        .map(|report| {
+                        .collect::<Vec<_>>();
+
+                    // We check for each report that there is no other report with
+                    // higher hash size that has a gain rate at less than 1% of the
+                    // current report. We remove the reports that do not satisfy this condition
+                    // and loop until we are removing reports.
+                    loop {
+                        let mut removed = false;
+
+                        for i in 0..selected_reports.len() {
+                            let report = &selected_reports[i];
                             let hash_size = report.hash_size;
-                            let uniform_rice_coefficient = report.uniform_rice_coefficient;
-                            let geometric_rice_coefficient = report.geometric_rice_coefficient;
-                            quote! {
-                                (#hash_size, #uniform_rice_coefficient, #geometric_rice_coefficient)
+                            let rate = report.rate;
+                            if selected_reports.iter().any(|other_report| {
+                                other_report.hash_size > hash_size
+                                    && other_report.rate - rate < 0.01
+                            }) {
+                                selected_reports.remove(i);
+                                removed = true;
+                                break;
                             }
-                        });
+                        }
+
+                        if !removed {
+                            break;
+                        }
+                    }
+
+                    let rice_coefficients = selected_reports.iter().map(|report| {
+                        let hash_size = report.hash_size;
+                        let uniform_rice_coefficient = report.uniform_rice_coefficient;
+                        let geometric_rice_coefficient = report.geometric_rice_coefficient;
+                        quote! {
+                            (#hash_size, #uniform_rice_coefficient, #geometric_rice_coefficient)
+                        }
+                    });
                     quote! {
                         &[#(#rice_coefficients),*]
                     }
@@ -573,23 +599,52 @@ fn main() {
         .map(|exponent| {
             let bytes = (4..=6)
                 .map(|byte| {
-                    let rice_coefficients = reports
+                    let mut selected_reports = reports
                         .iter()
                         .filter(|report| {
                             report.precision == exponent
                                 && report.bit_size == byte
-                                && !report.vbyte
+                                && report.vbyte
                                 && report.extra_hashes > 2
                                 && report.rate < 0.8
                         })
-                        .map(|report| {
+                        .collect::<Vec<_>>();
+
+                    // We check for each report that there is no other report with
+                    // higher hash size that has a gain rate at less than 1% of the
+                    // current report. We remove the reports that do not satisfy this condition
+                    // and loop until we are removing reports.
+                    loop {
+                        let mut removed = false;
+
+                        for i in 0..selected_reports.len() {
+                            let report = &selected_reports[i];
                             let hash_size = report.hash_size;
-                            let uniform_rice_coefficient = report.uniform_rice_coefficient;
-                            let geometric_rice_coefficient = report.geometric_rice_coefficient;
-                            quote! {
-                                (#hash_size, #uniform_rice_coefficient, #geometric_rice_coefficient)
+                            let rate = report.rate;
+                            let other_reports = selected_reports.iter().any(|other_report| {
+                                other_report.hash_size > hash_size
+                                    && other_report.rate - rate < 0.01
+                            });
+                            if other_reports {
+                                selected_reports.remove(i);
+                                removed = true;
+                                break;
                             }
-                        });
+                        }
+
+                        if !removed {
+                            break;
+                        }
+                    }
+
+                    let rice_coefficients = selected_reports.iter().map(|report| {
+                        let hash_size = report.hash_size;
+                        let uniform_rice_coefficient = report.uniform_rice_coefficient;
+                        let geometric_rice_coefficient = report.geometric_rice_coefficient;
+                        quote! {
+                            (#hash_size, #uniform_rice_coefficient, #geometric_rice_coefficient)
+                        }
+                    });
                     quote! {
                         &[#(#rice_coefficients),*]
                     }

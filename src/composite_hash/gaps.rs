@@ -284,6 +284,16 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
     }
 
     #[inline]
+    fn has_rice_coefficients() -> bool {
+        !if VBYTE {
+            OPTIMAL_VBYTE_RICE_COEFFICIENTS[P::EXPONENT as usize - 4]
+                [B::NUMBER_OF_BITS as usize - 4].is_empty()
+        } else {
+            OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4].is_empty()
+        }
+    }
+
+    #[inline]
     fn next_hash_bits(candidate_hash_bits: u8) -> u8 {
         let data = if VBYTE {
             OPTIMAL_VBYTE_RICE_COEFFICIENTS[P::EXPONENT as usize - 4]
@@ -442,6 +452,8 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
         original_hash: u64,
         hash_bits: u8,
     ) -> Result<Option<usize>, CompositeHashError> {
+        debug_assert!(!VBYTE || bit_index % 8 == 0);
+
         if !Self::is_prefix_free_encoded(number_of_hashes, hash_bits, bit_index) {
             return match SwitchHash::<P, B>::insert_sorted_desc(
                 hashes,
@@ -458,6 +470,10 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                         "This method should only be called upon preliminary saturation, but was called with bit index {bit_index} and hash bits {hash_bits} and total available bits {}.",
                         hashes.len() * 8
                     );
+
+                    if !Self::has_rice_coefficients() {
+                        return Err(CompositeHashError::Saturation);
+                    }
 
                     // We check whether we can dowgrade to the current hash bits, or if we need to
                     // downgrade to a smaller hash bits.
@@ -549,35 +565,70 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
         // We check that we would be actually able to insert the new value, given the current
         // bit index and the size the new value would require.
         let number_of_inserted_bits =
-            prev_to_current_gap.map_or(usize::from(hash_bits), |prev_to_current_gap| {
-                len_rice(
-                    prev_to_current_gap.uniform,
-                    Self::uniform_coefficient(hash_bits),
-                ) + len_rice(
-                    u64::from(prev_to_current_gap.geometric),
-                    Self::geometric_coefficient(hash_bits),
-                )
-            }) + current_to_next_gap.map_or(0, |current_to_next_gap| {
-                len_rice(
+            prev_to_current_gap.map_or(
+                {
+                    let size = usize::from(hash_bits);
+                    if VBYTE {
+                        ceil(size, 8) * 8
+                    } else {
+                        size
+                    }
+                },
+                |prev_to_current_gap| {
+                    let size = len_rice(
+                        prev_to_current_gap.uniform,
+                        Self::uniform_coefficient(hash_bits),
+                    ) + len_rice(
+                        u64::from(prev_to_current_gap.geometric),
+                        Self::geometric_coefficient(hash_bits),
+                    );
+                    if VBYTE {
+                        ceil(size, 8) * 8
+                    } else {
+                        size
+                    }
+                },
+            ) + current_to_next_gap.map_or(0, |current_to_next_gap| {
+                let size = len_rice(
                     current_to_next_gap.uniform,
                     Self::uniform_coefficient(hash_bits),
                 ) + len_rice(
                     u64::from(current_to_next_gap.geometric),
                     Self::geometric_coefficient(hash_bits),
-                )
+                );
+                if VBYTE {
+                    ceil(size, 8) * 8
+                } else {
+                    size
+                }
             }) - prev_to_next_gap.map_or(0, |prev_to_next_gap| {
-                len_rice(
+                let size = len_rice(
                     prev_to_next_gap.uniform,
                     Self::uniform_coefficient(hash_bits),
                 ) + len_rice(
                     u64::from(prev_to_next_gap.geometric),
                     Self::geometric_coefficient(hash_bits),
-                )
+                );
+                if VBYTE {
+                    ceil(size, 8) * 8
+                } else {
+                    size
+                }
             }) - if prev_to_current_gap.is_none() && current_to_next_gap.is_some() {
-                usize::from(hash_bits)
+                let size = usize::from(hash_bits);
+                if VBYTE {
+                    ceil(size, 8) * 8
+                } else {
+                    size
+                }
             } else {
                 0
             };
+
+        debug_assert!(
+            !VBYTE || number_of_inserted_bits % 8 == 0,
+            "The number of inserted bits ({number_of_inserted_bits}) must be a multiple of 8 when using vbyte."
+        );
 
         let new_bit_index = bit_index + number_of_inserted_bits;
 
@@ -612,11 +663,19 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
         // we write the first hash explicitly.
         if let Some(prev_to_current_gap) = prev_to_current_gap {
             if position == 1 {
-                debug_assert_eq!(
-                    writer.tell(),
-                    usize::from(hash_bits),
-                    "The writer tell must be {hash_bits} (the hash bits) if there is a single previous value"
-                );
+                if VBYTE {
+                    debug_assert_eq!(
+                        writer.tell(),
+                        ceil(usize::from(hash_bits), 8) * 8,
+                        "The writer tell must be 0 if there is a single previous value"
+                    );
+                } else {
+                    debug_assert_eq!(
+                        writer.tell(),
+                        usize::from(hash_bits),
+                        "The writer tell must be {hash_bits} (the hash bits) if there is a single previous value"
+                    );
+                }
             }
 
             let wrote_uniform = writer.write_rice(
@@ -649,7 +708,12 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                 "The writer tell must be 0 if there is no previous value"
             );
 
-            writer.write_bits(encoded, usize::from(hash_bits));
+            let wrote_bits = writer.write_bits(encoded, usize::from(hash_bits));
+
+            if VBYTE {
+                let padding = ceil(wrote_bits, 8) * 8 - wrote_bits;
+                writer.write_bits(0, padding);
+            }
         }
 
         if let Some(current_to_next_gap) = current_to_next_gap {
@@ -752,7 +816,13 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
         // We write the first hash explicitly, as otherwise it would be
         // written in a very inefficient way.
         let mut previous_hash = if let Some(value) = iter.next() {
-            writer.write_bits(value, usize::from(hash_bits - shift));
+            let wrote_bits = writer.write_bits(value, usize::from(hash_bits - shift));
+
+            if VBYTE {
+                let padding = ceil(wrote_bits, 8) * 8 - wrote_bits;
+                writer.write_bits(0, padding);
+            }
+
             value
         } else {
             debug_assert_eq!(bit_index, 0);
@@ -1042,6 +1112,14 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator
 
         if self.current_iteration == 1 {
             self.previous = self.bitstream.read_bits(usize::from(self.hash_bits));
+
+            if VBYTE {
+                let padding =
+                    ceil(usize::from(self.hash_bits), 8) * 8 - usize::from(self.hash_bits);
+                let read_bits = self.bitstream.read_bits(padding);
+                debug_assert_eq!(read_bits, 0);
+            }
+
             return Some(GapHash::<P, B, VBYTE>::downgrade(
                 self.previous,
                 self.hash_bits,
