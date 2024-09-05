@@ -11,7 +11,7 @@ pub struct BitWriter<'a> {
 
 impl<'a> core::ops::Drop for BitWriter<'a> {
     fn drop(&mut self) {
-        self.flush()
+        self.flush();
     }
 }
 

@@ -109,7 +109,6 @@ impl<
     fn insert(&mut self, element: &T) -> bool {
         if self.is_hash_list() {
             let hash_bits = self.hash_bits();
-            assert!(hash_bits >= CH::SMALLEST_VIABLE_HASH_BITS, "Expected the number of bytes used for the hash ({hash_bits}) to be at least equal to the smallest viable hash ({})", CH::SMALLEST_VIABLE_HASH_BITS);
             let number_of_hashes = self.inner.get_number_of_zero_registers().to_usize();
             let writer_tell = decode_writer_tell(self.inner.harmonic_sum());
             let hashes = self.inner.registers_mut().as_mut();
@@ -130,7 +129,7 @@ impl<
                             inserted_position.is_some(),
                         );
                     if let Some(inserted_position) = inserted_position {
-                        set_writer_tell(self.inner.harmonic_sum_mut(), inserted_position as u32);
+                        set_writer_tell(self.inner.harmonic_sum_mut(), u32::try_from(inserted_position).unwrap());
                     }
 
                     inserted_position.is_some()
@@ -291,7 +290,7 @@ const TARGET_HASH_MASK: u64 =
     reason = "We are transmuting a mutable reference to a mutable reference, which is safe."
 )]
 fn encode_target_hash(float: &mut f64, target_hash: u8) {
-    debug_assert!(target_hash >= 8 && target_hash <= 32);
+    debug_assert!((8..=32).contains(&target_hash));
     let harmonic_sum_as_u64: &mut u64 = unsafe { core::mem::transmute(float) };
     *harmonic_sum_as_u64 = (*harmonic_sum_as_u64 & !TARGET_HASH_MASK) | u64::from(target_hash - 8);
 }

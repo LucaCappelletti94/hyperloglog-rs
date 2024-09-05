@@ -88,7 +88,7 @@ impl<'a> BitReader<'a> {
                 self.bits_in_buffer = 32 - zeros - 1;
                 return result + zeros as u64;
             }
-            result += 32 as u64;
+            result += 32u64;
         }
     }
 

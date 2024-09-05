@@ -47,8 +47,7 @@ impl<P: Precision, B: Bits> HashFragment<P, B> {
 
     #[inline]
     pub(super) fn uniform(&self, hash_bits: u8) -> u64 {
-        u64::try_from(self.index << Self::hash_remainder_size(hash_bits)).unwrap()
-            | u64::from(self.hash_remainder)
+        self.index << Self::hash_remainder_size(hash_bits) | self.hash_remainder
     }
 }
 
@@ -135,12 +134,10 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
 
         if register - 1 > u64::from(B::NUMBER_OF_BITS) {
             let shift = hash_bits - 1 - P::EXPONENT - B::NUMBER_OF_BITS;
-            hash |= register << shift;
-            hash |= hash_remainder;
-            hash |= 1 << (hash_bits - P::EXPONENT - 1);
-        } else {
-            hash |= hash_remainder;
+            hash |= (register << shift) | (1 << (hash_bits - P::EXPONENT - 1));
         }
+
+        hash |= hash_remainder;
 
         hash
     }
@@ -406,8 +403,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
             if hash_bits - shift == Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS {
                 // We also need to remove the flag bit, otherwise we would delete
                 // a bit of the register value.
-                ((fragmented.index as u64) << Self::Bits::NUMBER_OF_BITS)
-                    | u64::from(fragmented.register)
+                (fragmented.index << Self::Bits::NUMBER_OF_BITS) | fragmented.register
             } else {
                 hash >> shift
             }
@@ -524,6 +520,10 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
 
     #[must_use]
     #[inline]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Values are certain to be within bounds."
+    )]
     /// Decode the hash into the register value and index.
     fn decode(hash: u64, hash_bits: u8) -> (u8, usize) {
         debug_assert!(

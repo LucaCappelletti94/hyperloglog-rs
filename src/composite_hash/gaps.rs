@@ -1,6 +1,5 @@
 //! Gap-based composite hash implementation.
 use core::marker::PhantomData;
-use core::u64;
 mod bitreader;
 mod bitwriter;
 mod optimal_codes;
@@ -54,8 +53,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
         // no hash remainder to include in the uniform portion of the hash, as that
         // part of the hash is solely composed of the index.
         if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
-            let uniform =
-                u64::try_from(previous_fragment.index - fragment_to_encode.index).unwrap();
+            let uniform = previous_fragment.index - fragment_to_encode.index;
 
             let geometric = if previous_fragment.index == fragment_to_encode.index {
                 previous_fragment.register - fragment_to_encode.register - 1
@@ -438,7 +436,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                         prev_to_current_gap.uniform,
                         Self::uniform_coefficient(hash_bits),
                     ) + len_rice(
-                        u64::from(prev_to_current_gap.geometric),
+                        prev_to_current_gap.geometric,
                         Self::geometric_coefficient(hash_bits),
                     );
                     if VBYTE {
@@ -452,7 +450,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                     current_to_next_gap.uniform,
                     Self::uniform_coefficient(hash_bits),
                 ) + len_rice(
-                    u64::from(current_to_next_gap.geometric),
+                    current_to_next_gap.geometric,
                     Self::geometric_coefficient(hash_bits),
                 );
                 if VBYTE {
@@ -465,7 +463,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                     prev_to_next_gap.uniform,
                     Self::uniform_coefficient(hash_bits),
                 ) + len_rice(
-                    u64::from(prev_to_next_gap.geometric),
+                    prev_to_next_gap.geometric,
                     Self::geometric_coefficient(hash_bits),
                 );
                 if VBYTE {
@@ -551,7 +549,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                 Self::uniform_coefficient(hash_bits),
             );
             let wrote_geometric = writer.write_rice(
-                u64::from(prev_to_current_gap.geometric),
+                prev_to_current_gap.geometric,
                 Self::geometric_coefficient(hash_bits),
             );
 
@@ -592,7 +590,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                 Self::uniform_coefficient(hash_bits),
             );
             let wrote_geometric = writer.write_rice(
-                u64::from(current_to_next_gap.geometric),
+                current_to_next_gap.geometric,
                 Self::geometric_coefficient(hash_bits),
             );
 
@@ -728,7 +726,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
 
             let wrote_uniform = writer.write_rice(fragment.uniform, uniform_coefficient);
             let wrote_geometric =
-                writer.write_rice(u64::from(fragment.geometric), geometric_coefficient);
+                writer.write_rice(fragment.geometric, geometric_coefficient);
 
             let mut total_wrote = wrote_uniform + wrote_geometric;
 

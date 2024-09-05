@@ -174,6 +174,7 @@ pub trait CompositeHash: Send + Sync + Debug {
     /// * `hash_bits` - The number of bits for the hash to downgrade.
     fn target_downgraded_hash_bits(number_of_hashes: usize, bit_index: usize, hash_bits: u8) -> u8;
 
+    #[must_use]
     /// Returns the corrected cardinality.
     fn birthday_paradox_correction(cardinality: u32) -> f64 {
         if cardinality < Self::BIRTHDAY_CARDINALITIES[0] {
