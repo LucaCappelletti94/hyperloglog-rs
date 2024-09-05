@@ -38,6 +38,7 @@ hyperloglog-derive = { path = "hyperloglog-derive" }
 
 [build-dependencies]
 serde_json = "1.0"
+test_utils = { path = "test_utils" }
 
 [dev-dependencies]
 serde_json = "1.0"

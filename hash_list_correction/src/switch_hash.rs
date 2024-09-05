@@ -118,7 +118,9 @@ pub fn compute_switch_hash_correction() {
                             correction.precision == exponent && correction.bits == bit_size
                         })
                         .unwrap();
-                    let errors = correction.relative_errors.clone();
+                    let errors = correction.relative_errors.clone().into_iter().map(|error| {
+                        (error*100.0).round() / 100.0
+                    });
                     quote! {
                         &[#(#errors),*]
                     }

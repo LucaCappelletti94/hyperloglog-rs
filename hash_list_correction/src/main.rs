@@ -15,5 +15,6 @@ mod utils;
 
 fn main() {
     compute_switch_hash_correction();
-    compute_gap_hash_correction();
+    compute_gap_hash_correction::<false>();
+    compute_gap_hash_correction::<true>();
 }

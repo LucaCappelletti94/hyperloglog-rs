@@ -44,14 +44,6 @@ impl<'a> BitReader<'a> {
         self.word_idx * 32 + self.bits_in_buffer
     }
 
-    /// Returns the new word.
-    fn new_word(&mut self) -> u32 {
-        let new_word = self.data[self.word_idx];
-        self.word_idx += 1;
-
-        new_word.to_be()
-    }
-
     #[inline]
     pub fn read_bits(&mut self, mut n_bits: usize) -> u64 {
         debug_assert!(n_bits <= 64);
@@ -68,7 +60,8 @@ impl<'a> BitReader<'a> {
         n_bits -= self.bits_in_buffer;
 
         while n_bits > 32 {
-            let new_word: u64 = u64::from(self.new_word());
+            let new_word = u64::from(self.data[self.word_idx].to_be());
+            self.word_idx += 1; 
             result = (result << 32) | new_word;
             n_bits -= 32;
         }
@@ -76,7 +69,8 @@ impl<'a> BitReader<'a> {
         debug_assert!(n_bits > 0);
         debug_assert!(n_bits <= 32);
 
-        let new_word = self.new_word();
+        let new_word = self.data[self.word_idx].to_be();
+        self.word_idx += 1; 
         self.bits_in_buffer = 32 - n_bits;
         let upcasted: u64 = u64::from(new_word);
         let final_bits: u64 = upcasted >> self.bits_in_buffer;
@@ -101,7 +95,8 @@ impl<'a> BitReader<'a> {
         let mut result: u64 = self.bits_in_buffer as _;
 
         loop {
-            let new_word = self.new_word();
+            let new_word = self.data[self.word_idx].to_be();
+            self.word_idx += 1; 
 
             if new_word != 0 {
                 let zeros: usize = new_word.leading_zeros() as _;

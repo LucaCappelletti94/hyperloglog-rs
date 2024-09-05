@@ -105,10 +105,8 @@ where
         500_000
     } else if CH::Precision::EXPONENT < 10 {
         50_000
-    } else if CH::Precision::EXPONENT <= 17 {
-        500
     } else {
-        50
+        64
     };
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));

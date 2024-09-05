@@ -380,6 +380,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         )
     }
 
+    #[inline]
     fn downgrade(hash: u64, hash_bits: u8, shift: u8) -> u64 {
         debug_assert!(hash_bits >= Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS + shift);
 
