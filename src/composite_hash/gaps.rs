@@ -7,10 +7,7 @@ mod optimal_codes;
 use super::gap_birthday_paradox::{
     GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES, GAP_HASH_BIRTHDAY_PARADOX_ERRORS,
 };
-use super::{
-    switch::HashFragment, CompositeHash, CompositeHashError, Debug, LastBufferedBit, Precision,
-    SwitchHash,
-};
+use super::{CompositeHash, CompositeHashError, Debug, LastBufferedBit, Precision, SwitchHash};
 use crate::{bits::Bits, utils::ceil};
 use bitreader::{len_rice, BitReader};
 use bitwriter::BitWriter;
@@ -28,7 +25,7 @@ pub struct GapFragment {
     /// The bits expected to have uniform distribution.
     pub uniform: u64,
     /// The bits expected to have geometric distribution.
-    pub geometric: u8,
+    pub geometric: u64,
 }
 
 impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
@@ -714,6 +711,9 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
         #[cfg(feature = "std")]
         println!("Downgrading at hash size {hash_bits} with shift {shift}.");
 
+        let uniform_coefficient = Self::uniform_coefficient(hash_bits - shift);
+        let geometric_coefficient = Self::geometric_coefficient(hash_bits - shift);
+
         while let Some(next) = maybe_next {
             maybe_next = maybe_double_next;
             maybe_double_next = iter.next();
@@ -726,14 +726,9 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
 
             let fragment = Self::into_gap_fragment(previous_hash, next, hash_bits - shift);
 
-            let wrote_uniform = writer.write_rice(
-                fragment.uniform,
-                Self::uniform_coefficient(hash_bits - shift),
-            );
-            let wrote_geometric = writer.write_rice(
-                u64::from(fragment.geometric),
-                Self::geometric_coefficient(hash_bits - shift),
-            );
+            let wrote_uniform = writer.write_rice(fragment.uniform, uniform_coefficient);
+            let wrote_geometric =
+                writer.write_rice(u64::from(fragment.geometric), geometric_coefficient);
 
             let mut total_wrote = wrote_uniform + wrote_geometric;
 
@@ -961,10 +956,12 @@ pub struct PrefixCodeIter<'a, P: Precision, B: Bits, const VBYTE: bool> {
     number_of_hashes: usize,
     current_iteration: usize,
     hash_bits: u8,
-    previous_index: usize,
-    previous_register: u8,
-    previous_hash_remainder: u16,
+    previous_index: u64,
+    previous_register: u64,
+    previous_hash_remainder: u64,
     previous_uniform: u64,
+    uniform_coefficient: u8,
+    geometric_coefficient: u8,
     _phantom: PhantomData<GapHash<P, B, VBYTE>>,
 }
 
@@ -990,21 +987,35 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> PrefixCodeIter<'a, P, B, VBYT
 
     #[allow(unsafe_code)]
     fn new(hashes: &'a [u8], number_of_hashes: usize, hash_bits: u8) -> Self {
+        let mut bitstream = BitReader::new(unsafe {
+            core::slice::from_raw_parts_mut(
+                hashes.as_ptr() as *mut u32,
+                hashes.len() / core::mem::size_of::<u32>(),
+            )
+        });
+
+        let previous = bitstream.read_bits(usize::from(hash_bits));
+
+        if VBYTE {
+            let padding = ceil(usize::from(hash_bits), 8) * 8 - usize::from(hash_bits);
+            let read_bits = bitstream.read_bits(padding);
+            debug_assert_eq!(read_bits, 0);
+        }
+
+        let fragment = SwitchHash::<P, B>::scompose_hash(previous, hash_bits);
+
         Self {
-            previous: u64::MAX,
+            previous,
             number_of_hashes,
             current_iteration: 0,
-            bitstream: BitReader::new(unsafe {
-                core::slice::from_raw_parts_mut(
-                    hashes.as_ptr() as *mut u32,
-                    hashes.len() / core::mem::size_of::<u32>(),
-                )
-            }),
+            bitstream,
             hash_bits,
-            previous_index: usize::MAX,
-            previous_register: u8::MAX,
-            previous_hash_remainder: u16::MAX,
-            previous_uniform: u64::MAX,
+            previous_uniform: fragment.uniform(hash_bits),
+            previous_index: fragment.index,
+            previous_register: fragment.register,
+            previous_hash_remainder: fragment.hash_remainder,
+            uniform_coefficient: GapHash::<P, B, VBYTE>::uniform_coefficient(hash_bits),
+            geometric_coefficient: GapHash::<P, B, VBYTE>::geometric_coefficient(hash_bits),
             _phantom: PhantomData,
         }
     }
@@ -1020,34 +1031,14 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeIter<'
         self.current_iteration += 1;
 
         if self.current_iteration == 1 {
-            self.previous = self.bitstream.read_bits(usize::from(self.hash_bits));
-
-            if VBYTE {
-                let padding =
-                    ceil(usize::from(self.hash_bits), 8) * 8 - usize::from(self.hash_bits);
-                let read_bits = self.bitstream.read_bits(padding);
-                debug_assert_eq!(read_bits, 0);
-            }
-
-            let fragment = SwitchHash::<P, B>::scompose_hash(self.previous, self.hash_bits);
-            self.previous_index = fragment.index;
-            self.previous_register = fragment.register;
-            self.previous_hash_remainder = fragment.hash_remainder;
-            self.previous_uniform = fragment.uniform(self.hash_bits);
-
             return Some(self.previous);
         }
 
-        let uniform = self
-            .bitstream
-            .read_rice(GapHash::<P, B, VBYTE>::uniform_coefficient(self.hash_bits));
-        let geometric = u8::try_from(self.bitstream.read_rice(
-            GapHash::<P, B, VBYTE>::geometric_coefficient(self.hash_bits),
-        ))
-        .unwrap();
-        let after_codes_read_tell = self.bitstream.last_read_bit_position();
+        let uniform = self.bitstream.read_rice(self.uniform_coefficient);
+        let geometric = self.bitstream.read_rice(self.geometric_coefficient);
 
         if VBYTE {
+            let after_codes_read_tell = self.bitstream.last_read_bit_position();
             let padding = ceil(after_codes_read_tell, 8) * 8 - after_codes_read_tell;
             let read_bits = self.bitstream.read_bits(padding);
             debug_assert_eq!(read_bits, 0);
@@ -1057,18 +1048,19 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeIter<'
         // no hash remainder to include in the uniform portion of the hash, as that
         // part of the hash is solely composed of the index.
         if P::EXPONENT + B::NUMBER_OF_BITS == self.hash_bits {
-            let to_decode_index = self.previous_index - usize::try_from(uniform).unwrap();
-            self.previous_register = if self.previous_index == to_decode_index {
+            self.previous_index -= uniform;
+            self.previous_register = if uniform == 0 {
                 self.previous_register - geometric - 1
             } else {
                 geometric + 1
             };
 
-            self.previous_index = to_decode_index;
-            self.previous =
-                SwitchHash::<P, B>::compose_hash(to_decode_index, self.previous_register, 0, self.hash_bits);
-
-            return Some(self.previous);
+            return Some(SwitchHash::<P, B>::compose_hash(
+                self.previous_index,
+                self.previous_register,
+                0,
+                self.hash_bits,
+            ));
         }
 
         self.previous_uniform = if uniform & 1 == 0 {
@@ -1076,15 +1068,15 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeIter<'
         } else {
             self.previous_uniform - ((uniform >> 1) + 1)
         };
-        let (to_decode_index, to_decode_hash_remainder) =
-            HashFragment::<P, B>::scompose_uniform(self.previous_uniform, self.hash_bits);
+
+        let remainder_size = self.hash_bits - 1 - P::EXPONENT;
+        let to_decode_index = self.previous_uniform >> remainder_size;
+        let to_decode_hash_remainder = self.previous_uniform & ((1 << remainder_size) - 1);
 
         self.previous_register = if self.previous_index == to_decode_index {
-            if self.previous_hash_remainder <= to_decode_hash_remainder {
-                self.previous_register - geometric - 1
-            } else {
-                self.previous_register - geometric
-            }
+            self.previous_register
+                - geometric
+                - u64::from(self.previous_hash_remainder <= to_decode_hash_remainder)
         } else {
             geometric + 1
         };
@@ -1092,14 +1084,12 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeIter<'
         self.previous_index = to_decode_index;
         self.previous_hash_remainder = to_decode_hash_remainder;
 
-        self.previous = SwitchHash::<P, B>::compose_hash(
-            to_decode_index,
+        Some(SwitchHash::<P, B>::compose_hash(
+            self.previous_index,
             self.previous_register,
-            to_decode_hash_remainder,
+            self.previous_hash_remainder,
             self.hash_bits,
-        );
-
-        Some(self.previous)
+        ))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
