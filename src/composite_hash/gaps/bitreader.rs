@@ -127,13 +127,6 @@ pub fn len_rice(n: u64, b: u8) -> usize {
     usize::try_from(n >> b).unwrap() + 1 + usize::from(b)
 }
 
-/// Returns the number of bits required to encode a given value using a unary code.
-/// 
-/// # Arguments
-/// * `n` - The value to be encoded.
-pub fn len_unary(n: u8) -> usize {
-    usize::from(n) + 1
-}
 
 #[cfg(test)]
 mod tests {

@@ -3,22 +3,21 @@ use core::marker::PhantomData;
 mod bitreader;
 mod bitwriter;
 mod optimal_codes;
+use super::gap_birthday_paradox::{
+    GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES, GAP_HASH_BIRTHDAY_PARADOX_ERRORS,
+};
 use super::{
     switch::HashFragment, CompositeHash, CompositeHashError, Debug, LastBufferedBit, Precision,
     SwitchHash,
 };
 use crate::{bits::Bits, utils::ceil};
-use bitreader::{len_rice, len_unary, BitReader};
+use bitreader::{len_rice, BitReader};
 use bitwriter::BitWriter;
 use optimal_codes::{OPTIMAL_RICE_COEFFICIENTS, OPTIMAL_VBYTE_RICE_COEFFICIENTS};
-use super::gap_birthday_paradox::{
-    GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES,
-    GAP_HASH_BIRTHDAY_PARADOX_ERRORS
-};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 /// Gap-based composite hash.
-pub struct GapHash<P: Precision, B: Bits, const VBYTE: bool = false> {
+pub struct GapHash<P: Precision, B: Bits, const VBYTE: bool> {
     switch: PhantomData<SwitchHash<P, B>>,
 }
 
@@ -180,8 +179,7 @@ mod test_compose_scompose_gap {
 
     use super::*;
 
-    #[test_precisions_and_bits]
-    fn test_compose_scompose_gap<P: Precision, B: Bits>()
+    fn test_compose_scompose_gap_with_vbyte<P: Precision, B: Bits, const VBYTE: bool>()
     where
         P: ArrayRegister<B>,
     {
@@ -224,12 +222,23 @@ mod test_compose_scompose_gap {
                     (second_encoded_hash, first_encoded_hash)
                 };
 
-                let fragment = GapHash::<P, B>::into_gap_fragment(larger, smaller, hash_bits);
-                let decoded_hash = GapHash::<P, B>::from_gap_fragment(fragment, larger, hash_bits);
+                let fragment =
+                    GapHash::<P, B, VBYTE>::into_gap_fragment(larger, smaller, hash_bits);
+                let decoded_hash =
+                    GapHash::<P, B, VBYTE>::from_gap_fragment(fragment, larger, hash_bits);
 
                 assert_eq!(smaller, decoded_hash);
             }
         }
+    }
+
+    #[test_precisions_and_bits]
+    fn test_compose_scompose_gap<P: Precision, B: Bits>()
+    where
+        P: ArrayRegister<B>,
+    {
+        test_compose_scompose_gap_with_vbyte::<P, B, true>();
+        test_compose_scompose_gap_with_vbyte::<P, B, false>();
     }
 }
 
@@ -247,36 +256,49 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
     }
 
     #[inline]
-    fn b(hash_bits: u8) -> u8 {
-        if VBYTE {
+    fn b(hash_bits: u8) -> (u8, u8, u8) {
+        let data = if VBYTE {
             OPTIMAL_VBYTE_RICE_COEFFICIENTS[P::EXPONENT as usize - 4]
                 [B::NUMBER_OF_BITS as usize - 4]
-                [hash_bits as usize - Self::SMALLEST_VIABLE_HASH_BITS as usize]
         } else {
-            debug_assert!(
-                usize::from(hash_bits)
-                    < usize::from(Self::SMALLEST_VIABLE_HASH_BITS)
-                        + Self::number_of_rice_coefficients(),
-                "The hash bits ({hash_bits}) must be smaller than {}, at precision {} and bits {}.",
-                usize::from(Self::SMALLEST_VIABLE_HASH_BITS) + Self::number_of_rice_coefficients(),
-                P::EXPONENT,
-                B::NUMBER_OF_BITS
-            );
             OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4]
-                [hash_bits as usize - Self::SMALLEST_VIABLE_HASH_BITS as usize]
+        };
+
+        for (target_hash_bits, uniform, geometric) in data {
+            if *target_hash_bits == hash_bits {
+                return (*target_hash_bits, *uniform, *geometric);
+            }
         }
+
+        unreachable!("The hash bits ({hash_bits}) must be one of the optimal hash bits.",);
     }
 
     #[inline]
-    const fn number_of_rice_coefficients() -> usize {
-        if VBYTE {
+    fn uniform_coefficient(hash_bits: u8) -> u8 {
+        Self::b(hash_bits).1
+    }
+
+    #[inline]
+    fn geometric_coefficient(hash_bits: u8) -> u8 {
+        Self::b(hash_bits).2
+    }
+
+    #[inline]
+    fn next_hash_bits(candidate_hash_bits: u8) -> u8 {
+        let data = if VBYTE {
             OPTIMAL_VBYTE_RICE_COEFFICIENTS[P::EXPONENT as usize - 4]
                 [B::NUMBER_OF_BITS as usize - 4]
-                .len()
         } else {
             OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4]
-                .len()
+        };
+
+        for (target_hash_bits, _, _) in data.iter().rev() {
+            if candidate_hash_bits >= *target_hash_bits {
+                return *target_hash_bits;
+            }
         }
+
+        unreachable!("The hash bits ({candidate_hash_bits}) must be one of the optimal hash bits.",);
     }
 }
 
@@ -439,10 +461,8 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
 
                     // We check whether we can dowgrade to the current hash bits, or if we need to
                     // downgrade to a smaller hash bits.
-                    if usize::from(hash_bits)
-                        >= usize::from(Self::SMALLEST_VIABLE_HASH_BITS)
-                            + Self::number_of_rice_coefficients()
-                    {
+                    let next_hash_bits = Self::next_hash_bits(hash_bits);
+                    if hash_bits > next_hash_bits {
                         return Err(CompositeHashError::DowngradableSaturation);
                     };
 
@@ -530,14 +550,29 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
         // bit index and the size the new value would require.
         let number_of_inserted_bits =
             prev_to_current_gap.map_or(usize::from(hash_bits), |prev_to_current_gap| {
-                len_rice(prev_to_current_gap.uniform, Self::b(hash_bits))
-                    + len_unary(prev_to_current_gap.geometric)
+                len_rice(
+                    prev_to_current_gap.uniform,
+                    Self::uniform_coefficient(hash_bits),
+                ) + len_rice(
+                    u64::from(prev_to_current_gap.geometric),
+                    Self::geometric_coefficient(hash_bits),
+                )
             }) + current_to_next_gap.map_or(0, |current_to_next_gap| {
-                len_rice(current_to_next_gap.uniform, Self::b(hash_bits))
-                    + len_unary(current_to_next_gap.geometric)
+                len_rice(
+                    current_to_next_gap.uniform,
+                    Self::uniform_coefficient(hash_bits),
+                ) + len_rice(
+                    u64::from(current_to_next_gap.geometric),
+                    Self::geometric_coefficient(hash_bits),
+                )
             }) - prev_to_next_gap.map_or(0, |prev_to_next_gap| {
-                len_rice(prev_to_next_gap.uniform, Self::b(hash_bits))
-                    + len_unary(prev_to_next_gap.geometric)
+                len_rice(
+                    prev_to_next_gap.uniform,
+                    Self::uniform_coefficient(hash_bits),
+                ) + len_rice(
+                    u64::from(prev_to_next_gap.geometric),
+                    Self::geometric_coefficient(hash_bits),
+                )
             }) - if prev_to_current_gap.is_none() && current_to_next_gap.is_some() {
                 usize::from(hash_bits)
             } else {
@@ -584,12 +619,26 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                 );
             }
 
-            writer.write_rice(prev_to_current_gap.uniform, Self::b(hash_bits));
-            writer.write_unary(u64::from(prev_to_current_gap.geometric));
+            let wrote_uniform = writer.write_rice(
+                prev_to_current_gap.uniform,
+                Self::uniform_coefficient(hash_bits),
+            );
+            let wrote_geometric = writer.write_rice(
+                u64::from(prev_to_current_gap.geometric),
+                Self::geometric_coefficient(hash_bits),
+            );
+
+            let mut total_wrote = wrote_uniform + wrote_geometric;
+
+            // If we are using vbyte, we need to pad to the byte size.
+            if VBYTE {
+                let padding = ceil(total_wrote, 8) * 8 - total_wrote;
+                total_wrote += writer.write_bits(0, padding);
+            }
 
             debug_assert!(
                 bypass.len() == 0 || bypass.last_buffered_bit() >= writer.tell(),
-                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}) in insert at hash size {hash_bits}.",
+                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, just wrote {total_wrote}) in insert at hash size {hash_bits}.",
                 bypass.last_buffered_bit(),
                 writer.tell(),
             );
@@ -606,12 +655,26 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
         if let Some(current_to_next_gap) = current_to_next_gap {
             position += 1;
 
-            writer.write_rice(current_to_next_gap.uniform, Self::b(hash_bits));
-            writer.write_unary(u64::from(current_to_next_gap.geometric));
+            let wrote_uniform = writer.write_rice(
+                current_to_next_gap.uniform,
+                Self::uniform_coefficient(hash_bits),
+            );
+            let wrote_geometric = writer.write_rice(
+                u64::from(current_to_next_gap.geometric),
+                Self::geometric_coefficient(hash_bits),
+            );
+
+            let mut total_wrote = wrote_uniform + wrote_geometric;
+
+            // If we are using vbyte, we need to pad to the byte size.
+            if VBYTE {
+                let padding = ceil(total_wrote, 8) * 8 - total_wrote;
+                total_wrote += writer.write_bits(0, padding);
+            }
 
             debug_assert!(
                 bypass.len() == 0 || bypass.last_buffered_bit() > writer.tell(),
-                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}) in insert at hash size {hash_bits}.",
+                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, just wrote {total_wrote}) in insert at hash size {hash_bits}.",
                 bypass.last_buffered_bit(),
                 writer.tell(),
             );
@@ -700,9 +763,11 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
         let mut duplicates = 0;
 
         let mut maybe_next = iter.next();
-        position += 1;
         let mut maybe_double_next = iter.next();
-        position += 1;
+
+        #[cfg(test)]
+        #[cfg(feature = "std")]
+        println!("Downgrading at hash size {hash_bits} with shift {shift}.");
 
         while let Some(next) = maybe_next {
             maybe_next = maybe_double_next;
@@ -716,12 +781,32 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
 
             let fragment = Self::into_gap_fragment(previous_hash, next, hash_bits - shift);
 
-            writer.write_rice(fragment.uniform, Self::b(hash_bits - shift));
-            writer.write_unary(u64::from(fragment.geometric));
+            let wrote_uniform = writer.write_rice(
+                fragment.uniform,
+                Self::uniform_coefficient(hash_bits - shift),
+            );
+            let wrote_geometric = writer.write_rice(
+                u64::from(fragment.geometric),
+                Self::geometric_coefficient(hash_bits - shift),
+            );
+
+            let mut total_wrote = wrote_uniform + wrote_geometric;
+
+            // If we are using vbyte, we need to pad to the byte size.
+            if VBYTE {
+                let padding = ceil(total_wrote, 8) * 8 - total_wrote;
+                total_wrote += writer.write_bits(0, padding);
+            }
+
+            #[cfg(test)]
+            #[cfg(feature = "std")]
+            println!(
+                "Just wrote {wrote_uniform} + {wrote_geometric} = {total_wrote}, {previous_hash} - {next}"
+            );
 
             debug_assert!(
                 iter.last_buffered_bit() >= writer.tell(),
-                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, {previous_hash} - {next}) in downgrade at hash size {hash_bits} with shift {shift}. Precision: {}, Bits: {}.",
+                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, just wrote {wrote_uniform} + {wrote_geometric} = {total_wrote}, {previous_hash} - {next}) in downgrade at hash size {hash_bits} with shift {shift}. Precision: {}, Bits: {}.",
                 iter.last_buffered_bit(),
                 writer.tell(),
                 P::EXPONENT,
@@ -753,33 +838,20 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
     }
 
     #[inline]
-    fn target_downgraded_hash_bits(_number_of_hashes: usize, _bit_index: usize, hash_bits: u8) -> u8 {
-        if hash_bits == Self::SMALLEST_VIABLE_HASH_BITS {
-            unreachable!("The hash bits ({hash_bits}) must be greater than the smallest viable hash bits ({})", Self::SMALLEST_VIABLE_HASH_BITS);
-        }
-
-        // In some cases, there may be a jump from the largest viable hash bits and the next
-        // larger compressible hash bits.
-
-        if hash_bits == Self::LARGEST_VIABLE_HASH_BITS {
-            let target_hash_bits = Self::SMALLEST_VIABLE_HASH_BITS
-                + u8::try_from(Self::number_of_rice_coefficients()).unwrap()
-                - 1;
-
-            if target_hash_bits == hash_bits {
-                hash_bits - 1
-            } else {
-                target_hash_bits
-            }
-        } else {
-            hash_bits - 1
-        }
+    fn target_downgraded_hash_bits(
+        _number_of_hashes: usize,
+        _bit_index: usize,
+        hash_bits: u8,
+    ) -> u8 {
+        Self::next_hash_bits(hash_bits - 1)
     }
 
     const SMALLEST_VIABLE_HASH_BITS: u8 = Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS;
     const LARGEST_VIABLE_HASH_BITS: u8 = SwitchHash::<P, B>::LARGEST_VIABLE_HASH_BITS;
-    const BIRTHDAY_CARDINALITIES: &[u32] = GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
-    const BIRTHDAY_RELATIVE_ERRORS: &[f64] = GAP_HASH_BIRTHDAY_PARADOX_ERRORS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
+    const BIRTHDAY_CARDINALITIES: &[u32] = GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES
+        [P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
+    const BIRTHDAY_RELATIVE_ERRORS: &[f64] =
+        GAP_HASH_BIRTHDAY_PARADOX_ERRORS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
 }
 
 #[derive(Debug)]
@@ -970,19 +1042,32 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator
 
         if self.current_iteration == 1 {
             self.previous = self.bitstream.read_bits(usize::from(self.hash_bits));
-            return Some(GapHash::<P, B>::downgrade(
+            return Some(GapHash::<P, B, VBYTE>::downgrade(
                 self.previous,
                 self.hash_bits,
                 self.shift,
             ));
         }
 
-        let uniform = self.bitstream.read_rice(GapHash::<P, B>::b(self.hash_bits));
-        let geometric = u8::try_from(self.bitstream.read_unary()).unwrap();
+        let uniform = self
+            .bitstream
+            .read_rice(GapHash::<P, B, VBYTE>::uniform_coefficient(self.hash_bits));
+        let geometric = u8::try_from(self.bitstream.read_rice(
+            GapHash::<P, B, VBYTE>::geometric_coefficient(self.hash_bits),
+        ))
+        .unwrap();
+        let after_codes_read_tell = self.bitstream.last_read_bit_position();
+
+        if VBYTE {
+            let padding = ceil(after_codes_read_tell, 8) * 8 - after_codes_read_tell;
+            let read_bits = self.bitstream.read_bits(padding);
+            debug_assert_eq!(read_bits, 0);
+        }
 
         let fragment = GapFragment { uniform, geometric };
 
-        let current = GapHash::<P, B>::from_gap_fragment(fragment, self.previous, self.hash_bits);
+        let current =
+            GapHash::<P, B, VBYTE>::from_gap_fragment(fragment, self.previous, self.hash_bits);
         debug_assert!(
             self.previous > current,
             "The previous hash ({}) must be greater or equal to the current hash ({current})",
@@ -997,13 +1082,14 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator
             64 - u32::from(self.hash_bits),
         );
 
-        let current_downgraded = GapHash::<P, B>::downgrade(current, self.hash_bits, self.shift);
+        let current_downgraded =
+            GapHash::<P, B, VBYTE>::downgrade(current, self.hash_bits, self.shift);
 
         debug_assert!(
             current_downgraded
-                <= GapHash::<P, B>::downgrade(self.previous, self.hash_bits, self.shift),
+                <= GapHash::<P, B, VBYTE>::downgrade(self.previous, self.hash_bits, self.shift),
             "The current hash ({current_downgraded}) must be less than the previous hash ({})",
-            GapHash::<P, B>::downgrade(self.previous, self.hash_bits, self.shift)
+            GapHash::<P, B, VBYTE>::downgrade(self.previous, self.hash_bits, self.shift)
         );
         self.previous = current;
 
@@ -1118,7 +1204,7 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
             .next()
-            .map(|hash| GapHash::<P, B>::decode(hash, self.iter.hash_bits - self.iter.shift))
+            .map(|hash| GapHash::<P, B, VBYTE>::decode(hash, self.iter.hash_bits - self.iter.shift))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

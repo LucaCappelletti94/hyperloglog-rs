@@ -81,18 +81,17 @@ impl HashCorrection {
 
 #[derive(Debug, Serialize, Deserialize, Default, Copy, Clone)]
 struct CardinalityError {
-    exact_cardinality: u32,
+    exact_cardinality: f64,
     cardinality: f64,
 }
 
 impl CardinalityError {
     fn relative_error(&self) -> f64 {
-        (f64::from(self.exact_cardinality) - self.cardinality).abs()
-            / f64::from(self.exact_cardinality).max(1.0)
+        (self.exact_cardinality - self.cardinality).abs() / self.exact_cardinality.max(1.0)
     }
 
     fn correction_factor(&self) -> f64 {
-        f64::from(self.exact_cardinality) - self.cardinality
+        self.exact_cardinality - self.cardinality
     }
 }
 
@@ -164,7 +163,7 @@ where
                             let cardinality = f64::from(
                                 hll.duplicates().unwrap() + hll.number_of_hashes().unwrap(),
                             );
-                            let exact_cardinality = u32::try_from(hash_set.len()).unwrap();
+                            let exact_cardinality = f64::from(u32::try_from(hash_set.len()).unwrap());
                             report.push(CardinalityError {
                                 exact_cardinality,
                                 cardinality,
@@ -212,12 +211,9 @@ where
         let mut total_report: Vec<CardinalityError> = total_report
             .into_iter()
             .filter_map(|(_, (count, report))| {
-                if count <= iterations / 10 {
-                    return None;
-                }
                 let mut report = report;
                 report.cardinality /= f64::from(count);
-                report.exact_cardinality /= u32::from(count);
+                report.exact_cardinality /= f64::from(count);
                 Some(report)
             })
             .collect();
@@ -253,7 +249,9 @@ where
             let mut max_discontinuity = 0.0;
             let mut max_discontinuity_index = 0;
             for (i, report) in chunk.windows(core::cmp::min(5, chunk.len())).enumerate() {
-                let discontinuity = (report[report.len() - 1].relative_error() - report[0].relative_error()).abs()
+                let discontinuity = (report[report.len() - 1].relative_error()
+                    - report[0].relative_error())
+                .abs()
                     / (report[report.len() - 1].cardinality as f64 - report[0].cardinality as f64)
                         .abs()
                         .max(1.0);

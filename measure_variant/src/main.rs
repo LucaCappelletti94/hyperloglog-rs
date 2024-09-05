@@ -10,22 +10,22 @@ use test_utils::prelude::{compare_features, read_csv, write_csv};
 
 type HLL1 = Hybrid<
     PlusPlus<
-        Precision16,
+        Precision17,
         Bits6,
-        <Precision16 as ArrayRegister<Bits6>>::Packed,
+        <Precision17 as ArrayRegister<Bits6>>::Packed,
         twox_hash::XxHash64,
     >,
-    SwitchHash<Precision16, Bits6>,
+    SwitchHash<Precision17, Bits6>,
 >;
 
 type HLL2 = Hybrid<
     PlusPlus<
-        Precision16,
+        Precision17,
         Bits6,
-        <Precision16 as ArrayRegister<Bits6>>::Packed,
+        <Precision17 as ArrayRegister<Bits6>>::Packed,
         twox_hash::XxHash64,
     >,
-    GapHash<Precision16, Bits6, false>,
+    GapHash<Precision17, Bits6, false>,
 >;
 
 const ITERATIONS: usize = 64;
@@ -43,7 +43,7 @@ struct Report {
 fn main() {
     let random_state = 7_536_558_723_694_876_u64;
 
-    let max_hashes = (1 << 16) * 6 / 2;
+    let max_hashes = (1 << 17) * 6 / 4;
     let max = max_hashes as u64;
 
     let progress_bar = ProgressBar::new(ITERATIONS as u64);

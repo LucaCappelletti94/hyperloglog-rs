@@ -230,193 +230,202 @@ mod test_composite_hash {
     where
         CH::Precision: ArrayRegister<CH::Bits>,
     {
-        let number_of_bits = (1 << CH::Precision::EXPONENT) * usize::from(CH::Bits::NUMBER_OF_BITS);
+        let mut random_state = 498_123_456_789;
+        let number_of_iterations = core::cmp::min(1, 100_000 / (1 << (CH::Precision::EXPONENT - 4)));
 
-        let number_of_hashes = number_of_bits / usize::from(CH::SMALLEST_VIABLE_HASH_BITS);
+        for _ in 0..number_of_iterations {
+            let number_of_bits =
+                (1 << CH::Precision::EXPONENT) * usize::from(CH::Bits::NUMBER_OF_BITS);
 
-        assert!(number_of_bits >= 64);
-        assert!(number_of_hashes > 2);
+            let number_of_hashes = number_of_bits / usize::from(CH::SMALLEST_VIABLE_HASH_BITS);
 
-        // We create an array where we will store the hashes.
-        let mut reference_hashes = vec![0; number_of_hashes * 6];
-        // Since we do not have an array that keeps track of the number of hashes we have inserted, we will use a counter.
-        let mut number_of_inserted_hashes = 0;
-        // We allow a relatively small number of bits for the hash, so to force the degradation and saturation events.
-        let mut encoded_hashes = vec![u64::MAX; ceil(number_of_bits, 64)];
-        let mut encoded_hashes: &mut [u8] = unsafe {
-            core::slice::from_raw_parts_mut(
-                encoded_hashes.as_mut_ptr() as *mut u8,
-                encoded_hashes.len() * 8,
-            )
-        };
-        // We store the maximal position where we have inserted a hash.
-        let mut writer_tell = 0;
+            assert!(number_of_bits >= 64);
+            assert!(number_of_hashes > 2);
 
-        // We start from the maximal number of bits for the hash.
-        let mut hash_bits = CH::LARGEST_VIABLE_HASH_BITS;
+            // We create an array where we will store the hashes.
+            let mut reference_hashes = vec![0; number_of_hashes * 6];
+            // Since we do not have an array that keeps track of the number of hashes we have inserted, we will use a counter.
+            let mut number_of_inserted_hashes = 0;
+            // We allow a relatively small number of bits for the hash, so to force the degradation and saturation events.
+            let mut encoded_hashes = vec![u64::MAX; ceil(number_of_bits, 64)];
+            let mut encoded_hashes: &mut [u8] = unsafe {
+                core::slice::from_raw_parts_mut(
+                    encoded_hashes.as_mut_ptr() as *mut u8,
+                    encoded_hashes.len() * 8,
+                )
+            };
+            // We store the maximal position where we have inserted a hash.
+            let mut writer_tell = 0;
 
-        // Flag to check whether saturation was reached.
-        let mut saturation_reached = false;
+            // We start from the maximal number of bits for the hash.
+            let mut hash_bits = CH::LARGEST_VIABLE_HASH_BITS;
 
-        for random_value in iter_random_values::<u64>(number_of_hashes as u64 * 20, None, None) {
-            // We start each iteration by checking that the hashes are consistent.
-            for (reference_hash, hash) in reference_hashes.iter().copied().zip(CH::downgraded(
-                &encoded_hashes,
-                number_of_inserted_hashes,
-                hash_bits,
-                writer_tell,
-                0,
-            )) {
-                assert_eq!(
-                    reference_hash, hash,
-                    "The reference hash ({reference_hash:064b}) does not match the downgraded hash ({hash:064b}). Working with hash bits {hash_bits}.",
-                );
-            }
+            // Flag to check whether saturation was reached.
+            let mut saturation_reached = false;
 
-            let (index, register, original_hash) =
-                <PlusPlus<
-                    CH::Precision,
-                    CH::Bits,
-                    <CH::Precision as ArrayRegister<CH::Bits>>::Packed,
-                >>::index_and_register_and_hash(&random_value);
-
-            let reference_encoded_hash = CH::encode(index, register, original_hash, hash_bits);
-
-            let result = CH::insert_sorted_desc(
-                &mut encoded_hashes,
-                number_of_inserted_hashes,
-                writer_tell,
-                index,
-                register,
-                original_hash,
-                hash_bits,
-            );
-
-            if let Err(CompositeHashError::Saturation) = result {
-                saturation_reached = true;
-                break;
-            }
-
-            if let Err(CompositeHashError::DowngradableSaturation) = result {
-                let target_hash_bits = CH::target_downgraded_hash_bits(
+            random_state = splitmix64(random_state);
+            for random_value in
+                iter_random_values::<u64>(number_of_hashes as u64 * 20, None, Some(random_state))
+            {
+                // We start each iteration by checking that the hashes are consistent.
+                for (reference_hash, hash) in reference_hashes.iter().copied().zip(CH::downgraded(
+                    &encoded_hashes,
                     number_of_inserted_hashes,
-                    writer_tell,
                     hash_bits,
-                );
-                let shift = hash_bits - target_hash_bits;
-                println!("Downgrading from {hash_bits} to {target_hash_bits}.",);
+                    writer_tell,
+                    0,
+                )) {
+                    assert_eq!(
+                        reference_hash, hash,
+                        "The reference hash ({reference_hash:064b}) does not match the downgraded hash ({hash:064b}). Working with hash bits {hash_bits}.",
+                    );
+                }
 
-                let (number_of_duplicates, new_writer_tell) = CH::downgrade_inplace(
+                let (index, register, original_hash) =
+                    <PlusPlus<
+                        CH::Precision,
+                        CH::Bits,
+                        <CH::Precision as ArrayRegister<CH::Bits>>::Packed,
+                    >>::index_and_register_and_hash(&random_value);
+
+                let reference_encoded_hash = CH::encode(index, register, original_hash, hash_bits);
+
+                let result = CH::insert_sorted_desc(
                     &mut encoded_hashes,
                     number_of_inserted_hashes,
                     writer_tell,
-                    hash_bits,
-                    shift,
-                );
-
-                println!("Downgraded removing {number_of_duplicates} duplicates.");
-
-                let mut last_reference_hash = u64::MAX;
-                let mut reference_duplicates = 0;
-                for i in 0..number_of_inserted_hashes {
-                    let downgraded_hash = CH::downgrade(reference_hashes[i], hash_bits, shift);
-                    if downgraded_hash == last_reference_hash {
-                        reference_duplicates += 1;
-                        continue;
-                    }
-                    last_reference_hash = downgraded_hash;
-                    reference_hashes[i - reference_duplicates] = downgraded_hash;
-                }
-
-                number_of_inserted_hashes -= number_of_duplicates as usize;
-
-                // We set the values after 'number_of_inserted_hashes' to u64::MAX, so that
-                // if we end up comparing with such a value we can notice the error immediately.
-                for i in number_of_inserted_hashes..number_of_hashes {
-                    reference_hashes[i] = u64::MAX;
-                }
-
-                assert_eq!(
-                    number_of_duplicates as usize,
-                    reference_duplicates,
-                    "The number of duplicates ({number_of_duplicates}) does not match the number of duplicates in the reference ({reference_duplicates}).",
-                );
-
-                hash_bits = target_hash_bits;
-                writer_tell = new_writer_tell;
-                continue;
-            }
-
-            if let Ok(Some(bit_index)) = result {
-                writer_tell = bit_index;
-                // If the hash was inserted, there must NOT be a reference stored with the same hash.
-                assert!(!reference_hashes[..number_of_inserted_hashes]
-                    .contains(&reference_encoded_hash));
-                reference_hashes[number_of_inserted_hashes] = reference_encoded_hash;
-                number_of_inserted_hashes += 1;
-                // We sort by decreasing order so that we can use the binary search.
-                reference_hashes[..number_of_inserted_hashes].sort_unstable_by(|a, b| b.cmp(a));
-                // We check that the inserted hash appears among the inserted hashes.
-                assert!(
-                    CH::downgraded(
-                        &encoded_hashes,
-                        number_of_inserted_hashes,
-                        hash_bits,
-                        writer_tell,
-                        0
-                    )
-                    .any(|hash| hash == reference_encoded_hash),
-                    "Hash {reference_encoded_hash} was not found after insertion."
-                );
-
-                // If we attempt to insert the same hash again, it should not be inserted.
-                assert_eq!(
-                    CH::insert_sorted_desc(
-                        &mut encoded_hashes,
-                        number_of_inserted_hashes,
-                        writer_tell,
-                        index,
-                        register,
-                        original_hash,
-                        hash_bits,
-                    ),
-                    Ok(None),
-                    "After having inserted the hash ({reference_encoded_hash:064b}), it was inserted again. Working with hash bits {hash_bits}.",
-                );
-            }
-
-            // After inserting the hash, we check if the hash is found.
-            assert!(
-                CH::find(
-                    encoded_hashes,
-                    number_of_inserted_hashes,
                     index,
                     register,
                     original_hash,
                     hash_bits,
-                    writer_tell
-                )
-                .is_ok(),
-                concat!(
-                    "Failed to find the hash after inserting it. ",
-                    "The register is {} and the index is {}, and the fake hash is {}. ",
-                    "The number of bits for the hash is {}, precision is {} and the number of bits is {}. ",
-                    "In the reference hashes it is at position {}."
-                ),
-                register,
-                index,
-                original_hash,
-                hash_bits,
-                CH::Precision::EXPONENT,
-                CH::Bits::NUMBER_OF_BITS,
-                reference_hashes
-                    .iter()
-                    .position(|&hash| hash == reference_encoded_hash)
-                    .unwrap(),
-            );
-        }
+                );
 
-        assert!(saturation_reached);
+                if let Err(CompositeHashError::Saturation) = result {
+                    saturation_reached = true;
+                    break;
+                }
+
+                if let Err(CompositeHashError::DowngradableSaturation) = result {
+                    let target_hash_bits = CH::target_downgraded_hash_bits(
+                        number_of_inserted_hashes,
+                        writer_tell,
+                        hash_bits,
+                    );
+                    let shift = hash_bits - target_hash_bits;
+                    println!("Downgrading from {hash_bits} to {target_hash_bits}.",);
+
+                    let (number_of_duplicates, new_writer_tell) = CH::downgrade_inplace(
+                        &mut encoded_hashes,
+                        number_of_inserted_hashes,
+                        writer_tell,
+                        hash_bits,
+                        shift,
+                    );
+
+                    println!("Downgraded removing {number_of_duplicates} duplicates.");
+
+                    let mut last_reference_hash = u64::MAX;
+                    let mut reference_duplicates = 0;
+                    for i in 0..number_of_inserted_hashes {
+                        let downgraded_hash = CH::downgrade(reference_hashes[i], hash_bits, shift);
+                        if downgraded_hash == last_reference_hash {
+                            reference_duplicates += 1;
+                            continue;
+                        }
+                        last_reference_hash = downgraded_hash;
+                        reference_hashes[i - reference_duplicates] = downgraded_hash;
+                    }
+
+                    number_of_inserted_hashes -= number_of_duplicates as usize;
+
+                    // We set the values after 'number_of_inserted_hashes' to u64::MAX, so that
+                    // if we end up comparing with such a value we can notice the error immediately.
+                    for i in number_of_inserted_hashes..number_of_hashes {
+                        reference_hashes[i] = u64::MAX;
+                    }
+
+                    assert_eq!(
+                        number_of_duplicates as usize,
+                        reference_duplicates,
+                        "The number of duplicates ({number_of_duplicates}) does not match the number of duplicates in the reference ({reference_duplicates}).",
+                    );
+
+                    hash_bits = target_hash_bits;
+                    writer_tell = new_writer_tell;
+                    continue;
+                }
+
+                if let Ok(Some(bit_index)) = result {
+                    writer_tell = bit_index;
+                    // If the hash was inserted, there must NOT be a reference stored with the same hash.
+                    assert!(!reference_hashes[..number_of_inserted_hashes]
+                        .contains(&reference_encoded_hash));
+                    reference_hashes[number_of_inserted_hashes] = reference_encoded_hash;
+                    number_of_inserted_hashes += 1;
+                    // We sort by decreasing order so that we can use the binary search.
+                    reference_hashes[..number_of_inserted_hashes].sort_unstable_by(|a, b| b.cmp(a));
+                    // We check that the inserted hash appears among the inserted hashes.
+                    assert!(
+                        CH::downgraded(
+                            &encoded_hashes,
+                            number_of_inserted_hashes,
+                            hash_bits,
+                            writer_tell,
+                            0
+                        )
+                        .any(|hash| hash == reference_encoded_hash),
+                        "Hash {reference_encoded_hash} was not found after insertion."
+                    );
+
+                    // If we attempt to insert the same hash again, it should not be inserted.
+                    assert_eq!(
+                        CH::insert_sorted_desc(
+                            &mut encoded_hashes,
+                            number_of_inserted_hashes,
+                            writer_tell,
+                            index,
+                            register,
+                            original_hash,
+                            hash_bits,
+                        ),
+                        Ok(None),
+                        "After having inserted the hash ({reference_encoded_hash:064b}), it was inserted again. Working with hash bits {hash_bits}.",
+                    );
+                }
+
+                // After inserting the hash, we check if the hash is found.
+                assert!(
+                    CH::find(
+                        encoded_hashes,
+                        number_of_inserted_hashes,
+                        index,
+                        register,
+                        original_hash,
+                        hash_bits,
+                        writer_tell
+                    )
+                    .is_ok(),
+                    concat!(
+                        "Failed to find the hash after inserting it. ",
+                        "The register is {} and the index is {}, and the fake hash is {}. ",
+                        "The number of bits for the hash is {}, precision is {} and the number of bits is {}. ",
+                        "In the reference hashes it is at position {}."
+                    ),
+                    register,
+                    index,
+                    original_hash,
+                    hash_bits,
+                    CH::Precision::EXPONENT,
+                    CH::Bits::NUMBER_OF_BITS,
+                    reference_hashes
+                        .iter()
+                        .position(|&hash| hash == reference_encoded_hash)
+                        .unwrap(),
+                );
+            }
+
+            assert!(saturation_reached);
+        }
     }
 
     #[allow(unsafe_code)]

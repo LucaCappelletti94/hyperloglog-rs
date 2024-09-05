@@ -40,7 +40,7 @@ macro_rules! generate_gap_hash_correction_for_precision {
 /// Procedural macro to generate the gap_hash_correction function for the provided precisions.
 macro_rules! generate_gap_hash_correction_for_precisions {
     ($reports:ident, $multiprogress:ident, $($precision:ty),*) => {
-        let progress_bar = $multiprogress.add(ProgressBar::new(18-4));
+        let progress_bar = $multiprogress.add(ProgressBar::new(15));
 
         progress_bar.set_style(
             ProgressStyle::default_bar()
