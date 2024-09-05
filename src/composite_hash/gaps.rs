@@ -287,9 +287,11 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
     fn has_rice_coefficients() -> bool {
         !if VBYTE {
             OPTIMAL_VBYTE_RICE_COEFFICIENTS[P::EXPONENT as usize - 4]
-                [B::NUMBER_OF_BITS as usize - 4].is_empty()
+                [B::NUMBER_OF_BITS as usize - 4]
+                .is_empty()
         } else {
-            OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4].is_empty()
+            OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4]
+                .is_empty()
         }
     }
 
@@ -639,6 +641,15 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
             return Err(CompositeHashError::DowngradableSaturation);
         }
 
+        if VBYTE {
+            // If we are using VBYTE-ed hashes, instead of completing linearly the rewrite of the codes,
+            // we can simply shift the codes to the right and insert the new value at the beginning.
+            hashes.copy_within(
+                last_read_bit_position/8..bit_index/8,
+                (last_read_bit_position + number_of_inserted_bits)/8,
+            );
+        }
+
         let hashes64 = unsafe {
             core::slice::from_raw_parts_mut(
                 hashes.as_mut_ptr() as *mut u64,
@@ -743,27 +754,31 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                 writer.tell(),
             );
 
-            while let Some((value, n_bits)) = next {
-                next = bypass.next();
-                writer.write_bits(value, n_bits);
-                debug_assert!(
-                    bypass.len() == 0 || bypass.last_buffered_bit() > writer.tell(),
-                    "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}) in insert at hash size {hash_bits}.",
-                    bypass.last_buffered_bit(),
-                    writer.tell(),
+            if !VBYTE {
+                // If our hashes are not vbyted, we have to write all of the remaining hashes one-by-one
+                // as we could not just shift the hashes to the right.
+                while let Some((value, n_bits)) = next {
+                    next = bypass.next();
+                    writer.write_bits(value, n_bits);
+                    debug_assert!(
+                        bypass.len() == 0 || bypass.last_buffered_bit() > writer.tell(),
+                        "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}) in insert at hash size {hash_bits}.",
+                        bypass.last_buffered_bit(),
+                        writer.tell(),
+                    );
+                    position += 1;
+                }
+
+                // We check that all hashes are still ordered in descending order
+                let writer_tell = writer.tell();
+
+                // We check that practice matches theory:
+                assert_eq!(
+                    writer_tell,
+                    new_bit_index,
+                    "Expected writer tell to match bit index {bit_index} + value variation {number_of_inserted_bits} = ({new_bit_index})"
                 );
-                position += 1;
             }
-
-            // We check that all hashes are still ordered in descending order
-            let writer_tell = writer.tell();
-
-            // We check that practice matches theory:
-            assert_eq!(
-                writer_tell,
-                new_bit_index,
-                "Expected writer tell to match bit index {bit_index} + value variation {number_of_inserted_bits} = ({new_bit_index})"
-            );
         }
 
         drop(writer);

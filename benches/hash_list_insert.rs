@@ -6,21 +6,31 @@ use hyperloglog_rs::prelude::*;
 
 type Switch = Hybrid<
     PlusPlus<
-        Precision12,
+        Precision15,
         Bits5,
-        <Precision12 as ArrayRegister<Bits5>>::Packed,
+        <Precision15 as ArrayRegister<Bits5>>::Packed,
         twox_hash::XxHash64,
     >,
-    SwitchHash<Precision12, Bits5>,
+    SwitchHash<Precision15, Bits5>,
 >;
 type Gap = Hybrid<
     PlusPlus<
-        Precision12,
+        Precision15,
         Bits5,
-        <Precision12 as ArrayRegister<Bits5>>::Packed,
+        <Precision15 as ArrayRegister<Bits5>>::Packed,
         twox_hash::XxHash64,
     >,
-    GapHash<SwitchHash<Precision12, Bits5>>,
+    GapHash<Precision15, Bits5, false>,
+>;
+
+type GapPadded = Hybrid<
+    PlusPlus<
+        Precision15,
+        Bits5,
+        <Precision15 as ArrayRegister<Bits5>>::Packed,
+        twox_hash::XxHash64,
+    >,
+    GapHash<Precision15, Bits5, true>,
 >;
 
 fn bench_hash_list_insert(c: &mut Criterion) {
@@ -28,19 +38,34 @@ fn bench_hash_list_insert(c: &mut Criterion) {
 
     group.bench_function("switch_insert", |b| {
         b.iter(|| {
+            let mut result = false;
             let mut switch: Switch = Switch::default();
-            for random_value in iter_random_values::<u64>(1_000, None, None) {
-                switch.insert(black_box(&random_value));
+            for random_value in iter_random_values::<u64>(10_000, None, None) {
+                result ^= switch.insert(black_box(&random_value));
             }
+            result
         });
     });
 
-    group.bench_function("prefix_free_switch_insert", |b| {
+    group.bench_function("prefix_free_insert", |b| {
         b.iter(|| {
+            let mut result = false;
             let mut switch: Gap = Gap::default();
-            for random_value in iter_random_values::<u64>(1_000, None, None) {
-                switch.insert(black_box(&random_value));
+            for random_value in iter_random_values::<u64>(10_000, None, None) {
+                result ^= switch.insert(black_box(&random_value));
             }
+            result
+        });
+    });
+
+    group.bench_function("prefix_free_byte_padded_insert", |b| {
+        b.iter(|| {
+            let mut result = false;
+            let mut switch: GapPadded = GapPadded::default();
+            for random_value in iter_random_values::<u64>(10_000, None, None) {
+                result ^= switch.insert(black_box(&random_value));
+            }
+            result
         });
     });
 

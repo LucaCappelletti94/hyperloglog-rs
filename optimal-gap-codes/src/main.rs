@@ -604,7 +604,7 @@ fn main() {
                         .filter(|report| {
                             report.precision == exponent
                                 && report.bit_size == byte
-                                && report.vbyte
+                                && !report.vbyte
                                 && report.extra_hashes > 2
                                 && report.rate < 0.8
                         })
