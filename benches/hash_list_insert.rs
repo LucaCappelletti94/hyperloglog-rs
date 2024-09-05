@@ -6,31 +6,21 @@ use hyperloglog_rs::prelude::*;
 
 type Switch = Hybrid<
     PlusPlus<
-        Precision15,
+        Precision14,
         Bits5,
-        <Precision15 as ArrayRegister<Bits5>>::Packed,
+        <Precision14 as ArrayRegister<Bits5>>::Packed,
         twox_hash::XxHash64,
     >,
-    SwitchHash<Precision15, Bits5>,
+    SwitchHash<Precision14, Bits5>,
 >;
 type Gap = Hybrid<
     PlusPlus<
-        Precision15,
+        Precision14,
         Bits5,
-        <Precision15 as ArrayRegister<Bits5>>::Packed,
+        <Precision14 as ArrayRegister<Bits5>>::Packed,
         twox_hash::XxHash64,
     >,
-    GapHash<Precision15, Bits5, false>,
->;
-
-type GapPadded = Hybrid<
-    PlusPlus<
-        Precision15,
-        Bits5,
-        <Precision15 as ArrayRegister<Bits5>>::Packed,
-        twox_hash::XxHash64,
-    >,
-    GapHash<Precision15, Bits5, true>,
+    GapHash<Precision14, Bits5, false>,
 >;
 
 fn bench_hash_list_insert(c: &mut Criterion) {
@@ -40,7 +30,7 @@ fn bench_hash_list_insert(c: &mut Criterion) {
         b.iter(|| {
             let mut result = false;
             let mut switch: Switch = Switch::default();
-            for random_value in iter_random_values::<u64>(10_000, None, None) {
+            for random_value in iter_random_values::<u64>(5_000, None, None) {
                 result ^= switch.insert(black_box(&random_value));
             }
             result
@@ -51,18 +41,7 @@ fn bench_hash_list_insert(c: &mut Criterion) {
         b.iter(|| {
             let mut result = false;
             let mut switch: Gap = Gap::default();
-            for random_value in iter_random_values::<u64>(10_000, None, None) {
-                result ^= switch.insert(black_box(&random_value));
-            }
-            result
-        });
-    });
-
-    group.bench_function("prefix_free_byte_padded_insert", |b| {
-        b.iter(|| {
-            let mut result = false;
-            let mut switch: GapPadded = GapPadded::default();
-            for random_value in iter_random_values::<u64>(10_000, None, None) {
+            for random_value in iter_random_values::<u64>(5_000, None, None) {
                 result ^= switch.insert(black_box(&random_value));
             }
             result

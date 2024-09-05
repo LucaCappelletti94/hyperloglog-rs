@@ -123,12 +123,6 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
             let recomposed_hash =
                 SwitchHash::<P, B>::compose_hash(to_decode_index, register, 0, hash_bits);
 
-            debug_assert!(
-                recomposed_hash < previous_hash,
-                "The recomposed hash ({}) must be less than the previous hash ({})",
-                recomposed_hash,
-                previous_hash
-            );
 
             return recomposed_hash;
         }
@@ -158,13 +152,6 @@ impl<P: Precision, B: Bits, const VBYTE: bool> GapHash<P, B, VBYTE> {
             to_decode_register,
             to_decode_hash_remainder,
             hash_bits,
-        );
-
-        debug_assert!(
-            recomposed_hash < previous_hash,
-            "The recomposed hash ({}) must be less than the previous hash ({})",
-            recomposed_hash,
-            previous_hash
         );
 
         recomposed_hash
@@ -336,7 +323,6 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                 hashes,
                 number_of_hashes,
                 hash_bits,
-                bit_index,
                 shift,
             ))
         } else {
@@ -368,7 +354,6 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                 hashes,
                 number_of_hashes,
                 hash_bits,
-                bit_index,
             ))
         } else {
             DispatchedDecodedIter::InnerDecodedIter(SwitchHash::<P, B>::decoded(
@@ -525,10 +510,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
         let encoded = Self::encode(index, register, original_hash, hash_bits);
 
         // iter until we find where we should insert
-        let mut iter: PrefixCodeDowngradedIter<'_, P, B, VBYTE> =
-            Self::downgraded(hashes_ref, number_of_hashes, hash_bits, bit_index, 0)
-                .try_into()
-                .unwrap();
+        let mut iter: PrefixCodeIter<'_, P, B, VBYTE> = PrefixCodeIter::new(hashes_ref, number_of_hashes, hash_bits);
 
         let mut previous_hash = None;
         let mut next_value = None;
@@ -664,7 +646,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
 
         // Now that we have determined where to insert the new value, the subsequent values
         // will be solely read from the bitstream and written to the writer.
-        let mut bypass: BypassIter<'_> = iter.into();
+        let mut bypass: BypassIter<'_> = iter.into_bypass(bit_index);
         // In order to bring the reader a bit more ahead and make more unlikely to get
         // read-write conflicts, we read the next value.
         let mut next = bypass.next();
@@ -1042,37 +1024,16 @@ impl<'a> LastBufferedBit for BypassIter<'a> {
     }
 }
 
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> From<PrefixCodeDowngradedIter<'a, P, B, VBYTE>>
-    for BypassIter<'a>
-{
-    fn from(iter: PrefixCodeDowngradedIter<'a, P, B, VBYTE>) -> Self {
-        Self {
-            bitstream: iter.bitstream,
-            bit_index: iter.bit_index,
-        }
-    }
-}
-
 #[derive(Debug)]
 /// Iterator over downgraded hashes.
 pub struct PrefixCodeDowngradedIter<'a, P: Precision, B: Bits, const VBYTE: bool> {
     bitstream: BitReader<'a>,
     previous: u64,
     number_of_hashes: usize,
-    /// The expected number of bits to be read.
-    bit_index: usize,
     current_iteration: usize,
     hash_bits: u8,
     shift: u8,
     _phantom: PhantomData<GapHash<P, B, VBYTE>>,
-}
-
-impl<'a, P: Precision, B: Bits, const VBYTE: bool> From<PrefixCodeDowngradedIter<'a, P, B, VBYTE>>
-    for &'a [u8]
-{
-    fn from(iter: PrefixCodeDowngradedIter<'a, P, B, VBYTE>) -> Self {
-        iter.bitstream.into()
-    }
 }
 
 impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit
@@ -1084,16 +1045,11 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit
 }
 
 impl<'a, P: Precision, B: Bits, const VBYTE: bool> PrefixCodeDowngradedIter<'a, P, B, VBYTE> {
-    fn last_read_bit_position(&self) -> usize {
-        self.bitstream.last_read_bit_position()
-    }
-
     #[allow(unsafe_code)]
     fn new(
         hashes: &'a [u8],
         number_of_hashes: usize,
         hash_bits: u8,
-        bit_index: usize,
         shift: u8,
     ) -> Self {
         Self {
@@ -1107,11 +1063,11 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> PrefixCodeDowngradedIter<'a, 
                 )
             }),
             hash_bits,
-            bit_index,
             shift,
             _phantom: PhantomData,
         }
     }
+
 }
 
 impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator
@@ -1190,7 +1146,7 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.number_of_hashes, Some(self.number_of_hashes))
+        (self.number_of_hashes- self.current_iteration, Some(self.number_of_hashes- self.current_iteration))
     }
 }
 
@@ -1198,7 +1154,119 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator
     for PrefixCodeDowngradedIter<'a, P, B, VBYTE>
 {
     fn len(&self) -> usize {
-        self.number_of_hashes
+        self.number_of_hashes - self.current_iteration
+    }
+}
+
+#[derive(Debug)]
+/// Iterator over downgraded hashes.
+pub struct PrefixCodeIter<'a, P: Precision, B: Bits, const VBYTE: bool> {
+    bitstream: BitReader<'a>,
+    previous: u64,
+    number_of_hashes: usize,
+    current_iteration: usize,
+    hash_bits: u8,
+    _phantom: PhantomData<GapHash<P, B, VBYTE>>,
+}
+
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit
+    for PrefixCodeIter<'a, P, B, VBYTE>
+{
+    fn last_buffered_bit(&self) -> usize {
+        self.bitstream.last_buffered_bit_position()
+    }
+}
+
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> PrefixCodeIter<'a, P, B, VBYTE> {
+    fn last_read_bit_position(&self) -> usize {
+        self.bitstream.last_read_bit_position()
+    }
+
+    fn into_bypass(self, bit_index: usize) -> BypassIter<'a> {
+        BypassIter {
+            bitstream: self.bitstream,
+            bit_index: bit_index,
+        }
+    }
+
+    #[allow(unsafe_code)]
+    fn new(
+        hashes: &'a [u8],
+        number_of_hashes: usize,
+        hash_bits: u8,
+    ) -> Self {
+
+        Self {
+            previous: u64::MAX,
+            number_of_hashes,
+            current_iteration: 0,
+            bitstream: BitReader::new(unsafe {
+                core::slice::from_raw_parts_mut(
+                    hashes.as_ptr() as *mut u32,
+                    hashes.len() / core::mem::size_of::<u32>(),
+                )
+            }),
+            hash_bits,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator
+    for PrefixCodeIter<'a, P, B, VBYTE>
+{
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.number_of_hashes == self.current_iteration {
+            return None;
+        }
+        self.current_iteration += 1;
+
+        if self.current_iteration == 1 {
+            self.previous = self.bitstream.read_bits(usize::from(self.hash_bits));
+
+            if VBYTE {
+                let padding =
+                    ceil(usize::from(self.hash_bits), 8) * 8 - usize::from(self.hash_bits);
+                let read_bits = self.bitstream.read_bits(padding);
+                debug_assert_eq!(read_bits, 0);
+            }
+
+            return Some(self.previous);
+        }
+
+        let uniform = self
+            .bitstream
+            .read_rice(GapHash::<P, B, VBYTE>::uniform_coefficient(self.hash_bits));
+        let geometric = u8::try_from(self.bitstream.read_rice(
+            GapHash::<P, B, VBYTE>::geometric_coefficient(self.hash_bits),
+        ))
+        .unwrap();
+        let after_codes_read_tell = self.bitstream.last_read_bit_position();
+
+        if VBYTE {
+            let padding = ceil(after_codes_read_tell, 8) * 8 - after_codes_read_tell;
+            let read_bits = self.bitstream.read_bits(padding);
+            debug_assert_eq!(read_bits, 0);
+        }
+        
+        self.previous =
+            GapHash::<P, B, VBYTE>::from_gap_fragment(GapFragment { uniform, geometric }, self.previous, self.hash_bits);
+
+        Some(self.previous)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.number_of_hashes - self.current_iteration, Some(self.number_of_hashes - self.current_iteration))
+    }
+}
+
+impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator
+    for PrefixCodeIter<'a, P, B, VBYTE>
+{
+    fn len(&self) -> usize {
+        self.number_of_hashes - self.current_iteration
     }
 }
 
@@ -1269,7 +1337,7 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> ExactSizeIterator
 #[derive(Debug)]
 /// Iterator over decoded hashes.
 pub struct PrefixCodeDecodedIter<'a, P: Precision, B: Bits, const VBYTE: bool> {
-    iter: PrefixCodeDowngradedIter<'a, P, B, VBYTE>,
+    iter: PrefixCodeIter<'a, P, B, VBYTE>,
 }
 
 impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit
@@ -1282,9 +1350,9 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> LastBufferedBit
 
 impl<'a, P: Precision, B: Bits, const VBYTE: bool> PrefixCodeDecodedIter<'a, P, B, VBYTE> {
     #[allow(unsafe_code)]
-    fn new(hashes: &'a [u8], number_of_hashes: usize, hash_bits: u8, bit_index: usize) -> Self {
+    fn new(hashes: &'a [u8], number_of_hashes: usize, hash_bits: u8) -> Self {
         Self {
-            iter: PrefixCodeDowngradedIter::new(hashes, number_of_hashes, hash_bits, bit_index, 0),
+            iter: PrefixCodeIter::new(hashes, number_of_hashes, hash_bits),
         }
     }
 }
@@ -1297,7 +1365,7 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
             .next()
-            .map(|hash| GapHash::<P, B, VBYTE>::decode(hash, self.iter.hash_bits - self.iter.shift))
+            .map(|hash| GapHash::<P, B, VBYTE>::decode(hash, self.iter.hash_bits))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

@@ -27,6 +27,7 @@ pub(super) struct HashFragment<P: Precision, B: Bits> {
 }
 
 impl<P: Precision, B: Bits> HashFragment<P, B> {
+    #[inline]
     pub(super) fn hash_remainder_size(hash_bits: u8) -> u8 {
         if hash_bits == P::EXPONENT + B::NUMBER_OF_BITS {
             return 0;
@@ -34,19 +35,23 @@ impl<P: Precision, B: Bits> HashFragment<P, B> {
         hash_bits - 1 - P::EXPONENT
     }
 
+    #[inline]
     fn restored_hash(&self, hash_bits: u8) -> u64 {
         !(u64::from(self.hash_remainder) << (P::EXPONENT + 1 + 64 - hash_bits))
     }
 
+    #[inline]
     fn register_flag(&self) -> bool {
         self.register - 1 > B::NUMBER_OF_BITS
     }
 
+    #[inline]
     pub(super) fn uniform(&self, hash_bits: u8) -> u64 {
         u64::try_from(self.index << Self::hash_remainder_size(hash_bits)).unwrap()
             | u64::from(self.hash_remainder)
     }
 
+    #[inline]
     pub(super) fn scompose_uniform(uniform: u64, hash_bits: u8) -> (usize, u16) {
         let remainder_size = Self::hash_remainder_size(hash_bits);
         let index = usize::try_from(uniform >> remainder_size).unwrap();
@@ -56,6 +61,7 @@ impl<P: Precision, B: Bits> HashFragment<P, B> {
 }
 
 impl<P: Precision, B: Bits> SwitchHash<P, B> {
+    #[inline]
     /// Returns the provided SwitchHash splitted into its components.
     pub(super) fn scompose_hash(hash: u64, hash_bits: u8) -> HashFragment<P, B> {
         // We extract the index from the leftmost bits of the hash.
@@ -120,6 +126,7 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
         }
     }
 
+    #[inline]
     pub(super) fn compose_hash(
         index: usize,
         register: u8,

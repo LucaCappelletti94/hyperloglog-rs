@@ -1,44 +1,28 @@
-#[derive(Debug, Clone, Copy)]
-pub struct BitReader<'a> {
-    data: &'a [u32],
+#[derive(Debug, Clone)]
+pub(super) struct BitReader<'a> {
+    data: core::slice::Iter<'a, u32>,
     word_idx: usize,
     buffer: u64,
     bits_in_buffer: usize,
 }
 
-impl<'a> From<BitReader<'a>> for &'a [u32] {
-    fn from(iter: BitReader<'a>) -> Self {
-        iter.data
-    }
-}
-
-impl<'a> From<BitReader<'a>> for &'a [u8] {
-    #[allow(unsafe_code)]
-    fn from(iter: BitReader<'a>) -> Self {
-        unsafe {
-            core::slice::from_raw_parts(
-                iter.data.as_ptr() as *const u8,
-                iter.data.len() * core::mem::size_of::<u32>(),
-            )
-        }
-    }
-}
-
 impl<'a> BitReader<'a> {
     pub fn new(data: &'a [u32]) -> Self {
         Self {
-            data,
+            data: data.iter(),
             word_idx: 0,
             buffer: 0,
             bits_in_buffer: 0,
         }
     }
 
+    #[inline]
     /// Returns the position of the last bit that was read.
     pub fn last_read_bit_position(&self) -> usize {
         self.word_idx * 32 - self.bits_in_buffer
     }
 
+    #[inline]
     /// Returns the position of the last bit that has been positioned in the read buffer.
     pub fn last_buffered_bit_position(&self) -> usize {
         self.word_idx * 32 + self.bits_in_buffer
@@ -60,7 +44,7 @@ impl<'a> BitReader<'a> {
         n_bits -= self.bits_in_buffer;
 
         while n_bits > 32 {
-            let new_word = u64::from(self.data[self.word_idx].to_be());
+            let new_word = u64::from(self.data.next().unwrap().to_be());
             self.word_idx += 1; 
             result = (result << 32) | new_word;
             n_bits -= 32;
@@ -69,7 +53,7 @@ impl<'a> BitReader<'a> {
         debug_assert!(n_bits > 0);
         debug_assert!(n_bits <= 32);
 
-        let new_word = self.data[self.word_idx].to_be();
+        let new_word = self.data.next().unwrap().to_be();
         self.word_idx += 1; 
         self.bits_in_buffer = 32 - n_bits;
         let upcasted: u64 = u64::from(new_word);
@@ -95,7 +79,7 @@ impl<'a> BitReader<'a> {
         let mut result: u64 = self.bits_in_buffer as _;
 
         loop {
-            let new_word = self.data[self.word_idx].to_be();
+            let new_word = self.data.next().unwrap().to_be();
             self.word_idx += 1; 
 
             if new_word != 0 {
@@ -108,6 +92,7 @@ impl<'a> BitReader<'a> {
         }
     }
 
+    #[inline]
     pub fn read_rice(&mut self, b: u8) -> u64 {
         (self.read_unary() << b) + self.read_bits(usize::from(b))
     }
