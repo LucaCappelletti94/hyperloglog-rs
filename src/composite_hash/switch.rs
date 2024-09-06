@@ -1,4 +1,4 @@
-//! The [`SwitchHash`], which more accurately follows the HyperLogLog++ paper.
+//! Composite hash which does not employ Prefix-free codes.
 
 use super::shared::{find, insert_sorted_desc, into_variant, DecodedIter, DowngradedIter};
 use super::switch_birthday_paradox::{
@@ -53,7 +53,7 @@ impl<P: Precision, B: Bits> HashFragment<P, B> {
 
 impl<P: Precision, B: Bits> SwitchHash<P, B> {
     #[inline]
-    /// Returns the provided SwitchHash splitted into its components.
+    /// Returns the provided [`SwitchHash`] splitted into its components.
     pub(super) fn scompose_hash(hash: u64, hash_bits: u8) -> HashFragment<P, B> {
         // We extract the index from the leftmost bits of the hash.
         let index = hash >> (hash_bits - P::EXPONENT);

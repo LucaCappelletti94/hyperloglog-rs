@@ -8,7 +8,6 @@ extern crate proc_macro2;
 extern crate quote;
 extern crate syn;
 
-use core::ops::{Add, Div, Sub};
 use hyperloglog_rs::composite_hash::gaps::GapFragment;
 use prettyplease::unparse;
 use proc_macro2::TokenStream;

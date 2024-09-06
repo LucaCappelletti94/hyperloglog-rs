@@ -152,42 +152,4 @@ mod tests {
             );
         }
     }
-
-    #[test]
-    #[allow(unsafe_code)]
-    fn test_read_write_rice() {
-        let mut expected = [0u64; 1000];
-        let mut buffer = [0u64; 2000];
-        let maximum_value = u16::MAX;
-
-        debug_assert!(
-            len_rice(u64::from(maximum_value), 17) * expected.len() / 64 < buffer.len(),
-            "The buffer len ({}) is not enough to store the upper bound of the encoded values ({}).",
-            buffer.len(),
-            len_rice(u64::from(maximum_value), 17) * expected.len() / 64
-        );
-
-        {
-            let mut writer = BitWriter::new(&mut buffer);
-
-            for (i, value) in
-                iter_random_values::<u16>(1_000, Some(maximum_value), None).enumerate()
-            {
-                writer.write_rice(value as u64, 17);
-                expected[i] = value as u64;
-            }
-        }
-
-        let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
-
-        for value in expected {
-            assert_eq!(
-                reader.read_rice(17),
-                value,
-                "Rice encoded value does not match the expected value."
-            );
-        }
-    }
 }

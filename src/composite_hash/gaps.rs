@@ -544,21 +544,17 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                 }
             }
 
-            let wrote_uniform = writer.write_rice(
+            let mut total_wrote = writer.write_rice(
                 prev_to_current_gap.uniform,
-                Self::uniform_coefficient(hash_bits),
-            );
-            let wrote_geometric = writer.write_rice(
                 prev_to_current_gap.geometric,
+                Self::uniform_coefficient(hash_bits),
                 Self::geometric_coefficient(hash_bits),
             );
-
-            let mut total_wrote = wrote_uniform + wrote_geometric;
 
             // If we are using vbyte, we need to pad to the byte size.
             if VBYTE {
                 let padding = total_wrote.div_ceil(8) * 8 - total_wrote;
-                total_wrote += writer.write_bits(0, padding);
+                total_wrote += usize::from(writer.write_bits(0, padding as u8));
             }
 
             debug_assert!(
@@ -574,7 +570,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                 "The writer tell must be 0 if there is no previous value"
             );
 
-            let wrote_bits = writer.write_bits(encoded, usize::from(hash_bits));
+            let wrote_bits = writer.write_bits(encoded, hash_bits);
 
             if VBYTE {
                 let padding = wrote_bits.div_ceil(8) * 8 - wrote_bits;
@@ -585,21 +581,17 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
         if let Some(current_to_next_gap) = current_to_next_gap {
             position += 1;
 
-            let wrote_uniform = writer.write_rice(
+            let mut total_wrote = writer.write_rice(
                 current_to_next_gap.uniform,
-                Self::uniform_coefficient(hash_bits),
-            );
-            let wrote_geometric = writer.write_rice(
                 current_to_next_gap.geometric,
+                Self::uniform_coefficient(hash_bits),
                 Self::geometric_coefficient(hash_bits),
             );
-
-            let mut total_wrote = wrote_uniform + wrote_geometric;
 
             // If we are using vbyte, we need to pad to the byte size.
             if VBYTE {
                 let padding = total_wrote.div_ceil(8) * 8 - total_wrote;
-                total_wrote += writer.write_bits(0, padding);
+                total_wrote += usize::from(writer.write_bits(0, padding as u8));
             }
 
             debug_assert!(
@@ -686,7 +678,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
         // We write the first hash explicitly, as otherwise it would be
         // written in a very inefficient way.
         let mut previous_hash = if let Some(value) = iter.next() {
-            let wrote_bits = writer.write_bits(value, usize::from(hash_bits - shift));
+            let wrote_bits = writer.write_bits(value, hash_bits - shift);
 
             if VBYTE {
                 let padding = wrote_bits.div_ceil(8) * 8 - wrote_bits;
@@ -724,26 +716,28 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
 
             let fragment = Self::into_gap_fragment(previous_hash, next, hash_bits - shift);
 
-            let wrote_uniform = writer.write_rice(fragment.uniform, uniform_coefficient);
-            let wrote_geometric = writer.write_rice(fragment.geometric, geometric_coefficient);
-
-            let mut total_wrote = wrote_uniform + wrote_geometric;
+            let mut total_wrote = writer.write_rice(
+                fragment.uniform,
+                fragment.geometric,
+                uniform_coefficient,
+                geometric_coefficient,
+            );
 
             // If we are using vbyte, we need to pad to the byte size.
             if VBYTE {
                 let padding = total_wrote.div_ceil(8) * 8 - total_wrote;
-                total_wrote += writer.write_bits(0, padding);
+                total_wrote += usize::from(writer.write_bits(0, padding as u8));
             }
 
             #[cfg(test)]
             #[cfg(feature = "std")]
             println!(
-                "Just wrote {wrote_uniform} + {wrote_geometric} = {total_wrote}, {previous_hash} - {next}"
+                "Just wrote {total_wrote}, {previous_hash} - {next}"
             );
 
             debug_assert!(
                 iter.last_buffered_bit() >= writer.tell(),
-                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, just wrote {wrote_uniform} + {wrote_geometric} = {total_wrote}, {previous_hash} - {next}) in downgrade at hash size {hash_bits} with shift {shift}. Precision: {}, Bits: {}.",
+                "{position}/{number_of_hashes}) Reader tell ({}) must be greater than writer tell ({}, just wrote {total_wrote}, {previous_hash} - {next}) in downgrade at hash size {hash_bits} with shift {shift}. Precision: {}, Bits: {}.",
                 iter.last_buffered_bit(),
                 writer.tell(),
                 P::EXPONENT,
@@ -867,14 +861,14 @@ struct BypassIter<'a> {
 }
 
 impl Iterator for BypassIter<'_> {
-    type Item = (u64, usize);
+    type Item = (u64, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.bitstream.last_read_bit_position() >= self.bit_index {
             return None;
         }
         let n_bits = core::cmp::min(64, self.bit_index - self.bitstream.last_read_bit_position());
-        Some((self.bitstream.read_bits(n_bits), n_bits))
+        Some((self.bitstream.read_bits(n_bits), n_bits as u8))
     }
 }
 
