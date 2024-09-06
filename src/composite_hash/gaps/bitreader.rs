@@ -43,7 +43,7 @@ impl<'a> BitReader<'a> {
         let mut result: u64 = self.buffer >> (64 - 1 - self.bits_in_buffer) >> 1_u8;
         n_bits -= self.bits_in_buffer;
 
-        while n_bits > 32 {
+        if n_bits > 32 {
             let new_word = u64::from(self.data.next().unwrap().to_be());
             self.word_idx += 1; 
             result = (result << 32) | new_word;
@@ -83,10 +83,10 @@ impl<'a> BitReader<'a> {
             self.word_idx += 1; 
 
             if new_word != 0 {
-                let zeros: usize = new_word.leading_zeros() as _;
+                let zeros: u64 = u64::from(new_word.leading_zeros());
                 self.buffer = u64::from(new_word) << (32 + zeros) << 1;
-                self.bits_in_buffer = 32 - zeros - 1;
-                return result + zeros as u64;
+                self.bits_in_buffer = 32 - zeros as usize - 1;
+                return result + zeros;
             }
             result += 32u64;
         }
