@@ -43,7 +43,7 @@ struct Report {
 fn main() {
     let random_state = 7_536_558_723_694_876_u64;
 
-    let max_hashes = (1 << 18) * 6 / 3;
+    let max_hashes = (1 << 18) * 6 / 2;
     let max = max_hashes as u64;
 
     let progress_bar = ProgressBar::new(ITERATIONS as u64);
@@ -62,7 +62,7 @@ fn main() {
         .map(|i| {
             let mut measurement_step = 0;
             let thread_random_state = splitmix64(random_state.wrapping_mul(i as u64 + 1));
-            let mut hll = HLL1::default();
+            let mut hll = HLL2::default();
             let mut reports: Vec<Report> = Vec::with_capacity((size) as usize);
             let mut hashset: HashSet<u64> = HashSet::default();
 
