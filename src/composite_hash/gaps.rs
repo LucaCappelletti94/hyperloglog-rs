@@ -7,7 +7,7 @@ use super::gap_birthday_paradox::{
     GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES, GAP_HASH_BIRTHDAY_PARADOX_ERRORS,
 };
 use super::{CompositeHash, CompositeHashError, Debug, LastBufferedBit, Precision, SwitchHash};
-use crate::{bits::Bits, utils::ceil};
+use crate::bits::Bits;
 use bitreader::{len_rice, BitReader};
 use bitwriter::BitWriter;
 use optimal_codes::{OPTIMAL_RICE_COEFFICIENTS, OPTIMAL_VBYTE_RICE_COEFFICIENTS};
@@ -426,7 +426,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                 {
                     let size = usize::from(hash_bits);
                     if VBYTE {
-                        ceil(size, 8) * 8
+                        size.div_ceil(8) * 8
                     } else {
                         size
                     }
@@ -440,7 +440,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                         Self::geometric_coefficient(hash_bits),
                     );
                     if VBYTE {
-                        ceil(size, 8) * 8
+                        size.div_ceil(8) * 8
                     } else {
                         size
                     }
@@ -454,7 +454,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                     Self::geometric_coefficient(hash_bits),
                 );
                 if VBYTE {
-                    ceil(size, 8) * 8
+                    size.div_ceil(8) * 8
                 } else {
                     size
                 }
@@ -467,14 +467,14 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                     Self::geometric_coefficient(hash_bits),
                 );
                 if VBYTE {
-                    ceil(size, 8) * 8
+                    size.div_ceil(8) * 8
                 } else {
                     size
                 }
             }) - if prev_to_current_gap.is_none() && current_to_next_gap.is_some() {
                 let size = usize::from(hash_bits);
                 if VBYTE {
-                    ceil(size, 8) * 8
+                    size.div_ceil(8) * 8
                 } else {
                     size
                 }
@@ -532,7 +532,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
                 if VBYTE {
                     debug_assert_eq!(
                         writer.tell(),
-                        ceil(usize::from(hash_bits), 8) * 8,
+                        usize::from(hash_bits).div_ceil(8) * 8,
                         "The writer tell must be 0 if there is a single previous value"
                     );
                 } else {
@@ -557,7 +557,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
 
             // If we are using vbyte, we need to pad to the byte size.
             if VBYTE {
-                let padding = ceil(total_wrote, 8) * 8 - total_wrote;
+                let padding = total_wrote.div_ceil(8) * 8 - total_wrote;
                 total_wrote += writer.write_bits(0, padding);
             }
 
@@ -577,7 +577,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
             let wrote_bits = writer.write_bits(encoded, usize::from(hash_bits));
 
             if VBYTE {
-                let padding = ceil(wrote_bits, 8) * 8 - wrote_bits;
+                let padding = wrote_bits.div_ceil(8) * 8 - wrote_bits;
                 writer.write_bits(0, padding);
             }
         }
@@ -598,7 +598,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
 
             // If we are using vbyte, we need to pad to the byte size.
             if VBYTE {
-                let padding = ceil(total_wrote, 8) * 8 - total_wrote;
+                let padding = total_wrote.div_ceil(8) * 8 - total_wrote;
                 total_wrote += writer.write_bits(0, padding);
             }
 
@@ -689,7 +689,7 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
             let wrote_bits = writer.write_bits(value, usize::from(hash_bits - shift));
 
             if VBYTE {
-                let padding = ceil(wrote_bits, 8) * 8 - wrote_bits;
+                let padding = wrote_bits.div_ceil(8) * 8 - wrote_bits;
                 writer.write_bits(0, padding);
             }
 
@@ -725,14 +725,13 @@ impl<P: Precision, B: Bits, const VBYTE: bool> CompositeHash for GapHash<P, B, V
             let fragment = Self::into_gap_fragment(previous_hash, next, hash_bits - shift);
 
             let wrote_uniform = writer.write_rice(fragment.uniform, uniform_coefficient);
-            let wrote_geometric =
-                writer.write_rice(fragment.geometric, geometric_coefficient);
+            let wrote_geometric = writer.write_rice(fragment.geometric, geometric_coefficient);
 
             let mut total_wrote = wrote_uniform + wrote_geometric;
 
             // If we are using vbyte, we need to pad to the byte size.
             if VBYTE {
-                let padding = ceil(total_wrote, 8) * 8 - total_wrote;
+                let padding = total_wrote.div_ceil(8) * 8 - total_wrote;
                 total_wrote += writer.write_bits(0, padding);
             }
 
@@ -881,11 +880,9 @@ impl Iterator for BypassIter<'_> {
 
 impl ExactSizeIterator for BypassIter<'_> {
     fn len(&self) -> usize {
-        ceil(
-            self.bit_index
-                .saturating_sub(self.bitstream.last_read_bit_position()),
-            64,
-        )
+        self.bit_index
+            .saturating_sub(self.bitstream.last_read_bit_position())
+            .div_ceil(64)
     }
 }
 
@@ -995,7 +992,7 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> PrefixCodeIter<'a, P, B, VBYT
         let previous = bitstream.read_bits(usize::from(hash_bits));
 
         if VBYTE {
-            let padding = ceil(usize::from(hash_bits), 8) * 8 - usize::from(hash_bits);
+            let padding = usize::from(hash_bits).div_ceil(8) * 8 - usize::from(hash_bits);
             let read_bits = bitstream.read_bits(padding);
             debug_assert_eq!(read_bits, 0);
         }
@@ -1037,7 +1034,7 @@ impl<'a, P: Precision, B: Bits, const VBYTE: bool> Iterator for PrefixCodeIter<'
 
         if VBYTE {
             let after_codes_read_tell = self.bitstream.last_read_bit_position();
-            let padding = ceil(after_codes_read_tell, 8) * 8 - after_codes_read_tell;
+            let padding = after_codes_read_tell.div_ceil(8) * 8 - after_codes_read_tell;
             let read_bits = self.bitstream.read_bits(padding);
             debug_assert_eq!(read_bits, 0);
         }

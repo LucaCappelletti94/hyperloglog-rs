@@ -968,12 +968,12 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
             paste::paste! {
                 #[cfg(feature = "precision_" $exponent)]
                 impl ArrayRegister<[<Bits $bits>]> for [<Precision $exponent>] {
-                    type Array = Array<{crate::utils::ceil(usize::pow(2, $exponent), 64 / $bits)}, false, [<Bits $bits>]>;
-                    type Packed = Array<{crate::utils::ceil(usize::pow(2, $exponent) * $bits, 64)}, true, [<Bits $bits>]>;
+                    type Array = Array<{usize::pow(2, $exponent).div_ceil(64 / $bits)}, false, [<Bits $bits>]>;
+                    type Packed = Array<{(usize::pow(2, $exponent) * $bits).div_ceil(64)}, true, [<Bits $bits>]>;
                 }
 
                 #[cfg(feature = "precision_" $exponent)]
-                impl Registers<[<Precision $exponent>], [<Bits $bits>]> for Array<{crate::utils::ceil(usize::pow(2, $exponent) * $bits, 64)}, true, [<Bits $bits>]> {
+                impl Registers<[<Precision $exponent>], [<Bits $bits>]> for Array<{(usize::pow(2, $exponent) * $bits).div_ceil(64)}, true, [<Bits $bits>]> {
                     type Iter<'words> = ArrayIter<&'words Self, 1> where Self: 'words;
                     type IterZipped<'words> = ArrayIter<&'words Self, 2>
                         where
@@ -1015,12 +1015,12 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
 
                     #[inline]
                     fn bitsize() -> usize {
-                        64 * crate::utils::ceil(usize::pow(2, $exponent) * $bits, 64)
+                        64 * (usize::pow(2, $exponent) * $bits).div_ceil(64)
                     }
                 }
 
                 #[cfg(feature = "precision_" $exponent)]
-                impl Registers<[<Precision $exponent>], [<Bits $bits>]> for Array<{crate::utils::ceil(usize::pow(2, $exponent), 64 / $bits)}, false, [<Bits $bits>]> {
+                impl Registers<[<Precision $exponent>], [<Bits $bits>]> for Array<{usize::pow(2, $exponent).div_ceil(64 / $bits)}, false, [<Bits $bits>]> {
                     type Iter<'words> = ArrayIter<&'words Self, 1> where Self: 'words;
                     type IterZipped<'words> = ArrayIter<&'words Self, 2>
                         where
@@ -1062,7 +1062,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
 
                     #[inline]
                     fn bitsize() -> usize {
-                        64 * crate::utils::ceil(usize::pow(2, $exponent), 64 / $bits)
+                        64 * usize::pow(2, $exponent).div_ceil(64 / $bits)
                     }
                 }
             }

@@ -61,7 +61,7 @@ impl<const VBYTE: bool> CodesStats<VBYTE> {
     ///                 The first hash is always encoded as-is.
     fn new(mut hash_bits: u64) -> Self {
         if VBYTE {
-            hash_bits = ceil(hash_bits, 8) * 8;
+            hash_bits = hash_bits.div_ceil(8) * 8;
         }
 
         Self {
@@ -70,14 +70,6 @@ impl<const VBYTE: bool> CodesStats<VBYTE> {
             unstable: [[false; 4]; 20],
         }
     }
-}
-
-/// Returns the length of the gamma code for the provided integer.
-fn ceil<I>(numerator: I, denominator: I) -> I
-where
-    I: One + Add<Output = I> + Sub<Output = I> + Div<Output = I> + From<u8> + Copy,
-{
-    (numerator + denominator - I::ONE) / denominator
 }
 
 impl<const VBYTE: bool> CodesStats<VBYTE> {
@@ -91,7 +83,7 @@ impl<const VBYTE: bool> CodesStats<VBYTE> {
                 let mut rice_delta = (len_rice(gap.uniform, i_log2_b as _) as u64)
                     + (len_rice(u64::from(gap.geometric), j_log2_b as _) as u64);
                 if VBYTE {
-                    rice_delta = ceil(rice_delta, 8) * 8;
+                    rice_delta = rice_delta.div_ceil(8) * 8;
                 }
                 *val += rice_delta;
             }
@@ -109,7 +101,7 @@ impl<const VBYTE: bool> CodesStats<VBYTE> {
                 let mut rice_delta = (len_rice(gap.uniform, i_log2_b as _) as u64)
                     + (len_rice(u64::from(gap.geometric), j_log2_b as _) as u64);
                 if VBYTE {
-                    rice_delta = ceil(rice_delta, 8) * 8;
+                    rice_delta = rice_delta.div_ceil(8) * 8;
                 }
                 *val -= rice_delta;
             }
@@ -425,7 +417,7 @@ where
             let (uniform_rice_coefficient, geometric_rice_coefficient, space_usage): (u8, u8, u64) =
                 gap_report.best_code();
 
-            let byte_padded_hash_size: u8 = ceil(max_hash_size, 8) * 8;
+            let byte_padded_hash_size: u8 = max_hash_size.div_ceil(8) * 8;
 
             // We always represent the first hash as-is, not as an encoded gap.
             let mean_compressed_size = space_usage as f64 / gap_report.total as f64;

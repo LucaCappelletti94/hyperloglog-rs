@@ -62,7 +62,7 @@ fn main() {
         .map(|i| {
             let mut measurement_step = 0;
             let thread_random_state = splitmix64(random_state.wrapping_mul(i as u64 + 1));
-            let mut hll = HLL2::default();
+            let mut hll = HLL1::default();
             let mut reports: Vec<Report> = Vec::with_capacity((size) as usize);
             let mut hashset: HashSet<u64> = HashSet::default();
 

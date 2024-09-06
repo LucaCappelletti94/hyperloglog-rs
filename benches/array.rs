@@ -6,8 +6,8 @@ const PRECISION: usize = 15;
 const REGISTER_SIZE: usize = 6;
 const NUMBER_OF_REGISTERS: usize = 1 << PRECISION;
 const NUMBER_OF_REGISTERS_IN_U64: usize = 64 / REGISTER_SIZE;
-const PADDED_SIZE: usize = ceil(NUMBER_OF_REGISTERS, NUMBER_OF_REGISTERS_IN_U64);
-const PACKED_SIZE: usize = ceil(NUMBER_OF_REGISTERS * REGISTER_SIZE, 64);
+const PADDED_SIZE: usize = NUMBER_OF_REGISTERS.div_ceil(NUMBER_OF_REGISTERS_IN_U64);
+const PACKED_SIZE: usize = (NUMBER_OF_REGISTERS * REGISTER_SIZE).div_ceil(64);
 
 fn bench_array_insert(c: &mut Criterion) {
     let mut group = c.benchmark_group("array_insert");

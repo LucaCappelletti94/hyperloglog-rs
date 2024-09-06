@@ -248,7 +248,7 @@ mod test_composite_hash {
             // Since we do not have an array that keeps track of the number of hashes we have inserted, we will use a counter.
             let mut number_of_inserted_hashes = 0;
             // We allow a relatively small number of bits for the hash, so to force the degradation and saturation events.
-            let mut encoded_hashes = vec![u64::MAX; ceil(number_of_bits, 64)];
+            let mut encoded_hashes = vec![u64::MAX; number_of_bits.div_ceil(64)];
             let mut encoded_hashes: &mut [u8] = unsafe {
                 core::slice::from_raw_parts_mut(
                     encoded_hashes.as_mut_ptr() as *mut u8,
