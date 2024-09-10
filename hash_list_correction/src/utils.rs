@@ -1,5 +1,6 @@
 use hyperloglog_rs::composite_hash::CompositeHash;
 
+use crate::ramer_douglas_peucker::{rdp, Point};
 use hyperloglog_rs::prelude::*;
 use hyperloglog_rs::utils::VariableWord;
 use indicatif::MultiProgress;
@@ -85,13 +86,9 @@ struct CardinalityError {
     cardinality: f64,
 }
 
-impl CardinalityError {
-    fn relative_error(&self) -> f64 {
-        (self.exact_cardinality - self.cardinality).abs() / self.exact_cardinality.max(1.0)
-    }
-
-    fn correction_factor(&self) -> f64 {
-        self.exact_cardinality - self.cardinality
+impl From<CardinalityError> for Point {
+    fn from(error: CardinalityError) -> Self {
+        Self::from((error.cardinality, error.exact_cardinality))
     }
 }
 
@@ -106,7 +103,7 @@ where
     } else if CH::Precision::EXPONENT < 10 {
         1_000_000
     } else {
-        1024
+        10_000 / u32::from(CH::Precision::EXPONENT)
     };
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));
@@ -161,7 +158,8 @@ where
                             let cardinality = f64::from(
                                 hll.duplicates().unwrap() + hll.number_of_hashes().unwrap(),
                             );
-                            let exact_cardinality = f64::from(u32::try_from(hash_set.len()).unwrap());
+                            let exact_cardinality =
+                                f64::from(u32::try_from(hash_set.len()).unwrap());
                             report.push(CardinalityError {
                                 exact_cardinality,
                                 cardinality,
@@ -206,7 +204,7 @@ where
         );
 
         // We convert the hashmap to a vector.
-        let mut total_report: Vec<CardinalityError> = total_report
+        let mut total_report: Vec<_> = total_report
             .into_iter()
             .filter_map(|(_, (count, report))| {
                 let mut report = report;
@@ -216,17 +214,13 @@ where
             })
             .collect();
 
-        // We sort the results by the estimated cardinality, which most likely will be the
-        // already sorted but it is not guaranteed.
-        total_report.sort_by(|a, b| {
-            a.exact_cardinality
-                .partial_cmp(&b.exact_cardinality)
-                .unwrap()
-        });
-
         // We store the mined data-points to a CSV so to avoid recomputing them
         // in the future.
         write_csv(total_report.iter(), &output_path);
+
+        // We sort the results by the estimated cardinality, which most likely will be the
+        // already sorted but it is not guaranteed.
+        total_report.sort_by(|a, b| a.cardinality.partial_cmp(&b.cardinality).unwrap());
 
         // We expect at least one value in the report.
         assert!(!total_report.is_empty());
@@ -234,33 +228,15 @@ where
         total_report
     };
 
-    let k = core::cmp::min(
-        (CH::Precision::EXPONENT as usize) * 4,
-        total_report.len() / 2,
-    );
+    // We convert the total_report to a list of points.
+    let points: Vec<Point> = total_report.iter().copied().map(|report| report.into()).collect();
+
+    // We determine the maximal number of points to consider.
+    let k = usize::from(CH::Precision::EXPONENT) * 4;
 
     // We split the data into k partitions, and we identify the largest discontinuity
     // in each partition.
-    let top_k_reports: Vec<CardinalityError> = total_report
-        .par_chunks(total_report.len() / k)
-        .map(|chunk| {
-            let mut max_discontinuity = 0.0;
-            let mut max_discontinuity_index = 0;
-            for (i, report) in chunk.windows(core::cmp::min(5, chunk.len())).enumerate() {
-                let discontinuity = (report[report.len() - 1].relative_error()
-                    - report[0].relative_error())
-                .abs()
-                    / (report[report.len() - 1].cardinality as f64 - report[0].cardinality as f64)
-                        .abs()
-                        .max(1.0);
-                if discontinuity > max_discontinuity {
-                    max_discontinuity = discontinuity;
-                    max_discontinuity_index = i + report.len() / 2;
-                }
-            }
-            chunk[max_discontinuity_index].clone()
-        })
-        .collect();
+    let top_k_reports: Vec<Point> = rdp(points.as_slice(), 0.0000001, k);
 
     // We create the correction.
     let correction = HashCorrection {
@@ -268,11 +244,11 @@ where
         bits: CH::Bits::NUMBER_OF_BITS,
         relative_errors: top_k_reports
             .iter()
-            .map(|report| report.correction_factor())
+            .map(|report| report.y() - report.x())
             .collect::<Vec<f64>>(),
         cardinalities: top_k_reports
             .iter()
-            .map(|report| report.cardinality.round() as u32)
+            .map(|report| report.x().round() as u32)
             .collect::<Vec<u32>>(),
     };
 

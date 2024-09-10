@@ -159,55 +159,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             }
     }
 
-    #[cfg(feature = "std")]
-    #[allow(unsafe_code)]
-    /// Prints the rank index for debugging purposes.
-    fn debug_index(hashes: &[u8], hash_bits: u8) {
-        debug_assert!(Self::has_rank_index());
-
-        let hashes32 = unsafe {
-            core::slice::from_raw_parts(
-                hashes.as_ptr() as *const u32,
-                hashes.len() / core::mem::size_of::<u32>(),
-            )
-        };
-
-        // We retrieve the 0-th implicit bucket.
-        let mut reader = BitReader::skip(
-            hashes32,
-            GapHash::<P, B>::rank_index_total_size(usize::from(hash_bits)),
-        );
-        let first_hash = reader.read_bits(usize::from(hash_bits));
-        println!(
-            "Bucket: 0 - Bit index: 0 - Hash: {first_hash}"
-        );
-
-        let mut reader = BitReader::new(hashes32);
-
-        for bucket in 1..Self::rank_index_capacity() {
-            let bit_index = reader.read_bits(usize::from(Self::rank_index_bits()));
-            let hash = reader.read_bits(usize::from(hash_bits));
-
-            debug_assert!(
-                bit_index == Self::rank_index_mask() || usize::try_from(bit_index).unwrap() <= hashes.len() * 8 - Self::rank_index_total_size(usize::from(hash_bits)),
-                "The bit index ({bit_index}) must be less than the number of bits in the hashes ({})",
-                hashes.len() * 8 - Self::rank_index_total_size(usize::from(hash_bits))
-            );
-
-            println!(
-                "Bucket: {} - Bit index: {}{} - Hash: {}",
-                bucket,
-                bit_index,
-                if bit_index == Self::rank_index_mask() {
-                    " (NONE)"
-                } else {
-                    ""
-                },
-                hash
-            );
-        }
-    }
-
     #[inline]
     /// Returns the capacity of the rank index.
     const fn rank_index_capacity() -> usize {
@@ -499,47 +450,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 writer.tell() <= Self::rank_index_total_size(usize::from(hash_bits)),
             );
         }
-    }
-
-    #[allow(unsafe_code)]
-    #[inline]
-    /// Returns the number of the bucket containing the provided bit index.
-    /// 
-    /// # Arguments
-    /// * `hashes` - The slice of hashes to search in.
-    /// * `hash_bits` - The number of bits used to encode the hashes.
-    /// * `bit_index` - The bit index to search for.
-    /// 
-    fn rank_index_bucket_for_bit_index(hashes: &[u8], hash_bits: u8, bit_index: usize) -> usize {
-        let hashes32 = unsafe {
-            core::slice::from_raw_parts(
-                hashes.as_ptr() as *const u32,
-                hashes.len() / core::mem::size_of::<u32>(),
-            )
-        };
-
-        let mut reader = BitReader::skip(hashes32, 0);
-        let mut number_of_skipped_buckets = 0;
-
-        for bucket in 0..Self::rank_index_capacity() - 1 {
-            let bucket_bit_index = reader.read_bits(usize::from(Self::rank_index_bits()));
-            reader.read_bits(usize::from(hash_bits));
-
-            if bucket_bit_index == Self::rank_index_mask() {
-                number_of_skipped_buckets += 1;
-                continue;
-            }
-
-            if bit_index < usize::try_from(bucket_bit_index).unwrap() {
-                return bucket;
-            }
-
-            debug_assert!(
-                reader.last_read_bit_position() <= Self::rank_index_total_size(usize::from(hash_bits)),
-            );
-        }
-
-        Self::rank_index_capacity() - 1
     }
 
     #[allow(unsafe_code)]
@@ -985,22 +895,6 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
         );
 
         while let Some(value) = iter.next() {
-            // if Self::has_rank_index() {
-            //     if Self::rank_index_bucket_for_bit_index(hashes, hash_bits, last_read_bit_position - Self::rank_index_total_size(usize::from(hash_bits))) != 
-            //     Self::rank_index_hash_bucket(hash_bits, value) {
-            //         Self::debug_index(hashes, hash_bits);
-            //     }
-
-            //     debug_assert_eq!(
-            //         Self::rank_index_bucket_for_bit_index(hashes, hash_bits, last_read_bit_position - Self::rank_index_total_size(usize::from(hash_bits))),
-            //         Self::rank_index_hash_bucket(hash_bits, value),
-            //         "Hash {value} is at bit index {} and is in the wrong bucket. Precision: {}, number of bits: {}, hash bits: {hash_bits}.",
-            //         last_read_bit_position - Self::rank_index_total_size(usize::from(hash_bits)),
-            //         P::EXPONENT,
-            //         B::NUMBER_OF_BITS,
-            //     );
-            // }
-
             // The values are sorted in descending order, so we can stop when we find a value
             // that is less than or equal to the value we want to insert
             if encoded_hash >= value {
@@ -1336,25 +1230,6 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
 
             let fragment = Self::into_gap_fragment(previous_hash, next, target_hash_bits);
             let writer_tell_before_write = writer.tell();
-
-            debug_assert!(
-                (fragment.uniform_delta >> uniform_coefficient) < 64,
-                "Uniform delta: {}, uniform_coefficient: {}, shifted: {}, target_hash_bits: {target_hash_bits}, precision: {}, bits: {}.",
-                fragment.uniform_delta,
-                uniform_coefficient,
-                fragment.uniform_delta >> uniform_coefficient,
-                P::EXPONENT,
-                B::NUMBER_OF_BITS
-            );
-            debug_assert!(
-                (fragment.geometric_minus_one >> geometric_coefficient) < 64,
-                "Geometric delta: {}, geometric_coefficient: {}, shifted: {}, target_hash_bits: {target_hash_bits}, precision: {}, bits: {}.",
-                fragment.geometric_minus_one,
-                geometric_coefficient,
-                fragment.geometric_minus_one >> geometric_coefficient,
-                P::EXPONENT,
-                B::NUMBER_OF_BITS
-            );
 
             let total_wrote = writer.write_rice(
                 fragment.uniform_delta,
@@ -1921,10 +1796,10 @@ mod tests {
     #[allow(unsafe_code)]
     fn test_rank_index_initialization() {
         for hash_bits in 8..32 {
-            let mut hashes = [0u8; 64];
+            let mut hashes = [0u8; 256];
             let rank_index_bitindex_size =
                 GapHash::<Precision11, Bits4>::rank_index_bits() as usize;
-            assert_eq!(GapHash::<Precision11, Bits4>::rank_index_capacity(), 11);
+            assert_eq!(GapHash::<Precision11, Bits4>::rank_index_capacity(), 22);
             GapHash::<Precision11, Bits4>::initialize_rank_index(&mut hashes, hash_bits);
 
             // We expect the just initialized rank index to be a series of 'rank_index_bitindex_size' ones
@@ -1950,7 +1825,7 @@ mod tests {
     #[allow(unsafe_code)]
     fn test_update_rank_index() {
         let mut random_state = 4_575_763_274_578_236u64;
-        let mut hashes = [0u8; 64];
+        let mut hashes = [0u8; 256];
         for hash_bits in 8..32 {
             random_state = splitmix64(random_state);
 
@@ -1963,14 +1838,8 @@ mod tests {
 
                 GapHash::<Precision11, Bits4>::initialize_rank_index(&mut hashes, hash_bits);
 
-                // We now determine the expected bucket.
-                debug_assert!(
-                    fake_hash as usize / expected_bucket_size < 11,
-                    "Hash: {fake_hash}, Expected bucket size: {expected_bucket_size}."
-                );
-
                 let expected_bucket = GapHash::<Precision11, Bits4>::rank_index_capacity()
-                    - fake_hash as usize / expected_bucket_size;
+                    - fake_hash as usize / expected_bucket_size - 1;
 
                 // We try to get the best starting point for the iterator from the rank index
                 // Since the index is empty, it should return as position 'hash_bits', as if

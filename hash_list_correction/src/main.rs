@@ -12,6 +12,7 @@ use switch_hash::compute_switch_hash_correction;
 mod gap_hash;
 use gap_hash::compute_gap_hash_correction;
 mod utils;
+mod ramer_douglas_peucker;
 
 fn main() {
     compute_switch_hash_correction();

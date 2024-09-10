@@ -45,11 +45,11 @@ pub struct CodesStats {
     /// where the I-th axis represents the I-th rice code for the uniform
     /// part of the gap and the J-th axis represents the J-th rice code
     /// for the geometric part of the gap.
-    pub rice: [[u64; 4]; 35],
+    pub rice: [[u64; 4]; 20],
     /// A mask to keep track of the codes that, at some iteration, have
     /// overflowed the available number of bits and as such are marked as
     /// unstable.
-    pub unstable: [[bool; 4]; 35],
+    pub unstable: [[bool; 4]; 20],
 }
 
 impl CodesStats {
@@ -58,25 +58,11 @@ impl CodesStats {
     /// # Arguments
     /// * `hash_bits` - The number of bits used to encode the hash.
     ///                 The first hash is always encoded as-is.
-    fn new(hash_bits: u64, precision: u8, bits: u8) -> Self {
-        let mut unstable = [[false; 4]; 35];
-
-        let minimum_rice_coefficient = if hash_bits == u64::from(precision + bits) {
-            hash_bits.saturating_sub(u64::from(bits)).saturating_sub(6)
-        } else {
-            hash_bits - 1 - 6
-        };
-
-        for i in 0..unstable.len() {
-            for j in 0..4 {
-                unstable[i][j] = (i as u64) < minimum_rice_coefficient;
-            }
-        }
-
+    fn new(hash_bits: u64) -> Self {
         Self {
             total: 1,
-            rice: [[hash_bits; 4]; 35],
-            unstable,
+            rice: [[hash_bits; 4]; 20],
+            unstable: [[false; 4]; 20],
         }
     }
 }
@@ -260,7 +246,7 @@ where
 
                     // If we have just reached the preliminary saturation, we populate the gap report.
                     if reference_hashes.len() == preliminary_saturation_threshold {
-                        let mut stats = CodesStats::new(u64::from(hash_bits), P::EXPONENT, B::NUMBER_OF_BITS);
+                        let mut stats = CodesStats::new(u64::from(hash_bits));
 
                         for window in reference_hashes.windows(2) {
                             let gap = GapHash::<P, B>::into_gap_fragment(
@@ -370,7 +356,7 @@ where
                         // The downgrade procedure may introduce duplications, we remove them.
                         reference_hashes.dedup();
 
-                        let mut stats = CodesStats::new(u64::from(hash_bits), P::EXPONENT, B::NUMBER_OF_BITS);
+                        let mut stats = CodesStats::new(u64::from(hash_bits));
 
                         for window in reference_hashes.windows(2) {
                             let gap = GapHash::<P, B>::into_gap_fragment(
@@ -399,7 +385,7 @@ where
             for (hash_size, gap_report) in report {
                 let hash_size_report = acc
                     .entry(hash_size)
-                    .or_insert_with(|| CodesStats::new(u64::from(hash_size), P::EXPONENT, B::NUMBER_OF_BITS));
+                    .or_insert_with(|| CodesStats::new(u64::from(hash_size)));
                 hash_size_report.add(&gap_report);
             }
             acc

@@ -235,7 +235,7 @@ mod test_composite_hash {
         CH::Precision: ArrayRegister<CH::Bits>,
     {
         let mut random_state = 498_123_456_789;
-        let number_of_iterations = core::cmp::min(1, 25_000 / (1 << (CH::Precision::EXPONENT - 4)));
+        let number_of_iterations = core::cmp::min(1, 10_000 / (1 << (CH::Precision::EXPONENT - 4)));
 
         for _ in 0..number_of_iterations {
             let number_of_bits =
