@@ -45,11 +45,11 @@ pub struct CodesStats {
     /// where the I-th axis represents the I-th rice code for the uniform
     /// part of the gap and the J-th axis represents the J-th rice code
     /// for the geometric part of the gap.
-    pub rice: [[u64; 4]; 20],
+    pub rice: [u64; 20],
     /// A mask to keep track of the codes that, at some iteration, have
     /// overflowed the available number of bits and as such are marked as
     /// unstable.
-    pub unstable: [[bool; 4]; 20],
+    pub unstable: [bool; 20],
 }
 
 impl CodesStats {
@@ -61,8 +61,8 @@ impl CodesStats {
     fn new(hash_bits: u64) -> Self {
         Self {
             total: 1,
-            rice: [[hash_bits; 4]; 20],
-            unstable: [[false; 4]; 20],
+            rice: [hash_bits; 20],
+            unstable: [false; 20],
         }
     }
 }
@@ -73,11 +73,9 @@ impl CodesStats {
     pub fn insert(&mut self, gap: GapFragment) {
         self.total += 1;
 
-        for (i_log2_b, row) in self.rice.iter_mut().enumerate() {
-            for (j_log2_b, val) in row.iter_mut().enumerate() {
-                *val += (len_rice(gap.uniform_delta, i_log2_b as _) as u64)
-                    + (len_rice(u64::from(gap.geometric_minus_one), j_log2_b as _) as u64);
-            }
+        for (i_log2_b, val) in self.rice.iter_mut().enumerate() {
+            *val += (len_rice(gap.uniform_delta, i_log2_b as _) as u64)
+                + u64::from(gap.geometric_minus_one) + 1;
         }
     }
 
@@ -87,11 +85,9 @@ impl CodesStats {
         // Register contribution to the total.
         self.total -= 1;
 
-        for (i_log2_b, row) in self.rice.iter_mut().enumerate() {
-            for (j_log2_b, val) in row.iter_mut().enumerate() {
-                *val -= (len_rice(gap.uniform_delta, i_log2_b as _) as u64)
-                    + (len_rice(u64::from(gap.geometric_minus_one), j_log2_b as _) as u64);
-            }
+        for (i_log2_b, val) in self.rice.iter_mut().enumerate() {
+            *val -= (len_rice(gap.uniform_delta, i_log2_b as _) as u64)
+                + u64::from(gap.geometric_minus_one) + 1;
         }
     }
 
@@ -99,45 +95,35 @@ impl CodesStats {
     pub fn add(&mut self, rhs: &Self) {
         self.total += rhs.total;
         for (a, b) in self.rice.iter_mut().zip(rhs.rice.iter()) {
-            for (a, b) in a.iter_mut().zip(b.iter()) {
-                *a += *b;
-            }
+            *a += *b;
         }
 
         for (a, b) in self.unstable.iter_mut().zip(rhs.unstable.iter()) {
-            for (a, b) in a.iter_mut().zip(b.iter()) {
-                *a |= *b;
-            }
+            *a |= *b;
         }
     }
 
     /// Updates the unstability mask.
     pub fn update_unstable(&mut self, number_of_bits: u64) {
-        for (i, row) in self.rice.iter().enumerate() {
-            for (j, val) in row.iter().enumerate() {
-                self.unstable[i][j] |= *val > number_of_bits;
-            }
+        for (i, val) in self.rice.iter().enumerate() {
+            self.unstable[i] |= *val > number_of_bits;
         }
     }
 
     /// Return the best code for the stream and its space usage.
-    pub fn best_code(&self) -> (u8, u8, u64) {
+    pub fn best_code(&self) -> (u8, u64) {
         let mut best = u64::MAX;
         let mut best_uniform_code = u8::MAX;
-        let mut best_geometric_code = u8::MAX;
 
         for i in 0..self.rice.len() {
-            for j in 0..self.rice[i].len() {
-                let space_usage = self.rice[i][j];
-                if space_usage < best && !self.unstable[i][j] {
-                    best = space_usage;
-                    best_uniform_code = u8::try_from(i).unwrap();
-                    best_geometric_code = u8::try_from(j).unwrap();
-                }
+            let space_usage = self.rice[i];
+            if space_usage < best && !self.unstable[i] {
+                best = space_usage;
+                best_uniform_code = u8::try_from(i).unwrap();
             }
         }
 
-        (best_uniform_code, best_geometric_code, best)
+        (best_uniform_code, best)
     }
 }
 
@@ -154,8 +140,6 @@ struct GapReport {
     hash_size: u8,
     /// The rice coefficient of the optimal code, for the uniform part.
     uniform_rice_coefficient: u8,
-    /// The rice coefficient of the optimal code, for the geometric part.
-    geometric_rice_coefficient: u8,
     /// The rate of the optimal code.
     #[serde(serialize_with = "float_formatter")]
     rate: f64,
@@ -297,7 +281,7 @@ where
 
                     // We check whether the code that is currently performing best can still
                     // fit within the available number of bits or we need to downgrade the hash.
-                    let (_, _, space_usage) = gap_report.get(&hash_bits).unwrap().best_code();
+                    let (_, space_usage) = gap_report.get(&hash_bits).unwrap().best_code();
 
                     if space_usage
                         > number_of_bits as u64
@@ -405,7 +389,7 @@ where
 
     append_csv(
         gaps.iter().map(|(hash_size, gap_report)| {
-            let (uniform_rice_coefficient, geometric_rice_coefficient, space_usage): (u8, u8, u64) =
+            let (uniform_rice_coefficient, space_usage): (u8, u64) =
                 gap_report.best_code();
 
             let byte_padded_hash_size: u8 = max_hash_size.div_ceil(8) * 8;
@@ -425,7 +409,6 @@ where
                 bit_size: B::NUMBER_OF_BITS,
                 hash_size: *hash_size,
                 uniform_rice_coefficient,
-                geometric_rice_coefficient,
                 rate,
                 mean_compressed_size,
                 number_of_hashes,
@@ -557,9 +540,8 @@ fn main() {
                     let rice_coefficients = selected_reports.iter().map(|report| {
                         let hash_size = report.hash_size;
                         let uniform_rice_coefficient = report.uniform_rice_coefficient;
-                        let geometric_rice_coefficient = report.geometric_rice_coefficient;
                         quote! {
-                            (#hash_size, #uniform_rice_coefficient, #geometric_rice_coefficient)
+                            (#hash_size, #uniform_rice_coefficient)
                         }
                     });
                     quote! {
@@ -579,7 +561,7 @@ fn main() {
         //! Optimal codes for the gap between subsequent hashes in the Listhash variant of HyperLogLog.
 
         /// The optimal Rice code coefficients for the different precisions and bit sizes, when using hash-packing.
-        pub(super) const OPTIMAL_RICE_COEFFICIENTS: [[&[(u8, u8, u8)]; 3]; 15] = [
+        pub(super) const OPTIMAL_RICE_COEFFICIENTS: [[&[(u8, u8)]; 3]; 15] = [
             #(#rice_coefficients),*
         ];
     };

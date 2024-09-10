@@ -575,13 +575,13 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     }
 
     #[inline]
-    fn b(hash_bits: u8) -> (u8, u8, u8) {
+    fn b(hash_bits: u8) -> (u8, u8) {
         let data =
             OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
 
-        for (target_hash_bits, uniform, geometric) in data {
+        for (target_hash_bits, uniform) in data {
             if *target_hash_bits == hash_bits {
-                return (*target_hash_bits, *uniform, *geometric);
+                return (*target_hash_bits, *uniform);
             }
         }
 
@@ -591,11 +591,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     #[inline]
     fn uniform_coefficient(hash_bits: u8) -> u8 {
         Self::b(hash_bits).1
-    }
-
-    #[inline]
-    fn geometric_coefficient(hash_bits: u8) -> u8 {
-        Self::b(hash_bits).2
     }
 
     #[inline]
@@ -609,7 +604,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         let data =
             OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
 
-        for (target_hash_bits, _, _) in data.iter().rev() {
+        for (target_hash_bits, _) in data.iter().rev() {
             if candidate_hash_bits >= *target_hash_bits {
                 return *target_hash_bits;
             }
@@ -968,7 +963,6 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                     prev_to_current_gap.uniform_delta,
                     Self::uniform_coefficient(hash_bits),
                     prev_to_current_gap.geometric_minus_one,
-                    Self::geometric_coefficient(hash_bits),
                 )
             },
         );
@@ -983,7 +977,6 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 current_to_next_gap.uniform_delta,
                 Self::uniform_coefficient(hash_bits),
                 current_to_next_gap.geometric_minus_one,
-                Self::geometric_coefficient(hash_bits),
             )
         });
 
@@ -1032,7 +1025,6 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 prev_to_current_gap.uniform_delta,
                 prev_to_current_gap.geometric_minus_one,
                 Self::uniform_coefficient(hash_bits),
-                Self::geometric_coefficient(hash_bits),
             );
 
             debug_assert!(
@@ -1062,7 +1054,6 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 current_to_next_gap.uniform_delta,
                 current_to_next_gap.geometric_minus_one,
                 Self::uniform_coefficient(hash_bits),
-                Self::geometric_coefficient(hash_bits),
             );
 
             debug_assert!(
@@ -1212,7 +1203,6 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
         let mut maybe_double_next = iter.next();
 
         let uniform_coefficient = Self::uniform_coefficient(target_hash_bits);
-        let geometric_coefficient = Self::geometric_coefficient(target_hash_bits);
 
         while let Some(next) = maybe_next {
             maybe_next = maybe_double_next;
@@ -1235,7 +1225,6 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 fragment.uniform_delta,
                 fragment.geometric_minus_one,
                 uniform_coefficient,
-                geometric_coefficient,
             );
 
             // If we are using the index, we need to insert the position and the hash
@@ -1467,7 +1456,6 @@ pub struct PrefixCodeIter<'a, P: Precision, B: Bits> {
     previous_hash_remainder: u64,
     previous_uniform: u64,
     uniform_coefficient: u8,
-    geometric_coefficient: u8,
     #[cfg(test)]
     iteration: usize,
     _phantom: PhantomData<GapHash<P, B>>,
@@ -1543,7 +1531,6 @@ impl<'a, P: Precision, B: Bits> PrefixCodeIter<'a, P, B> {
             previous_index: u64::MAX,
             previous_hash_remainder: u64::MAX,
             uniform_coefficient: GapHash::<P, B>::uniform_coefficient(hash_bits),
-            geometric_coefficient: GapHash::<P, B>::geometric_coefficient(hash_bits),
             #[cfg(test)]
             iteration: 0,
             _phantom: PhantomData,
@@ -1577,7 +1564,6 @@ impl<'a, P: Precision, B: Bits> PrefixCodeIter<'a, P, B> {
             previous_index: u64::MAX,
             previous_hash_remainder: u64::MAX,
             uniform_coefficient: GapHash::<P, B>::uniform_coefficient(hash_bits),
-            geometric_coefficient: GapHash::<P, B>::geometric_coefficient(hash_bits),
             #[cfg(test)]
             iteration: 0,
             _phantom: PhantomData,
@@ -1597,7 +1583,7 @@ impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeIter<'a, P, B> {
                 self.previous = self.bitstream.read_bits(usize::from(self.hash_bits));
             } else {
                 let uniform_delta = self.bitstream.read_rice(self.uniform_coefficient);
-                let geometric_minus_one = self.bitstream.read_rice(self.geometric_coefficient);
+                let geometric_minus_one = self.bitstream.read_unary();
                 self.previous_gap_fragment = Some(GapFragment {
                     uniform_delta,
                     geometric_minus_one,
@@ -1639,7 +1625,7 @@ impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeIter<'a, P, B> {
         }
 
         let uniform_delta = self.bitstream.read_rice(self.uniform_coefficient);
-        let geometric_minus_one = self.bitstream.read_rice(self.geometric_coefficient);
+        let geometric_minus_one = self.bitstream.read_unary();
         self.previous_gap_fragment = Some(GapFragment {
             uniform_delta,
             geometric_minus_one,

@@ -116,9 +116,8 @@ impl<'a> BitReader<'a> {
 /// * `uniform` - The uniform value to encode.
 /// * `b1` - The rice coefficient to use for the uniform value.
 /// * `geometric` - The geometric value to encode.
-/// * `b2` - The rice coefficient to use for the geometric value.
-pub fn len_rice(uniform_delta: u64, b1: u8, geometric_minus_one: u64, b2: u8) -> usize {
-    usize::try_from((uniform_delta >> b1) + (geometric_minus_one >> b2)).unwrap() + 2 + usize::from(b1 + b2)
+pub fn len_rice(uniform_delta: u64, b1: u8, geometric_minus_one: u64) -> usize {
+    usize::try_from((uniform_delta >> b1) + geometric_minus_one).unwrap() + 2 + usize::from(b1)
 }
 
 #[cfg(test)]
