@@ -65,15 +65,15 @@ impl<'a> BitWriter<'a> {
     }
 
     #[inline]
-    pub(super) fn write_bits(&mut self, value: u64, n_bits: u8) -> usize {
+    pub(super) fn write_bits(&mut self, value: u64, n_bits: usize) -> usize {
         debug_assert!(n_bits <= 64);
         debug_assert!(self.space_left_in_buffer > 0);
 
-        if usize::from(n_bits) < self.space_left_in_buffer {
+        if n_bits < self.space_left_in_buffer {
             self.buffer <<= n_bits;
             self.buffer |= value & !(u64::MAX << n_bits as u32);
-            self.space_left_in_buffer -= usize::from(n_bits);
-            return usize::from(n_bits);
+            self.space_left_in_buffer -= n_bits;
+            return n_bits;
         }
 
         self.buffer = self.buffer << (self.space_left_in_buffer - 1) << 1;
@@ -81,9 +81,9 @@ impl<'a> BitWriter<'a> {
         self.data[self.word_idx] = self.buffer.to_be();
         self.word_idx += 1;
 
-        self.space_left_in_buffer += 64 - usize::from(n_bits);
+        self.space_left_in_buffer += 64 - n_bits;
         self.buffer = value;
-        usize::from(n_bits)
+        n_bits
     }
 
     #[inline]
@@ -135,7 +135,7 @@ impl<'a> BitWriter<'a> {
         &mut self,
         uniform_delta: u64,
         geometric_minus_one: u64,
-        b1: u8,
+        b1: usize,
     ) -> usize {
         self.write_unary(uniform_delta >> b1)
             + usize::from(self.write_bits(uniform_delta, b1))

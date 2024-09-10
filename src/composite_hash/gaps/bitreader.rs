@@ -104,8 +104,8 @@ impl<'a> BitReader<'a> {
     }
 
     #[inline]
-    pub fn read_rice(&mut self, b: u8) -> u64 {
-        (self.read_unary() << b) + self.read_bits(usize::from(b))
+    pub fn read_rice(&mut self, b: usize) -> u64 {
+        (self.read_unary() << b) + self.read_bits(b)
     }
 }
 
@@ -116,8 +116,8 @@ impl<'a> BitReader<'a> {
 /// * `uniform` - The uniform value to encode.
 /// * `b1` - The rice coefficient to use for the uniform value.
 /// * `geometric` - The geometric value to encode.
-pub fn len_rice(uniform_delta: u64, b1: u8, geometric_minus_one: u64) -> usize {
-    usize::try_from((uniform_delta >> b1) + geometric_minus_one).unwrap() + 2 + usize::from(b1)
+pub fn len_rice(uniform_delta: u64, b1: usize, geometric_minus_one: u64) -> usize {
+    usize::try_from((uniform_delta >> b1) + geometric_minus_one).unwrap() + 2 + b1
 }
 
 #[cfg(test)]

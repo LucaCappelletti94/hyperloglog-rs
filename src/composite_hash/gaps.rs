@@ -149,14 +149,14 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
 
     #[inline]
     /// Returns the number of bits necessary to encode the rank index.
-    const fn rank_index_bits() -> u8 {
-        P::EXPONENT
+    const fn rank_index_bits() -> usize {
+        P::EXPONENT as usize
             + match B::NUMBER_OF_BITS {
                 4 => 2,
                 5 => 3,
                 6 => 3,
                 _ => unreachable!(),
-            }
+            } as usize
     }
 
     #[inline]
@@ -210,7 +210,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
 
         for _ in 1..Self::rank_index_capacity() {
             writer.write_bits(Self::rank_index_mask(), Self::rank_index_bits());
-            writer.write_bits(0, hash_bits);
+            writer.write_bits(0, usize::from(hash_bits));
 
             debug_assert!(
                 writer.tell() <= Self::rank_index_total_size(usize::from(hash_bits)),
@@ -277,7 +277,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             return;
         }
 
-        let bucket_size = usize::from(hash_bits + Self::rank_index_bits());
+        let bucket_size = usize::from(hash_bits) + Self::rank_index_bits();
         let hash_bucket_position = hash_bucket * bucket_size;
 
         let hashes64 = unsafe {
@@ -444,7 +444,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             let mut writer = BitWriter::new(hashes64);
             writer.seek(hash_bucket_position);
             writer.write_bits(bit_index as u64, Self::rank_index_bits());
-            writer.write_bits(hash, hash_bits);
+            writer.write_bits(hash, usize::from(hash_bits));
 
             debug_assert!(
                 writer.tell() <= Self::rank_index_total_size(usize::from(hash_bits)),
@@ -589,8 +589,8 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     }
 
     #[inline]
-    fn uniform_coefficient(hash_bits: u8) -> u8 {
-        Self::b(hash_bits).1
+    fn uniform_coefficient(hash_bits: u8) -> usize {
+        usize::from(Self::b(hash_bits).1)
     }
 
     #[inline]
@@ -1040,7 +1040,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 "The writer tell must be 0 or rank index size if there is no previous value"
             );
 
-            writer.write_bits(encoded_hash, hash_bits);
+            writer.write_bits(encoded_hash, usize::from(hash_bits));
         }
 
         // We check that practice matches theory:
@@ -1191,7 +1191,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
         // We write the first hash explicitly, as otherwise it would be
         // written in a very inefficient way.
         let mut previous_hash = iter.next().unwrap();
-        writer.write_bits(previous_hash, target_hash_bits);
+        writer.write_bits(previous_hash, usize::from(target_hash_bits));
 
         if Self::has_rank_index() {
             Self::update_rank_index(hashes_8, target_hash_bits, 0, previous_hash);
@@ -1368,7 +1368,7 @@ struct BypassIter<'a> {
 }
 
 impl Iterator for BypassIter<'_> {
-    type Item = (u64, u8);
+    type Item = (u64, usize);
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -1376,7 +1376,7 @@ impl Iterator for BypassIter<'_> {
             return None;
         }
         let n_bits = core::cmp::min(64, self.bit_index - self.bitstream.last_read_bit_position());
-        Some((self.bitstream.read_bits(n_bits), n_bits as u8))
+        Some((self.bitstream.read_bits(n_bits), n_bits))
     }
 }
 
@@ -1455,7 +1455,7 @@ pub struct PrefixCodeIter<'a, P: Precision, B: Bits> {
     previous_index: u64,
     previous_hash_remainder: u64,
     previous_uniform: u64,
-    uniform_coefficient: u8,
+    uniform_coefficient: usize,
     #[cfg(test)]
     iteration: usize,
     _phantom: PhantomData<GapHash<P, B>>,
