@@ -1336,6 +1336,7 @@ pub enum DispatchedDowngradedIter<'a, P: Precision, B: Bits> {
 }
 
 impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDowngradedIter<'a, P, B> {
+    #[inline]
     fn last_buffered_bit(&self) -> usize {
         match self {
             Self::PrefixCodeDowngradedIter(iter) => iter.last_buffered_bit(),
@@ -1346,6 +1347,7 @@ impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDowngradedIter<'a,
         }
     }
 
+    #[inline]
     fn hash_bits(&self) -> u8 {
         match self {
             Self::PrefixCodeDowngradedIter(iter) => iter.iter.hash_bits,
@@ -1357,6 +1359,7 @@ impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDowngradedIter<'a,
 impl<'a, P: Precision, B: Bits> Iterator for DispatchedDowngradedIter<'a, P, B> {
     type Item = u64;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             Self::PrefixCodeDowngradedIter(iter) => iter.next(),
@@ -1378,6 +1381,7 @@ struct BypassIter<'a> {
 impl Iterator for BypassIter<'_> {
     type Item = (u64, u8);
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if self.bitstream.last_read_bit_position() >= self.bit_index {
             return None;
@@ -1388,6 +1392,7 @@ impl Iterator for BypassIter<'_> {
 }
 
 impl ExactSizeIterator for BypassIter<'_> {
+    #[inline]
     fn len(&self) -> usize {
         self.bit_index
             .saturating_sub(self.bitstream.last_read_bit_position())
@@ -1396,10 +1401,12 @@ impl ExactSizeIterator for BypassIter<'_> {
 }
 
 impl<'a> LastBufferedBit for BypassIter<'a> {
+    #[inline]
     fn last_buffered_bit(&self) -> usize {
         self.bitstream.last_buffered_bit_position()
     }
 
+    #[inline]
     fn hash_bits(&self) -> u8 {
         unreachable!("The BypassIter does not have a hash bits associated with it.")
     }
@@ -1413,17 +1420,19 @@ pub struct PrefixCodeDowngradedIter<'a, P: Precision, B: Bits> {
 }
 
 impl<'a, P: Precision, B: Bits> LastBufferedBit for PrefixCodeDowngradedIter<'a, P, B> {
+    #[inline]
     fn last_buffered_bit(&self) -> usize {
         self.iter.last_buffered_bit()
     }
 
+    #[inline]
     fn hash_bits(&self) -> u8 {
         self.iter.hash_bits
     }
 }
 
 impl<'a, P: Precision, B: Bits> PrefixCodeDowngradedIter<'a, P, B> {
-    #[allow(unsafe_code)]
+    #[inline]
     fn new(hashes: &'a [u8], maximal_bit_index: usize, hash_bits: u8, shift: u8) -> Self {
         Self {
             iter: PrefixCodeIter::new(hashes, maximal_bit_index, hash_bits),
@@ -1435,6 +1444,7 @@ impl<'a, P: Precision, B: Bits> PrefixCodeDowngradedIter<'a, P, B> {
 impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeDowngradedIter<'a, P, B> {
     type Item = u64;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         Some(GapHash::<P, B>::downgrade(
             self.iter.next()?,
@@ -1464,20 +1474,24 @@ pub struct PrefixCodeIter<'a, P: Precision, B: Bits> {
 }
 
 impl<'a, P: Precision, B: Bits> LastBufferedBit for PrefixCodeIter<'a, P, B> {
+    #[inline]
     fn last_buffered_bit(&self) -> usize {
         self.bitstream.last_buffered_bit_position()
     }
 
+    #[inline]
     fn hash_bits(&self) -> u8 {
         self.hash_bits
     }
 }
 
 impl<'a, P: Precision, B: Bits> PrefixCodeIter<'a, P, B> {
+    #[inline]
     fn last_read_bit_position(&self) -> usize {
         self.bitstream.last_read_bit_position()
     }
 
+    #[inline]
     fn into_bypass(self) -> BypassIter<'a> {
         BypassIter {
             bitstream: self.bitstream,
@@ -1486,6 +1500,7 @@ impl<'a, P: Precision, B: Bits> PrefixCodeIter<'a, P, B> {
     }
 
     #[allow(unsafe_code)]
+    #[inline]
     fn new_with_rank_index(
         hashes: &'a [u8],
         maximal_bit_index: usize,
@@ -1536,6 +1551,7 @@ impl<'a, P: Precision, B: Bits> PrefixCodeIter<'a, P, B> {
     }
 
     #[allow(unsafe_code)]
+    #[inline]
     fn new(hashes: &'a [u8], maximal_bit_index: usize, hash_bits: u8) -> Self {
         debug_assert!(
             maximal_bit_index <= hashes.len() * 8 - GapHash::<P, B>::rank_index_total_size(usize::from(hash_bits)),
@@ -1720,6 +1736,7 @@ pub enum DispatchedDecodedIter<'a, P: Precision, B: Bits> {
 }
 
 impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDecodedIter<'a, P, B> {
+    #[inline]
     fn last_buffered_bit(&self) -> usize {
         match self {
             Self::PrefixCodeDecodedIter(iter) => iter.last_buffered_bit(),
@@ -1727,6 +1744,7 @@ impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDecodedIter<'a, P,
         }
     }
 
+    #[inline]
     fn hash_bits(&self) -> u8 {
         match self {
             Self::PrefixCodeDecodedIter(iter) => iter.hash_bits(),
@@ -1738,6 +1756,7 @@ impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDecodedIter<'a, P,
 impl<'a, P: Precision, B: Bits> Iterator for DispatchedDecodedIter<'a, P, B> {
     type Item = (u8, usize);
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             Self::PrefixCodeDecodedIter(iter) => iter.next(),
@@ -1753,17 +1772,19 @@ pub struct PrefixCodeDecodedIter<'a, P: Precision, B: Bits> {
 }
 
 impl<'a, P: Precision, B: Bits> LastBufferedBit for PrefixCodeDecodedIter<'a, P, B> {
+    #[inline]
     fn last_buffered_bit(&self) -> usize {
         self.iter.last_buffered_bit()
     }
 
+    #[inline]
     fn hash_bits(&self) -> u8 {
         self.iter.hash_bits()
     }
 }
 
 impl<'a, P: Precision, B: Bits> PrefixCodeDecodedIter<'a, P, B> {
-    #[allow(unsafe_code)]
+    #[inline]
     fn new(hashes: &'a [u8], maximal_bit_index: usize, hash_bits: u8) -> Self {
         debug_assert!(
             maximal_bit_index <= hashes.len() * 8 - GapHash::<P, B>::rank_index_total_size(usize::from(hash_bits)),
@@ -1779,6 +1800,7 @@ impl<'a, P: Precision, B: Bits> PrefixCodeDecodedIter<'a, P, B> {
 impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeDecodedIter<'a, P, B> {
     type Item = (u8, usize);
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter
             .next()
