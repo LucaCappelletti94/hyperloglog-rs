@@ -186,10 +186,12 @@ mod test_compose_scompose_hash {
     }
 }
 
+#[inline]
 fn flag<P: Precision>(hash: u64, hash_bits: u8) -> bool {
     ((hash >> (hash_bits - P::EXPONENT - 1)) & 1) == 1
 }
 
+#[inline]
 pub(super) const fn smallest_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
     if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
         return 8;
@@ -202,6 +204,7 @@ pub(super) const fn smallest_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
     24
 }
 
+#[inline]
 const fn maximal_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
     if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
         return 8;
@@ -232,6 +235,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     const BIRTHDAY_RELATIVE_ERRORS: &[f64] = SWITCH_HASH_BIRTHDAY_PARADOX_ERRORS
         [P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
 
+    #[inline]
     fn downgrade_inplace(
         hashes: &mut [u8],
         number_of_hashes: usize,
@@ -285,6 +289,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         )
     }
 
+    #[inline]
     fn target_downgraded_hash_bits(
         _number_of_hashes: usize,
         _bit_index: usize,

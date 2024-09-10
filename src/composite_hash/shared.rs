@@ -41,6 +41,7 @@ impl<'a> From<Iter<'a, u32>> for IterVariants<'a> {
 }
 
 impl<'a> IterVariants<'a> {
+    #[inline]
     pub(super) const fn hash_bits(&self) -> u8 {
         match self {
             IterVariants::u8(_) => 8,
@@ -54,6 +55,7 @@ impl<'a> IterVariants<'a> {
 impl Iterator for IterVariants<'_> {
     type Item = u64;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             IterVariants::u8(iter) => iter.next().copied().map(u64::from),
@@ -69,6 +71,7 @@ impl Iterator for IterVariants<'_> {
 }
 
 impl<'a> ExactSizeIterator for IterVariants<'a> {
+    #[inline]
     fn len(&self) -> usize {
         match self {
             IterVariants::u8(iter) => iter.len(),
@@ -91,10 +94,12 @@ pub struct DecodedIter<'a, CH: CompositeHash> {
 }
 
 impl<'a, CH: CompositeHash> LastBufferedBit for DecodedIter<'a, CH> {
+    #[inline]
     fn last_buffered_bit(&self) -> usize {
         (self.number_of_hashes - self.variant.len()) * usize::from(self.variant.hash_bits())
     }
 
+    #[inline]
     fn hash_bits(&self) -> u8 {
         self.variant.hash_bits()
     }
@@ -103,6 +108,7 @@ impl<'a, CH: CompositeHash> LastBufferedBit for DecodedIter<'a, CH> {
 impl<'a, CH: CompositeHash> Iterator for DecodedIter<'a, CH> {
     type Item = (u8, usize);
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.variant.next().map(|hash| {
             let (register, index) = CH::decode(hash, self.variant.hash_bits());
@@ -112,6 +118,7 @@ impl<'a, CH: CompositeHash> Iterator for DecodedIter<'a, CH> {
 }
 
 impl<'a, CH: CompositeHash> ExactSizeIterator for DecodedIter<'a, CH> {
+    #[inline]
     fn len(&self) -> usize {
         self.variant.len()
     }
@@ -141,10 +148,12 @@ pub struct DowngradedIter<'a, CH> {
 }
 
 impl<'a, CH: CompositeHash> LastBufferedBit for DowngradedIter<'a, CH> {
+    #[inline]
     fn last_buffered_bit(&self) -> usize {
         (self.number_of_hashes - self.variant.len()) * usize::from(self.variant.hash_bits())
     }
 
+    #[inline]
     fn hash_bits(&self) -> u8 {
         self.variant.hash_bits()
     }
@@ -153,6 +162,7 @@ impl<'a, CH: CompositeHash> LastBufferedBit for DowngradedIter<'a, CH> {
 impl<'a, CH: CompositeHash> Iterator for DowngradedIter<'a, CH> {
     type Item = u64;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.variant
             .next()
@@ -161,12 +171,14 @@ impl<'a, CH: CompositeHash> Iterator for DowngradedIter<'a, CH> {
 }
 
 impl<'a, CH: CompositeHash> ExactSizeIterator for DowngradedIter<'a, CH> {
+    #[inline]
     fn len(&self) -> usize {
         self.variant.len()
     }
 }
 
 impl<'a, CH: CompositeHash> DowngradedIter<'a, CH> {
+    #[inline]
     /// Create a new iterator from the provided iterator and the number of bits to shift.
     pub(super) fn new(variant: IterVariants<'a>, shift: u8) -> Self {
         DowngradedIter {

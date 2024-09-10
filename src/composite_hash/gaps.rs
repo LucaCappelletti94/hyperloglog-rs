@@ -1588,6 +1588,7 @@ impl<'a, P: Precision, B: Bits> PrefixCodeIter<'a, P, B> {
 impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeIter<'a, P, B> {
     type Item = u64;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         if self.first {
             self.first = false;
