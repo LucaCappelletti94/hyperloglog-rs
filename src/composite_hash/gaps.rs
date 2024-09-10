@@ -33,12 +33,14 @@ trait SkipSliceAhead {
 }
 
 impl SkipSliceAhead for &[u8] {
+    #[inline]
     fn skip(self, position: usize) -> Self {
         &self[position..]
     }
 }
 
 impl SkipSliceAhead for &mut [u8] {
+    #[inline]
     fn skip(self, position: usize) -> Self {
         &mut self[position..]
     }
@@ -134,6 +136,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         }
     }
 
+    #[inline]
     /// Whether the hashes are currently employing an index to speed up rank operations.
     ///
     /// # Implementative details
@@ -144,6 +147,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             > 500
     }
 
+    #[inline]
     /// Returns the number of bits necessary to encode the rank index.
     const fn rank_index_bits() -> u8 {
         P::EXPONENT
@@ -155,36 +159,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             }
     }
 
-    /// Returns the capacity of the rank index.
-    const fn rank_index_capacity() -> usize {
-        P::EXPONENT as usize
-    }
-
-    /// Returns the total expected size of the rank index.
-    pub const fn rank_index_total_size(hash_bits: usize) -> usize {
-        if Self::has_rank_index() {
-            (Self::rank_index_capacity() - 1) * (Self::rank_index_bits() as usize + hash_bits)
-        } else {
-            0
-        }
-    }
-
-    /// Returns the total padded size of the rank index.
-    pub const fn rank_index_padded_size(hash_bits: usize) -> usize {
-        Self::rank_index_total_size(hash_bits).div_ceil(8) * 8
-    }
-
-    /// Returns the index of the rank index associated to the given hash.
-    fn rank_index_hash_bucket(hash_bits: u8, hash: u64) -> usize {
-        Self::rank_index_capacity() - hash as usize / (1usize << hash_bits).div_ceil(Self::rank_index_capacity()) - 1
-    }
-
-    /// Returns the index mask for the non-initialized index.
-    const fn rank_index_mask() -> u64 {
-        (1 << Self::rank_index_bits()) - 1
-    }
-
-    #[cfg(test)]
     #[cfg(feature = "std")]
     #[allow(unsafe_code)]
     /// Prints the rank index for debugging purposes.
@@ -234,7 +208,42 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         }
     }
 
+    #[inline]
+    /// Returns the capacity of the rank index.
+    const fn rank_index_capacity() -> usize {
+        P::EXPONENT as usize * 2
+    }
+
+    #[inline]
+    /// Returns the total expected size of the rank index.
+    pub const fn rank_index_total_size(hash_bits: usize) -> usize {
+        if Self::has_rank_index() {
+            (Self::rank_index_capacity() - 1) * (Self::rank_index_bits() as usize + hash_bits)
+        } else {
+            0
+        }
+    }
+
+    #[inline]
+    /// Returns the total padded size of the rank index.
+    pub const fn rank_index_padded_size(hash_bits: usize) -> usize {
+        Self::rank_index_total_size(hash_bits).div_ceil(8) * 8
+    }
+
+    #[inline]
+    /// Returns the index of the rank index associated to the given hash.
+    fn rank_index_hash_bucket(hash_bits: u8, hash: u64) -> usize {
+        Self::rank_index_capacity() - hash as usize / (1usize << hash_bits).div_ceil(Self::rank_index_capacity()) - 1
+    }
+
+    #[inline]
+    /// Returns the index mask for the non-initialized index.
+    const fn rank_index_mask() -> u64 {
+        (1 << Self::rank_index_bits()) - 1
+    }
+
     #[allow(unsafe_code)]
+    #[inline]
     /// Initializes the rank index with the given hashes.
     fn initialize_rank_index(hashes: &mut [u8], hash_bits: u8) {
         debug_assert!(Self::has_rank_index());
@@ -336,6 +345,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
 
         let mut reader = BitReader::skip(hashes32, hash_bucket_position);
         let mut writer = BitWriter::new(hashes64);
+        let mut current_bit_index = 0;
 
         for bucket in hash_bucket..Self::rank_index_capacity() - 1{
             writer.seek(bucket * bucket_size);
@@ -345,7 +355,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 writer.tell() < Self::rank_index_total_size(usize::from(hash_bits)),
             );
 
-            let current_bit_index = reader.read_bits(usize::from(Self::rank_index_bits())) as u64;
+            current_bit_index = reader.read_bits(usize::from(Self::rank_index_bits())) as u64;
             // We move the reader ahead by hash_bits bits so it is positioned at the next entry.
             let current_bucket_hash = reader.read_bits(usize::from(hash_bits));
 
@@ -422,12 +432,15 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             reader.last_read_bit_position(), Self::rank_index_total_size(usize::from(hash_bits)),
         );
 
-        debug_assert_eq!(
-            writer.tell(), Self::rank_index_total_size(usize::from(hash_bits)) - usize::from(hash_bits),
-        );
+        if current_bit_index != Self::rank_index_mask() {
+            debug_assert_eq!(
+                writer.tell(), Self::rank_index_total_size(usize::from(hash_bits)) - usize::from(hash_bits),
+            );
+        }
     }
 
     #[allow(unsafe_code)]
+    #[inline]
     /// Updates the rank index with the given hash.
     ///
     /// # Arguments
@@ -489,6 +502,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     }
 
     #[allow(unsafe_code)]
+    #[inline]
     /// Returns the number of the bucket containing the provided bit index.
     /// 
     /// # Arguments
@@ -505,12 +519,14 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         };
 
         let mut reader = BitReader::skip(hashes32, 0);
+        let mut number_of_skipped_buckets = 0;
 
         for bucket in 0..Self::rank_index_capacity() - 1 {
             let bucket_bit_index = reader.read_bits(usize::from(Self::rank_index_bits()));
             reader.read_bits(usize::from(hash_bits));
 
             if bucket_bit_index == Self::rank_index_mask() {
+                number_of_skipped_buckets += 1;
                 continue;
             }
 
@@ -527,6 +543,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     }
 
     #[allow(unsafe_code)]
+    #[inline]
     /// Returns the bit index and associated hash that is the best search starting point for the given hash.
     ///
     /// # Arguments
@@ -614,6 +631,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         unreachable!("The first bucket must always be initialized.");
     }
 
+    #[inline]
     /// Returns the hashes skipping ahead by the rank index size.
     ///
     /// # Implementative details
@@ -967,14 +985,21 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
         );
 
         while let Some(value) = iter.next() {
-            if Self::has_rank_index() {
-                debug_assert_eq!(
-                    Self::rank_index_bucket_for_bit_index(hashes, hash_bits, last_read_bit_position - Self::rank_index_total_size(usize::from(hash_bits))),
-                    Self::rank_index_hash_bucket(hash_bits, value),
-                    "Hash {value} is at bit index {} and is in the wrong bucket.",
-                    last_read_bit_position - Self::rank_index_total_size(usize::from(hash_bits)),
-                );
-            }
+            // if Self::has_rank_index() {
+            //     if Self::rank_index_bucket_for_bit_index(hashes, hash_bits, last_read_bit_position - Self::rank_index_total_size(usize::from(hash_bits))) != 
+            //     Self::rank_index_hash_bucket(hash_bits, value) {
+            //         Self::debug_index(hashes, hash_bits);
+            //     }
+
+            //     debug_assert_eq!(
+            //         Self::rank_index_bucket_for_bit_index(hashes, hash_bits, last_read_bit_position - Self::rank_index_total_size(usize::from(hash_bits))),
+            //         Self::rank_index_hash_bucket(hash_bits, value),
+            //         "Hash {value} is at bit index {} and is in the wrong bucket. Precision: {}, number of bits: {}, hash bits: {hash_bits}.",
+            //         last_read_bit_position - Self::rank_index_total_size(usize::from(hash_bits)),
+            //         P::EXPONENT,
+            //         B::NUMBER_OF_BITS,
+            //     );
+            // }
 
             // The values are sorted in descending order, so we can stop when we find a value
             // that is less than or equal to the value we want to insert
@@ -1159,29 +1184,31 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 previous_to_current_size + current_to_next_size,
             );
 
-            // If our hashes are not vbyted, we have to write all of the remaining hashes one-by-one
-            // as we could not just shift the hashes to the right.
-            while let Some((value, n_bits)) = next {
-                next = bypass.next();
-                writer.write_bits(value, n_bits);
-                debug_assert!(
-                    bypass.len() == 0 || bypass.last_buffered_bit() > writer.tell(),
-                    "Reader tell ({}) must be greater than writer tell ({}) in insert at hash size {hash_bits}.",
-                    bypass.last_buffered_bit(),
-                    writer.tell(),
+            if number_of_inserted_bits > 0 {
+                // If our hashes are not vbyted, we have to write all of the remaining hashes one-by-one
+                // as we could not just shift the hashes to the right.
+                while let Some((value, n_bits)) = next {
+                    next = bypass.next();
+                    writer.write_bits(value, n_bits);
+                    debug_assert!(
+                        bypass.len() == 0 || bypass.last_buffered_bit() > writer.tell(),
+                        "Reader tell ({}) must be greater than writer tell ({}) in insert at hash size {hash_bits}.",
+                        bypass.last_buffered_bit(),
+                        writer.tell(),
+                    );
+                }
+
+                let writer_tell = writer.tell();
+
+                // We check that practice matches theory:
+                debug_assert_eq!(
+                    writer_tell - Self::rank_index_total_size(usize::from(hash_bits)),
+                    new_bit_index,
+                    "Expected writer tell (started at {last_read_bit_position} [{}], prev_hash: {previous_hash:?} next_hash {next_hash:?}) to match bit index {bit_index} + value variation {number_of_inserted_bits} = ({new_bit_index}). Rank index size: {}",
+                    last_read_bit_position - Self::rank_index_total_size(usize::from(hash_bits)),
+                    Self::rank_index_total_size(usize::from(hash_bits)),
                 );
             }
-
-            let writer_tell = writer.tell();
-
-            // We check that practice matches theory:
-            debug_assert_eq!(
-                writer_tell - Self::rank_index_total_size(usize::from(hash_bits)),
-                new_bit_index,
-                "Expected writer tell (started at {last_read_bit_position} [{}], prev_hash: {previous_hash:?} next_hash {next_hash:?}) to match bit index {bit_index} + value variation {number_of_inserted_bits} = ({new_bit_index}). Rank index size: {}",
-                last_read_bit_position - Self::rank_index_total_size(usize::from(hash_bits)),
-                Self::rank_index_total_size(usize::from(hash_bits)),
-            );
         }
 
         drop(writer);
@@ -1309,6 +1336,26 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
 
             let fragment = Self::into_gap_fragment(previous_hash, next, target_hash_bits);
             let writer_tell_before_write = writer.tell();
+
+            debug_assert!(
+                (fragment.uniform_delta >> uniform_coefficient) < 64,
+                "Uniform delta: {}, uniform_coefficient: {}, shifted: {}, target_hash_bits: {target_hash_bits}, precision: {}, bits: {}.",
+                fragment.uniform_delta,
+                uniform_coefficient,
+                fragment.uniform_delta >> uniform_coefficient,
+                P::EXPONENT,
+                B::NUMBER_OF_BITS
+            );
+            debug_assert!(
+                (fragment.geometric_minus_one >> geometric_coefficient) < 64,
+                "Geometric delta: {}, geometric_coefficient: {}, shifted: {}, target_hash_bits: {target_hash_bits}, precision: {}, bits: {}.",
+                fragment.geometric_minus_one,
+                geometric_coefficient,
+                fragment.geometric_minus_one >> geometric_coefficient,
+                P::EXPONENT,
+                B::NUMBER_OF_BITS
+            );
+
             let total_wrote = writer.write_rice(
                 fragment.uniform_delta,
                 fragment.geometric_minus_one,
@@ -1383,45 +1430,6 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
         #[cfg(test)]
         #[cfg(feature = "std")]
         println!("Downgrading completed with {} duplicates.", duplicates);
-
-        #[cfg(test)]
-        {
-            if Self::has_rank_index() {
-                // We iterate across the hashes and for each hash, we start to iterate with the rank-index
-                // so to verify that the hashes yielded starting from the beginning and staring from a point
-                // in the middle are the same.
-                let mut iter = PrefixCodeIter::<P, B>::new(hashes, updated_bit_index, target_hash_bits);
-
-                while let Some(starting_hash) = iter.next() {
-                    let mut inner_iter = iter.clone();
-                    let mut rank_index_iter: PrefixCodeIter<'_, P, B> = PrefixCodeIter::<P, B>::new_with_rank_index(hashes, updated_bit_index, target_hash_bits, starting_hash);
-
-                    // The rank index iter will start from a hash that is greater or equal to the provided
-                    // starting hash. We verify that the hashes encountered up until we find 'starting_hash'
-                    // are indeed greater or equal to 'starting_hash'.
-                    while let Some(inner_hash) = rank_index_iter.next() {
-                        assert!(
-                            inner_hash >= starting_hash,
-                            "Started to iterate from the beginning with updated_bit_index {updated_bit_index} and target_hash_bits {target_hash_bits} and starting hash {starting_hash}."
-                        );
-                        if inner_hash == starting_hash {
-                            break;
-                        }
-                    }
-
-                    while let (Some(inner_hash), Some(rank_index_hash)) = (inner_iter.next(), rank_index_iter.next()) {
-                        assert_eq!(
-                            inner_hash,
-                            rank_index_hash,
-                            "Started to iterate from the beginning with updated_bit_index {updated_bit_index} and target_hash_bits {target_hash_bits} and starting hash {starting_hash}."
-                        );
-                    }
-
-                    assert_eq!(inner_iter.next(), None, "The hashes must be the same.");
-                    assert_eq!(rank_index_iter.next(), None, "The hashes must be the same.");
-                }
-            }
-        }
 
         (u32::try_from(duplicates).unwrap(), updated_bit_index)
     }

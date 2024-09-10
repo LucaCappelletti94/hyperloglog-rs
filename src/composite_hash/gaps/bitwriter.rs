@@ -10,12 +10,14 @@ pub struct BitWriter<'a> {
 }
 
 impl<'a> core::ops::Drop for BitWriter<'a> {
+    #[inline]
     fn drop(&mut self) {
         self.flush();
     }
 }
 
 impl<'a> BitWriter<'a> {
+    #[inline]
     pub fn new(data: &'a mut [u64]) -> Self {
         debug_assert!(!data.is_empty());
         Self {
@@ -26,6 +28,7 @@ impl<'a> BitWriter<'a> {
         }
     }
 
+    #[inline]
     pub fn flush(&mut self) {
         let to_flush = 64 - self.space_left_in_buffer;
         if to_flush != 0 {
@@ -56,6 +59,7 @@ impl<'a> BitWriter<'a> {
         }
     }
 
+    #[inline]
     pub fn tell(&self) -> usize {
         self.word_idx * 64 + usize::from(64 - self.space_left_in_buffer)
     }
@@ -83,7 +87,8 @@ impl<'a> BitWriter<'a> {
     }
 
     #[inline]
-    pub fn write_unary(&mut self, value: u64) -> usize {
+    pub(super) fn write_unary(&mut self, value: u64) -> usize {
+        debug_assert!(value < 64, "Value: {}", value);
         debug_assert_ne!(value, u64::MAX);
         debug_assert!(self.space_left_in_buffer > 0);
 
@@ -106,12 +111,33 @@ impl<'a> BitWriter<'a> {
         self.word_idx += 1;
 
         self.buffer = 1;
-        self.space_left_in_buffer += 63 - value as u8;
+        self.space_left_in_buffer = 63 + self.space_left_in_buffer - value as u8;
 
         code_length as usize
     }
 
-    pub fn write_rice(&mut self, uniform_delta: u64, geometric_minus_one: u64, b1: u8, b2: u8) -> usize {
+    #[inline]
+    pub fn write_rice(
+        &mut self,
+        uniform_delta: u64,
+        geometric_minus_one: u64,
+        b1: u8,
+        b2: u8,
+    ) -> usize {
+        debug_assert!(
+            (uniform_delta >> b1) < 64,
+            "Uniform delta: {}, b1: {}, shifted: {}",
+            uniform_delta,
+            b1,
+            uniform_delta >> b1
+        );
+        debug_assert!(
+            (geometric_minus_one >> b2) < 64,
+            "Geometric delta: {}, b2: {}, shifted: {}",
+            geometric_minus_one,
+            b2,
+            geometric_minus_one >> b2
+        );
         self.write_unary(uniform_delta >> b1)
             + usize::from(self.write_bits(uniform_delta, b1))
             + self.write_unary(geometric_minus_one >> b2)

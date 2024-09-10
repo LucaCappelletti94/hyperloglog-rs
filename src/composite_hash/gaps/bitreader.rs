@@ -7,6 +7,7 @@ pub(super) struct BitReader<'a> {
 }
 
 impl<'a> BitReader<'a> {
+    #[inline]
     pub fn new(data: &'a [u32]) -> Self {
         Self {
             data: data.iter(),
@@ -16,6 +17,7 @@ impl<'a> BitReader<'a> {
         }
     }
 
+    #[inline]
     /// Creates a new BitReader skipping ahead `bit_index` bits.
     pub fn skip(mut data: &'a [u32], bit_index: usize) -> Self {
         data = &data[bit_index / 32..];
@@ -107,6 +109,7 @@ impl<'a> BitReader<'a> {
     }
 }
 
+#[inline]
 /// Returns the number of bits required to encode a given value using a Rice code.
 ///
 /// # Arguments

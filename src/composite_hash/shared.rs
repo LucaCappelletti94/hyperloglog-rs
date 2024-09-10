@@ -318,7 +318,7 @@ where
         CH::SMALLEST_VIABLE_HASH_BITS,
     );
     assert!(hash_bits == 8 || hash_bits == 16 || hash_bits == 24 || hash_bits == 32);
-    assert!(bit_index == number_of_hashes * usize::from(hash_bits));
+    assert_eq!(bit_index, number_of_hashes * usize::from(hash_bits));
     let hash_bytes = usize::from(hash_bits / 8);
 
     match find::<CH>(

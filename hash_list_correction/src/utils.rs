@@ -102,11 +102,11 @@ where
     CH: CompositeHash,
 {
     let iterations: u32 = if CH::Precision::EXPONENT < 9 {
-        500_000
+        4_000_000
     } else if CH::Precision::EXPONENT < 10 {
-        50_000
+        1_000_000
     } else {
-        64
+        1024
     };
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));

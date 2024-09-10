@@ -28,7 +28,7 @@ type HLL2 = Hybrid<
     GapHash<Precision18, Bits6>,
 >;
 
-const ITERATIONS: usize = 32;
+const ITERATIONS: usize = 256;
 const MINIMUM_CARDINALITY_FOR_SAMPLING: u64 = 0;
 const MEASUREMENT_STEP: u64 = 1;
 

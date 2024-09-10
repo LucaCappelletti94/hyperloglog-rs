@@ -18,6 +18,7 @@ pub struct SwitchHash<P: Precision, B: Bits> {
     _bits: core::marker::PhantomData<B>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct HashFragment<P: Precision, B: Bits> {
     pub(super) index: u64,
     pub(super) register: u64,
@@ -28,7 +29,7 @@ pub(super) struct HashFragment<P: Precision, B: Bits> {
 
 impl<P: Precision, B: Bits> HashFragment<P, B> {
     #[inline]
-    pub(super) const fn hash_remainder_size(hash_bits: u8) -> u8 {
+    pub const fn hash_remainder_size(hash_bits: u8) -> u8 {
         if hash_bits == P::EXPONENT + B::NUMBER_OF_BITS {
             return 0;
         }
@@ -47,7 +48,7 @@ impl<P: Precision, B: Bits> HashFragment<P, B> {
 
     #[inline]
     pub(super) fn uniform(&self, hash_bits: u8) -> u64 {
-        self.index << Self::hash_remainder_size(hash_bits) | self.hash_remainder
+        (self.index << Self::hash_remainder_size(hash_bits)) | self.hash_remainder
     }
 }
 
@@ -345,7 +346,8 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
             original_hash,
             hash_bits,
             bit_index,
-        ).is_ok()
+        )
+        .is_ok()
     }
 
     #[inline]
