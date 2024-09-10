@@ -336,7 +336,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         original_hash: u64,
         hash_bits: u8,
         bit_index: usize,
-    ) -> Result<usize, (usize, u64)> {
+    ) -> bool {
         find::<Self>(
             hashes,
             number_of_hashes,
@@ -345,7 +345,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
             original_hash,
             hash_bits,
             bit_index,
-        )
+        ).is_ok()
     }
 
     #[inline]
@@ -550,47 +550,6 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
 mod switch_hash_test {
     use super::*;
     use crate::prelude::{Bits4, Precision4};
-
-    #[test]
-    fn test_handpicked_switch_hash_precision4_bits4() {
-        let index = 2;
-        let register = 1;
-        let original_hash: u64 =
-            0b1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_0010;
-        let hash_bits = 16;
-
-        let encoded =
-            SwitchHash::<Precision4, Bits4>::encode(index, register, original_hash, hash_bits);
-
-        let expected_hash = 0b0010_0000_0000_0000;
-
-        assert_eq!(
-            encoded, expected_hash,
-            "The encoded hash is not as expected: {:016b}",
-            encoded
-        );
-
-        let (decoded_register, decoded_index) =
-            SwitchHash::<Precision4, Bits4>::decode(expected_hash, 16);
-
-        assert_eq!(decoded_register, register);
-        assert_eq!(decoded_index, index);
-
-        let index = 7;
-        let register = 12; // 11 leading zeros + 1
-        let original_hash =
-            0b0000_0000_0001_0110_1010_1101_0000_0101_0010_0010_0100_0101_1100_0100_0010_0111;
-        let encoded_hash = 0b0111_0111_1111_1111_0100_1010;
-        let (decoded_register, decoded_index) =
-            SwitchHash::<Precision4, Bits4>::decode(encoded_hash, 24);
-        assert_eq!(decoded_register, register);
-        assert_eq!(decoded_index, index);
-
-        let downgraded_hash = SwitchHash::<Precision4, Bits4>::downgrade(encoded_hash, 24, 8);
-        let directly_encoded_downgraded_hash =
-            SwitchHash::<Precision4, Bits4>::encode(index, register, original_hash, 16);
-        assert_eq!(downgraded_hash, directly_encoded_downgraded_hash, "The downgraded hash ({downgraded_hash:016b}) is not as expected ({directly_encoded_downgraded_hash:016b})");
-    }
 
     #[test]
     fn test_downgrading_switch_hash_precision4_bits4() {

@@ -16,6 +16,15 @@ impl<'a> BitReader<'a> {
         }
     }
 
+    /// Creates a new BitReader skipping ahead `bit_index` bits.
+    pub fn skip(mut data: &'a [u32], bit_index: usize) -> Self {
+        data = &data[bit_index / 32..];
+        let mut reader = Self::new(data);
+        reader.word_idx = bit_index / 32;
+        reader.read_bits(bit_index % 32);
+        reader
+    }
+
     #[inline]
     /// Returns the position of the last bit that was read.
     pub fn last_read_bit_position(&self) -> usize {
@@ -45,7 +54,7 @@ impl<'a> BitReader<'a> {
 
         if n_bits > 32 {
             let new_word = u64::from(self.data.next().unwrap().to_be());
-            self.word_idx += 1; 
+            self.word_idx += 1;
             result = (result << 32) | new_word;
             n_bits -= 32;
         }
@@ -54,7 +63,7 @@ impl<'a> BitReader<'a> {
         debug_assert!(n_bits <= 32);
 
         let new_word = self.data.next().unwrap().to_be();
-        self.word_idx += 1; 
+        self.word_idx += 1;
         self.bits_in_buffer = 32 - n_bits;
         let upcasted: u64 = u64::from(new_word);
         let final_bits: u64 = upcasted >> self.bits_in_buffer;
@@ -80,7 +89,7 @@ impl<'a> BitReader<'a> {
 
         loop {
             let new_word = self.data.next().unwrap().to_be();
-            self.word_idx += 1; 
+            self.word_idx += 1;
 
             if new_word != 0 {
                 let zeros: u64 = u64::from(new_word.leading_zeros());
@@ -99,14 +108,15 @@ impl<'a> BitReader<'a> {
 }
 
 /// Returns the number of bits required to encode a given value using a Rice code.
-/// 
+///
 /// # Arguments
-/// * `n` - The value to be encoded.
-/// * `b` - The number of bits used to encode the remainder.
-pub fn len_rice(n: u64, b: u8) -> usize {
-    usize::try_from(n >> b).unwrap() + 1 + usize::from(b)
+/// * `uniform` - The uniform value to encode.
+/// * `b1` - The rice coefficient to use for the uniform value.
+/// * `geometric` - The geometric value to encode.
+/// * `b2` - The rice coefficient to use for the geometric value.
+pub fn len_rice(uniform_delta: u64, b1: u8, geometric_minus_one: u64, b2: u8) -> usize {
+    usize::try_from((uniform_delta >> b1) + (geometric_minus_one >> b2)).unwrap() + 2 + usize::from(b1 + b2)
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -79,7 +79,6 @@ impl<
                 self.hash_bits(),
                 writer_tell,
             )
-            .is_ok()
         } else {
             self.inner.may_contain(element)
         }

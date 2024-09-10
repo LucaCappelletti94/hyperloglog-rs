@@ -44,6 +44,8 @@ test_utils = { path = "test_utils" }
 serde_json = "1.0"
 wyhash = "0.5.0"
 ahash = "0.8.11"
+color-backtrace = { version = "0.6" }
+ctor = "0.2.8"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
@@ -119,7 +121,7 @@ all-features = true
 
 [profile.test]
 overflow-checks = true   # Disable integer overflow checks.
-debug = false            # Include debug info.
+debug = true            # Include debug info.
 debug-assertions = true  # Enables debug assertions.
 opt-level = 3
 

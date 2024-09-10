@@ -27,6 +27,9 @@ pub enum CompositeHashError {
 pub trait LastBufferedBit {
     /// Returns the last buffered bit.
     fn last_buffered_bit(&self) -> usize;
+
+    /// Returns the hash bits.
+    fn hash_bits(&self) -> u8;
 }
 
 /// A composite hash is a 64-bit hash that encodes a register, index and original hash.
@@ -37,10 +40,10 @@ pub trait CompositeHash: Send + Sync + Debug {
     type Bits: Bits;
 
     /// Iterator on the decoded indices and registers.
-    type Decoded<'a>: Iterator<Item = (u8, usize)> + Debug + LastBufferedBit + ExactSizeIterator;
+    type Decoded<'a>: Iterator<Item = (u8, usize)> + Debug + LastBufferedBit;
 
     /// Iterator on the downgraded composite hashes.
-    type Downgraded<'a>: Iterator<Item = u64> + Debug + LastBufferedBit + ExactSizeIterator;
+    type Downgraded<'a>: Iterator<Item = u64> + Debug + LastBufferedBit;
 
     /// Returns an iterator on the decoded indices and registers.
     fn decoded(
@@ -100,7 +103,7 @@ pub trait CompositeHash: Send + Sync + Debug {
         original_hash: u64,
         hash_bits: u8,
         bit_index: usize,
-    ) -> Result<usize, (usize, u64)>;
+    ) -> bool;
 
     /// Inserts the provided index, register and original hash into the provided slice of composite hashes,
     /// keeping the hashes sorted by index and register, and returns the bit index where (if) the hash was inserted.
@@ -278,7 +281,7 @@ mod test_composite_hash {
                 )) {
                     assert_eq!(
                         reference_hash, hash,
-                        "The reference hash ({reference_hash:064b}) does not match the downgraded hash ({hash:064b}). Working with hash bits {hash_bits}.",
+                        "The reference hash ({reference_hash:064b}) does not match the hash ({hash:064b}). Working with hash bits {hash_bits}.",
                     );
                 }
 
@@ -313,7 +316,6 @@ mod test_composite_hash {
                         hash_bits,
                     );
                     let shift = hash_bits - target_hash_bits;
-                    println!("Downgrading from {hash_bits} to {target_hash_bits}.",);
 
                     let (number_of_duplicates, new_writer_tell) = CH::downgrade_inplace(
                         &mut encoded_hashes,
@@ -322,8 +324,6 @@ mod test_composite_hash {
                         hash_bits,
                         shift,
                     );
-
-                    println!("Downgraded removing {number_of_duplicates} duplicates.");
 
                     let mut last_reference_hash = u64::MAX;
                     let mut reference_duplicates = 0;
@@ -375,7 +375,7 @@ mod test_composite_hash {
                             0
                         )
                         .any(|hash| hash == reference_encoded_hash),
-                        "Hash {reference_encoded_hash} was not found after insertion."
+                        "Hash {reference_encoded_hash} was not found after insertion. We have inserted {number_of_inserted_hashes} hashes so far."
                     );
 
                     // If we attempt to insert the same hash again, it should not be inserted.
@@ -404,8 +404,7 @@ mod test_composite_hash {
                         original_hash,
                         hash_bits,
                         writer_tell
-                    )
-                    .is_ok(),
+                    ),
                     concat!(
                         "Failed to find the hash after inserting it. ",
                         "The register is {} and the index is {}, and the fake hash is {}. ",
@@ -501,20 +500,9 @@ mod test_composite_hash {
     where
         P: ArrayRegister<B>,
     {
-        test_composite_hash_stateless_operations::<gaps::GapHash<P, B, false>>();
+        test_composite_hash_stateless_operations::<gaps::GapHash<P, B>>();
 
         #[cfg(feature = "std")]
-        test_composite_hash::<gaps::GapHash<P, B, false>>();
-    }
-
-    #[test_precisions_and_bits]
-    fn test_gap_switch_hash_vbyte<P: Precision, B: Bits>()
-    where
-        P: ArrayRegister<B>,
-    {
-        test_composite_hash_stateless_operations::<gaps::GapHash<P, B, true>>();
-
-        #[cfg(feature = "std")]
-        test_composite_hash::<gaps::GapHash<P, B, true>>();
+        test_composite_hash::<gaps::GapHash<P, B>>();
     }
 }

@@ -17,6 +17,7 @@ impl<'a> core::ops::Drop for BitWriter<'a> {
 
 impl<'a> BitWriter<'a> {
     pub fn new(data: &'a mut [u64]) -> Self {
+        debug_assert!(!data.is_empty());
         Self {
             data,
             word_idx: 0,
@@ -110,11 +111,11 @@ impl<'a> BitWriter<'a> {
         code_length as usize
     }
 
-    pub fn write_rice(&mut self, uniform: u64, geometric: u64, b1: u8, b2: u8) -> usize {
-        self.write_unary(uniform >> b1)
-            + usize::from(self.write_bits(uniform, b1))
-            + self.write_unary(geometric >> b2)
-            + usize::from(self.write_bits(geometric, b2))
+    pub fn write_rice(&mut self, uniform_delta: u64, geometric_minus_one: u64, b1: u8, b2: u8) -> usize {
+        self.write_unary(uniform_delta >> b1)
+            + usize::from(self.write_bits(uniform_delta, b1))
+            + self.write_unary(geometric_minus_one >> b2)
+            + usize::from(self.write_bits(geometric_minus_one, b2))
     }
 }
 

@@ -25,7 +25,7 @@ type HLL2 = Hybrid<
         <Precision18 as ArrayRegister<Bits6>>::Packed,
         twox_hash::XxHash64,
     >,
-    GapHash<Precision18, Bits6, false>,
+    GapHash<Precision18, Bits6>,
 >;
 
 const ITERATIONS: usize = 32;

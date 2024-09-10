@@ -94,6 +94,10 @@ impl<'a, CH: CompositeHash> LastBufferedBit for DecodedIter<'a, CH> {
     fn last_buffered_bit(&self) -> usize {
         (self.number_of_hashes - self.variant.len()) * usize::from(self.variant.hash_bits())
     }
+
+    fn hash_bits(&self) -> u8 {
+        self.variant.hash_bits()
+    }
 }
 
 impl<'a, CH: CompositeHash> Iterator for DecodedIter<'a, CH> {
@@ -139,6 +143,10 @@ pub struct DowngradedIter<'a, CH> {
 impl<'a, CH: CompositeHash> LastBufferedBit for DowngradedIter<'a, CH> {
     fn last_buffered_bit(&self) -> usize {
         (self.number_of_hashes - self.variant.len()) * usize::from(self.variant.hash_bits())
+    }
+
+    fn hash_bits(&self) -> u8 {
+        self.variant.hash_bits()
     }
 }
 
@@ -313,7 +321,7 @@ where
     assert!(bit_index == number_of_hashes * usize::from(hash_bits));
     let hash_bytes = usize::from(hash_bits / 8);
 
-    match CH::find(
+    match find::<CH>(
         hashes,
         number_of_hashes,
         index,

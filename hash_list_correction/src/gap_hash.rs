@@ -15,7 +15,7 @@ use test_utils::prelude::write_csv;
 /// Procedural macro to generate the gap_hash_correction function for the provided precision,
 /// and bit sizes.
 macro_rules! generate_gap_hash_correction_for_precision {
-    ($reports:ident, $multiprogress:ident, $vbyte:ident, $precision:ty, $($bit_size:ty),*) => {
+    ($reports:ident, $multiprogress:ident, $precision:ty, $($bit_size:ty),*) => {
         let progress_bar = $multiprogress.add(ProgressBar::new(3 as u64));
 
         progress_bar.set_style(
@@ -28,7 +28,7 @@ macro_rules! generate_gap_hash_correction_for_precision {
         progress_bar.tick();
 
         $(
-            let report = hash_correction::<GapHash<$precision, $bit_size, $vbyte>>($multiprogress);
+            let report = hash_correction::<GapHash<$precision, $bit_size>>($multiprogress);
             $reports.push(report);
             progress_bar.inc(1);
         )*
@@ -39,7 +39,7 @@ macro_rules! generate_gap_hash_correction_for_precision {
 
 /// Procedural macro to generate the gap_hash_correction function for the provided precisions.
 macro_rules! generate_gap_hash_correction_for_precisions {
-    ($reports:ident, $multiprogress:ident, $vbyte:ident, $($precision:ty),*) => {
+    ($reports:ident, $multiprogress:ident, $($precision:ty),*) => {
         let progress_bar = $multiprogress.add(ProgressBar::new(15));
 
         progress_bar.set_style(
@@ -52,7 +52,7 @@ macro_rules! generate_gap_hash_correction_for_precisions {
         progress_bar.tick();
 
         $(
-            generate_gap_hash_correction_for_precision!($reports, $multiprogress, $vbyte, $precision, Bits4, Bits5, Bits6);
+            generate_gap_hash_correction_for_precision!($reports, $multiprogress, $precision, Bits4, Bits5, Bits6);
             progress_bar.inc(1);
         )*
 
@@ -60,13 +60,12 @@ macro_rules! generate_gap_hash_correction_for_precisions {
     };
 }
 
-pub fn compute_gap_hash_correction<const VBYTE: bool>() {
+pub fn compute_gap_hash_correction() {
     let mut reports: Vec<(HashCorrection, CorrectionPerformance)> = Vec::new();
     let multiprogress = &MultiProgress::new();
     generate_gap_hash_correction_for_precisions!(
         reports,
         multiprogress,
-        VBYTE,
         Precision4,
         Precision5,
         Precision6,
@@ -85,11 +84,7 @@ pub fn compute_gap_hash_correction<const VBYTE: bool>() {
     );
     multiprogress.clear().unwrap();
 
-    let path = if VBYTE {
-        "gap_hash_correction_vbyte.csv"
-    } else {
-        "gap_hash_correction.csv"
-    };
+    let path = "gap_hash_correction.csv";
 
     write_csv(reports.iter().map(|(_, c)| c), path);
 
@@ -139,17 +134,9 @@ pub fn compute_gap_hash_correction<const VBYTE: bool>() {
         })
         .collect::<Vec<TokenStream>>();
 
-    let paradox_cardinalities: Ident = if VBYTE {
-        Ident::new("GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES_VBYTE", proc_macro2::Span::call_site())
-    } else {
-        Ident::new("GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES", proc_macro2::Span::call_site())
-    };
+    let paradox_cardinalities: Ident = Ident::new("GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES", proc_macro2::Span::call_site());
 
-    let paradox_errors: Ident = if VBYTE {
-        Ident::new("GAP_HASH_BIRTHDAY_PARADOX_ERRORS_VBYTE", proc_macro2::Span::call_site())
-    } else {
-        Ident::new("GAP_HASH_BIRTHDAY_PARADOX_ERRORS", proc_macro2::Span::call_site())
-    };
+    let paradox_errors: Ident = Ident::new("GAP_HASH_BIRTHDAY_PARADOX_ERRORS", proc_macro2::Span::call_site());
 
     let output = quote! {
         //! Correction coefficients for the gap hash birthday paradox.
@@ -166,11 +153,7 @@ pub fn compute_gap_hash_correction<const VBYTE: bool>() {
     };
 
     // We write out the output token stream to '../src/composite_hash/gap_birthday_paradox.rs'
-    let output_path = if VBYTE {
-        "../src/composite_hash/gap_birthday_paradox_vbyte.rs"
-    } else {
-        "../src/composite_hash/gap_birthday_paradox.rs"
-    };
+    let output_path = "../src/composite_hash/gap_birthday_paradox.rs";
 
     // Convert the generated TokenStream to a string
     let code_string = output.to_string();
