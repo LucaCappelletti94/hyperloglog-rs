@@ -757,10 +757,6 @@ impl<const N: usize, V: VariableWord> Array<N, V> {
 
             if Self::is_bridge_offset(value_offset) && (!Self::has_padding(len) && i != N - 1) {
                 let (low, high) = self.words.split_at_mut(i + 1);
-                debug_assert!(
-                    high.len() > 0,
-                    "The high part of the array should not be empty, with size {N} at index {i}",
-                );
                 let low = &mut low[i];
                 let high = &mut high[0];
                 let value = extract_bridge_value_from_word::<V>(*low, *high, value_offset);

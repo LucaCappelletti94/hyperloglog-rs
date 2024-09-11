@@ -1,5 +1,5 @@
 //! Utilities used across the composite hash submodule.
-use super::{CompositeHash, CompositeHashError, LastBufferedBit};
+use super::{CompositeHash, SaturationError, LastBufferedBit};
 use core::slice::Iter;
 
 /// Iterator variants.
@@ -193,6 +193,10 @@ impl<'a, CH: CompositeHash> DowngradedIter<'a, CH> {
 #[inline]
 #[must_use]
 #[allow(unsafe_code)]
+#[expect(
+    clippy::cast_ptr_alignment,
+    reason = "The hashes are stored in a slice of originally u64s, so the alignment is maintained."
+)]
 pub(super) fn into_variant(
     hashes: &[u8],
     number_of_hashes: usize,
@@ -206,19 +210,19 @@ pub(super) fn into_variant(
         8 => IterVariants::u8(hashes.iter()),
         16 => {
             let hashes: &[u16] = unsafe {
-                core::slice::from_raw_parts(hashes.as_ptr() as *const u16, hashes.len() / 2)
+                core::slice::from_raw_parts(hashes.as_ptr().cast::<u16>(), hashes.len() / 2)
             };
             IterVariants::u16(hashes.iter())
         }
         24 => {
             let hashes: &[[u8; 3]] = unsafe {
-                core::slice::from_raw_parts(hashes.as_ptr() as *const [u8; 3], hashes.len() / 3)
+                core::slice::from_raw_parts(hashes.as_ptr().cast::<[u8; 3]>(), hashes.len() / 3)
             };
             IterVariants::u24(hashes.iter())
         }
         32 => {
             let hashes: &[u32] = unsafe {
-                core::slice::from_raw_parts(hashes.as_ptr() as *const u32, hashes.len() / 4)
+                core::slice::from_raw_parts(hashes.as_ptr().cast::<u32>(), hashes.len() / 4)
             };
             IterVariants::u32(hashes.iter())
         }
@@ -228,6 +232,10 @@ pub(super) fn into_variant(
 
 #[inline]
 #[allow(unsafe_code)]
+#[expect(
+    clippy::cast_ptr_alignment,
+    reason = "The hashes are stored in a slice of originally u64s, so the alignment is maintained."
+)]
 pub(super) fn find<CH>(
     hashes: &[u8],
     number_of_hashes: usize,
@@ -261,7 +269,7 @@ where
         2 => {
             // We transmute the hash to a u16, as we will be comparing it with other u16s.
             let hashes: &[u16] = unsafe {
-                core::slice::from_raw_parts(hashes.as_ptr() as *const u16, hashes.len() / 2)
+                core::slice::from_raw_parts(hashes.as_ptr().cast::<u16>(), hashes.len() / 2)
             };
             let hash = u16::try_from(encoded_hash).unwrap();
             debug_assert_eq!(hashes.len(), number_of_hashes);
@@ -276,7 +284,7 @@ where
             // Since these values are stored in little-endian, we need to reverse the bytes into a u32 before
             // comparing them.
             let hashes: &[[u8; 3]] = unsafe {
-                core::slice::from_raw_parts(hashes.as_ptr() as *const [u8; 3], hashes.len() / 3)
+                core::slice::from_raw_parts(hashes.as_ptr().cast::<[u8; 3]>(), hashes.len() / 3)
             };
             let hash: u32 = u32::try_from(encoded_hash).unwrap();
             debug_assert_eq!(hashes.len(), number_of_hashes);
@@ -294,7 +302,7 @@ where
         4 => {
             // We transmute the hash to a u32, as we will be comparing it with other u32s.
             let hashes: &[u32] = unsafe {
-                core::slice::from_raw_parts(hashes.as_ptr() as *const u32, hashes.len() / 4)
+                core::slice::from_raw_parts(hashes.as_ptr().cast::<u32>(), hashes.len() / 4)
             };
             let hash = u32::try_from(encoded_hash).unwrap();
             debug_assert_eq!(hashes.len(), number_of_hashes);
@@ -310,6 +318,10 @@ where
 
 #[inline]
 #[allow(unsafe_code)]
+#[expect(
+    clippy::cast_ptr_alignment,
+    reason = "The hashes are stored in a slice of originally u64s, so the alignment is maintained."
+)]
 pub(super) fn insert_sorted_desc<CH>(
     hashes: &mut [u8],
     number_of_hashes: usize,
@@ -318,7 +330,7 @@ pub(super) fn insert_sorted_desc<CH>(
     register: u8,
     original_hash: u64,
     hash_bits: u8,
-) -> Result<Option<usize>, CompositeHashError>
+) -> Result<Option<usize>, SaturationError>
 where
     CH: CompositeHash,
 {
@@ -354,9 +366,9 @@ where
 
             if bit_index / 8 + hash_bytes > hashes.len() {
                 if hash_bits == CH::SMALLEST_VIABLE_HASH_BITS {
-                    return Err(CompositeHashError::Saturation);
+                    return Err(SaturationError::Saturation);
                 }
-                return Err(CompositeHashError::DowngradableSaturation);
+                return Err(SaturationError::DowngradableSaturation);
             }
 
             let index = bits / usize::from(hash_bits);
@@ -378,7 +390,7 @@ where
                 2 => {
                     let hashes: &mut [u16] = unsafe {
                         core::slice::from_raw_parts_mut(
-                            hashes.as_mut_ptr() as *mut u16,
+                            hashes.as_mut_ptr().cast::<u16>(),
                             hashes.len() / 2,
                         )
                     };
@@ -388,7 +400,7 @@ where
                 3 => {
                     let hashes: &mut [[u8; 3]] = unsafe {
                         core::slice::from_raw_parts_mut(
-                            hashes.as_mut_ptr() as *mut [u8; 3],
+                            hashes.as_mut_ptr().cast::<[u8; 3]>(),
                             hashes.len() / 3,
                         )
                     };
@@ -400,7 +412,7 @@ where
                 4 => {
                     let hashes: &mut [u32] = unsafe {
                         core::slice::from_raw_parts_mut(
-                            hashes.as_mut_ptr() as *mut u32,
+                            hashes.as_mut_ptr().cast::<u32>(),
                             hashes.len() / 4,
                         )
                     };

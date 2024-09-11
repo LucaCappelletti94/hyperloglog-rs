@@ -4,7 +4,7 @@ use super::shared::{find, insert_sorted_desc, into_variant, DecodedIter, Downgra
 use super::switch_birthday_paradox::{
     SWITCH_HASH_BIRTHDAY_PARADOX_CARDINALITIES, SWITCH_HASH_BIRTHDAY_PARADOX_ERRORS,
 };
-use super::{CompositeHash, CompositeHashError};
+use super::{CompositeHash, SaturationError};
 use crate::{bits::Bits, prelude::Precision};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -365,7 +365,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         register: u8,
         original_hash: u64,
         hash_bits: u8,
-    ) -> Result<Option<usize>, CompositeHashError> {
+    ) -> Result<Option<usize>, SaturationError> {
         insert_sorted_desc::<Self>(
             hashes,
             number_of_hashes,

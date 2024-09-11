@@ -7,7 +7,7 @@ mod optimal_codes;
 use super::gap_birthday_paradox::{
     GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES, GAP_HASH_BIRTHDAY_PARADOX_ERRORS,
 };
-use super::{CompositeHash, CompositeHashError, Debug, LastBufferedBit, Precision, SwitchHash};
+use super::{CompositeHash, SaturationError, Debug, LastBufferedBit, Precision, SwitchHash};
 use crate::bits::Bits;
 use bitreader::{len_rice, BitReader};
 use bitwriter::BitWriter;
@@ -153,10 +153,9 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         P::EXPONENT as usize
             + match B::NUMBER_OF_BITS {
                 4 => 2,
-                5 => 3,
-                6 => 3,
+                5 | 6 => 3,
                 _ => unreachable!(),
-            } as usize
+            }
     }
 
     #[inline]
@@ -166,16 +165,18 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     }
 
     #[inline]
+    #[must_use]
     /// Returns the total expected size of the rank index.
     pub const fn rank_index_total_size(hash_bits: usize) -> usize {
         if Self::has_rank_index() {
-            (Self::rank_index_capacity() - 1) * (Self::rank_index_bits() as usize + hash_bits)
+            (Self::rank_index_capacity() - 1) * (Self::rank_index_bits() + hash_bits)
         } else {
             0
         }
     }
 
     #[inline]
+    #[must_use]
     /// Returns the total padded size of the rank index.
     pub const fn rank_index_padded_size(hash_bits: usize) -> usize {
         Self::rank_index_total_size(hash_bits).div_ceil(8) * 8
@@ -201,7 +202,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
 
         let hashes64 = unsafe {
             core::slice::from_raw_parts_mut(
-                hashes.as_mut_ptr() as *mut u64,
+                hashes.as_mut_ptr().cast::<u64>(),
                 hashes.len() / core::mem::size_of::<u64>(),
             )
         };
@@ -282,14 +283,14 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
 
         let hashes64 = unsafe {
             core::slice::from_raw_parts_mut(
-                hashes.as_mut_ptr() as *mut u64,
+                hashes.as_mut_ptr().cast::<u64>(),
                 hashes.len() / core::mem::size_of::<u64>(),
             )
         };
 
         let hashes32 = unsafe {
             core::slice::from_raw_parts(
-                hashes.as_ptr() as *const u32,
+                hashes.as_ptr().cast::<u32>(),
                 hashes.len() / core::mem::size_of::<u32>(),
             )
         };
@@ -306,7 +307,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 writer.tell() < Self::rank_index_total_size(usize::from(hash_bits)),
             );
 
-            current_bit_index = reader.read_bits(usize::from(Self::rank_index_bits())) as u64;
+            current_bit_index = reader.read_bits(Self::rank_index_bits()) as u64;
             // We move the reader ahead by hash_bits bits so it is positioned at the next entry.
             let current_bucket_hash = reader.read_bits(usize::from(hash_bits));
 
@@ -401,7 +402,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// * `hash` - The hash to update the rank index with.
     fn update_rank_index(hashes: &mut [u8], hash_bits: u8, bit_index: usize, hash: u64) {
         debug_assert!(
-            usize::try_from(bit_index).unwrap()
+            bit_index
                 <= hashes.len() * 8 - Self::rank_index_total_size(usize::from(hash_bits)),
             "The bit index ({bit_index}) must be less than the number of bits in the hashes."
         );
@@ -412,29 +413,29 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         }
 
         let hash_bucket_position =
-            (hash_bucket - 1) * (usize::from(Self::rank_index_bits()) + usize::from(hash_bits));
+            (hash_bucket - 1) * (Self::rank_index_bits() + usize::from(hash_bits));
 
         debug_assert!(
             hash_bucket_position < hashes.len(),
             "The hash ({hash}) has hash bucket {hash_bucket}, but a hash bucket has size {} and the hashes only have {} bits, while the position in bits of the bucket would be {hash_bucket_position}.",
-            usize::from(Self::rank_index_bits()) + usize::from(hash_bits),
+            Self::rank_index_bits() + usize::from(hash_bits),
             hashes.len()*8,
         );
 
         let hashes32 = unsafe {
             core::slice::from_raw_parts(
-                hashes.as_ptr() as *const u32,
+                hashes.as_ptr().cast::<u32>(),
                 hashes.len() / core::mem::size_of::<u32>(),
             )
         };
 
         let mut reader = BitReader::skip(hashes32, hash_bucket_position);
-        let bucket_bit_index = reader.read_bits(usize::from(Self::rank_index_bits()));
+        let bucket_bit_index = reader.read_bits(Self::rank_index_bits());
         let bucket_hash = reader.read_bits(usize::from(hash_bits));
 
         let hashes64 = unsafe {
             core::slice::from_raw_parts_mut(
-                hashes.as_mut_ptr() as *mut u64,
+                hashes.as_mut_ptr().cast::<u64>(),
                 hashes.len() / core::mem::size_of::<u64>(),
             )
         };
@@ -500,7 +501,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
 
         let hashes32 = unsafe {
             core::slice::from_raw_parts(
-                hashes.as_ptr() as *const u32,
+                hashes.as_ptr().cast::<u32>(),
                 hashes.len() / core::mem::size_of::<u32>(),
             )
         };
@@ -517,11 +518,11 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             }
 
             let hash_bucket_position =
-                (bucket - 1) * (usize::from(Self::rank_index_bits()) + usize::from(hash_bits));
+                (bucket - 1) * (Self::rank_index_bits() + usize::from(hash_bits));
 
             let mut reader = BitReader::skip(hashes32, hash_bucket_position);
 
-            let bit_index = reader.read_bits(usize::from(Self::rank_index_bits()));
+            let bit_index = reader.read_bits(Self::rank_index_bits());
             let hash = reader.read_bits(usize::from(hash_bits));
 
             debug_assert!(
@@ -776,7 +777,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
         register: u8,
         original_hash: u64,
         hash_bits: u8,
-    ) -> Result<Option<usize>, CompositeHashError> {
+    ) -> Result<Option<usize>, SaturationError> {
         // We check that the provided bit index is within bounds.
         debug_assert!(
             bit_index <= hashes.len() * 8 - Self::rank_index_total_size(usize::from(hash_bits)),
@@ -799,14 +800,14 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                     // we must declare complete Saturation, which implies switching from the
                     // HashList to the HyperLogLog registers.
                     if !Self::has_rice_coefficients() {
-                        return Err(CompositeHashError::Saturation);
+                        return Err(SaturationError::Saturation);
                     }
 
                     // We check whether we can dowgrade to the current hash bits, or if we need to
                     // downgrade to a smaller hash bits.
                     let next_hash_bits = Self::next_hash_bits(hash_bits);
                     if hash_bits > next_hash_bits {
-                        return Err(CompositeHashError::DowngradableSaturation);
+                        return Err(SaturationError::DowngradableSaturation);
                     };
 
                     let (duplicates, new_bit_index) =
@@ -845,7 +846,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
         );
 
         let hashes_ref: &[u8] =
-            unsafe { core::slice::from_raw_parts(hashes.as_ptr() as *const u8, hashes.len()) };
+            unsafe { core::slice::from_raw_parts(hashes.as_ptr().cast::<u8>(), hashes.len()) };
 
         let encoded_hash = Self::encode(index, register, original_hash, hash_bits);
 
@@ -988,14 +989,14 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
             > hashes_ref.len() * 8
         {
             if hash_bits == Self::SMALLEST_VIABLE_HASH_BITS {
-                return Err(CompositeHashError::Saturation);
+                return Err(SaturationError::Saturation);
             }
-            return Err(CompositeHashError::DowngradableSaturation);
+            return Err(SaturationError::DowngradableSaturation);
         }
 
         let hashes64 = unsafe {
             core::slice::from_raw_parts_mut(
-                hashes.as_mut_ptr() as *mut u64,
+                hashes.as_mut_ptr().cast::<u64>(),
                 hashes.len() / core::mem::size_of::<u64>(),
             )
         };
@@ -1158,7 +1159,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
         debug_assert!(hashes.len() % core::mem::size_of::<u64>() == 0);
         let hashes_64 = unsafe {
             core::slice::from_raw_parts_mut(
-                hashes.as_mut_ptr() as *mut u64,
+                hashes.as_mut_ptr().cast::<u64>(),
                 hashes.len() / core::mem::size_of::<u64>(),
             )
         };
@@ -1166,7 +1167,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
         // Copy of the mutable reference of the hashes which we employ
         // to write the new hashes.
         let hashes_8: &mut [u8] = unsafe {
-            core::slice::from_raw_parts_mut(hashes.as_mut_ptr() as *mut u8, hashes.len())
+            core::slice::from_raw_parts_mut(hashes.as_mut_ptr().cast::<u8>(), hashes.len())
         };
 
         #[cfg(test)]
@@ -1517,8 +1518,8 @@ impl<'a, P: Precision, B: Bits> PrefixCodeIter<'a, P, B> {
             first: true,
             bitstream: BitReader::skip(
                 unsafe {
-                    core::slice::from_raw_parts_mut(
-                        hashes.as_ptr() as *mut u32,
+                    core::slice::from_raw_parts(
+                        hashes.as_ptr().cast::<u32>(),
                         hashes.len() / core::mem::size_of::<u32>(),
                     )
                 },
@@ -1550,8 +1551,8 @@ impl<'a, P: Precision, B: Bits> PrefixCodeIter<'a, P, B> {
             first: true,
             bitstream: BitReader::skip(
                 unsafe {
-                    core::slice::from_raw_parts_mut(
-                        hashes.as_ptr() as *mut u32,
+                    core::slice::from_raw_parts(
+                        hashes.as_ptr().cast::<u32>(),
                         hashes.len() / core::mem::size_of::<u32>(),
                     )
                 },
@@ -1815,7 +1816,7 @@ mod tests {
             // each one followed by 'hash_bits' zeros.
             let hashes = unsafe {
                 core::slice::from_raw_parts(
-                    hashes.as_ptr() as *const u32,
+                    hashes.as_ptr().cast::<u32>(),
                     hashes.len() / core::mem::size_of::<u32>(),
                 )
             };

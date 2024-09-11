@@ -16,7 +16,7 @@ mod gap_birthday_paradox;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Enumeration of errors that can occur when downgrading a composite hash.
-pub enum CompositeHashError {
+pub enum SaturationError {
     /// The Hash List is saturated but can be downgraded.
     DowngradableSaturation,
     /// The Hash List is saturated and cannot be downgraded.
@@ -93,8 +93,8 @@ pub trait CompositeHash: Send + Sync + Debug {
     /// An option with the index, in bits, where the provided index, register and original hash are stored.
     ///
     /// # Errors
-    /// * `CompositeHashError::Saturation` - The Hash List is saturated and cannot be downgraded.
-    /// * `CompositeHashError::DowngradableSaturation` - The Hash List is saturated but can be downgraded.
+    /// * `SaturationError::Saturation` - The Hash List is saturated and cannot be downgraded.
+    /// * `SaturationError::DowngradableSaturation` - The Hash List is saturated but can be downgraded.
     fn find(
         hashes: &[u8],
         number_of_hashes: usize,
@@ -118,8 +118,8 @@ pub trait CompositeHash: Send + Sync + Debug {
     /// * `hash_bits` - The number of bits for the hash to encode.
     ///
     /// # Errors
-    /// * `CompositeHashError::Saturation` - The Hash List is saturated and cannot be downgraded.
-    /// * `CompositeHashError::DowngradableSaturation` - The Hash List is saturated but can be downgraded.
+    /// * `SaturationError::Saturation` - The Hash List is saturated and cannot be downgraded.
+    /// * `SaturationError::DowngradableSaturation` - The Hash List is saturated but can be downgraded.
     fn insert_sorted_desc(
         hashes: &mut [u8],
         number_of_hashes: usize,
@@ -128,7 +128,7 @@ pub trait CompositeHash: Send + Sync + Debug {
         register: u8,
         original_hash: u64,
         hash_bits: u8,
-    ) -> Result<Option<usize>, CompositeHashError>;
+    ) -> Result<Option<usize>, SaturationError>;
 
     /// Decodes the provided composite hash into the register and index.
     ///
@@ -304,12 +304,12 @@ mod test_composite_hash {
                     hash_bits,
                 );
 
-                if let Err(CompositeHashError::Saturation) = result {
+                if let Err(SaturationError::Saturation) = result {
                     saturation_reached = true;
                     break;
                 }
 
-                if let Err(CompositeHashError::DowngradableSaturation) = result {
+                if let Err(SaturationError::DowngradableSaturation) = result {
                     let target_hash_bits = CH::target_downgraded_hash_bits(
                         number_of_inserted_hashes,
                         writer_tell,

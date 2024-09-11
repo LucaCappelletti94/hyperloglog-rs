@@ -1,4 +1,4 @@
-//! Optimal codes for the gap between subsequent hashes in the Listhash variant of HyperLogLog.
+//! Optimal codes for the gap between subsequent hashes in the `ListHash` variant of [`HyperLogLog`].
 /// The optimal Rice code coefficients for the different precisions and bit sizes, when using hash-packing.
 pub(super) const OPTIMAL_RICE_COEFFICIENTS: [[&[(u8, u8)]; 3]; 15] = [
     [&[], &[], &[(10u8, 0u8)]],

@@ -141,11 +141,19 @@ pub fn compute_gap_hash_correction() {
     let output = quote! {
         //! Correction coefficients for the gap hash birthday paradox.
 
+        #[expect(
+            clippy::unreadable_literal,
+            reason = "The values are used as a lookup table for the cardinalities."
+        )]
         /// The cardinalities for the gap hash birthday paradox.
         pub(super) const #paradox_cardinalities: [[&[u32]; 3]; 15] = [
             #(#cardinalities),*
         ];
 
+        #[expect(
+            clippy::unreadable_literal,
+            reason = "The values are used as a lookup table for the errors."
+        )]
         /// The relative errors for the gap hash birthday paradox.
         pub(super) const #paradox_errors: [[&[f64]; 3]; 15] = [
             #(#errors),*

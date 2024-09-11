@@ -41,10 +41,6 @@ impl<'a> BitWriter<'a> {
     }
 
     #[inline]
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "All involved values are necessarily less than 64"
-    )]
     pub fn seek(&mut self, bits_idx: usize) {
         debug_assert!(bits_idx < self.data.len() * 64,);
         self.flush();

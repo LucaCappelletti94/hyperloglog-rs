@@ -118,32 +118,23 @@ impl<'a> BenchmarkResults<'a> {
         );
 
         // Calculate the improvement percentage
-        let improvement_percentage = if self.estimate_feature_target() {
-            ((self.new_stats.mean - self.old_stats.mean).abs() / self.old_stats.mean) * 100.0
-        } else {
-            ((self.new_stats.mean - self.old_stats.mean).abs() / self.old_stats.mean) * 100.0
-        };
+        let improvement_percentage =
+            ((self.new_stats.mean - self.old_stats.mean).abs() / self.old_stats.mean) * 100.0;
 
         // Print the p-value and significance
         match self.p_value {
             TestResult::Significant(p_value) => {
                 println!(
-                    "{}: {} ({:.4})",
+                    "{}: YES ({:.4})",
                     "Statistical Significance".green(),
-                    "YES",
                     p_value
                 );
             }
             TestResult::NotSignificant(p_value) => {
-                println!(
-                    "{}: {} ({:.4})",
-                    "Statistical Significance".red(),
-                    "NO",
-                    p_value
-                );
+                println!("{}: NO ({:.4})", "Statistical Significance".red(), p_value);
             }
             TestResult::Unknown => {
-                println!("{}: {}", "Statistical Significance".red(), "UNKNOWN");
+                println!("{}: UNKNOWN", "Statistical Significance".red());
             }
         }
 
@@ -197,12 +188,10 @@ pub fn compare_features<'a>(
             } else {
                 TestResult::NotSignificant(test.p_value())
             }
+        } else if new_mean == old_mean {
+            TestResult::NotSignificant(1.0)
         } else {
-            if new_mean == old_mean {
-                TestResult::NotSignificant(1.0)
-            } else {
-                TestResult::Unknown
-            }
+            TestResult::Unknown
         },
     }
 }

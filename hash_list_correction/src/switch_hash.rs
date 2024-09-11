@@ -139,7 +139,7 @@ pub fn compute_switch_hash_correction() {
         pub(super) const SWITCH_HASH_BIRTHDAY_PARADOX_CARDINALITIES: [[&[u32]; 3]; 15] = [
             #(#cardinalities),*
         ];
-
+        
         /// The relative errors for the switch hash birthday paradox.
         pub(super) const SWITCH_HASH_BIRTHDAY_PARADOX_ERRORS: [[&[f64]; 3]; 15] = [
             #(#errors),*

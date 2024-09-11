@@ -1,6 +1,6 @@
 //! Marker struct for the hybrid approach, that keeps the hash explicit up until they fit into the registers.
 
-use crate::composite_hash::{CompositeHash, CompositeHashError, SwitchHash};
+use crate::composite_hash::{CompositeHash, SaturationError, SwitchHash};
 use crate::prelude::*;
 use core::cmp::Ordering;
 use core::fmt::Debug;
@@ -134,12 +134,12 @@ impl<
                     inserted_position.is_some()
                 }
                 Err(err) => match err {
-                    CompositeHashError::DowngradableSaturation => {
+                    SaturationError::DowngradableSaturation => {
                         self.downgrade();
                         debug_assert!(self.is_hash_list());
                         self.insert(element)
                     }
-                    CompositeHashError::Saturation => {
+                    SaturationError::Saturation => {
                         self.dehybridize();
                         debug_assert!(!self.is_hash_list());
                         self.insert(element)

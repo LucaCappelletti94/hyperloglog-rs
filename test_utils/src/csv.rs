@@ -60,7 +60,6 @@ pub fn append_csv<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: Serial
     }
 
     let file = std::fs::OpenOptions::new()
-        .write(true)
         .append(true)
         .open(path)
         .unwrap();
