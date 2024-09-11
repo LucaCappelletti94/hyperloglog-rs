@@ -65,6 +65,10 @@ impl<'a> BitWriter<'a> {
         debug_assert!(n_bits <= 64);
         debug_assert!(self.space_left_in_buffer > 0);
 
+        if n_bits == 0 {
+            return 0;
+        }
+
         if n_bits < self.space_left_in_buffer {
             self.buffer <<= n_bits;
             self.buffer |= value & !(u64::MAX << n_bits as u32);

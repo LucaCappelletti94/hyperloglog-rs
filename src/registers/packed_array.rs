@@ -410,63 +410,33 @@ impl<const N: usize, V: VariableWord> AsRef<[u64; N]> for Array<N, V> {
     }
 }
 
-macro_rules! impl_as_ref_mut {
-    ($($typ:ty),*) => {
-        $(
-            impl<const N: usize, V2> AsRef<[$typ]>
-                for Array<N, V2>
-            {
-                #[inline]
-                #[allow(unsafe_code)]
-                fn as_ref(&self) -> &[$typ] {
-                    let words_u64: &[u64] = self.words.as_ref();
-                    unsafe { core::slice::from_raw_parts(words_u64.as_ptr().cast::<$typ>(), words_u64.len() * 8 / core::mem::size_of::<$typ>()) }
-                }
-            }
-
-            impl<const N: usize, V2> AsMut<[$typ]>
-                for Array<N, V2>
-            {
-                #[inline]
-                #[allow(unsafe_code)]
-                fn as_mut(&mut self) -> &mut [$typ] {
-                    let words_u64: &mut [u64] = self.words.as_mut();
-                    let slice = unsafe { core::slice::from_raw_parts_mut(words_u64.as_mut_ptr().cast::<$typ>(), words_u64.len() * 8 / core::mem::size_of::<$typ>()) };
-                    debug_assert_eq!(slice.len() % core::mem::size_of::<u64>(), 0);
-                    slice
-                }
-            }
-        )*
-    };
-}
-
-impl_as_ref_mut!(u8, u16, u32);
-
-impl<const N: usize, V2> AsRef<[[u8; 3]]> for Array<N, V2> {
+impl<const N: usize, V> AsRef<[u8]> for Array<N, V> {
     #[inline]
     #[allow(unsafe_code)]
-    fn as_ref(&self) -> &[[u8; 3]] {
+    fn as_ref(&self) -> &[u8] {
         let words_u64: &[u64] = self.words.as_ref();
         unsafe {
             core::slice::from_raw_parts(
-                words_u64.as_ptr().cast::<[u8; 3]>(),
-                words_u64.len() * 8 / 3,
+                words_u64.as_ptr().cast::<u8>(),
+                words_u64.len() * 8 / core::mem::size_of::<u8>(),
             )
         }
     }
 }
 
-impl<const N: usize, V2> AsMut<[[u8; 3]]> for Array<N, V2> {
+impl<const N: usize, V> AsMut<[u8]> for Array<N, V> {
     #[inline]
     #[allow(unsafe_code)]
-    fn as_mut(&mut self) -> &mut [[u8; 3]] {
+    fn as_mut(&mut self) -> &mut [u8] {
         let words_u64: &mut [u64] = self.words.as_mut();
-        unsafe {
+        let slice = unsafe {
             core::slice::from_raw_parts_mut(
-                words_u64.as_mut_ptr().cast::<[u8; 3]>(),
-                words_u64.len() * 8 / 3,
+                words_u64.as_mut_ptr().cast::<u8>(),
+                words_u64.len() * 8 / core::mem::size_of::<u8>(),
             )
-        }
+        };
+        debug_assert_eq!(slice.len() % core::mem::size_of::<u64>(), 0);
+        slice
     }
 }
 
@@ -521,11 +491,7 @@ mod test_iter_values_zipped {
 
     #[test_array]
     /// Test the extraction of a V::Word from an u64 word.
-    fn test_iter_values_zipped<
-        const M: usize,
-        const N: usize,
-        V: VariableWord,
-    >(
+    fn test_iter_values_zipped<const M: usize, const N: usize, V: VariableWord>(
         reference: [V::Word; M],
     ) {
         let mut array = Array::<N, V>::default();
@@ -579,9 +545,7 @@ mod test_clear_array {
 
     #[test_array]
     /// Test the extraction of a V::Word from an u64 word.
-    fn test_clear_array<const M: usize, const N: usize, V: VariableWord>(
-        reference: [V::Word; M],
-    ) {
+    fn test_clear_array<const M: usize, const N: usize, V: VariableWord>(reference: [V::Word; M]) {
         let mut array = Array::<N, V>::default();
 
         // We populate the array with the values from the reference.
@@ -739,7 +703,7 @@ impl<const N: usize, V: VariableWord> Array<N, V> {
         let mut number_of_values: usize = 0;
         let mut value_offset = 0;
         for i in 0..N {
-            let mut number_of_values_in_word = 
+            let mut number_of_values_in_word =
                 (64 - usize::from(value_offset)) / V::NUMBER_OF_BITS_USIZE;
 
             if Self::has_padding(len) && number_of_values + number_of_values_in_word > len {
@@ -785,10 +749,7 @@ impl<const N: usize, V: VariableWord> Default for Array<N, V> {
 impl<const N: usize, V: VariableWord> Named for Array<N, V> {
     #[inline]
     fn name(&self) -> String {
-        format!(
-            "Packed<{}>",
-            V::NUMBER_OF_BITS
-        )
+        format!("Packed<{}>", V::NUMBER_OF_BITS)
     }
 }
 
