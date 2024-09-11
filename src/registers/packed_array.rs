@@ -300,9 +300,7 @@ impl<A, const M: usize> ArrayIter<A, M> {
 }
 
 /// Implementation of the `Iterator` trait for [`ArrayIter`].
-impl<'array, const PACKED: bool, const N: usize, V: VariableWord> Iterator
-    for ArrayIter<&'array Array<N, PACKED, V>, 2>
-{
+impl<'array, const N: usize, V: VariableWord> Iterator for ArrayIter<&'array Array<N, V>, 2> {
     type Item = [V::Word; 2];
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -314,34 +312,28 @@ impl<'array, const PACKED: bool, const N: usize, V: VariableWord> Iterator
 
         // If the current register is inside the current word and not a bridge register, we can
         // extract the register directly from the word.
-        Some(
-            if <Array<N, PACKED, V>>::is_bridge_offset(self.word_offset) {
-                let current_column = self.column;
+        Some(if <Array<N, V>>::is_bridge_offset(self.word_offset) {
+            let current_column = self.column;
+            self.word_index += 1;
+            self.column = self.arrays.column(self.word_index);
+            let values = extract_bridge_value_from_words::<V, 2>(
+                current_column,
+                self.column,
+                self.word_offset,
+            );
+
+            self.word_offset = V::NUMBER_OF_BITS - (64 - self.word_offset);
+            values
+        } else {
+            let values = extract_value_from_words::<V, 2>(self.column, self.word_offset);
+            self.word_offset += V::NUMBER_OF_BITS;
+            if self.value_index < self.total_values && self.word_offset == 64 {
+                self.word_offset = 0;
                 self.word_index += 1;
                 self.column = self.arrays.column(self.word_index);
-                let values = extract_bridge_value_from_words::<V, 2>(
-                    current_column,
-                    self.column,
-                    self.word_offset,
-                );
-
-                self.word_offset = V::NUMBER_OF_BITS - (64 - self.word_offset);
-                values
-            } else {
-                let values = extract_value_from_words::<V, 2>(self.column, self.word_offset);
-                self.word_offset += V::NUMBER_OF_BITS;
-                if self.value_index < self.total_values
-                    && (PACKED && self.word_offset == 64
-                        || !PACKED
-                            && self.word_offset == V::NUMBER_OF_BITS * V::NUMBER_OF_ENTRIES_U8)
-                {
-                    self.word_offset = 0;
-                    self.word_index += 1;
-                    self.column = self.arrays.column(self.word_index);
-                }
-                values
-            },
-        )
+            }
+            values
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -351,9 +343,7 @@ impl<'array, const PACKED: bool, const N: usize, V: VariableWord> Iterator
 }
 
 /// Implementation of the `Iterator` trait for [`ArrayIter`].
-impl<'array, const PACKED: bool, const N: usize, V: VariableWord> Iterator
-    for ArrayIter<&'array Array<N, PACKED, V>, 1>
-{
+impl<'array, const N: usize, V: VariableWord> Iterator for ArrayIter<&'array Array<N, V>, 1> {
     type Item = V::Word;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -365,34 +355,28 @@ impl<'array, const PACKED: bool, const N: usize, V: VariableWord> Iterator
 
         // If the current register is inside the current word and not a bridge register, we can
         // extract the register directly from the word.
-        Some(
-            if <Array<N, PACKED, V>>::is_bridge_offset(self.word_offset) {
-                let current_column = self.column;
+        Some(if <Array<N, V>>::is_bridge_offset(self.word_offset) {
+            let current_column = self.column;
+            self.word_index += 1;
+            self.column = self.arrays.column(self.word_index);
+            let [value] = extract_bridge_value_from_words::<V, 1>(
+                current_column,
+                self.column,
+                self.word_offset,
+            );
+
+            self.word_offset = V::NUMBER_OF_BITS - (64 - self.word_offset);
+            value
+        } else {
+            let [value] = extract_value_from_words::<V, 1>(self.column, self.word_offset);
+            self.word_offset += V::NUMBER_OF_BITS;
+            if self.value_index < self.total_values && self.word_offset == 64 {
+                self.word_offset = 0;
                 self.word_index += 1;
                 self.column = self.arrays.column(self.word_index);
-                let [value] = extract_bridge_value_from_words::<V, 1>(
-                    current_column,
-                    self.column,
-                    self.word_offset,
-                );
-
-                self.word_offset = V::NUMBER_OF_BITS - (64 - self.word_offset);
-                value
-            } else {
-                let [value] = extract_value_from_words::<V, 1>(self.column, self.word_offset);
-                self.word_offset += V::NUMBER_OF_BITS;
-                if self.value_index < self.total_values
-                    && (PACKED && self.word_offset == 64
-                        || !PACKED
-                            && self.word_offset == V::NUMBER_OF_BITS * V::NUMBER_OF_ENTRIES_U8)
-                {
-                    self.word_offset = 0;
-                    self.word_index += 1;
-                    self.column = self.arrays.column(self.word_index);
-                }
-                value
-            },
-        )
+            }
+            value
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -402,8 +386,8 @@ impl<'array, const PACKED: bool, const N: usize, V: VariableWord> Iterator
 }
 
 /// Implementation of the `ExactSizeIterator` trait for [`ArrayIter`].
-impl<'array, const PACKED: bool, const N: usize, const M: usize, V: VariableWord> ExactSizeIterator
-    for ArrayIter<&'array Array<N, PACKED, V>, M>
+impl<'array, const N: usize, const M: usize, V: VariableWord> ExactSizeIterator
+    for ArrayIter<&'array Array<N, V>, M>
 where
     Self: Iterator,
 {
@@ -412,14 +396,14 @@ where
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "mem_dbg", derive(MemDbg, MemSize))]
 /// Register implementation for the packed array registers.
-pub struct Array<const N: usize, const PACKED: bool, V> {
+pub struct Array<const N: usize, V> {
     /// The packed array of registers.
     words: [u64; N],
     /// Phantom data to keep track of the variable word type.
     _phantom: PhantomData<V>,
 }
 
-impl<const N: usize, const PACKED: bool, V: VariableWord> AsRef<[u64; N]> for Array<N, PACKED, V> {
+impl<const N: usize, V: VariableWord> AsRef<[u64; N]> for Array<N, V> {
     #[inline]
     fn as_ref(&self) -> &[u64; N] {
         &self.words
@@ -429,8 +413,8 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> AsRef<[u64; N]> for Ar
 macro_rules! impl_as_ref_mut {
     ($($typ:ty),*) => {
         $(
-            impl<const N: usize, const PACKED: bool, V2> AsRef<[$typ]>
-                for Array<N, PACKED, V2>
+            impl<const N: usize, V2> AsRef<[$typ]>
+                for Array<N, V2>
             {
                 #[inline]
                 #[allow(unsafe_code)]
@@ -440,8 +424,8 @@ macro_rules! impl_as_ref_mut {
                 }
             }
 
-            impl<const N: usize, const PACKED: bool, V2> AsMut<[$typ]>
-                for Array<N, PACKED, V2>
+            impl<const N: usize, V2> AsMut<[$typ]>
+                for Array<N, V2>
             {
                 #[inline]
                 #[allow(unsafe_code)]
@@ -458,7 +442,7 @@ macro_rules! impl_as_ref_mut {
 
 impl_as_ref_mut!(u8, u16, u32);
 
-impl<const N: usize, const PACKED: bool, V2> AsRef<[[u8; 3]]> for Array<N, PACKED, V2> {
+impl<const N: usize, V2> AsRef<[[u8; 3]]> for Array<N, V2> {
     #[inline]
     #[allow(unsafe_code)]
     fn as_ref(&self) -> &[[u8; 3]] {
@@ -472,7 +456,7 @@ impl<const N: usize, const PACKED: bool, V2> AsRef<[[u8; 3]]> for Array<N, PACKE
     }
 }
 
-impl<const N: usize, const PACKED: bool, V2> AsMut<[[u8; 3]]> for Array<N, PACKED, V2> {
+impl<const N: usize, V2> AsMut<[[u8; 3]]> for Array<N, V2> {
     #[inline]
     #[allow(unsafe_code)]
     fn as_mut(&mut self) -> &mut [[u8; 3]] {
@@ -486,7 +470,7 @@ impl<const N: usize, const PACKED: bool, V2> AsMut<[[u8; 3]]> for Array<N, PACKE
     }
 }
 
-impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
+impl<const N: usize, V: VariableWord> Array<N, V> {
     #[inline]
     fn iter_values(&self, len: usize) -> ArrayIter<&Self, 1> {
         ArrayIter::new([self], len)
@@ -501,17 +485,15 @@ mod test_iter_values {
 
     #[test_array]
     /// Test the extraction of a V::Word from an u64 word.
-    fn test_iter_values<const M: usize, const N: usize, const PACKED: bool, V: VariableWord>(
-        reference: [V::Word; M],
-    ) {
-        let mut array = Array::<N, PACKED, V>::default();
+    fn test_iter_values<const M: usize, const N: usize, V: VariableWord>(reference: [V::Word; M]) {
+        let mut array = Array::<N, V>::default();
 
         // We populate the array with the values from the reference.
         for (i, value) in reference.iter().enumerate() {
             array.set(i, *value);
         }
 
-        let iter: ArrayIter<&Array<N, PACKED, V>, 1> = array.iter_values(M);
+        let iter: ArrayIter<&Array<N, V>, 1> = array.iter_values(M);
         assert_eq!(iter.len(), M, "The iterator should have a length of {}", M);
 
         for (i, (reference_value, array_value)) in reference.iter().zip(iter).enumerate() {
@@ -520,7 +502,7 @@ mod test_iter_values {
     }
 }
 
-impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
+impl<const N: usize, V: VariableWord> Array<N, V> {
     #[inline]
     fn iter_values_zipped<'words>(
         &'words self,
@@ -542,13 +524,12 @@ mod test_iter_values_zipped {
     fn test_iter_values_zipped<
         const M: usize,
         const N: usize,
-        const PACKED: bool,
         V: VariableWord,
     >(
         reference: [V::Word; M],
     ) {
-        let mut array = Array::<N, PACKED, V>::default();
-        let mut rev_array = Array::<N, PACKED, V>::default();
+        let mut array = Array::<N, V>::default();
+        let mut rev_array = Array::<N, V>::default();
 
         // We populate an array with the values from the reference, and
         // we populate the reverse array with the values in reverse order.
@@ -557,9 +538,8 @@ mod test_iter_values_zipped {
             rev_array.set(M - 1 - i, *value);
         }
 
-        let iter: ArrayIter<&Array<N, PACKED, V>, 2> = array.iter_values_zipped(&rev_array, M);
-        let swapped_iter: ArrayIter<&Array<N, PACKED, V>, 2> =
-            rev_array.iter_values_zipped(&array, M);
+        let iter: ArrayIter<&Array<N, V>, 2> = array.iter_values_zipped(&rev_array, M);
+        let swapped_iter: ArrayIter<&Array<N, V>, 2> = rev_array.iter_values_zipped(&array, M);
         assert_eq!(iter.len(), M, "The iterator should have a length of {}", M);
         assert_eq!(
             swapped_iter.len(),
@@ -583,7 +563,7 @@ mod test_iter_values_zipped {
     }
 }
 
-impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
+impl<const N: usize, V: VariableWord> Array<N, V> {
     /// Clears the packed array of registers.
     #[inline]
     fn clear(&mut self) {
@@ -599,10 +579,10 @@ mod test_clear_array {
 
     #[test_array]
     /// Test the extraction of a V::Word from an u64 word.
-    fn test_clear_array<const M: usize, const N: usize, const PACKED: bool, V: VariableWord>(
+    fn test_clear_array<const M: usize, const N: usize, V: VariableWord>(
         reference: [V::Word; M],
     ) {
-        let mut array = Array::<N, PACKED, V>::default();
+        let mut array = Array::<N, V>::default();
 
         // We populate the array with the values from the reference.
         for (i, value) in reference.iter().enumerate() {
@@ -623,33 +603,23 @@ mod test_clear_array {
     }
 }
 
-impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
+impl<const N: usize, V: VariableWord> Array<N, V> {
     #[inline]
     /// Returns whether a given offset is a bridge offset.
     const fn is_bridge_offset(offset: u8) -> bool {
-        PACKED
-            && (V::NUMBER_OF_BITS_USIZE * V::NUMBER_OF_ENTRIES < 64)
-            && (offset + V::NUMBER_OF_BITS > 64)
+        (V::NUMBER_OF_BITS_USIZE * V::NUMBER_OF_ENTRIES < 64) && (offset + V::NUMBER_OF_BITS > 64)
     }
 
     #[inline]
     /// Returns whether the array has padding for a given length.
     const fn has_padding(len: usize) -> bool {
-        if PACKED {
-            len * V::NUMBER_OF_BITS_USIZE < N * 64
-        } else {
-            len < N * V::NUMBER_OF_ENTRIES
-        }
+        len * V::NUMBER_OF_BITS_USIZE < N * 64
     }
 
     #[inline]
     /// Returns the number of values in the array.
     const fn number_of_values() -> usize {
-        if PACKED {
-            N * 64 / V::NUMBER_OF_BITS_USIZE
-        } else {
-            N * V::NUMBER_OF_ENTRIES
-        }
+        N * 64 / V::NUMBER_OF_BITS_USIZE
     }
 
     #[inline]
@@ -664,7 +634,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
 
         // We determine the word which contains the value and the position of the value,
         // taking into account the bridge values.
-        let (word_index, relative_value_offset) = split_index::<PACKED, V>(index);
+        let (word_index, relative_value_offset) = split_packed_index::<V>(index);
 
         debug_assert!(
             word_index < N,
@@ -695,7 +665,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     /// * `index` - The index at which the value is to be set.
     /// * `value` - The value to be set.
     pub fn set(&mut self, index: usize, value: V::Word) {
-        let (word_index, relative_value_offset) = split_index::<PACKED, V>(index);
+        let (word_index, relative_value_offset) = split_packed_index::<V>(index);
 
         if Self::is_bridge_offset(relative_value_offset) {
             let (low, high) = self.words.split_at_mut(word_index + 1);
@@ -728,7 +698,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     where
         F: Fn(V::Word) -> V::Word,
     {
-        let (word_index, relative_value_offset) = split_index::<PACKED, V>(index);
+        let (word_index, relative_value_offset) = split_packed_index::<V>(index);
 
         if Self::is_bridge_offset(relative_value_offset) {
             let (low, high) = self.words.split_at_mut(word_index + 1);
@@ -769,11 +739,8 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
         let mut number_of_values: usize = 0;
         let mut value_offset = 0;
         for i in 0..N {
-            let mut number_of_values_in_word = if PACKED {
-                (64 - usize::from(value_offset)) / V::NUMBER_OF_BITS_USIZE
-            } else {
-                V::NUMBER_OF_ENTRIES
-            };
+            let mut number_of_values_in_word = 
+                (64 - usize::from(value_offset)) / V::NUMBER_OF_BITS_USIZE;
 
             if Self::has_padding(len) && number_of_values + number_of_values_in_word > len {
                 number_of_values_in_word = len - number_of_values;
@@ -788,8 +755,12 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
             }
             number_of_values += number_of_values_in_word;
 
-            if Self::is_bridge_offset(value_offset) && (!Self::has_padding(len) || i != N - 1) {
+            if Self::is_bridge_offset(value_offset) && (!Self::has_padding(len) && i != N - 1) {
                 let (low, high) = self.words.split_at_mut(i + 1);
+                debug_assert!(
+                    high.len() > 0,
+                    "The high part of the array should not be empty, with size {N} at index {i}",
+                );
                 let low = &mut low[i];
                 let high = &mut high[0];
                 let value = extract_bridge_value_from_word::<V>(*low, *high, value_offset);
@@ -804,7 +775,7 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Array<N, PACKED, V> {
     }
 }
 
-impl<const N: usize, const PACKED: bool, V: VariableWord> Default for Array<N, PACKED, V> {
+impl<const N: usize, V: VariableWord> Default for Array<N, V> {
     #[inline]
     fn default() -> Self {
         Self {
@@ -815,12 +786,11 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Default for Array<N, P
 }
 
 #[cfg(feature = "std")]
-impl<const N: usize, const PACKED: bool, V: VariableWord> Named for Array<N, PACKED, V> {
+impl<const N: usize, V: VariableWord> Named for Array<N, V> {
     #[inline]
     fn name(&self) -> String {
         format!(
-            "{}<{}>",
-            if PACKED { "Packed" } else { "Array" },
+            "Packed<{}>",
             V::NUMBER_OF_BITS
         )
     }
@@ -830,16 +800,6 @@ impl<const N: usize, const PACKED: bool, V: VariableWord> Named for Array<N, PAC
 ///
 /// Meant to be associated with a specific Precision.
 pub trait ArrayRegister<B: Bits>: Precision {
-    #[cfg(all(feature = "std", feature = "mem_dbg"))]
-    /// The type of the packed array register.
-    type Array: Registers<Self, B> + Named + MemDbg + MemSize;
-    #[cfg(all(feature = "std", not(feature = "mem_dbg")))]
-    /// The type of the packed array register.
-    type Array: Registers<Self, B> + Named;
-    #[cfg(not(feature = "std"))]
-    /// The type of the packed array register.
-    type Array: Registers<Self, B>;
-
     #[cfg(all(feature = "std", feature = "mem_dbg"))]
     /// The type of the packed array register.
     type Packed: Registers<Self, B> + Named + MemDbg + MemSize;
@@ -871,22 +831,6 @@ const fn split_packed_index<V: VariableWord>(index: usize) -> (usize, u8) {
     let absolute_register_offset: usize = (V::NUMBER_OF_BITS_USIZE) * index;
     let word_index: usize = absolute_register_offset >> LOG2_USIZE;
     let relative_register_offset = (absolute_register_offset - word_index * 64) as u8;
-    (word_index, relative_register_offset)
-}
-
-#[expect(
-    clippy::cast_possible_truncation,
-    reason = "The value is guaranteed to be less than 256"
-)]
-/// Extracts the word position and the relative register offset from a non-packed index.
-///
-/// # Safety
-/// This method employs unsafe code to convert a usize to a u8, as it guarantees
-/// that the value is less than 256.
-const fn split_not_packed_index<V: VariableWord>(index: usize) -> (usize, u8) {
-    let word_index: usize = index / V::NUMBER_OF_ENTRIES;
-    let relative_register_offset: u8 =
-        V::NUMBER_OF_BITS * (index - word_index * V::NUMBER_OF_ENTRIES) as u8;
     (word_index, relative_register_offset)
 }
 
@@ -923,42 +867,6 @@ mod test_split_index {
             );
         }
     }
-
-    #[test_variable_words]
-    /// Test the extraction of the word index and the relative register offset from the non-packed index.
-    fn test_split_not_packed_index<V: VariableWord>() {
-        let minimum_index = 0_usize;
-        // The maximal precision is 18, so the maximum number of registers is 2^18,
-        // hence the maximum index is 2^18 - 1.
-        let maximum_index = 1_usize << 18;
-        // We iter all possible values of the index.
-        for index in minimum_index..maximum_index {
-            let expected_word_index = index / V::NUMBER_OF_ENTRIES;
-            let expected_relative_register_offset =
-                (index % V::NUMBER_OF_ENTRIES) as u8 * V::NUMBER_OF_BITS;
-            let (word_index, relative_register_offset) = split_not_packed_index::<V>(index);
-            assert_eq!(
-                word_index, expected_word_index as usize,
-                "The word index {} should be equal to the word index {}",
-                word_index, expected_word_index
-            );
-            assert_eq!(
-                relative_register_offset,
-                expected_relative_register_offset as u8,
-                "The relative register offset {} should be equal to the relative register offset {}",
-                relative_register_offset,
-                expected_relative_register_offset
-            );
-        }
-    }
-}
-
-const fn split_index<const PACKED: bool, V: VariableWord>(index: usize) -> (usize, u8) {
-    if PACKED {
-        split_packed_index::<V>(index)
-    } else {
-        split_not_packed_index::<V>(index)
-    }
 }
 
 /// Implement the packed array registers for a specific combination of precision and bits.
@@ -968,12 +876,11 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
             paste::paste! {
                 #[cfg(feature = "precision_" $exponent)]
                 impl ArrayRegister<[<Bits $bits>]> for [<Precision $exponent>] {
-                    type Array = Array<{usize::pow(2, $exponent).div_ceil(64 / $bits)}, false, [<Bits $bits>]>;
-                    type Packed = Array<{(usize::pow(2, $exponent) * $bits).div_ceil(64)}, true, [<Bits $bits>]>;
+                    type Packed = Array<{(usize::pow(2, $exponent) * $bits).div_ceil(64)}, [<Bits $bits>]>;
                 }
 
                 #[cfg(feature = "precision_" $exponent)]
-                impl Registers<[<Precision $exponent>], [<Bits $bits>]> for Array<{(usize::pow(2, $exponent) * $bits).div_ceil(64)}, true, [<Bits $bits>]> {
+                impl Registers<[<Precision $exponent>], [<Bits $bits>]> for Array<{(usize::pow(2, $exponent) * $bits).div_ceil(64)}, [<Bits $bits>]> {
                     type Iter<'words> = ArrayIter<&'words Self, 1> where Self: 'words;
                     type IterZipped<'words> = ArrayIter<&'words Self, 2>
                         where
@@ -1016,53 +923,6 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                     #[inline]
                     fn bitsize() -> usize {
                         64 * (usize::pow(2, $exponent) * $bits).div_ceil(64)
-                    }
-                }
-
-                #[cfg(feature = "precision_" $exponent)]
-                impl Registers<[<Precision $exponent>], [<Bits $bits>]> for Array<{usize::pow(2, $exponent).div_ceil(64 / $bits)}, false, [<Bits $bits>]> {
-                    type Iter<'words> = ArrayIter<&'words Self, 1> where Self: 'words;
-                    type IterZipped<'words> = ArrayIter<&'words Self, 2>
-                        where
-                            Self: 'words;
-
-                    #[inline]
-                    fn iter_registers(&self) -> Self::Iter<'_> {
-                        self.iter_values(1 << [<Precision $exponent>]::EXPONENT)
-                    }
-
-                    #[inline]
-                    fn iter_registers_zipped<'words>(&'words self, other: &'words Self) -> Self::IterZipped<'words>{
-                        self.iter_values_zipped(other, 1 << [<Precision $exponent>]::EXPONENT)
-                    }
-
-                    #[inline]
-                    fn apply_to_registers<F>(&mut self, register_function: F)
-                    where
-                        F: FnMut(u8) -> u8,
-                    {
-                        self.apply(register_function, <[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS.to_usize());
-                    }
-
-                    #[inline]
-                    fn set_greater(&mut self, index: usize, new_register: u8) -> (u8, u8) {
-                        self.set_apply(index, |register| core::cmp::max(register, new_register))
-                    }
-
-                    #[inline]
-                    /// Returns the value of the register at the given index in the packed array.
-                    fn get_register(&self, index: usize) -> u8 {
-                        self.get(index)
-                    }
-
-                    #[inline]
-                    fn clear_registers(&mut self) {
-                        self.clear();
-                    }
-
-                    #[inline]
-                    fn bitsize() -> usize {
-                        64 * usize::pow(2, $exponent).div_ceil(64 / $bits)
                     }
                 }
             }

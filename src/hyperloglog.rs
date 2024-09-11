@@ -44,7 +44,7 @@ pub trait HyperLogLog:
     ///
     ///     // Create a new HyperLogLog counter with precision 14 and 5 bits per register.
     ///     let mut hll =
-    ///         LogLogBeta::<Precision6, Bits5, <Precision6 as ArrayRegister<Bits5>>::Array>::default();
+    ///         LogLogBeta::<Precision6, Bits5, <Precision6 as ArrayRegister<Bits5>>::Packed>::default();
     ///
     ///     // Add some elements to the counter.
     ///     hll.insert(&1);
@@ -74,9 +74,9 @@ pub trait HyperLogLog:
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll1: PlusPlus<Precision8, Bits6, <Precision8 as ArrayRegister<Bits6>>::Array> =
+    /// let mut hll1: PlusPlus<Precision8, Bits6, <Precision8 as ArrayRegister<Bits6>>::Packed> =
     ///     Default::default();
-    /// let mut hll2: PlusPlus<Precision8, Bits6, <Precision8 as ArrayRegister<Bits6>>::Array> =
+    /// let mut hll2: PlusPlus<Precision8, Bits6, <Precision8 as ArrayRegister<Bits6>>::Packed> =
     ///     Default::default();
     ///
     /// hll1.insert(&42);

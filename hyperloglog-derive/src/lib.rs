@@ -185,31 +185,27 @@ pub fn test_array(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // Generate the test functions
     let test_functions = generics.iter().flat_map(|generic| {
-        [true, false].into_iter().flat_map(move |packed| {
-            [0_usize, 1_usize, 2_usize, 3_usize, 4_usize, 5_usize, 6_usize, 7_usize, 8_usize]
-                .into_iter()
-                .map(move |number_of_words| {
-                    let packed_name = if packed { "packed_" } else { "" };
-
-                    let test_fn_name = Ident::new(
-                        &format!("{}_{}_{}{}", fn_name, generic, packed_name, number_of_words)
-                            .to_lowercase(),
-                        fn_name.span(),
-                    );
-                    quote! {
-                        #[test]
-                        /// Test the #generic type
-                        fn #test_fn_name() {
-                            const NUMBER_OF_WORDS: usize = Array::<#number_of_words, #packed, #generic>::number_of_values() as usize;
-                            let mut reference = [<<#generic as VariableWord>::Word as Zero>::ZERO; NUMBER_OF_WORDS];
-                            for (value, element) in iter_random_values::<#generic>(NUMBER_OF_WORDS as u64, None, None).zip(reference.iter_mut()) {
-                                *element = value;
-                            }
-                            #fn_name::<NUMBER_OF_WORDS, #number_of_words, #packed, #generic>(reference);
+        [0_usize, 1_usize, 2_usize, 3_usize, 4_usize, 5_usize, 6_usize, 7_usize, 8_usize]
+            .into_iter()
+            .map(move |number_of_words| {
+                let test_fn_name = Ident::new(
+                    &format!("{}_{}_{}", fn_name, generic, number_of_words)
+                        .to_lowercase(),
+                    fn_name.span(),
+                );
+                quote! {
+                    #[test]
+                    /// Test the #generic type
+                    fn #test_fn_name() {
+                        const NUMBER_OF_WORDS: usize = Array::<#number_of_words, #generic>::number_of_values() as usize;
+                        let mut reference = [<<#generic as VariableWord>::Word as Zero>::ZERO; NUMBER_OF_WORDS];
+                        for (value, element) in iter_random_values::<#generic>(NUMBER_OF_WORDS as u64, None, None).zip(reference.iter_mut()) {
+                            *element = value;
                         }
+                        #fn_name::<NUMBER_OF_WORDS, #number_of_words, #generic>(reference);
                     }
-                })
-        })
+                }
+            })
     });
 
     // Generate the final token stream
@@ -320,13 +316,10 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
         (bits).iter().flat_map(move |bit| {
             let hashers = hashers.clone();
             hashers.into_iter().flat_map(move |hasher| {
-                [true, false].into_iter().map(move |packed| {
-                    let packed_name = if packed { "packed_" } else { "" };
-
                     let test_fn_name = Ident::new(
                         &format!(
-                            "{}_{}_{}{}_{}",
-                            fn_name, precision, packed_name, bit, hasher
+                            "{}_{}_{}_{}",
+                            fn_name, precision, bit, hasher
                         )
                         .to_lowercase(),
                         fn_name.span(),
@@ -351,24 +344,14 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     if fn_name.to_string().contains("beta") {
                         feature_constraints.push(quote! { #[cfg(feature = "beta")] });
                     }
-                    if packed {
-                        quote! {
-                            #[test]
-                            #(#feature_constraints)*
-                            fn #test_fn_name() {
-                                #fn_name::<#precision, #bit, <#precision as ArrayRegister<#bit>>::Packed, #hasher>();
-                            }
-                        }
-                    } else {
-                        quote! {
-                            #[test]
-                            #(#feature_constraints)*
-                            fn #test_fn_name() {
-                                #fn_name::<#precision, #bit, <#precision as ArrayRegister<#bit>>::Array, #hasher>();
-                            }
+                    
+                    quote! {
+                        #[test]
+                        #(#feature_constraints)*
+                        fn #test_fn_name() {
+                            #fn_name::<#precision, #bit, <#precision as ArrayRegister<#bit>>::Packed, #hasher>();
                         }
                     }
-                })
             })
         })
     });
