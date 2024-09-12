@@ -8,27 +8,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use test_utils::prelude::{compare_features, read_csv, write_csv};
 
-type HLL1 = Hybrid<
-    PlusPlus<
-        Precision18,
-        Bits6,
-        <Precision18 as ArrayRegister<Bits6>>::Packed,
-        twox_hash::XxHash64,
-    >,
-    SwitchHash<Precision18, Bits6>,
+type HLL1 = HyperLogLog<
+    Precision14,
+    Bits6,
+    <Precision14 as ArrayRegister<Bits6>>::Packed,
+    twox_hash::XxHash64,
 >;
 
-type HLL2 = Hybrid<
-    PlusPlus<
-        Precision18,
-        Bits6,
-        <Precision18 as ArrayRegister<Bits6>>::Packed,
-        twox_hash::XxHash64,
-    >,
-    GapHash<Precision18, Bits6>,
->;
-
-const ITERATIONS: usize = 256;
+const ITERATIONS: usize = 64;
 const MINIMUM_CARDINALITY_FOR_SAMPLING: u64 = 0;
 const MEASUREMENT_STEP: u64 = 1;
 
@@ -43,7 +30,7 @@ struct Report {
 fn main() {
     let random_state = 7_536_558_723_694_876_u64;
 
-    let max_hashes = (1 << 18) * 6 / 2;
+    let max_hashes = (1 << 14) * 6;
     let max = max_hashes as u64;
 
     let progress_bar = ProgressBar::new(ITERATIONS as u64);
@@ -62,7 +49,7 @@ fn main() {
         .map(|i| {
             let mut measurement_step = 0;
             let thread_random_state = splitmix64(random_state.wrapping_mul(i as u64 + 1));
-            let mut hll = HLL2::default();
+            let mut hll = HLL1::default();
             let mut reports: Vec<Report> = Vec::with_capacity((size) as usize);
             let mut hashset: HashSet<u64> = HashSet::default();
 
@@ -70,7 +57,7 @@ fn main() {
                 hll.insert(&value);
 
                 if hashset.insert(value) {
-                    let cardinality = hll.estimate_cardinality();
+                    let cardinality = hll.uncorrected_estimate_cardinality();
                     let exact_cardinality = hashset.len() as u64;
                     let relative_error =
                         (exact_cardinality as f64 - cardinality).abs() / exact_cardinality as f64;

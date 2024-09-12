@@ -7,42 +7,26 @@
 #![warn(clippy::pedantic)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod basicloglog;
 mod bits;
 pub mod composite_hash;
-mod estimator;
-pub mod hybrid;
-mod hyperloglog;
-mod hyperloglog_macro;
-#[cfg(feature = "beta")]
-mod loglogbeta;
-#[cfg(feature = "mle")]
-mod mle;
-#[cfg(feature = "plusplus")]
-mod plusplus;
+pub mod hyperloglog;
+// #[cfg(feature = "mle")]
+// mod mle;
 mod precisions;
 mod registers;
+mod hashlist;
 pub mod sketches;
 pub mod utils;
 
 #[cfg(feature = "serde")]
 pub mod serde;
 
-#[cfg(feature = "std")]
-mod hashset;
-
 /// Re-exports of the most important traits and structs.
 pub mod prelude {
     pub use crate::bits::*;
-    pub use crate::estimator::*;
-    pub use crate::hybrid::*;
     pub use crate::hyperloglog::*;
-    #[cfg(feature = "beta")]
-    pub use crate::loglogbeta::*;
-    #[cfg(feature = "mle")]
-    pub use crate::mle::*;
-    #[cfg(feature = "plusplus")]
-    pub use crate::plusplus::*;
+    // #[cfg(feature = "mle")]
+    // pub use crate::mle::*;
     pub use crate::precisions::*;
     pub use crate::registers::*;
     pub use crate::sketches::*;

@@ -11,13 +11,9 @@
 
 use super::Registers;
 use super::{Bits, Bits4, Bits5, Bits6, Matrix, Precision, Zero};
-use crate::utils::PositiveInteger;
 use crate::utils::VariableWord;
 use core::fmt::Debug;
 use core::marker::PhantomData;
-
-#[cfg(feature = "std")]
-use crate::utils::Named;
 
 #[cfg(feature = "mem_dbg")]
 use mem_dbg::{MemDbg, MemSize};
@@ -745,25 +741,14 @@ impl<const N: usize, V: VariableWord> Default for Array<N, V> {
     }
 }
 
-#[cfg(feature = "std")]
-impl<const N: usize, V: VariableWord> Named for Array<N, V> {
-    #[inline]
-    fn name(&self) -> String {
-        format!("Packed<{}>", V::NUMBER_OF_BITS)
-    }
-}
-
 /// Trait marker to associate a specific register array with a combination of precision and bits.
 ///
 /// Meant to be associated with a specific Precision.
 pub trait ArrayRegister<B: Bits>: Precision {
-    #[cfg(all(feature = "std", feature = "mem_dbg"))]
+    #[cfg(all(feature = "mem_dbg"))]
     /// The type of the packed array register.
-    type Packed: Registers<Self, B> + Named + MemDbg + MemSize;
-    #[cfg(all(feature = "std", not(feature = "mem_dbg")))]
-    /// The type of the packed array register.
-    type Packed: Registers<Self, B> + Named;
-    #[cfg(not(feature = "std"))]
+    type Packed: Registers<Self, B> + MemDbg + MemSize;
+    #[cfg(not(feature = "mem_dbg"))]
     /// The type of the packed array register.
     type Packed: Registers<Self, B>;
 }
@@ -858,7 +843,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
                     where
                         F: FnMut(u8) -> u8,
                     {
-                        self.apply(register_function, <[<Precision $exponent>] as Precision>::NUMBER_OF_REGISTERS.to_usize());
+                        self.apply(register_function, 1 << <[<Precision $exponent>] as Precision>::EXPONENT);
                     }
 
                     #[inline]

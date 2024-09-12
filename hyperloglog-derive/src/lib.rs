@@ -334,16 +334,6 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     if fn_name.to_string().contains("mle") {
                         feature_constraints.push(quote! { #[cfg(feature = "mle")] });
                     }
-
-                    // If in the name of the function there appears the word plusplus, we add the feature plusplus
-                    if fn_name.to_string().contains("plusplus") {
-                        feature_constraints.push(quote! { #[cfg(feature = "plusplus")] });
-                    }
-
-                    // If in the name of the function there appears the word beta, we add the feature beta
-                    if fn_name.to_string().contains("beta") {
-                        feature_constraints.push(quote! { #[cfg(feature = "beta")] });
-                    }
                     
                     quote! {
                         #[test]

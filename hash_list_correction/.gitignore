@@ -1,6 +1,3 @@
-switchhash*.csv
-gaphash*.csv
-switchhash*.json
-gaphash*.json
-switchhash*.png
-gaphash*.png
+*.csv
+*.json
+*.csv.gz

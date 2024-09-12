@@ -1,9 +1,12 @@
 use core::hash::BuildHasher;
 
+use hyperloglog_rs::prelude::ArrayRegister;
+use hyperloglog_rs::prelude::Bits;
+use hyperloglog_rs::prelude::HyperLogLog;
 use mem_dbg::{MemDbg, MemSize};
 
 use cardinality_estimator::CardinalityEstimator;
-use hyperloglog_rs::prelude::{Estimator, ExtendableApproximatedSet, HasherType, Precision};
+use hyperloglog_rs::prelude::{HasherType, Precision};
 use hyperloglogplus::HyperLogLog as TabacHyperLogLog;
 use hyperloglogplus::HyperLogLogPF as TabacHyperLogLogPF;
 use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
@@ -16,6 +19,7 @@ use sourmash::signature::SigsTrait;
 use sourmash::sketch::hyperloglog::HyperLogLog as SourMashHyperLogLog;
 use std::marker::PhantomData;
 use streaming_algorithms::HyperLogLog as SAHyperLogLog;
+use crate::traits::Set;
 
 pub trait HasherBuilderAssociated: HasherType + MemSize {
     type Builder: BuildHasher + Default + Clone + Send + Sync + MemSize;
@@ -138,18 +142,71 @@ impl<P: Precision> Default for AlecHLL<P> {
     }
 }
 
-#[cfg(feature = "std")]
-impl<H: HasherType, const P: usize> hyperloglog_rs::prelude::Named for SimpleHLL<H, P> {
-    fn name(&self) -> String {
-        format!("SHLL<P{P}, B8, Vec> + {}", core::any::type_name::<H>())
+impl<H: HasherType, P: Precision + ArrayRegister<B>, B: Bits> Set for HyperLogLog<P, B, <P as ArrayRegister<B>>::Packed, H> {
+    fn insert_element(&mut self, value: u64) {
+        self.insert(&value);
+    }
+
+    fn cardinality(&self) -> f64 {
+        self.estimate_cardinality()
+    }
+
+    fn union(&self, other: &Self) -> f64 {
+        self.estimate_union_cardinality(other)
+    }
+
+    fn model_name(&self) -> String {
+        format!(
+            "HLL<P{}, B{}> + {}",
+            P::EXPONENT,
+            B::NUMBER_OF_BITS,
+            core::any::type_name::<H>().split("::").last().unwrap()
+        )
     }
 }
 
-#[cfg(feature = "std")]
-impl<S: hypertwobits::h2b::Sketch, H: HasherBuilderAssociated> hyperloglog_rs::prelude::Named
+impl<H: HasherType, const P: usize> Set for SimpleHLL<H, P> {
+    fn insert_element(&mut self, item: u64) {
+        self.estimator.add_object(&item);
+    }
+
+    fn cardinality(&self) -> f64 {
+        self.estimator.count() as f64
+    }
+
+    fn union(&self, other: &Self) -> f64 {
+        let mut copy = self.clone();
+        copy.estimator.merge(&other.estimator);
+        copy.estimator.count() as f64
+    }
+
+    fn model_name(&self) -> String {
+        format!(
+            "SimpleHLL<P{}, B6> + {}",
+            P,
+            core::any::type_name::<H>().split("::").last().unwrap()
+        )
+    }
+}
+
+impl<S: hypertwobits::h2b::Sketch + Clone, H: HasherBuilderAssociated> Set
     for HyperTwoBits<S, H>
 {
-    fn name(&self) -> String {
+    fn insert_element(&mut self, item: u64) {
+        self.estimator.insert(&item);
+    }
+
+    fn cardinality(&self) -> f64 {
+        self.estimator.count() as f64
+    }
+
+    fn union(&self, other: &Self) -> f64 {
+        let mut copy = self.estimator.clone();
+        copy.merge(other.estimator.clone());
+        copy.count() as f64
+    }
+
+    fn model_name(&self) -> String {
         format!(
             "H2B<{}> + {}",
             core::any::type_name::<S>().split("::").last().unwrap(),
@@ -158,11 +215,24 @@ impl<S: hypertwobits::h2b::Sketch, H: HasherBuilderAssociated> hyperloglog_rs::p
     }
 }
 
-#[cfg(feature = "std")]
-impl<S: hypertwobits::h3b::Sketch, H: HasherBuilderAssociated> hyperloglog_rs::prelude::Named
+impl<S: hypertwobits::h3b::Sketch + Clone, H: HasherBuilderAssociated> Set
     for HyperThreeBits<S, H>
 {
-    fn name(&self) -> String {
+    fn insert_element(&mut self, item: u64) {
+        self.estimator.insert(&item);
+    }
+
+    fn cardinality(&self) -> f64 {
+        self.estimator.count() as f64
+    }
+
+    fn union(&self, other: &Self) -> f64 {
+        let mut copy = self.estimator.clone();
+        copy.merge(other.estimator.clone());
+        copy.count() as f64
+    }
+
+    fn model_name(&self) -> String {
         format!(
             "H3B<{}> + {}",
             core::any::type_name::<S>().split("::").last().unwrap(),
@@ -171,18 +241,44 @@ impl<S: hypertwobits::h3b::Sketch, H: HasherBuilderAssociated> hyperloglog_rs::p
     }
 }
 
-#[cfg(feature = "std")]
-impl<P: Precision> hyperloglog_rs::prelude::Named for SourMash<P> {
-    fn name(&self) -> String {
-        format!("SM<P{}, B8, Vec>", P::EXPONENT)
+impl<P: Precision> Set for SourMash<P> {
+    fn insert_element(&mut self, item: u64) {
+        self.estimator
+            .add_sequence(item.to_le_bytes().as_ref(), false)
+            .unwrap();
+    }
+
+    fn cardinality(&self) -> f64 {
+        self.estimator.cardinality() as f64
+    }
+
+    fn union(&self, other: &Self) -> f64 {
+        self.estimator.union(&other.estimator) as f64
+    }
+
+    fn model_name(&self) -> String {
+        format!("SM<P{}, B8> + Vec", P::EXPONENT)
     }
 }
 
-#[cfg(feature = "std")]
-impl<H: HasherType, const P: usize, const B: usize> hyperloglog_rs::prelude::Named
+impl<H: HasherType, const P: usize, const B: usize> Set
     for CloudFlareHLL<P, B, H>
 {
-    fn name(&self) -> String {
+    fn insert_element(&mut self, item: u64) {
+        self.estimator.insert(&item);
+    }
+
+    fn cardinality(&self) -> f64 {
+        self.estimator.estimate() as f64
+    }
+
+    fn union(&self, other: &Self) -> f64 {
+        let mut copy = self.clone();
+        copy.estimator.merge(&other.estimator);
+        copy.estimator.estimate() as f64
+    }
+
+    fn model_name(&self) -> String {
         format!(
             "CF<P{}, B{}, Mix> + {}",
             P,
@@ -192,311 +288,97 @@ impl<H: HasherType, const P: usize, const B: usize> hyperloglog_rs::prelude::Nam
     }
 }
 
-#[cfg(feature = "std")]
-impl<P: Precision> hyperloglog_rs::prelude::Named for RustHLL<P> {
-    fn name(&self) -> String {
-        format!("FrankPP<P{}, B8, Vec> + SipHasher13", P::EXPONENT)
-    }
-}
-
-#[cfg(feature = "std")]
-impl<P: Precision, H: HasherBuilderAssociated> hyperloglog_rs::prelude::Named
-    for TabacHLLPlusPlus<P, H>
-{
-    fn name(&self) -> String {
-        format!(
-            "TabacPP<P{}, B6, Vec> + {}",
-            P::EXPONENT,
-            core::any::type_name::<H>().split("::").last().unwrap()
-        )
-    }
-}
-
-#[cfg(feature = "std")]
-impl<H: HasherBuilderAssociated, P: Precision> hyperloglog_rs::prelude::Named for TabacHLL<P, H> {
-    fn name(&self) -> String {
-        format!(
-            "Tabac<P{}, B6, Vec> + {}",
-            P::EXPONENT,
-            core::any::type_name::<H>().split("::").last().unwrap()
-        )
-    }
-}
-
-#[cfg(feature = "std")]
-impl<P: Precision> hyperloglog_rs::prelude::Named for AlecHLL<P> {
-    fn name(&self) -> String {
-        assert_eq!({ P::EXPONENT }, self.estimator.precision());
-
-        format!("SA<P{}, B6, Vec> + XxHash64", self.estimator.precision())
-    }
-}
-
-impl<H: HasherType, const P: usize> ExtendableApproximatedSet<u64> for SimpleHLL<H, P> {
-    fn insert(&mut self, item: &u64) -> bool {
-        self.estimator.add_object(item);
-        true
-    }
-}
-
-impl<S: hypertwobits::h2b::Sketch, H: HasherBuilderAssociated> ExtendableApproximatedSet<u64>
-    for HyperTwoBits<S, H>
-{
-    fn insert(&mut self, item: &u64) -> bool {
-        self.estimator.insert(item);
-        true
-    }
-}
-
-impl<S: hypertwobits::h3b::Sketch, H: HasherBuilderAssociated> ExtendableApproximatedSet<u64>
-    for HyperThreeBits<S, H>
-{
-    fn insert(&mut self, item: &u64) -> bool {
-        self.estimator.insert(item);
-        true
-    }
-}
-
-impl<P: Precision> ExtendableApproximatedSet<u64> for SourMash<P> {
-    fn insert(&mut self, item: &u64) -> bool {
-        self.estimator
-            .add_sequence(item.to_le_bytes().as_ref(), false)
-            .unwrap();
-        true
-    }
-}
-
-impl<H: HasherType, const P: usize, const B: usize> ExtendableApproximatedSet<u64>
-    for CloudFlareHLL<P, B, H>
-{
-    fn insert(&mut self, item: &u64) -> bool {
-        self.estimator.insert(item);
-        true
-    }
-}
-
-impl<P: Precision> ExtendableApproximatedSet<u64> for RustHLL<P> {
-    fn insert(&mut self, item: &u64) -> bool {
-        self.estimator.insert(item);
-        true
-    }
-}
-
-impl<H: HasherBuilderAssociated, P: Precision> ExtendableApproximatedSet<u64>
-    for TabacHLLPlusPlus<P, H>
-{
-    fn insert(&mut self, item: &u64) -> bool {
-        self.estimator.insert(item);
-        true
-    }
-}
-
-impl<H: HasherBuilderAssociated, P: Precision> ExtendableApproximatedSet<u64> for TabacHLL<P, H> {
-    fn insert(&mut self, item: &u64) -> bool {
-        self.estimator.insert(item);
-        true
-    }
-}
-
-impl<P: Precision> ExtendableApproximatedSet<u64> for AlecHLL<P> {
-    fn insert(&mut self, item: &u64) -> bool {
-        self.estimator.push(item);
-        true
-    }
-}
-
-impl<H: HasherType, const P: usize> Estimator<f64> for SimpleHLL<H, P> {
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
-    )]
-    fn estimate_cardinality(&self) -> f64 {
-        self.estimator.count() as f64
+impl<P: Precision> Set for RustHLL<P> {
+    fn insert_element(&mut self, item: u64) {
+        self.estimator.insert(&item);
     }
 
-    fn estimate_union_cardinality_with_cardinalities(&self, _: &Self, _: f64, _: f64) -> f64 {
-        unimplemented!(
-            "SimpleHLL does not support estimating union cardinality with cardinalities."
-        )
-    }
-
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
-    )]
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
-        let mut copy = self.clone();
-        copy.estimator.merge(&other.estimator);
-        copy.estimator.count() as f64
-    }
-}
-
-impl<H: HasherType, const P: usize, const B: usize> Estimator<f64> for CloudFlareHLL<P, B, H> {
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
-    )]
-    fn estimate_cardinality(&self) -> f64 {
-        self.estimator.estimate() as f64
-    }
-
-    fn estimate_union_cardinality_with_cardinalities(&self, _: &Self, _: f64, _: f64) -> f64 {
-        unimplemented!(
-            "CloudFlareHLL does not support estimating union cardinality with cardinalities."
-        )
-    }
-
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
-    )]
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
-        let mut copy = self.clone();
-        copy.estimator.merge(&other.estimator);
-        copy.estimator.estimate() as f64
-    }
-}
-
-impl<S: Clone + hypertwobits::h2b::Sketch + Send + Sync, H: HasherBuilderAssociated> Estimator<f64>
-    for HyperTwoBits<S, H>
-{
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
-    )]
-    fn estimate_cardinality(&self) -> f64 {
-        self.estimator.count() as f64
-    }
-
-    fn estimate_union_cardinality_with_cardinalities(&self, _: &Self, _: f64, _: f64) -> f64 {
-        unimplemented!(
-            "HyperTwoBits does not support estimating union cardinality with cardinalities."
-        )
-    }
-
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
-    )]
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
-        let mut copy = self.clone();
-        copy.estimator.merge(other.estimator.clone());
-        copy.estimator.count() as f64
-    }
-}
-
-impl<S: Clone + hypertwobits::h3b::Sketch + Send + Sync, H: HasherBuilderAssociated> Estimator<f64>
-    for HyperThreeBits<S, H>
-{
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
-    )]
-    fn estimate_cardinality(&self) -> f64 {
-        self.estimator.count() as f64
-    }
-
-    fn estimate_union_cardinality_with_cardinalities(&self, _: &Self, _: f64, _: f64) -> f64 {
-        unimplemented!(
-            "HyperThreeBits does not support estimating union cardinality with cardinalities."
-        )
-    }
-
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
-    )]
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
-        let mut copy = self.clone();
-        copy.estimator.merge(other.estimator.clone());
-        copy.estimator.count() as f64
-    }
-}
-
-impl<P: Precision> Estimator<f64> for SourMash<P> {
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
-    )]
-    fn estimate_cardinality(&self) -> f64 {
-        self.estimator.cardinality() as f64
-    }
-
-    fn estimate_union_cardinality_with_cardinalities(&self, _: &Self, _: f64, _: f64) -> f64 {
-        unimplemented!("SourMash does not support estimating union cardinality with cardinalities.")
-    }
-
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "We do not expect to exceeed 2**54 in set cardinality in our tests."
-    )]
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
-        self.estimator.union(&other.estimator) as f64
-    }
-}
-
-impl<P: Precision> Estimator<f64> for RustHLL<P> {
-    fn estimate_cardinality(&self) -> f64 {
+    fn cardinality(&self) -> f64 {
         self.estimator.len()
     }
 
-    fn estimate_union_cardinality_with_cardinalities(&self, _: &Self, _: f64, _: f64) -> f64 {
-        unimplemented!("RustHLL does not support estimating union cardinality with cardinalities.")
-    }
-
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+    fn union(&self, other: &Self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.merge(&other.estimator);
         copy.estimator.len()
     }
-}
 
-impl<H: HasherBuilderAssociated, P: Precision> Estimator<f64> for TabacHLLPlusPlus<P, H> {
-    fn estimate_cardinality(&self) -> f64 {
-        self.estimator.clone().count()
-    }
-
-    fn estimate_union_cardinality_with_cardinalities(&self, _: &Self, _: f64, _: f64) -> f64 {
-        unimplemented!(
-            "TabacHLLPlusPlus does not support estimating union cardinality with cardinalities."
+    fn model_name(&self) -> String {
+        format!(
+            "FrankPP<P{}, B8> + SipHasher13",
+            P::EXPONENT
         )
     }
+}
 
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+impl<H: HasherBuilderAssociated, P: Precision> Set
+    for TabacHLLPlusPlus<P, H>
+{
+    fn insert_element(&mut self, item: u64) {
+        self.estimator.insert(&item);
+    }
+
+    fn cardinality(&self) -> f64 {
+        let mut copy = self.clone();
+        copy.estimator.count()
+    }
+
+    fn union(&self, other: &Self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.merge(&other.estimator).unwrap();
         copy.estimator.count()
     }
+
+    fn model_name(&self) -> String {
+        format!(
+            "TabacPP<P{}, B6> + {}",
+            P::EXPONENT,
+            core::any::type_name::<H>().split("::").last().unwrap()
+        )
+    }
 }
 
-impl<H: HasherBuilderAssociated, P: Precision> Estimator<f64> for TabacHLL<P, H> {
-    fn estimate_cardinality(&self) -> f64 {
-        self.estimator.clone().count()
+impl<H: HasherBuilderAssociated, P: Precision> Set for TabacHLL<P, H> {
+    fn insert_element(&mut self, item: u64) {
+        self.estimator.insert(&item);
     }
 
-    fn estimate_union_cardinality_with_cardinalities(&self, _: &Self, _: f64, _: f64) -> f64 {
-        unimplemented!("TabacHLL does not support estimating union cardinality with cardinalities.")
-    }
-
-    fn estimate_union_cardinality(&self, _other: &Self) -> f64 {
+    fn cardinality(&self) -> f64 {
         let mut copy = self.clone();
-        copy.estimator.merge(&self.estimator).unwrap();
         copy.estimator.count()
     }
+
+    fn union(&self, other: &Self) -> f64 {
+        let mut copy = self.clone();
+        copy.estimator.merge(&other.estimator).unwrap();
+        copy.estimator.count()
+    }
+
+    fn model_name(&self) -> String {
+        format!(
+            "Tabac<P{}, B6> + {}",
+            P::EXPONENT,
+            core::any::type_name::<H>().split("::").last().unwrap()
+        )
+    }
 }
 
-impl<P: Precision> Estimator<f64> for AlecHLL<P> {
-    fn estimate_cardinality(&self) -> f64 {
+impl<P: Precision> Set for AlecHLL<P> {
+    fn insert_element(&mut self, item: u64) {
+        self.estimator.push(&item);
+    }
+
+    fn cardinality(&self) -> f64 {
         self.estimator.len()
     }
 
-    fn estimate_union_cardinality_with_cardinalities(&self, _: &Self, _: f64, _: f64) -> f64 {
-        unimplemented!("AlecHLL does not support estimating union cardinality with cardinalities.")
-    }
-
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+    fn union(&self, other: &Self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.union(&other.estimator);
         copy.estimator.len()
+    }
+
+    fn model_name(&self) -> String {
+        format!("SA<P{}, B6> + XxHash64", self.estimator.precision())
     }
 }

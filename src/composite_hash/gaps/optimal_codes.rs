@@ -1,13 +1,9 @@
 //! Optimal codes for the gap between subsequent hashes in the `ListHash` variant of [`HyperLogLog`].
 /// The optimal Rice code coefficients for the different precisions and bit sizes, when using hash-packing.
 pub(super) const OPTIMAL_RICE_COEFFICIENTS: [[&[(u8, u8)]; 3]; 15] = [
-    [&[], &[], &[(10u8, 0u8)]],
+    [&[(8u8, 0u8)], &[], &[(10u8, 0u8)]],
     [&[(9u8, 0u8)], &[(10u8, 0u8)], &[(11u8, 0u8)]],
-    [
-        &[(10u8, 0u8), (11u8, 6u8)],
-        &[(11u8, 0u8), (12u8, 7u8), (13u8, 8u8)],
-        &[(12u8, 0u8), (13u8, 7u8)],
-    ],
+    [&[(10u8, 0u8)], &[(11u8, 0u8)], &[(12u8, 0u8), (13u8, 7u8)]],
     [
         &[(11u8, 0u8), (12u8, 6u8), (13u8, 7u8), (14u8, 8u8)],
         &[(12u8, 0u8), (13u8, 7u8), (14u8, 8u8)],
@@ -126,8 +122,10 @@ pub(super) const OPTIMAL_RICE_COEFFICIENTS: [[&[(u8, u8)]; 3]; 15] = [
             (18u8, 8u8),
             (19u8, 9u8),
             (20u8, 10u8),
-            (21u8, 12u8),
+            (21u8, 11u8),
             (22u8, 13u8),
+            (23u8, 14u8),
+            (24u8, 15u8),
         ],
         &[
             (16u8, 0u8),
@@ -138,6 +136,7 @@ pub(super) const OPTIMAL_RICE_COEFFICIENTS: [[&[(u8, u8)]; 3]; 15] = [
             (21u8, 11u8),
             (22u8, 12u8),
             (23u8, 13u8),
+            (24u8, 14u8),
         ],
         &[
             (17u8, 0u8),
@@ -147,6 +146,7 @@ pub(super) const OPTIMAL_RICE_COEFFICIENTS: [[&[(u8, u8)]; 3]; 15] = [
             (21u8, 11u8),
             (22u8, 12u8),
             (23u8, 13u8),
+            (24u8, 14u8),
         ],
     ],
     [
@@ -304,7 +304,7 @@ pub(super) const OPTIMAL_RICE_COEFFICIENTS: [[&[(u8, u8)]; 3]; 15] = [
             (28u8, 13u8),
             (29u8, 14u8),
             (30u8, 15u8),
-            (31u8, 16u8),
+            (31u8, 17u8),
             (32u8, 18u8),
         ],
         &[
@@ -347,7 +347,7 @@ pub(super) const OPTIMAL_RICE_COEFFICIENTS: [[&[(u8, u8)]; 3]; 15] = [
             (29u8, 13u8),
             (30u8, 14u8),
             (31u8, 15u8),
-            (32u8, 16u8),
+            (32u8, 17u8),
         ],
         &[
             (23u8, 0u8),

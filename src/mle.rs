@@ -97,17 +97,6 @@ impl<H, const ERROR: i32> From<H> for MLE<H, ERROR> {
     }
 }
 
-#[cfg(feature = "std")]
-impl<const ERROR: i32, H: Named> Named for MLE<H, ERROR>
-where
-    Self: Default,
-{
-    #[inline]
-    fn name(&self) -> String {
-        format!("MLE{}{}", ERROR, self.counter.name())
-    }
-}
-
 #[expect(
     clippy::too_many_lines,
     reason = "I don't want to split the function in smaller parts."

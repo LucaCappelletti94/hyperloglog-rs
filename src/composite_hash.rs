@@ -3,9 +3,7 @@
 use crate::{bits::Bits, prelude::Precision};
 use core::fmt::Debug;
 
-#[cfg(feature = "prefix_free_codes")]
 pub mod gaps;
-#[cfg(feature = "prefix_free_codes")]
 pub use gaps::GapHash;
 
 mod shared;
@@ -26,7 +24,7 @@ pub enum SaturationError {
 /// A reader buffer with a known last buffered bit.
 pub trait LastBufferedBit {
     /// Returns the last buffered bit.
-    fn last_buffered_bit(&self) -> usize;
+    fn last_buffered_bit(&self) -> u32;
 
     /// Returns the hash bits.
     fn hash_bits(&self) -> u8;
@@ -43,14 +41,14 @@ pub trait CompositeHash: Send + Sync + Debug {
     type Decoded<'a>: Iterator<Item = (u8, usize)> + Debug + LastBufferedBit;
 
     /// Iterator on the downgraded composite hashes.
-    type Downgraded<'a>: Iterator<Item = u64> + Debug + LastBufferedBit;
+    type Downgraded<'a>: Iterator<Item = u32> + Debug + LastBufferedBit;
 
     /// Returns an iterator on the decoded indices and registers.
     fn decoded(
         hashes: &[u8],
-        number_of_hashes: usize,
+        number_of_hashes: u32,
         hash_bits: u8,
-        bit_index: usize,
+        bit_index: u32,
     ) -> Self::Decoded<'_>;
 
     /// Returns an iterator on the downgraded composite hashes.
@@ -63,9 +61,9 @@ pub trait CompositeHash: Send + Sync + Debug {
     /// * `shift` - The number of bits to shift the hash to the right.
     fn downgraded(
         hashes: &[u8],
-        number_of_hashes: usize,
+        number_of_hashes: u32,
         hash_bits: u8,
-        bit_index: usize,
+        bit_index: u32,
         shift: u8,
     ) -> Self::Downgraded<'_>;
 
@@ -76,7 +74,7 @@ pub trait CompositeHash: Send + Sync + Debug {
     /// * `register` - The register from the hyperloglog, which is the leading number of bits + 1.
     /// * `original_hash` - The original hash that was used to generate the register.
     /// * `hash_bits` - The number of bits for the hash to encode.
-    fn encode(index: usize, register: u8, original_hash: u64, hash_bits: u8) -> u64;
+    fn encode(index: usize, register: u8, original_hash: u64, hash_bits: u8) -> u32;
 
     /// Returns a result with the index, in bits, where the provided index, register and original hash are stored or
     /// in the case of a failure, the index, in bits, where the hash should be inserted and the encoded hash.
@@ -97,12 +95,12 @@ pub trait CompositeHash: Send + Sync + Debug {
     /// * `SaturationError::DowngradableSaturation` - The Hash List is saturated but can be downgraded.
     fn find(
         hashes: &[u8],
-        number_of_hashes: usize,
+        number_of_hashes: u32,
         index: usize,
         register: u8,
         original_hash: u64,
         hash_bits: u8,
-        bit_index: usize,
+        bit_index: u32,
     ) -> bool;
 
     /// Inserts the provided index, register and original hash into the provided slice of composite hashes,
@@ -122,20 +120,20 @@ pub trait CompositeHash: Send + Sync + Debug {
     /// * `SaturationError::DowngradableSaturation` - The Hash List is saturated but can be downgraded.
     fn insert_sorted_desc(
         hashes: &mut [u8],
-        number_of_hashes: usize,
-        bit_index: usize,
+        number_of_hashes: u32,
+        bit_index: u32,
         index: usize,
         register: u8,
         original_hash: u64,
         hash_bits: u8,
-    ) -> Result<Option<usize>, SaturationError>;
+    ) -> Result<Option<u32>, SaturationError>;
 
     /// Decodes the provided composite hash into the register and index.
     ///
     /// # Arguments
     /// * `hash` - The composite hash to decode.
     /// * `hash_bits` - The number of bits for the hash to decode.
-    fn decode(hash: u64, hash_bits: u8) -> (u8, usize);
+    fn decode(hash: u32, hash_bits: u8) -> (u8, usize);
 
     /// Downgrades the provided composite hash into a smaller composite hash.
     ///
@@ -143,7 +141,7 @@ pub trait CompositeHash: Send + Sync + Debug {
     /// * `hash` - The composite hash to downgrade.
     /// * `hash_bits` - The number of bits for the hash to downgrade.
     /// * `shift` - The number of bits to shift the hash to the right.
-    fn downgrade(hash: u64, hash_bits: u8, shift: u8) -> u64;
+    fn downgrade(hash: u32, hash_bits: u8, shift: u8) -> u32;
 
     #[must_use]
     /// Downgrades inplace the entire slice of composite hashes into a smaller composite hash.
@@ -163,11 +161,11 @@ pub trait CompositeHash: Send + Sync + Debug {
     /// The number of newly created duplicated hashes that were removed and the new writer tell.
     fn downgrade_inplace(
         hashes: &mut [u8],
-        number_of_hashes: usize,
-        bit_index: usize,
+        number_of_hashes: u32,
+        bit_index: u32,
         hash_bits: u8,
         shift: u8,
-    ) -> (u32, usize);
+    ) -> (u32, u32);
 
     /// Returns the target downgraded hash bits for the provided hash bits.
     ///
@@ -175,40 +173,7 @@ pub trait CompositeHash: Send + Sync + Debug {
     /// * `number_of_hashes` - The number of hashes stored in the slice.
     /// * `bit_index` - The index, in bits, where the writer left off.
     /// * `hash_bits` - The number of bits for the hash to downgrade.
-    fn target_downgraded_hash_bits(number_of_hashes: usize, bit_index: usize, hash_bits: u8) -> u8;
-
-    #[must_use]
-    /// Returns the corrected cardinality.
-    fn birthday_paradox_correction(cardinality: u32) -> f64 {
-        if cardinality < Self::BIRTHDAY_CARDINALITIES[0] {
-            return f64::from(cardinality)
-                + Self::BIRTHDAY_RELATIVE_ERRORS[0] * f64::from(cardinality)
-                    / f64::from(Self::BIRTHDAY_CARDINALITIES[0]).max(1.0);
-        }
-
-        if cardinality >= Self::BIRTHDAY_CARDINALITIES[Self::BIRTHDAY_CARDINALITIES.len() - 1] {
-            return f64::from(cardinality)
-                + Self::BIRTHDAY_RELATIVE_ERRORS[Self::BIRTHDAY_CARDINALITIES.len() - 1]
-                    * f64::from(cardinality)
-                    / f64::from(
-                        Self::BIRTHDAY_CARDINALITIES[Self::BIRTHDAY_CARDINALITIES.len() - 1],
-                    );
-        }
-
-        for i in 0..Self::BIRTHDAY_CARDINALITIES.len() - 1 {
-            if cardinality < Self::BIRTHDAY_CARDINALITIES[i + 1] {
-                let bias = (f64::from(cardinality - Self::BIRTHDAY_CARDINALITIES[i])
-                    / f64::from(
-                        Self::BIRTHDAY_CARDINALITIES[i + 1] - Self::BIRTHDAY_CARDINALITIES[i],
-                    ))
-                    * (Self::BIRTHDAY_RELATIVE_ERRORS[i + 1] - Self::BIRTHDAY_RELATIVE_ERRORS[i])
-                    + Self::BIRTHDAY_RELATIVE_ERRORS[i];
-                return f64::from(cardinality) + bias;
-            }
-        }
-
-        unreachable!();
-    }
+    fn target_downgraded_hash_bits(number_of_hashes: u32, bit_index: u32, hash_bits: u8) -> u8;
 
     /// The cardinalities for the birthday paradox correction.
     const BIRTHDAY_CARDINALITIES: &[u32];
@@ -286,7 +251,7 @@ mod test_composite_hash {
                 }
 
                 let (index, register, original_hash) =
-                    <PlusPlus<
+                    <HyperLogLog<
                         CH::Precision,
                         CH::Bits,
                         <CH::Precision as ArrayRegister<CH::Bits>>::Packed,
@@ -325,24 +290,24 @@ mod test_composite_hash {
                         shift,
                     );
 
-                    let mut last_reference_hash = u64::MAX;
+                    let mut last_reference_hash = u32::MAX;
                     let mut reference_duplicates = 0;
                     for i in 0..number_of_inserted_hashes {
-                        let downgraded_hash = CH::downgrade(reference_hashes[i], hash_bits, shift);
+                        let downgraded_hash = CH::downgrade(reference_hashes[i as usize], hash_bits, shift);
                         if downgraded_hash == last_reference_hash {
                             reference_duplicates += 1;
                             continue;
                         }
                         last_reference_hash = downgraded_hash;
-                        reference_hashes[i - reference_duplicates] = downgraded_hash;
+                        reference_hashes[i as usize - reference_duplicates] = downgraded_hash;
                     }
 
-                    number_of_inserted_hashes -= number_of_duplicates as usize;
+                    number_of_inserted_hashes -= number_of_duplicates as u32;
 
                     // We set the values after 'number_of_inserted_hashes' to u64::MAX, so that
                     // if we end up comparing with such a value we can notice the error immediately.
-                    for i in number_of_inserted_hashes..number_of_hashes {
-                        reference_hashes[i] = u64::MAX;
+                    for i in number_of_inserted_hashes..number_of_hashes as u32 {
+                        reference_hashes[i as usize] = u32::MAX;
                     }
 
                     assert_eq!(
@@ -359,12 +324,12 @@ mod test_composite_hash {
                 if let Ok(Some(bit_index)) = result {
                     writer_tell = bit_index;
                     // If the hash was inserted, there must NOT be a reference stored with the same hash.
-                    assert!(!reference_hashes[..number_of_inserted_hashes]
+                    assert!(!reference_hashes[..number_of_inserted_hashes as usize]
                         .contains(&reference_encoded_hash));
-                    reference_hashes[number_of_inserted_hashes] = reference_encoded_hash;
+                    reference_hashes[number_of_inserted_hashes as usize] = reference_encoded_hash;
                     number_of_inserted_hashes += 1;
                     // We sort by decreasing order so that we can use the binary search.
-                    reference_hashes[..number_of_inserted_hashes].sort_unstable_by(|a, b| b.cmp(a));
+                    reference_hashes[..number_of_inserted_hashes as usize].sort_unstable_by(|a, b| b.cmp(a));
                     // We check that the inserted hash appears among the inserted hashes.
                     assert!(
                         CH::downgraded(
@@ -438,7 +403,7 @@ mod test_composite_hash {
         for hash_bits in CH::SMALLEST_VIABLE_HASH_BITS..=CH::LARGEST_VIABLE_HASH_BITS {
             for random_value in iter_random_values::<u64>(NUMBER_OF_HASHES as u64, None, None) {
                 let (index, register, original_hash) =
-                    <PlusPlus<
+                    <HyperLogLog<
                         CH::Precision,
                         CH::Bits,
                         <CH::Precision as ArrayRegister<CH::Bits>>::Packed,

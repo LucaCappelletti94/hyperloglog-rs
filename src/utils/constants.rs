@@ -16,13 +16,6 @@ pub trait One {
     fn is_one(&self) -> bool;
 }
 
-#[cfg(feature = "plusplus")]
-/// The two value for this type.
-pub(crate) trait Two {
-    /// The two value for this type.
-    const TWO: Self;
-}
-
 /// Macro implementing several constants for integers.
 macro_rules! impl_constants {
     ($($t:ty)*) => ($(
@@ -35,10 +28,6 @@ macro_rules! impl_constants {
             const ZERO: Self = 0;
             #[inline]
             fn is_zero(&self) -> bool { *self == 0 }
-        }
-        #[cfg(feature = "plusplus")]
-        impl Two for $t {
-            const TWO: Self = 2;
         }
     )*)
 }
@@ -64,9 +53,4 @@ impl Zero for f64 {
     fn is_zero(&self) -> bool {
         *self == 0.0
     }
-}
-
-#[cfg(feature = "plusplus")]
-impl Two for f64 {
-    const TWO: Self = 2.0;
 }

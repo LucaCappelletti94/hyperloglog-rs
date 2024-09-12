@@ -5,7 +5,9 @@ use twox_hash::XxHash;
 /// Test the HyperLogLog implementation with the provided precision and bits
 pub fn test_approximated_counter_at_precision_and_bits<
     P: Precision,
-    H: ExtendableApproximatedSet<u64> + Estimator<f64> + Default,
+    B: Bits,
+    R: Registers<P, B>,
+    H: HasherType,
 >() {
     let number_of_elements = 200_000;
     let mut total_cardinality_error_rate = 0.0;
@@ -24,8 +26,8 @@ pub fn test_approximated_counter_at_precision_and_bits<
     let mut exact_right = std::collections::HashSet::new();
 
     for _ in 0..number_of_iterations {
-        let mut left: H = H::default();
-        let mut right: H = H::default();
+        let mut left: HyperLogLog<P, B, R, H> = Default::default();
+        let mut right: HyperLogLog<P, B, R, H> = Default::default();
         exact_left.clear();
         exact_right.clear();
         left_random_state = splitmix64(left_random_state);
@@ -74,12 +76,6 @@ pub fn test_approximated_counter_at_precision_and_bits<
                 let union = exact_left.union(&exact_right).count() as f64;
                 let estimated_union = left.estimate_union_cardinality(&right);
 
-                // The union estimate must be symmetric if the approach is not MLE, which is
-                // non-deterministic.
-                if !left.is_union_estimate_non_deterministic(&right) {
-                    assert_eq!(estimated_union, right.estimate_union_cardinality(&left));
-                }
-
                 total_union_error_rate += (estimated_union as f64 - union).abs() / union;
 
                 total_union_samples += 1;
@@ -115,46 +111,13 @@ pub fn test_approximated_counter_at_precision_and_bits<
     );
 }
 
-#[test_estimator]
-fn test_plusplus<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
-    test_approximated_counter_at_precision_and_bits::<P, PlusPlus<P, B, R, H>>();
-}
+// #[test_estimator]
+// #[cfg(feature = "mle")]
+// fn test_hybrid_mle_plusplus<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
+//     test_approximated_counter_at_precision_and_bits::<P, Hybrid<MLE<PlusPlus<P, B, R, H>>>>();
+// }
 
 #[test_estimator]
-fn test_beta<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
-    test_approximated_counter_at_precision_and_bits::<P, LogLogBeta<P, B, R, H>>();
-}
-
-#[test_estimator]
-#[cfg(feature = "mle")]
-fn test_mle_plusplus<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
-    test_approximated_counter_at_precision_and_bits::<P, MLE<PlusPlus<P, B, R, H>>>();
-}
-
-#[test_estimator]
-#[cfg(feature = "mle")]
-fn test_mle_beta<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
-    test_approximated_counter_at_precision_and_bits::<P, MLE<LogLogBeta<P, B, R, H>>>();
-}
-
-#[test_estimator]
-#[cfg(feature = "mle")]
-fn test_hybrid_mle_plusplus<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<MLE<PlusPlus<P, B, R, H>>>>();
-}
-
-#[test_estimator]
-#[cfg(feature = "mle")]
-fn test_hybrid_mle_beta<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<MLE<LogLogBeta<P, B, R, H>>>>();
-}
-
-#[test_estimator]
-fn test_hybrid_plusplus<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<PlusPlus<P, B, R, H>>>();
-}
-
-#[test_estimator]
-fn test_hybrid_beta<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
-    test_approximated_counter_at_precision_and_bits::<P, Hybrid<LogLogBeta<P, B, R, H>>>();
+fn test_hyperloglog<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
+    test_approximated_counter_at_precision_and_bits::<P, B, R, H>();
 }

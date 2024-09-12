@@ -2,9 +2,6 @@
 use crate::prelude::VariableWord;
 use core::fmt::Debug;
 
-#[cfg(feature = "std")]
-use crate::utils::Named;
-
 /// Trait marker for the number of bits.
 pub trait Bits: VariableWord {}
 
@@ -18,14 +15,6 @@ macro_rules! impl_bits {
                 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
                 /// A struct representing the number of bits.
                 pub struct [<Bits $n>];
-
-                #[cfg(feature = "std")]
-                impl Named for [<Bits $n>] {
-                    #[inline]
-                    fn name(&self) -> String {
-                        format!("B{}", $n)
-                    }
-                }
 
                 impl VariableWord for [<Bits $n>] {
                     const NUMBER_OF_BITS: u8 = $n;

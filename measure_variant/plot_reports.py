@@ -8,6 +8,9 @@ column with the relative error of respectively the latest and reference variants
 import pandas as pd
 import matplotlib.pyplot as plt
 
+def hyperloglog_error(p: int) -> float:
+    """Returns the expected error of the HyperLogLog algorithm for a given precision."""
+    return 1.04 / (p ** 0.5)
 
 def plot_all():
     """Load the reports and plot the histograms, boxplots and relative error plots."""
@@ -29,6 +32,9 @@ def plot_all():
         reference_report.cardinality,
         reference_report.relative_error, label="Reference", linestyle="--", alpha=0.7
     )
+
+    # We plot an horizontal line representing the expected error of the HyperLogLog algorithm.
+    axs[0].axhline(hyperloglog_error(14), color="red", label="Expected error")
 
     axs[0].set_title("Relative error")
     axs[0].set_xlabel("Cardinality")

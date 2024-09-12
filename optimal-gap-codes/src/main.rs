@@ -38,14 +38,16 @@ where
 #[derive(Debug, Copy, Clone)]
 /// Collector of statistics for the different prefix-free codes.
 pub struct CodesStats {
+    /// The rice coefficient to use for the geometric part of the gap.
+    geometric_coefficient: usize,
     /// The total number of elements observed.
-    pub total: u64,
+    pub total: usize,
     /// The quantity of space needed to store the geometric and
     /// uniform parts of the gap, for each possible rice code,
     /// where the I-th axis represents the I-th rice code for the uniform
     /// part of the gap and the J-th axis represents the J-th rice code
     /// for the geometric part of the gap.
-    pub rice: [u64; 20],
+    pub rice: [usize; 20],
     /// A mask to keep track of the codes that, at some iteration, have
     /// overflowed the available number of bits and as such are marked as
     /// unstable.
@@ -58,8 +60,10 @@ impl CodesStats {
     /// # Arguments
     /// * `hash_bits` - The number of bits used to encode the hash.
     ///                 The first hash is always encoded as-is.
-    fn new(hash_bits: u64) -> Self {
+    /// * `geometric_coefficient` - The rice coefficient to use for the geometric part of the gap.
+    fn new(hash_bits: usize, geometric_coefficient: usize) -> Self {
         Self {
+            geometric_coefficient,
             total: 1,
             rice: [hash_bits; 20],
             unstable: [false; 20],
@@ -74,8 +78,8 @@ impl CodesStats {
         self.total += 1;
 
         for (i_log2_b, val) in self.rice.iter_mut().enumerate() {
-            *val += (len_rice(gap.uniform_delta, i_log2_b as _) as u64)
-                + u64::from(gap.geometric_minus_one) + 1;
+            *val += len_rice(gap.uniform_delta as u64, i_log2_b)
+                + len_rice(gap.geometric_minus_one as u64, self.geometric_coefficient);
         }
     }
 
@@ -86,8 +90,8 @@ impl CodesStats {
         self.total -= 1;
 
         for (i_log2_b, val) in self.rice.iter_mut().enumerate() {
-            *val -= (len_rice(gap.uniform_delta, i_log2_b as _) as u64)
-                + u64::from(gap.geometric_minus_one) + 1;
+            *val -= len_rice(gap.uniform_delta as u64, i_log2_b)
+                + len_rice(gap.geometric_minus_one as u64, self.geometric_coefficient);
         }
     }
 
@@ -104,15 +108,15 @@ impl CodesStats {
     }
 
     /// Updates the unstability mask.
-    pub fn update_unstable(&mut self, number_of_bits: u64) {
+    pub fn update_unstable(&mut self, number_of_bits: usize) {
         for (i, val) in self.rice.iter().enumerate() {
             self.unstable[i] |= *val > number_of_bits;
         }
     }
 
     /// Return the best code for the stream and its space usage.
-    pub fn best_code(&self) -> (u8, u64) {
-        let mut best = u64::MAX;
+    pub fn best_code(&self) -> (u8, usize) {
+        let mut best = usize::MAX;
         let mut best_uniform_code = u8::MAX;
 
         for i in 0..self.rice.len() {
@@ -155,7 +159,7 @@ struct GapReport {
     extra_hashes: u64,
 }
 
-type H<P, B> = PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, twox_hash::XxHash>;
+type H<P, B> = HyperLogLog<P, B, <P as ArrayRegister<B>>::Packed, twox_hash::XxHash>;
 
 /// Measures the gap between subsequent hashes in the Listhash variant of HyperLogLog.
 fn optimal_gap_codes<P: Precision, B: Bits>(multiprogress: &MultiProgress)
@@ -172,7 +176,7 @@ where
         }
     }
 
-    let iterations = 1_000_000 / (1 << (P::EXPONENT - 4));
+    let iterations = 4_000_000 / (1 << (P::EXPONENT - 4));
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));
     progress_bar.set_style(
@@ -185,6 +189,11 @@ where
     );
 
     let random_state = 6_539_823_745_562_884_u64;
+    let geometric_coefficient = if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
+        1
+    } else {
+        0
+    };
 
     let gaps: HashMap<u8, CodesStats> = ParallelIterator::reduce(
         (0..iterations)
@@ -196,15 +205,15 @@ where
                 let mut hash_bits = SwitchHash::<P, B>::LARGEST_VIABLE_HASH_BITS;
 
                 let padded_rank_index_size =
-                    GapHash::<P, B>::rank_index_padded_size(usize::from(hash_bits));
+                    GapHash::<P, B>::rank_index_padded_size(hash_bits);
                 let number_of_bits = (1usize << P::EXPONENT) * usize::from(B::NUMBER_OF_BITS);
                 let preliminary_saturation_threshold =
-                    (number_of_bits - padded_rank_index_size) / usize::from(hash_bits);
-                let mut previous_hash: Option<u64>;
+                    (number_of_bits - padded_rank_index_size as usize) / usize::from(hash_bits);
+                let mut previous_hash: Option<u32>;
                 let mut next_hash;
 
                 // We create a vector to store the hashes.
-                let mut reference_hashes: Vec<Reverse<u64>> =
+                let mut reference_hashes: Vec<Reverse<u32>> =
                     Vec::with_capacity(number_of_bits / usize::from(hash_bits) * 2);
 
                 for value in iter_random_values::<u64>(1_000_000, None, Some(random_state)) {
@@ -230,7 +239,7 @@ where
 
                     // If we have just reached the preliminary saturation, we populate the gap report.
                     if reference_hashes.len() == preliminary_saturation_threshold {
-                        let mut stats = CodesStats::new(u64::from(hash_bits));
+                        let mut stats = CodesStats::new(usize::from(hash_bits), geometric_coefficient);
 
                         for window in reference_hashes.windows(2) {
                             let gap = GapHash::<P, B>::into_gap_fragment(
@@ -243,9 +252,9 @@ where
                         }
 
                         stats.update_unstable(
-                            number_of_bits as u64
-                                - GapHash::<P, B>::rank_index_total_size(usize::from(hash_bits))
-                                    as u64,
+                            number_of_bits
+                                - GapHash::<P, B>::rank_index_total_size(hash_bits)
+                                    as usize,
                         );
 
                         gap_report.insert(hash_bits, stats);
@@ -284,8 +293,8 @@ where
                     let (_, space_usage) = gap_report.get(&hash_bits).unwrap().best_code();
 
                     if space_usage
-                        > number_of_bits as u64
-                            - GapHash::<P, B>::rank_index_total_size(usize::from(hash_bits)) as u64
+                        > number_of_bits
+                            - GapHash::<P, B>::rank_index_total_size(hash_bits) as usize
                     {
                         // If we are forced to downgrade the hash, we need to revert the last
                         // insertion into the gap report.
@@ -340,7 +349,7 @@ where
                         // The downgrade procedure may introduce duplications, we remove them.
                         reference_hashes.dedup();
 
-                        let mut stats = CodesStats::new(u64::from(hash_bits));
+                        let mut stats = CodesStats::new(usize::from(hash_bits), geometric_coefficient);
 
                         for window in reference_hashes.windows(2) {
                             let gap = GapHash::<P, B>::into_gap_fragment(
@@ -353,9 +362,9 @@ where
                         }
 
                         stats.update_unstable(
-                            number_of_bits as u64
-                                - GapHash::<P, B>::rank_index_total_size(usize::from(hash_bits))
-                                    as u64,
+                            number_of_bits
+                                - GapHash::<P, B>::rank_index_total_size(hash_bits)
+                                    as usize,
                         );
 
                         gap_report.insert(hash_bits, stats);
@@ -369,7 +378,7 @@ where
             for (hash_size, gap_report) in report {
                 let hash_size_report = acc
                     .entry(hash_size)
-                    .or_insert_with(|| CodesStats::new(u64::from(hash_size)));
+                    .or_insert_with(|| CodesStats::new(usize::from(hash_size), geometric_coefficient));
                 hash_size_report.add(&gap_report);
             }
             acc
@@ -389,7 +398,7 @@ where
 
     append_csv(
         gaps.iter().map(|(hash_size, gap_report)| {
-            let (uniform_rice_coefficient, space_usage): (u8, u64) =
+            let (uniform_rice_coefficient, space_usage): (u8, usize) =
                 gap_report.best_code();
 
             let byte_padded_hash_size: u8 = max_hash_size.div_ceil(8) * 8;
@@ -399,7 +408,7 @@ where
             let number_of_hashes = (1_u64 << P::EXPONENT) * u64::from(B::NUMBER_OF_BITS)
                 / u64::from(byte_padded_hash_size);
             let number_of_hashes_with_code =
-                ((((1_u64 << P::EXPONENT) * u64::from(B::NUMBER_OF_BITS)) as f64 - GapHash::<P, B>::rank_index_total_size(usize::from(*hash_size)) as f64)
+                ((((1_u64 << P::EXPONENT) * u64::from(B::NUMBER_OF_BITS)) as f64 - GapHash::<P, B>::rank_index_total_size(*hash_size) as f64)
                     / mean_compressed_size as f64) as u64;
             let rate = number_of_hashes as f64 / number_of_hashes_with_code as f64;
             let extra_hashes = (number_of_hashes_with_code as u64).saturating_sub(number_of_hashes);

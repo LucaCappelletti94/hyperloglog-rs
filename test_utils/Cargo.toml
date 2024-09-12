@@ -10,3 +10,4 @@ flate2 = "1.0.32"
 indicatif = "0.17.8"
 serde = "1.0.208"
 stattest = {git = "https://github.com/LucaCappelletti94/stattest", branch = "faster_wilcoxon", features=["voracious_radix_sort"]}
+rayon = "1.10.0"

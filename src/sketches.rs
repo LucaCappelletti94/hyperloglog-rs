@@ -13,10 +13,16 @@
 //! sometimes it is necessary, such as in test cases, to have the exact version of the
 //! algorithm. The approximated version is faster and uses less memory, but it is not,
 //! of course, guaranteed to be exact.
-use crate::prelude::{Estimator, FloatOps, Number, Zero};
+use crate::prelude::{FloatOps, Number, Zero};
 
 /// Trait for sketching algorithms that provide the overlap and differences cardinality matrices.
-pub trait HyperSpheresSketch<N: Number>: Estimator<N> {
+pub trait HyperSpheresSketch<N: Number>: Sized {
+    /// Returns the estimated cardinality of the set.
+    fn estimate_cardinality(&self) -> N;
+
+    /// Returns the estimated cardinality of the union of the two sets.
+    fn estimate_union_cardinality(&self, other: &Self) -> N;
+
     #[inline]
     /// Returns the overlap and differences cardinality matrices of two lists of sets.
     ///
@@ -247,9 +253,6 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch<f64> {
         )
     }
 }
-
-impl<N: Number, M> HyperSpheresSketch<N> for M where M: Estimator<N> {}
-impl<M> NormalizedHyperSpheresSketch for M where M: Estimator<f64> {}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]

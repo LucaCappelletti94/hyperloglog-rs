@@ -47,8 +47,6 @@ pub trait PositiveInteger:
     + Hash
     + Not<Output = Self>
 {
-    /// Converts the positive integer number to a `usize`.
-    fn to_usize(self) -> usize;
 }
 
 /// A trait for floating point numbers.
@@ -106,11 +104,6 @@ macro_rules! impl_positive_integer_number {
     ($($t:ty),*) => {
         $(
             impl PositiveInteger for $t {
-                #[inline]
-                #[must_use]
-                fn to_usize(self) -> usize {
-                    usize::try_from(self).unwrap()
-                }
             }
         )*
     };

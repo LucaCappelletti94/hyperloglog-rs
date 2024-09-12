@@ -2,11 +2,11 @@
 use std::collections::HashSet;
 
 use crate::estimation_tests::cardinality_test;
+use crate::traits::Set;
 use crate::{
     estimation_tests::{ErrorReport, PerformanceReport},
     traits::TransparentMemSize,
 };
-use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
 use strum::IntoEnumIterator;
 use test_utils::prelude::{read_csv, write_csv};
@@ -19,10 +19,8 @@ fn prepare_reports<S, T1, T2>(
 ) where
     T1: Fn(&HashSet<u64>, &MultiProgress) -> Vec<PerformanceReport>,
     T2: Fn(&S, &MultiProgress) -> Vec<PerformanceReport>,
-    S: Named
-        + Clone
-        + ExtendableApproximatedSet<u64>
-        + Estimator<f64>
+    S: Clone
+        + Set
         + TransparentMemSize
         + IntoEnumIterator,
 {
@@ -35,7 +33,7 @@ fn prepare_reports<S, T1, T2>(
     // We start by computing the exact cardinality of the set.
     let exact_estimator = HashSet::<u64>::new();
     // We determine the path where we will store the report.
-    let path = format!("reports/{test_name}-{}.csv.gz", exact_estimator.name());
+    let path = format!("reports/{test_name}-{}.csv.gz", exact_estimator.model_name());
     // If the path does not already exist, we create it.
     let correct_report: Vec<PerformanceReport> = if std::path::Path::new(&path).exists() {
         read_csv(&path).unwrap()
@@ -55,14 +53,14 @@ fn prepare_reports<S, T1, T2>(
     // only includes entry we actually process.
     let entries = entries
         .filter(|entry| {
-            let path = format!("reports/{test_name}/{}.csv.gz", entry.name());
+            let path = format!("reports/{test_name}/{}.csv.gz", entry.model_name());
             !std::path::Path::new(&path).exists()
         })
         .filter(|entry| {
             // If the test name is "cardinality", we exclude all models whose
             // name contains the word "MLE", as we solely have the joint union
             // estimation to evaluate from the MLE models at this time.
-            !(test_name == "cardinality" && entry.name().contains("MLE"))
+            !(test_name == "cardinality" && entry.model_name().contains("MLE"))
         });
 
     // We clone the iterator and compute the actual number of entries.
@@ -85,8 +83,8 @@ fn prepare_reports<S, T1, T2>(
 
     for enum_entry in entries {
         // We do the same for each estimator.
-        let path = format!("reports/{test_name}/{}.csv.gz", enum_entry.name());
-        entries_progress_bar.set_message(enum_entry.name());
+        let path = format!("reports/{test_name}/{}.csv.gz", enum_entry.model_name());
+        entries_progress_bar.set_message(enum_entry.model_name());
         let report = test(&enum_entry, multiprogress);
         write_csv(
             report
@@ -101,10 +99,9 @@ fn prepare_reports<S, T1, T2>(
 
 /// Trait to prepare the reports for the cardinality and union tests.
 pub trait SetTester:
-    Named
+    Send + Sync
     + Clone
-    + ExtendableApproximatedSet<u64>
-    + Estimator<f64>
+    + Set
     + TransparentMemSize
     + IntoEnumIterator
 {
@@ -125,10 +122,9 @@ pub trait SetTester:
 }
 
 impl<
-        S: Named
+        S:  Send + Sync
             + Clone
-            + ExtendableApproximatedSet<u64>
-            + Estimator<f64>
+            + Set
             + TransparentMemSize
             + IntoEnumIterator,
     > SetTester for S

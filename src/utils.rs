@@ -13,6 +13,7 @@ mod matrix;
 mod number;
 mod random;
 mod variable_word;
+mod intersection_from_sorted_iterators;
 
 pub use constants::*;
 pub use hasher_type::HasherType;
@@ -20,50 +21,7 @@ pub use matrix::Matrix;
 pub(crate) use number::{FloatOps, Number, PositiveInteger};
 pub use random::*;
 pub use variable_word::VariableWord;
-
-#[cfg(all(
-    not(feature = "std_ln"),
-    any(
-        all(feature = "beta", not(feature = "precomputed_beta")),
-        feature = "plusplus"
-    )
-))]
-include!(concat!(env!("OUT_DIR"), "/ln_values.rs"));
-
-#[cfg(feature = "std")]
-/// Trait for an object with a name.
-pub trait Named {
-    /// Returns the name of the object.
-    fn name(&self) -> String;
-}
-
-#[cfg(feature = "std")]
-impl Named for u8 {
-    fn name(&self) -> String {
-        "u8".to_owned()
-    }
-}
-
-#[cfg(feature = "std")]
-impl Named for u16 {
-    fn name(&self) -> String {
-        "u16".to_owned()
-    }
-}
-
-#[cfg(feature = "std")]
-impl Named for u32 {
-    fn name(&self) -> String {
-        "u32".to_owned()
-    }
-}
-
-#[cfg(feature = "std")]
-impl Named for u64 {
-    fn name(&self) -> String {
-        "u64".to_owned()
-    }
-}
+pub(crate) use intersection_from_sorted_iterators::intersection_from_sorted_iterators;
 
 #[inline]
 #[must_use]
@@ -86,15 +44,4 @@ pub(crate) fn correct_union_estimate(
     union_cardinality
         .min(right_cardinality + left_cardinality)
         .max(right_cardinality.max(left_cardinality))
-}
-
-#[inline]
-/// Returns the linear counting correction.
-pub(crate) fn linear_counting_correction(exponent: u8, number_of_zero_registers: u32) -> f64 {
-    #[cfg(not(feature = "std_ln"))]
-    return f64::integer_exp2(exponent)
-        * (LN_VALUES[1 << exponent] - LN_VALUES[number_of_zero_registers.to_usize()]);
-    #[cfg(feature = "std_ln")]
-    return f64::integer_exp2(exponent)
-        * f64::ln(f64::integer_exp2(exponent) / f64::from(number_of_zero_registers));
 }

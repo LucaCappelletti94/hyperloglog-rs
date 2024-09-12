@@ -6,7 +6,7 @@ pub struct BitWriter<'a> {
     data: &'a mut [u64],
     word_idx: usize,
     buffer: u64,
-    space_left_in_buffer: usize,
+    space_left_in_buffer: u8,
 }
 
 impl<'a> core::ops::Drop for BitWriter<'a> {
@@ -41,12 +41,11 @@ impl<'a> BitWriter<'a> {
     }
 
     #[inline]
-    pub fn seek(&mut self, bits_idx: usize) {
-        debug_assert!(bits_idx < self.data.len() * 64,);
+    pub fn seek(&mut self, bits_idx: u32) {
         self.flush();
-        self.word_idx = bits_idx / 64;
+        self.word_idx = (bits_idx / 64) as usize;
         let idx_in_word = bits_idx % 64;
-        self.space_left_in_buffer = 64 - idx_in_word;
+        self.space_left_in_buffer = 64 - idx_in_word as u8;
         let word = u64::from_be(self.data[self.word_idx]);
         if idx_in_word == 0 {
             self.buffer = 0;
@@ -56,18 +55,20 @@ impl<'a> BitWriter<'a> {
     }
 
     #[inline]
-    pub fn tell(&self) -> usize {
-        self.word_idx * 64 + usize::from(64 - self.space_left_in_buffer)
+    pub fn tell(&self) -> u32 {
+        (self.word_idx as u32 + 1) * 64 - u32::from(self.space_left_in_buffer)
     }
 
     #[inline]
-    pub(super) fn write_bits(&mut self, value: u64, n_bits: usize) -> usize {
+    pub(super) fn write_bits<U: Into<u64>>(&mut self, value: U, n_bits: u8) -> u8 {
         debug_assert!(n_bits <= 64);
         debug_assert!(self.space_left_in_buffer > 0);
 
         if n_bits == 0 {
             return 0;
         }
+
+        let value = value.into();
 
         if n_bits < self.space_left_in_buffer {
             self.buffer <<= n_bits;
@@ -87,14 +88,14 @@ impl<'a> BitWriter<'a> {
     }
 
     #[inline]
-    pub(super) fn write_unary(&mut self, mut value: u64) -> usize {
-        debug_assert_ne!(value, u64::MAX);
+    pub(super) fn write_unary<U: Into<u64>>(&mut self, value: U) -> u8 {
         debug_assert!(self.space_left_in_buffer > 0);
+        let mut value = value.into();
 
-        let code_length = value + 1;
+        let code_length = (value + 1) as u8;
 
-        if code_length <= self.space_left_in_buffer as u64 {
-            self.space_left_in_buffer -= code_length as usize;
+        if code_length <= self.space_left_in_buffer {
+            self.space_left_in_buffer -= code_length;
             self.buffer = self.buffer << value << 1;
             self.buffer |= 1;
             if self.space_left_in_buffer == 0 {
@@ -102,7 +103,7 @@ impl<'a> BitWriter<'a> {
                 self.word_idx += 1;
                 self.space_left_in_buffer = 64;
             }
-            return code_length as usize;
+            return code_length;
         }
 
         self.buffer = self.buffer << (self.space_left_in_buffer - 1) << 1;
@@ -124,22 +125,24 @@ impl<'a> BitWriter<'a> {
             self.space_left_in_buffer = 64;
         } else {
             self.buffer = 1;
-            self.space_left_in_buffer = 64 - (value as usize + 1);
+            self.space_left_in_buffer = 64 - (value as u8 + 1);
         }
 
-        code_length as usize
+        code_length
     }
 
     #[inline]
     pub fn write_rice(
         &mut self,
-        uniform_delta: u64,
-        geometric_minus_one: u64,
-        b1: usize,
+        uniform_delta: u32,
+        geometric_minus_one: u8,
+        b1: u8,
+        b2: u8,
     ) -> usize {
-        self.write_unary(uniform_delta >> b1)
+        usize::from(self.write_unary(uniform_delta >> b1))
             + usize::from(self.write_bits(uniform_delta, b1))
-            + self.write_unary(geometric_minus_one)
+            + usize::from(self.write_unary(geometric_minus_one >> b2))
+            + usize::from(self.write_bits(geometric_minus_one, b2))
     }
 }
 

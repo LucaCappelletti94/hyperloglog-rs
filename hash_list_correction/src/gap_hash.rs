@@ -1,6 +1,5 @@
 //! Error correction for gap hash.
 
-use hyperloglog_rs::composite_hash::GapHash;
 use prettyplease::unparse;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -28,7 +27,7 @@ macro_rules! generate_gap_hash_correction_for_precision {
         progress_bar.tick();
 
         $(
-            let report = hash_correction::<GapHash<$precision, $bit_size>>($multiprogress);
+            let report = hash_correction::<$precision, $bit_size>($multiprogress);
             $reports.push(report);
             progress_bar.inc(1);
         )*
@@ -88,7 +87,9 @@ pub fn compute_gap_hash_correction() {
 
     write_csv(reports.iter().map(|(_, c)| c), path);
 
-    let cardinalities = (4..=18)
+    let maximal_precision = reports.iter().map(|(c, _)| c.precision).max().unwrap();
+
+    let cardinalities = (4..=maximal_precision)
         .map(|exponent| {
             let bytes = (4..=6)
                 .map(|bit_size| {
@@ -110,7 +111,7 @@ pub fn compute_gap_hash_correction() {
         })
         .collect::<Vec<TokenStream>>();
 
-    let errors = (4..=18)
+    let errors = (4..=maximal_precision)
         .map(|exponent| {
             let bytes = (4..=6)
                 .map(|bit_size| {

@@ -4,7 +4,7 @@ use crate::proxy_implementations::{
     AlecHLL, CloudFlareHLL, HasherBuilderAssociated, HyperThreeBits, HyperTwoBits, RustHLL,
     SimpleHLL, TabacHLL, TabacHLLPlusPlus,
 };
-use crate::traits::TransparentMemSize;
+use crate::traits::{Set, TransparentMemSize};
 use hyperloglog_rs::prelude::*;
 use hypertwobits::h2b::{
     M1024 as M1024H2B, M128 as M128H2B, M2048 as M2048H2B, M256 as M256H2B, M4096 as M4096H2B,
@@ -14,7 +14,7 @@ use hypertwobits::h3b::{
     M1024 as M1024H3B, M128 as M128H3B, M2048 as M2048H3B, M256 as M256H3B, M4096 as M4096H3B,
     M512 as M512H3B, M64 as M64H3B,
 };
-use macro_test_utils::{Estimator, ExtendableApproximatedSet, Named, TransparentMemSize};
+use macro_test_utils::{Set, TransparentMemSize};
 use mem_dbg::MemSize;
 use strum_macros::EnumIter;
 
@@ -23,7 +23,7 @@ use strum_macros::EnumIter;
     clippy::large_enum_variant,
     reason = "The enum is large due to the use of generics, but these are benchmarks and is to be expected."
 )]
-#[derive(Clone, Named, ExtendableApproximatedSet, Estimator, TransparentMemSize, EnumIter)]
+#[derive(Clone, Set, TransparentMemSize, EnumIter)]
 /// Enumerations will all `HyperTwo` variants we
 /// take into consideration for the benchmarks.
 pub enum HyperTwoVariants<H: HasherBuilderAssociated> {
@@ -48,7 +48,7 @@ pub enum HyperTwoVariants<H: HasherBuilderAssociated> {
     clippy::type_complexity,
     reason = "The type is complex due to the use of generics, but these are benchmarks and is to be expected."
 )]
-#[derive(Clone, Named, ExtendableApproximatedSet, Estimator, TransparentMemSize, EnumIter)]
+#[derive(Clone, Set, TransparentMemSize, EnumIter)]
 /// Enumerations will all `HyperLogLog` variants we
 /// take into consideration for the benchmarks.
 pub enum HLLVariants<
@@ -58,8 +58,8 @@ pub enum HLLVariants<
     const BITS: usize,
     B,
 > where
-    P: Named + ArrayRegister<B>,
-    B: Named + Bits,
+    P: ArrayRegister<B>,
+    B: Bits,
 {
     TabacHyperLogLogPlus(TabacHLLPlusPlus<P, H>),
     TabacHyperLogLogPF(TabacHLL<P, H>),
@@ -67,12 +67,5 @@ pub enum HLLVariants<
     RustHyperLogLog(RustHLL<P>),
     CE(CloudFlareHLL<EXPONENT, BITS, H>),
     SimpleHLL(SimpleHLL<H, EXPONENT>),
-    PP(PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, H>),
-    LLB(LogLogBeta<P, B, <P as ArrayRegister<B>>::Packed, H>),
-    MLEPP(MLE<PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, H>>),
-    MLELLB(MLE<LogLogBeta<P, B, <P as ArrayRegister<B>>::Packed, H>>),
-    HybridPP(Hybrid<PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, H>>),
-    HybridLLB(Hybrid<LogLogBeta<P, B, <P as ArrayRegister<B>>::Packed, H>>),
-    HybridMLEPP(Hybrid<MLE<PlusPlus<P, B, <P as ArrayRegister<B>>::Packed, H>>>),
-    HybridMLELLB(Hybrid<MLE<LogLogBeta<P, B, <P as ArrayRegister<B>>::Packed, H>>>),
+    HLL(HyperLogLog<P, B, <P as ArrayRegister<B>>::Packed, H>),
 }

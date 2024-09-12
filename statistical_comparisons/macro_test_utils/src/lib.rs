@@ -5,8 +5,8 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Data, DeriveInput, Fields, Ident, ItemFn};
 
-#[proc_macro_derive(Named)]
-pub fn my_trait_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(Set)]
+pub fn set_derive(input: TokenStream) -> TokenStream {
     // Parse the input TokenStream into a syntax tree
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -19,11 +19,11 @@ pub fn my_trait_derive(input: TokenStream) -> TokenStream {
     // Ensure the input is an enum
     let data_enum = match &input.data {
         Data::Enum(data_enum) => data_enum,
-        _ => panic!("MyTrait can only be derived for enums"),
+        _ => panic!("Set can only be derived for enums"),
     };
 
     // Generate match arms for each variant of the enum
-    let variants = data_enum.variants.iter().map(|variant| {
+    let inserts = data_enum.variants.iter().map(|variant| {
         let variant_name = &variant.ident;
 
         // Ensure the variant has exactly one unnamed field (i.e., a tuple variant)
@@ -33,45 +33,13 @@ pub fn my_trait_derive(input: TokenStream) -> TokenStream {
         };
 
         quote! {
-            #name::#variant_name(inner) => inner.name(),
+            #name::#variant_name(inner) => {
+                inner.insert_element(element);
+            },
         }
     });
 
-    // Generate the trait implementation, including support for possible
-    // generic parameters that the enum may have.
-
-    let expanded = quote! {
-        impl #impl_generics Named for #name #ty_generics #where_clause {
-            fn name(&self) -> String {
-                match self {
-                    #(#variants)*
-                }
-            }
-        }
-    };
-
-    TokenStream::from(expanded)
-}
-
-#[proc_macro_derive(ExtendableApproximatedSet)]
-pub fn extendable_approximated_set_derive(input: TokenStream) -> TokenStream {
-    // Parse the input TokenStream into a syntax tree
-    let input = parse_macro_input!(input as DeriveInput);
-
-    let name = &input.ident;
-    let generics = &input.generics;
-
-    // Handle generic parameters (e.g., <T, U>) and where clauses (e.g., where T: Debug)
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    // Ensure the input is an enum
-    let data_enum = match &input.data {
-        Data::Enum(data_enum) => data_enum,
-        _ => panic!("ExtendableApproximatedSet can only be derived for enums"),
-    };
-
-    // Generate match arms for each variant of the enum
-    let variants = data_enum.variants.iter().map(|variant| {
+    let cardinalities = data_enum.variants.iter().map(|variant| {
         let variant_name = &variant.ident;
 
         // Ensure the variant has exactly one unnamed field (i.e., a tuple variant)
@@ -81,49 +49,11 @@ pub fn extendable_approximated_set_derive(input: TokenStream) -> TokenStream {
         };
 
         quote! {
-            #name::#variant_name(inner) => inner.insert(element),
+            #name::#variant_name(inner) => inner.cardinality(),
         }
     });
 
-    // Generate the trait implementation, including support for possible
-    // generic parameters that the enum may have.
-
-    let expanded = quote! {
-        impl #impl_generics ExtendableApproximatedSet<u64> for #name #ty_generics #where_clause {
-            fn insert(&mut self, element: &u64) -> bool {
-                match self {
-                    #(#variants)*
-                }
-            }
-        }
-    };
-
-    TokenStream::from(expanded)
-}
-
-#[proc_macro_derive(Estimator)]
-pub fn estimator_derive(input: TokenStream) -> TokenStream {
-    // Parse the input TokenStream into a syntax tree
-    let input = parse_macro_input!(input as DeriveInput);
-
-    let name = &input.ident;
-    let generics = &input.generics;
-
-    // Handle generic parameters (e.g., <T, U>) and where clauses (e.g., where T: Debug)
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    // Ensure the input is an enum
-    let data_enum = match &input.data {
-        Data::Enum(data_enum) => data_enum,
-        _ => panic!("Estimator can only be derived for enums"),
-    };
-
-    // Generate match arms for each variant of the enum
-    let mut estimate_cardinality = Vec::new();
-    let mut estimate_union_cardinality = Vec::new();
-    let mut estimate_union_cardinality_with_cardinalities = Vec::new();
-
-    data_enum.variants.iter().for_each(|variant| {
+    let unions = data_enum.variants.iter().map(|variant| {
         let variant_name = &variant.ident;
 
         // Ensure the variant has exactly one unnamed field (i.e., a tuple variant)
@@ -132,41 +62,52 @@ pub fn estimator_derive(input: TokenStream) -> TokenStream {
             _ => panic!("Each enum variant must have exactly one unnamed field"),
         };
 
-        estimate_cardinality.push(quote! {
-            #name::#variant_name(inner) => inner.estimate_cardinality(),
-        });
+        quote! {
+            (#name::#variant_name(inner), #name::#variant_name(other)) => inner.union(other),
+        }
+    });
 
-        estimate_union_cardinality.push(quote! {
-            (#name::#variant_name(inner), #name::#variant_name(other)) => inner.estimate_union_cardinality(other),
-        });
+    let model_names = data_enum.variants.iter().map(|variant| {
+        let variant_name = &variant.ident;
 
-        estimate_union_cardinality_with_cardinalities.push(quote! {
-            (#name::#variant_name(inner), #name::#variant_name(other)) => inner.estimate_union_cardinality_with_cardinalities(other, cardinality, other_cardinality),
-        });
+        // Ensure the variant has exactly one unnamed field (i.e., a tuple variant)
+        let _ = match &variant.fields {
+            Fields::Unnamed(fields) if fields.unnamed.len() == 1 => &fields.unnamed[0],
+            _ => panic!("Each enum variant must have exactly one unnamed field"),
+        };
+
+        quote! {
+            #name::#variant_name(inner) => inner.model_name(),
+        }
     });
 
     // Generate the trait implementation, including support for possible
     // generic parameters that the enum may have.
 
     let expanded = quote! {
-        impl #impl_generics Estimator<f64> for #name #ty_generics #where_clause {
-            fn estimate_cardinality(&self) -> f64 {
+        impl #impl_generics Set for #name #ty_generics #where_clause {
+            fn insert_element(&mut self, element: u64) {
                 match self {
-                    #(#estimate_cardinality)*
+                    #(#inserts)*
                 }
             }
 
-            fn estimate_union_cardinality_with_cardinalities(&self, other: &Self, cardinality: f64, other_cardinality: f64) -> f64 {
-                match (self, other) {
-                    #(#estimate_union_cardinality_with_cardinalities)*
-                    _ => panic!("Union cardinality with cardinalities not defined for these variants."),
+            fn cardinality(&self) -> f64 {
+                match self {
+                    #(#cardinalities)*
                 }
             }
 
-            fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+            fn union(&self, other: &Self) -> f64 {
                 match (self, other) {
-                    #(#estimate_union_cardinality)*
-                    _ => panic!("Union cardinality not defined for these variants."),
+                    #(#unions)*
+                    _ => panic!("Cannot union different types"),
+                }
+            }
+
+            fn model_name(&self) -> String {
+                match self {
+                    #(#model_names)*
                 }
             }
         }
@@ -232,7 +173,7 @@ pub fn cardinality_benchmark(_attr: TokenStream, item: TokenStream) -> TokenStre
     let fn_name = &input.sig.ident;
 
     // Define a list of generics we want to cover
-    let precisions = (4..=18)
+    let precisions = (4..=15)
         .map(|precision| {
             (
                 precision,
@@ -246,8 +187,8 @@ pub fn cardinality_benchmark(_attr: TokenStream, item: TokenStream) -> TokenStre
     let hashers = vec![
         Ident::new("XxHash64", fn_name.span()),
         Ident::new("WyHash", fn_name.span()),
-        Ident::new("AHasher", fn_name.span()),
-        Ident::new("XxH3", fn_name.span()),
+        // Ident::new("AHasher", fn_name.span()),
+        // Ident::new("XxH3", fn_name.span()),
     ];
 
     // Generate the test functions

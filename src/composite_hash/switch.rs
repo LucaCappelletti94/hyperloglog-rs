@@ -20,9 +20,9 @@ pub struct SwitchHash<P: Precision, B: Bits> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct HashFragment<P: Precision, B: Bits> {
-    pub(super) index: u64,
-    pub(super) register: u64,
-    pub(super) hash_remainder: u64,
+    pub(super) index: u32,
+    pub(super) register: u8,
+    pub(super) hash_remainder: u32,
     _precision: core::marker::PhantomData<P>,
     _bits: core::marker::PhantomData<B>,
 }
@@ -38,16 +38,16 @@ impl<P: Precision, B: Bits> HashFragment<P, B> {
 
     #[inline]
     fn restored_hash(&self, hash_bits: u8) -> u64 {
-        !(self.hash_remainder << (P::EXPONENT + 1 + 64 - hash_bits))
+        !(u64::from(self.hash_remainder) << (P::EXPONENT + 1 + 64 - hash_bits))
     }
 
     #[inline]
     fn register_flag(&self) -> bool {
-        self.register - 1 > u64::from(B::NUMBER_OF_BITS)
+        self.register - 1 > B::NUMBER_OF_BITS
     }
 
     #[inline]
-    pub(super) fn uniform(&self, hash_bits: u8) -> u64 {
+    pub(super) fn uniform(&self, hash_bits: u8) -> u32 {
         (self.index << Self::hash_remainder_size(hash_bits)) | self.hash_remainder
     }
 }
@@ -55,13 +55,13 @@ impl<P: Precision, B: Bits> HashFragment<P, B> {
 impl<P: Precision, B: Bits> SwitchHash<P, B> {
     #[inline]
     /// Returns the provided [`SwitchHash`] splitted into its components.
-    pub(super) fn scompose_hash(hash: u64, hash_bits: u8) -> HashFragment<P, B> {
+    pub(super) fn scompose_hash(hash: u32, hash_bits: u8) -> HashFragment<P, B> {
         // We extract the index from the leftmost bits of the hash.
         let index = hash >> (hash_bits - P::EXPONENT);
 
         // If the hash barely fits as is, we do not need to do anything special.
         if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
-            let register = hash & B::MASK;
+            let register = (u64::from(hash) & B::MASK) as u8;
             debug_assert!(register > 0);
             return HashFragment {
                 index,
@@ -79,7 +79,7 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
         if register_flag {
             let shift = hash_bits - 1 - P::EXPONENT - B::NUMBER_OF_BITS;
             let hash_remainder_mask = (1 << shift) - 1;
-            let register = (hash >> shift) & B::MASK;
+            let register = (u64::from(hash >> shift) & B::MASK) as u8;
             debug_assert!(
                 register > 0,
                 "The register value ({register}) must be greater than 0. Obtained from hash {hash:064b} with bits {hash_bits}"
@@ -100,12 +100,12 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
             // the leading values of the original hash to the rightmost bits,
             // and then we can count the leading zeros to get the register value.
             let shift = P::EXPONENT + 1 + (64 - hash_bits);
-            let restored_hash = !(hash << shift);
+            let restored_hash = !(u64::from(hash) << shift);
             let hash_remainder_mask = (1 << (hash_bits - 1 - P::EXPONENT)) - 1;
             let hash_remainder = hash & hash_remainder_mask;
 
             let leading_zeros = (restored_hash | (1_u64 << (64_u64 - B::MASK))).leading_zeros();
-            let register = u64::from(leading_zeros + 1);
+            let register = (leading_zeros + 1) as u8;
             debug_assert!(register > 0);
 
             HashFragment {
@@ -120,22 +120,22 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
 
     #[inline]
     pub(super) fn compose_hash(
-        index: u64,
-        register: u64,
-        hash_remainder: u64,
+        index: u32,
+        register: u8,
+        hash_remainder: u32,
         hash_bits: u8,
-    ) -> u64 {
+    ) -> u32 {
         debug_assert!(register > 0);
 
         let mut hash = index << (hash_bits - P::EXPONENT);
 
         if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
-            return hash | register;
+            return hash | u32::from(register);
         }
 
-        if register - 1 > u64::from(B::NUMBER_OF_BITS) {
+        if register - 1 > B::NUMBER_OF_BITS {
             let shift = hash_bits - 1 - P::EXPONENT - B::NUMBER_OF_BITS;
-            hash |= (register << shift) | (1 << (hash_bits - P::EXPONENT - 1));
+            hash |= (u32::from(register) << shift) | (1 << (hash_bits - P::EXPONENT - 1));
         }
 
         hash |= hash_remainder;
@@ -159,7 +159,7 @@ mod test_compose_scompose_hash {
     {
         for value in iter_random_values::<u64>(10_000, None, None) {
             let (index, register, original_hash) =
-                <PlusPlus<P, B, <P as ArrayRegister<B>>::Packed>>::index_and_register_and_hash(
+                <HyperLogLog<P, B, <P as ArrayRegister<B>>::Packed>>::index_and_register_and_hash(
                     &value,
                 );
             for hash_bits in SwitchHash::<P, B>::SMALLEST_VIABLE_HASH_BITS
@@ -170,13 +170,13 @@ mod test_compose_scompose_hash {
 
                 let fragment = SwitchHash::<P, B>::scompose_hash(encoded_hash, hash_bits);
 
-                assert_eq!(fragment.index, u64::try_from(index).unwrap());
-                assert_eq!(fragment.register, u64::from(register));
+                assert_eq!(fragment.index, u32::try_from(index).unwrap());
+                assert_eq!(fragment.register, register);
 
                 let recomposed_hash = SwitchHash::<P, B>::compose_hash(
-                    u64::try_from(index).unwrap(),
-                    u64::from(register),
-                    u64::from(fragment.hash_remainder),
+                    u32::try_from(index).unwrap(),
+                    register,
+                    u32::from(fragment.hash_remainder),
                     hash_bits,
                 );
 
@@ -187,7 +187,7 @@ mod test_compose_scompose_hash {
 }
 
 #[inline]
-fn flag<P: Precision>(hash: u64, hash_bits: u8) -> bool {
+fn flag<P: Precision>(hash: u32, hash_bits: u8) -> bool {
     ((hash >> (hash_bits - P::EXPONENT - 1)) & 1) == 1
 }
 
@@ -238,37 +238,37 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     #[inline]
     fn downgrade_inplace(
         hashes: &mut [u8],
-        number_of_hashes: usize,
-        bit_index: usize,
+        number_of_hashes: u32,
+        bit_index: u32,
         hash_bits: u8,
         shift: u8,
-    ) -> (u32, usize) {
-        assert_eq!(bit_index, usize::from(hash_bits) * number_of_hashes,);
+    ) -> (u32, u32) {
+        assert_eq!(bit_index, u32::from(hash_bits) * number_of_hashes,);
 
         if shift == 0 {
-            return (0, number_of_hashes * usize::from(hash_bits));
+            return (0, number_of_hashes * u32::from(hash_bits));
         }
 
         let hash_bytes = usize::from(hash_bits) / 8;
         let downgraded_hash_bytes = usize::from(hash_bits - shift) / 8;
-        let mut previous_downgraded_hash = u64::MAX;
+        let mut previous_downgraded_hash = u32::MAX;
         let mut duplicates = 0;
 
-        for i in 0..number_of_hashes {
+        for i in 0..usize::try_from(number_of_hashes).unwrap() {
             let current_hash = match hash_bytes {
-                2 => u64::from(u16::from_le_bytes([hashes[i * 2], hashes[i * 2 + 1]])),
-                3 => u64::from(u32::from_le_bytes([
+                2 => u32::from(u16::from_le_bytes([hashes[i * 2], hashes[i * 2 + 1]])),
+                3 => u32::from_le_bytes([
                     hashes[i * 3],
                     hashes[i * 3 + 1],
                     hashes[i * 3 + 2],
                     0,
-                ])),
-                4 => u64::from(u32::from_le_bytes([
+                ]),
+                4 => u32::from_le_bytes([
                     hashes[i * 4],
                     hashes[i * 4 + 1],
                     hashes[i * 4 + 2],
                     hashes[i * 4 + 3],
-                ])),
+                ]),
                 _ => unreachable!("The hash must be 2, 3 or 4 bytes."),
             };
             let downgraded_hash = Self::downgrade(current_hash, hash_bits, shift);
@@ -283,18 +283,16 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
                 .copy_from_slice(&downgraded_bytes[..downgraded_hash_bytes]);
         }
 
+        let duplicates: u32 = u32::try_from(duplicates).unwrap();
+
         (
-            u32::try_from(duplicates).unwrap(),
-            (number_of_hashes - duplicates) * usize::from(hash_bits - shift),
+            duplicates,
+            (number_of_hashes - duplicates) * u32::from(hash_bits - shift),
         )
     }
 
     #[inline]
-    fn target_downgraded_hash_bits(
-        _number_of_hashes: usize,
-        _bit_index: usize,
-        hash_bits: u8,
-    ) -> u8 {
+    fn target_downgraded_hash_bits(_number_of_hashes: u32, _bit_index: u32, hash_bits: u8) -> u8 {
         if hash_bits == Self::SMALLEST_VIABLE_HASH_BITS {
             unreachable!("The hash bits ({hash_bits}) must be greater than the smallest viable hash bits ({})", Self::SMALLEST_VIABLE_HASH_BITS);
         }
@@ -306,12 +304,12 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     #[must_use]
     fn downgraded(
         hashes: &[u8],
-        number_of_hashes: usize,
+        number_of_hashes: u32,
         hash_bits: u8,
-        bit_index: usize,
+        bit_index: u32,
         shift: u8,
     ) -> Self::Downgraded<'_> {
-        assert_eq!(bit_index, number_of_hashes * usize::from(hash_bits));
+        assert_eq!(bit_index, number_of_hashes * u32::from(hash_bits));
         DowngradedIter::new(into_variant(hashes, number_of_hashes, hash_bits), shift)
     }
 
@@ -319,16 +317,16 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     #[must_use]
     fn decoded(
         hashes: &[u8],
-        number_of_hashes: usize,
+        number_of_hashes: u32,
         hash_bits: u8,
-        bit_index: usize,
+        bit_index: u32,
     ) -> Self::Decoded<'_> {
         assert!(
             hash_bits >= Self::SMALLEST_VIABLE_HASH_BITS,
             "The hash bits ({hash_bits}) must be greater or equal to the smallest viable hash bits ({})",
             Self::SMALLEST_VIABLE_HASH_BITS,
         );
-        assert_eq!(bit_index, number_of_hashes * usize::from(hash_bits));
+        assert_eq!(bit_index, number_of_hashes * u32::from(hash_bits));
         DecodedIter::from(into_variant(hashes, number_of_hashes, hash_bits))
     }
 
@@ -336,12 +334,12 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     #[allow(unsafe_code)]
     fn find(
         hashes: &[u8],
-        number_of_hashes: usize,
+        number_of_hashes: u32,
         index: usize,
         register: u8,
         original_hash: u64,
         hash_bits: u8,
-        bit_index: usize,
+        bit_index: u32,
     ) -> bool {
         find::<Self>(
             hashes,
@@ -359,13 +357,13 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     #[allow(unsafe_code)]
     fn insert_sorted_desc(
         hashes: &mut [u8],
-        number_of_hashes: usize,
-        bit_index: usize,
+        number_of_hashes: u32,
+        bit_index: u32,
         index: usize,
         register: u8,
         original_hash: u64,
         hash_bits: u8,
-    ) -> Result<Option<usize>, SaturationError> {
+    ) -> Result<Option<u32>, SaturationError> {
         insert_sorted_desc::<Self>(
             hashes,
             number_of_hashes,
@@ -378,7 +376,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     }
 
     #[inline]
-    fn downgrade(hash: u64, hash_bits: u8, shift: u8) -> u64 {
+    fn downgrade(hash: u32, hash_bits: u8, shift: u8) -> u32 {
         debug_assert!(hash_bits >= Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS + shift);
 
         if shift == 0 {
@@ -410,7 +408,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
             if hash_bits - shift == Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS {
                 // We also need to remove the flag bit, otherwise we would delete
                 // a bit of the register value.
-                (fragmented.index << Self::Bits::NUMBER_OF_BITS) | fragmented.register
+                (fragmented.index << Self::Bits::NUMBER_OF_BITS) | u32::from(fragmented.register)
             } else {
                 hash >> shift
             }
@@ -430,7 +428,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     #[inline]
     #[must_use]
     /// Encode the hash from the provided register value, index and the original unsplitted hash.
-    fn encode(index: usize, register: u8, original_hash: u64, hash_bits: u8) -> u64 {
+    fn encode(index: usize, register: u8, original_hash: u64, hash_bits: u8) -> u32 {
         debug_assert!(register > 0);
         debug_assert!(
             index < 1 << Self::Precision::EXPONENT,
@@ -444,13 +442,11 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
             Self::Bits::NUMBER_OF_BITS,
         );
         // We start by encoding the index in the rightmost bits of the hash.
-        let mut composite_hash = (index as u64) << (hash_bits - Self::Precision::EXPONENT);
+        let mut composite_hash = u32::try_from(index).unwrap() << (hash_bits - Self::Precision::EXPONENT);
 
         // If the hash barely fits as-is, we do not need to do anything special.
-        // ERROR! TODO! FIX!
         if Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS == hash_bits {
-            composite_hash |= u64::from(register);
-            return composite_hash;
+            return composite_hash | u32::from(register);
         }
 
         // Depending on whether the registers, i.e. the number of leading zeros in
@@ -471,13 +467,13 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
             // and the flag.
             let register_offset =
                 hash_bits - Self::Precision::EXPONENT - 1 - Self::Bits::NUMBER_OF_BITS;
-            composite_hash |= u64::from(register) << register_offset;
+            composite_hash |= u32::from(register) << register_offset;
 
             // We take the bits remaining in the original hash after having remove the last
             // p bits which were used for the index, and we place them in the rightmost bits
             // of the composite hash.
-            let mut censored_hash = original_hash
-                >> (64 - hash_bits + Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS);
+            let mut censored_hash = u32::try_from(original_hash
+                >> (64 - hash_bits + Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS)).unwrap();
 
             // We determine the number of bits we intend to keep from the original hash.
             let hash_offset =
@@ -504,7 +500,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
 
             // We shift the original hash to the right.
             let censored_hash =
-                (!original_hash) >> (64 - hash_bits + 1 + Self::Precision::EXPONENT);
+                u32::try_from((!original_hash) >> (64 - hash_bits + 1 + Self::Precision::EXPONENT)).unwrap();
 
             // We place the censored hash in the rightmost bits of the composite hash.
             composite_hash |= censored_hash;
@@ -516,9 +512,9 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         }
 
         debug_assert!(
-            composite_hash.leading_zeros() >= u32::from(64 - hash_bits),
+            composite_hash.leading_zeros() >= u32::from(32 - hash_bits),
             "The composite hash {composite_hash} must have at least {} leading zeros, but has only {}",
-            64 - hash_bits,
+            32 - hash_bits,
             composite_hash.leading_zeros(),
         );
 
@@ -532,11 +528,11 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         reason = "Values are certain to be within bounds."
     )]
     /// Decode the hash into the register value and index.
-    fn decode(hash: u64, hash_bits: u8) -> (u8, usize) {
+    fn decode(hash: u32, hash_bits: u8) -> (u8, usize) {
         debug_assert!(
-            hash.leading_zeros() >= u32::from(64 - hash_bits),
-            "The hash ({hash:064b}) should be composed of {hash_bits} bits and therefore must have at least {} leading zeros, but has only {}",
-            64 - hash_bits,
+            hash.leading_zeros() >= u32::from(32 - hash_bits),
+            "The hash ({hash:032b}) should be composed of {hash_bits} bits and therefore must have at least {} leading zeros, but has only {}",
+            32 - hash_bits,
             hash.leading_zeros(),
         );
 
@@ -544,7 +540,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
 
         debug_assert!(
             fragmented.index < 1 << Self::Precision::EXPONENT,
-            "While decoding the hash ({hash:064b}), the index ({}) must be less than 2^({})",
+            "While decoding the hash ({hash:032b}), the index ({}) must be less than 2^({})",
             fragmented.index,
             Self::Precision::EXPONENT
         );

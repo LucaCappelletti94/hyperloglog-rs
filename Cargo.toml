@@ -49,29 +49,12 @@ ctor = "0.2.8"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
-default = ["low_precisions", "medium_precisions", "beta", "plusplus", "zero_count_correction", "prefix_free_codes"]
-prefix_free_codes = []
-beta = []
-precomputed_beta = ["beta"]
-plusplus = []
-# Whether to use the STD's ln function or using a lookup table.
-# Enabling this feature will make the library not compile in no_std environments.
-std_ln = [
-    "std",
-]
-# Whether to use the low-cardinality correction based on zero-counts or not.
-zero_count_correction = []
-# Whether to use local interpolation or kmeans in plus plus bias correction.
-plusplus_kmeans = ["plusplus"]
-# Whether to use integer or floating point biases and estimates.
-integer_plusplus = ["plusplus"]
-std = [
-    "twox-hash/std",
-]
+default = ["low_precisions", "medium_precisions"]
 mem_dbg = [
     "dep:mem_dbg",
     "std",
 ]
+std = []
 mle = ["std", "alloc"]
 precision_4 = []
 precision_5 = []

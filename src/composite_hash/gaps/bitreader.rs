@@ -1,9 +1,9 @@
 #[derive(Debug, Clone)]
 pub(super) struct BitReader<'a> {
     data: core::slice::Iter<'a, u32>,
-    word_idx: usize,
+    word_idx: u32,
     buffer: u64,
-    bits_in_buffer: usize,
+    bits_in_buffer: u8,
 }
 
 impl<'a> BitReader<'a> {
@@ -19,28 +19,28 @@ impl<'a> BitReader<'a> {
 
     #[inline]
     /// Creates a new BitReader skipping ahead `bit_index` bits.
-    pub fn skip(mut data: &'a [u32], bit_index: usize) -> Self {
-        data = &data[bit_index / 32..];
+    pub fn skip(mut data: &'a [u32], bit_index: u32) -> Self {
+        data = &data[bit_index as usize / 32..];
         let mut reader = Self::new(data);
         reader.word_idx = bit_index / 32;
-        reader.read_bits(bit_index % 32);
+        reader.read_bits((bit_index % 32) as u8);
         reader
     }
 
     #[inline]
     /// Returns the position of the last bit that was read.
-    pub fn last_read_bit_position(&self) -> usize {
-        self.word_idx * 32 - self.bits_in_buffer
+    pub fn last_read_bit_position(&self) -> u32 {
+        self.word_idx * 32 - u32::from(self.bits_in_buffer)
     }
 
     #[inline]
     /// Returns the position of the last bit that has been positioned in the read buffer.
-    pub fn last_buffered_bit_position(&self) -> usize {
-        self.word_idx * 32 + self.bits_in_buffer
+    pub fn last_buffered_bit_position(&self) -> u32 {
+        self.word_idx * 32 + u32::from(self.bits_in_buffer)
     }
 
     #[inline]
-    pub fn read_bits(&mut self, mut n_bits: usize) -> u64 {
+    pub fn read_bits(&mut self, mut n_bits: u8) -> u64 {
         debug_assert!(n_bits <= 64);
         debug_assert!(self.bits_in_buffer < 64);
 
@@ -76,36 +76,36 @@ impl<'a> BitReader<'a> {
     }
 
     #[inline]
-    pub fn read_unary(&mut self) -> u64 {
+    pub fn read_unary(&mut self) -> u8 {
         debug_assert!(self.bits_in_buffer < 64);
 
-        let zeros: usize = self.buffer.leading_zeros() as _;
+        let zeros = self.buffer.leading_zeros() as u8;
 
         if zeros < self.bits_in_buffer {
             self.buffer = self.buffer << zeros << 1;
             self.bits_in_buffer -= zeros + 1;
-            return zeros as u64;
+            return zeros;
         }
 
-        let mut result: u64 = self.bits_in_buffer as _;
+        let mut result = self.bits_in_buffer;
 
         loop {
             let new_word = self.data.next().unwrap().to_be();
             self.word_idx += 1;
 
             if new_word != 0 {
-                let zeros: u64 = u64::from(new_word.leading_zeros());
+                let zeros = new_word.leading_zeros() as u8;
                 self.buffer = u64::from(new_word) << (32 + zeros) << 1;
-                self.bits_in_buffer = 32 - zeros as usize - 1;
+                self.bits_in_buffer = 32 - zeros - 1;
                 return result + zeros;
             }
-            result += 32u64;
+            result += 32u8;
         }
     }
 
     #[inline]
-    pub fn read_rice(&mut self, b: usize) -> u64 {
-        (self.read_unary() << b) + self.read_bits(b)
+    pub fn read_rice(&mut self, b: u8) -> u32 {
+        (u32::from(self.read_unary()) << b) + self.read_bits(b) as u32
     }
 }
 
@@ -116,8 +116,8 @@ impl<'a> BitReader<'a> {
 /// * `uniform` - The uniform value to encode.
 /// * `b1` - The rice coefficient to use for the uniform value.
 /// * `geometric` - The geometric value to encode.
-pub fn len_rice(uniform_delta: u64, b1: usize, geometric_minus_one: u64) -> usize {
-    usize::try_from((uniform_delta >> b1) + geometric_minus_one).unwrap() + 2 + b1
+pub fn len_rice(uniform_delta: u32, b1: u8, geometric_minus_one: u8, b2: u8) -> u32 {
+    (uniform_delta >> b1) + 1 + u32::from(b1) + u32::from(geometric_minus_one >> b2) + 1 + u32::from(b2)
 }
 
 #[cfg(test)]
@@ -139,7 +139,7 @@ mod tests {
             let mut writer = BitWriter::new(&mut buffer);
 
             for (i, value) in iter_random_values::<u8>(1_000, Some(127), None).enumerate() {
-                positions[i] = writer.write_unary(value as u64);
+                positions[i] = writer.write_unary(value) as usize;
                 if i > 0 {
                     positions[i] += positions[i - 1];
                 }
@@ -154,11 +154,11 @@ mod tests {
         for (value, position) in expected.into_iter().zip(positions) {
             assert_eq!(
                 reader.read_unary(),
-                value,
+                value as u8,
                 "Unary encoded value does not match the expected value."
             );
             assert_eq!(
-                reader.last_read_bit_position(),
+                reader.last_read_bit_position() as usize,
                 position,
                 "Unary encoded value does not match the expected value."
             );

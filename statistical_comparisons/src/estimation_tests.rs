@@ -2,7 +2,7 @@
 //! obtain by the hyperloglog-rs library is equal or better than the
 //! competitor libraries.
 //! Evaluation of set-like properties across different data structures.
-use crate::traits::TransparentMemSize;
+use crate::traits::{Set, TransparentMemSize};
 use hyperloglog_rs::prelude::*;
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
@@ -49,40 +49,32 @@ impl ErrorReport {
 
 fn sample_interval_by_range(cardinality: u64) -> u64 {
     if cardinality < 1_00 {
-        // 10
         10
     } else if cardinality < 1_000 {
-        // 10
         100
     } else if cardinality < 10_000 {
-        // 10
         1000
     } else if cardinality < 100_000 {
-        // 10
         10_000
     } else if cardinality < 1_000_000 {
-        // 10
         100_000
-    } else if cardinality <= 10_000_000 {
-        // 10
-        1_000_000
     } else {
-        unimplemented!()
+        1_000_000
     }
 }
 
 pub(crate) fn cardinality_test<
-    H: Estimator<f64> + Clone + TransparentMemSize + Named + ExtendableApproximatedSet<u64>,
+    H: Clone + TransparentMemSize + Set +  Send + Sync,
 >(
     estimator: &H,
     multiprogress: &indicatif::MultiProgress,
 ) -> Vec<PerformanceReport> {
-    let number_of_vectors = 1_000_u64;
-    let number_of_elements = 10_000_000;
+    let number_of_vectors = 128_u64;
+    let number_of_elements = 20_000_000;
     let sequence_random_state = splitmix64(9_516_748_163_234_878_233_u64);
     let sample_index_random_state = splitmix64(2_348_782_399_516_748_163_u64);
 
-    let estimator_name = estimator.name();
+    let estimator_name = estimator.model_name();
     let progress_bar = multiprogress.add(indicatif::ProgressBar::new(number_of_vectors));
 
     progress_bar.set_style(
@@ -112,7 +104,7 @@ pub(crate) fn cardinality_test<
                 iter_random_values::<u64>(number_of_elements, None, Some(sequence_random_state))
                     .enumerate()
             {
-                estimator.insert(&element);
+                estimator.insert_element(element);
 
                 if next_sample_index == i as u64 {
                     sample_index_random_state = splitmix64(sample_index_random_state);
@@ -120,8 +112,8 @@ pub(crate) fn cardinality_test<
                         sample_index_random_state % sample_interval_by_range(i as u64);
 
                     let start = std::time::Instant::now();
-                    let prediction = estimator.estimate_cardinality();
-                    let time_requirement = start.elapsed().as_micros();
+                    let prediction = estimator.cardinality();
+                    let time_requirement = start.elapsed().as_nanos();
 
                     performance_reports.push(PerformanceReport {
                         prediction,
@@ -137,7 +129,7 @@ pub(crate) fn cardinality_test<
 }
 
 // pub(crate) fn union_test<
-//     H: Estimator<f64> + Clone + TransparentMemSize + Named + ExtendableApproximatedSet<u64>,
+//     H: Clone + TransparentMemSize + Set
 // >(
 //     estimator: &H,
 //     multi_progress: Option<&indicatif::MultiProgress>,
@@ -148,7 +140,7 @@ pub(crate) fn cardinality_test<
 //     let left_random_state = splitmix64(5_647_315_671_326_798_672_u64);
 //     let right_random_state = splitmix64(4_457_567_787_334_878_233_u64);
 
-//     let estimator_name = estimator.name();
+//     let estimator_name = estimator.model_name();
 
 //     let progress_bar = ProgressBar::new(number_of_vectors);
 //     progress_bar.set_style(
