@@ -1,9 +1,6 @@
 //! Composite hash which does not employ Prefix-free codes.
 
 use super::shared::{find, insert_sorted_desc, into_variant, DecodedIter, DowngradedIter};
-use super::switch_birthday_paradox::{
-    SWITCH_HASH_BIRTHDAY_PARADOX_CARDINALITIES, SWITCH_HASH_BIRTHDAY_PARADOX_ERRORS,
-};
 use super::{CompositeHash, SaturationError};
 use crate::{bits::Bits, prelude::Precision};
 
@@ -230,10 +227,6 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
 
     const SMALLEST_VIABLE_HASH_BITS: u8 = smallest_viable_switch_hash::<P, B>();
     const LARGEST_VIABLE_HASH_BITS: u8 = maximal_viable_switch_hash::<P, B>();
-    const BIRTHDAY_CARDINALITIES: &[u32] = SWITCH_HASH_BIRTHDAY_PARADOX_CARDINALITIES
-        [P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
-    const BIRTHDAY_RELATIVE_ERRORS: &[f64] = SWITCH_HASH_BIRTHDAY_PARADOX_ERRORS
-        [P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
 
     #[inline]
     fn downgrade_inplace(

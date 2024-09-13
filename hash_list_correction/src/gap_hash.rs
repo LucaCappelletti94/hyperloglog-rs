@@ -3,7 +3,7 @@
 use prettyplease::unparse;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{File, Ident};
+use syn::File;
 
 use crate::utils::{hash_correction, CorrectionPerformance, HashCorrection};
 use hyperloglog_rs::prelude::*;
@@ -89,80 +89,106 @@ pub fn compute_gap_hash_correction() {
 
     let maximal_precision = reports.iter().map(|(c, _)| c.precision).max().unwrap();
 
-    let cardinalities = (4..=maximal_precision)
-        .map(|exponent| {
-            let bytes = (4..=6)
-                .map(|bit_size| {
-                    let (correction, _) = reports
-                        .iter()
-                        .find(|(correction, _)| {
-                            correction.precision == exponent && correction.bits == bit_size
-                        })
-                        .unwrap();
-                    let cardinalities = correction.cardinalities.clone();
-                    quote! {
-                        &[#(#cardinalities),*]
-                    }
+    let mut hashlist_cardinalities: Vec<TokenStream> = Vec::new();
+    let mut hashlist_errors: Vec<TokenStream> = Vec::new();
+    let mut hyperloglog_cardinalities: Vec<TokenStream> = Vec::new();
+    let mut hyperloglog_errors: Vec<TokenStream> = Vec::new();
+
+    (4..=maximal_precision).for_each(|exponent| {
+        let mut this_hashlist_cardinalities: Vec<TokenStream> = Vec::new();
+        let mut this_hashlist_errors: Vec<TokenStream> = Vec::new();
+        let mut this_hyperloglog_cardinalities: Vec<TokenStream> = Vec::new();
+        let mut this_hyperloglog_errors: Vec<TokenStream> = Vec::new();
+
+        (4..=6).for_each(|bit_size| {
+            let (correction, _) = reports
+                .iter()
+                .find(|(correction, _)| {
+                    correction.precision == exponent && correction.bits == bit_size
                 })
-                .collect::<Vec<TokenStream>>();
-            quote! {
-                [#(#bytes),*]
-            }
-        })
-        .collect::<Vec<TokenStream>>();
+                .unwrap();
+            let sub_hashlist_cardinalities = correction.hashlist_cardinalities.clone();
+            this_hashlist_cardinalities.push(quote! {
+                &[#(#sub_hashlist_cardinalities),*]
+            });
+            let sub_hashlist_errors = correction
+                .hashlist_relative_errors
+                .clone()
+                .into_iter()
+                .map(|error| (error * 100.0).round() / 100.0);
+            this_hashlist_errors.push(quote! {
+                &[#(#sub_hashlist_errors),*]
+            });
+            let sub_hyperloglog_cardinalities = correction.hyperloglog_cardinalities.clone();
+            this_hyperloglog_cardinalities.push(quote! {
+                &[#(#sub_hyperloglog_cardinalities),*]
+            });
+            let sub_hyperloglog_errors = correction
+                .hyperloglog_relative_errors
+                .clone()
+                .into_iter()
+                .map(|error| (error * 100.0).round() / 100.0);
+            this_hyperloglog_errors.push(quote! {
+                &[#(#sub_hyperloglog_errors),*]
+            });
+        });
 
-    let errors = (4..=maximal_precision)
-        .map(|exponent| {
-            let bytes = (4..=6)
-                .map(|bit_size| {
-                    let (correction, _) = reports
-                        .iter()
-                        .find(|(correction, _)| {
-                            correction.precision == exponent && correction.bits == bit_size
-                        })
-                        .unwrap();
-                    let errors = correction.relative_errors.clone().into_iter().map(|error| {
-                        (error*100.0).round() / 100.0
-                    });
-                    quote! {
-                        &[#(#errors),*]
-                    }
-                })
-                .collect::<Vec<TokenStream>>();
-            quote! {
-                [#(#bytes),*]
-            }
-        })
-        .collect::<Vec<TokenStream>>();
-
-    let paradox_cardinalities: Ident = Ident::new("GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES", proc_macro2::Span::call_site());
-
-    let paradox_errors: Ident = Ident::new("GAP_HASH_BIRTHDAY_PARADOX_ERRORS", proc_macro2::Span::call_site());
+        hashlist_cardinalities.push(quote! {
+            [#(#this_hashlist_cardinalities),*]
+        });
+        hashlist_errors.push(quote! {
+            [#(#this_hashlist_errors),*]
+        });
+        hyperloglog_cardinalities.push(quote! {
+            [#(#this_hyperloglog_cardinalities),*]
+        });
+        hyperloglog_errors.push(quote! {
+            [#(#this_hyperloglog_errors),*]
+        });
+    });
 
     let output = quote! {
-        //! Correction coefficients for the gap hash birthday paradox.
+        //! Correction coefficients.
 
         #[expect(
             clippy::unreadable_literal,
-            reason = "The values are used as a lookup table for the cardinalities."
+            reason = "The values are used as a lookup table for the hashlist correction cardinalities."
         )]
-        /// The cardinalities for the gap hash birthday paradox.
-        pub(super) const #paradox_cardinalities: [[&[u32]; 3]; 15] = [
-            #(#cardinalities),*
+        /// The hashlist-correction cardinalities for the gap hash birthday paradox.
+        pub(super) const HASHLIST_CORRECTION_CARDINALITIES: [[&[u32]; 3]; 15] = [
+            #(#hashlist_cardinalities),*
         ];
 
         #[expect(
             clippy::unreadable_literal,
-            reason = "The values are used as a lookup table for the errors."
+            reason = "The values are used as a lookup table for the hashlist correction errors."
         )]
-        /// The relative errors for the gap hash birthday paradox.
-        pub(super) const #paradox_errors: [[&[f64]; 3]; 15] = [
-            #(#errors),*
+        /// The hashlist-correction errors for the gap hash birthday paradox.
+        pub(super) const HASHLIST_CORRECTION_BIAS: [[&[f64]; 3]; 15] = [
+            #(#hashlist_errors),*
+        ];
+
+        #[expect(
+            clippy::unreadable_literal,
+            reason = "The values are used as a lookup table for the hyperloglog correction cardinalities."
+        )]
+        /// The hyperloglog-correction cardinalities for the gap hash birthday paradox.
+        pub(super) const HYPERLOGLOG_CORRECTION_CARDINALITIES: [[&[u32]; 3]; 15] = [
+            #(#hyperloglog_cardinalities),*
+        ];
+
+        #[expect(
+            clippy::unreadable_literal,
+            reason = "The values are used as a lookup table for the hyperloglog correction errors."
+        )]
+        /// The hyperloglog-correction errors for the gap hash birthday paradox.
+        pub(super) const HYPERLOGLOG_CORRECTION_BIAS: [[&[f64]; 3]; 15] = [
+            #(#hyperloglog_errors),*
         ];
     };
 
     // We write out the output token stream to '../src/composite_hash/gap_birthday_paradox.rs'
-    let output_path = "../src/composite_hash/gap_birthday_paradox.rs";
+    let output_path = "../src/correction_coefficients.rs";
 
     // Convert the generated TokenStream to a string
     let code_string = output.to_string();

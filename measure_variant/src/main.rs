@@ -30,7 +30,7 @@ struct Report {
 fn main() {
     let random_state = 7_536_558_723_694_876_u64;
 
-    let max_hashes = (1 << 14) * 6;
+    let max_hashes = (1 << 14) * 12;
     let max = max_hashes as u64;
 
     let progress_bar = ProgressBar::new(ITERATIONS as u64);
@@ -57,7 +57,7 @@ fn main() {
                 hll.insert(&value);
 
                 if hashset.insert(value) {
-                    let cardinality = hll.uncorrected_estimate_cardinality();
+                    let cardinality = hll.estimate_cardinality();
                     let exact_cardinality = hashset.len() as u64;
                     let relative_error =
                         (exact_cardinality as f64 - cardinality).abs() / exact_cardinality as f64;

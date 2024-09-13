@@ -1,6 +1,10 @@
 //! Marker struct for the hybrid approach, that keeps the hash explicit up until they fit into the registers.
 
 use crate::composite_hash::{CompositeHash, GapHash, SaturationError};
+use crate::correction_coefficients::{
+    HASHLIST_CORRECTION_CARDINALITIES, HASHLIST_CORRECTION_BIAS,
+    HYPERLOGLOG_CORRECTION_CARDINALITIES, HYPERLOGLOG_CORRECTION_BIAS,
+};
 use crate::prelude::*;
 use core::fmt::Debug;
 use core::hash::Hash;
@@ -30,6 +34,53 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> Default for Hyper
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[inline]
+/// Returns the corrected estimate of the cardinality.
+fn correct_cardinality<P: Precision, B: Bits>(
+    raw_estimate: f64,
+    cardinalities: &[[&[u32]; 3]; 15],
+    biases: &[[&[f64]; 3]; 15],
+) -> f64 {
+    if raw_estimate > 5.0 * f64::from(1 << P::EXPONENT) {
+        return raw_estimate;
+    }
+
+    let cardinalities = &cardinalities[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
+    let biases = &biases[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
+    let estimate_u32 = raw_estimate as u32;
+
+    if estimate_u32 <= cardinalities[0] {
+        return raw_estimate
+            + f64::from(biases[0]) * raw_estimate / f64::from(cardinalities[0]).max(1.0);
+    }
+
+    if estimate_u32 > cardinalities[cardinalities.len() - 1] {
+        return raw_estimate
+            + f64::from(biases[cardinalities.len() - 1]) * raw_estimate
+                / f64::from(cardinalities[cardinalities.len() - 1]);
+    }
+
+
+    // We use a binary-search-based partition search to find the point where the raw estimate is
+    // located in the cardinalities.
+
+    let index = cardinalities.partition_point(|&x| x < estimate_u32);
+
+    let lower_cardinality = cardinalities[index - 1];
+    let upper_cardinality = cardinalities[index];
+
+    let lower_bias = biases[index - 1];
+    let upper_bias = biases[index];
+
+    assert!(lower_cardinality < upper_cardinality);
+
+    raw_estimate
+        + (raw_estimate
+            - f64::from(lower_cardinality)) / f64::from(upper_cardinality - lower_cardinality)
+            * (upper_bias - lower_bias)
+        + lower_bias
 }
 
 impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
@@ -230,54 +281,20 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
     #[inline]
     /// Returns the corrected estimate of the cardinality.
-    fn correct_cardinality(raw_estimate: f64) -> f64 {
-        if raw_estimate > 5.0 * f64::from(1 << P::EXPONENT) {
-            return raw_estimate;
-        }
-
-        let estimate_u32 = raw_estimate as u32;
-
-        if estimate_u32 < GapHash::<P, B>::BIRTHDAY_CARDINALITIES[0] {
-            return raw_estimate
-                + GapHash::<P, B>::BIRTHDAY_RELATIVE_ERRORS[0] * f64::from(raw_estimate)
-                    / f64::from(GapHash::<P, B>::BIRTHDAY_CARDINALITIES[0]).max(1.0);
-        }
-
-        if estimate_u32
-            >= GapHash::<P, B>::BIRTHDAY_CARDINALITIES
-                [GapHash::<P, B>::BIRTHDAY_CARDINALITIES.len() - 1]
-        {
-            return raw_estimate
-                + GapHash::<P, B>::BIRTHDAY_RELATIVE_ERRORS
-                    [GapHash::<P, B>::BIRTHDAY_CARDINALITIES.len() - 1]
-                    * f64::from(raw_estimate)
-                    / f64::from(
-                        GapHash::<P, B>::BIRTHDAY_CARDINALITIES
-                            [GapHash::<P, B>::BIRTHDAY_CARDINALITIES.len() - 1],
-                    );
-        }
-
-        for i in 0..GapHash::<P, B>::BIRTHDAY_CARDINALITIES.len() - 1 {
-            if estimate_u32 < GapHash::<P, B>::BIRTHDAY_CARDINALITIES[i + 1] {
-                let bias = (f64::from(estimate_u32 - GapHash::<P, B>::BIRTHDAY_CARDINALITIES[i])
-                    / f64::from(
-                        GapHash::<P, B>::BIRTHDAY_CARDINALITIES[i + 1]
-                            - GapHash::<P, B>::BIRTHDAY_CARDINALITIES[i],
-                    ))
-                    * (GapHash::<P, B>::BIRTHDAY_RELATIVE_ERRORS[i + 1]
-                        - GapHash::<P, B>::BIRTHDAY_RELATIVE_ERRORS[i])
-                    + GapHash::<P, B>::BIRTHDAY_RELATIVE_ERRORS[i];
-                return f64::from(raw_estimate) + bias;
-            }
-        }
-
-        unreachable!();
-    }
-
-    #[inline]
-    /// Returns the corrected estimate of the cardinality.
     pub fn estimate_cardinality(&self) -> f64 {
-        Self::correct_cardinality(self.uncorrected_estimate_cardinality())
+        if self.is_hash_list() {
+            correct_cardinality::<P, B>(
+                f64::from(self.get_number_of_hashes() + self.get_duplicates()),
+                &HASHLIST_CORRECTION_CARDINALITIES,
+                &HASHLIST_CORRECTION_BIAS,
+            )
+        } else {
+            correct_cardinality::<P, B>(
+                P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / self.harmonic_sum,
+                &HYPERLOGLOG_CORRECTION_CARDINALITIES,
+                &HYPERLOGLOG_CORRECTION_BIAS,
+            )
+        }
     }
 
     #[inline]
@@ -504,9 +521,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 other_cardinality,
             ),
             (false, false) => {
-                let union_estimate = Self::correct_cardinality(
+                let union_estimate = correct_cardinality::<P, B>(
                     P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT)
                         / self.registers.get_union_harmonic_sum(&other.registers),
+                    &HYPERLOGLOG_CORRECTION_CARDINALITIES,
+                    &HYPERLOGLOG_CORRECTION_BIAS,
                 );
                 correct_union_estimate(self_cardinality, other_cardinality, union_estimate)
             }

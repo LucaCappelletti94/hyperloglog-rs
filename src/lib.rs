@@ -17,6 +17,7 @@ mod registers;
 mod hashlist;
 pub mod sketches;
 pub mod utils;
+mod correction_coefficients;
 
 #[cfg(feature = "serde")]
 pub mod serde;

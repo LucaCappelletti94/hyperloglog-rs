@@ -8,9 +8,7 @@ pub use gaps::GapHash;
 
 mod shared;
 pub mod switch;
-mod switch_birthday_paradox;
 pub use switch::SwitchHash;
-mod gap_birthday_paradox;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Enumeration of errors that can occur when downgrading a composite hash.
@@ -175,10 +173,6 @@ pub trait CompositeHash: Send + Sync + Debug {
     /// * `hash_bits` - The number of bits for the hash to downgrade.
     fn target_downgraded_hash_bits(number_of_hashes: u32, bit_index: u32, hash_bits: u8) -> u8;
 
-    /// The cardinalities for the birthday paradox correction.
-    const BIRTHDAY_CARDINALITIES: &[u32];
-    /// The relative errors for the birthday paradox correction.
-    const BIRTHDAY_RELATIVE_ERRORS: &[f64];
     /// Returns the smallest viable hash for the current precision and number of bits.
     const SMALLEST_VIABLE_HASH_BITS: u8;
     /// Returns the largest viable hash for the current precision and number of bits.

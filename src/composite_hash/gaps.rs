@@ -4,9 +4,6 @@ use core::u64;
 mod bitreader;
 mod bitwriter;
 mod optimal_codes;
-use super::gap_birthday_paradox::{
-    GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES, GAP_HASH_BIRTHDAY_PARADOX_ERRORS,
-};
 use super::{CompositeHash, SaturationError, Debug, LastBufferedBit, Precision, SwitchHash};
 use crate::bits::Bits;
 use bitreader::{len_rice, BitReader};
@@ -1245,10 +1242,6 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
 
     const SMALLEST_VIABLE_HASH_BITS: u8 = Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS;
     const LARGEST_VIABLE_HASH_BITS: u8 = SwitchHash::<P, B>::LARGEST_VIABLE_HASH_BITS;
-    const BIRTHDAY_CARDINALITIES: &[u32] = GAP_HASH_BIRTHDAY_PARADOX_CARDINALITIES
-        [P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
-    const BIRTHDAY_RELATIVE_ERRORS: &[f64] =
-        GAP_HASH_BIRTHDAY_PARADOX_ERRORS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
 }
 
 #[derive(Debug)]

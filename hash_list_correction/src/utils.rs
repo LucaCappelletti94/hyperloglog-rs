@@ -74,7 +74,7 @@ impl HashCorrection {
         let (lower_error, upper_error) =
             (relative_errors[partition], relative_errors[partition + 1]);
 
-        let slope = f64::from(cardinality_estimate - lower) / f64::from(upper - lower).max(1.0)
+        let slope = f64::from(cardinality_estimate - lower) / f64::from(upper - lower)
             * f64::from(upper_error - lower_error);
 
         f64::from(cardinality_estimate) + f64::from(lower_error) + slope
@@ -192,16 +192,51 @@ fn correction<P: Precision>(report: &[CardinalityError]) -> (Vec<u32>, Vec<f64>)
 
     // We create the correction.
     let errors = top_k_reports
-        .iter()
+        .par_iter()
         .map(|report| report.y() - report.x())
         .collect::<Vec<f64>>();
 
     let cardinalities = top_k_reports
-        .iter()
+        .par_iter()
         .map(|report| report.x().round() as u32)
         .collect::<Vec<u32>>();
 
-    (cardinalities, errors)
+    // We check that the cardinalities are sorted.
+    debug_assert!(cardinalities.is_sorted());
+
+    // We remove in both the cardinalities and errors the entries that have the
+    // same cardinality. In such cases, we average the errors.
+    let mut filtered_errors = Vec::with_capacity(errors.len());
+    let mut filtered_cardinalities = Vec::with_capacity(cardinalities.len());
+
+    let mut previous_cardinality = cardinalities[0];
+    let mut previous_error = errors[0];
+    let mut count = 1.0;
+
+    for (cardinality, error) in cardinalities.iter().zip(errors.iter()).skip(1) {
+        if *cardinality <= previous_cardinality + 1 {
+            count += 1.0;
+            previous_error += *error;
+        } else {
+            filtered_cardinalities.push(previous_cardinality);
+            filtered_errors.push(previous_error / count);
+
+            previous_cardinality = *cardinality;
+            previous_error = *error;
+            count = 1.0;
+        }
+    }
+
+    filtered_cardinalities.push(previous_cardinality);
+    filtered_errors.push(previous_error / count);
+
+    assert!(filtered_cardinalities.len() == filtered_errors.len());
+    assert!(filtered_cardinalities.len() <= cardinalities.len());
+
+    // We check that the filtered cardinalities are sorted.
+    debug_assert!(filtered_cardinalities.is_sorted());
+
+    (filtered_cardinalities, filtered_errors)
 }
 
 /// Measures the gap between subsequent hashes in the Listhash variant of HyperLogLog.
@@ -223,7 +258,7 @@ where
             .progress_chars("##-"),
     );
 
-    let maximal_cardinality = 5 * (1 << P::EXPONENT);
+    let maximal_cardinality = 16 * (1 << P::EXPONENT);
 
     let random_state = 6_539_823_745_562_884_u64;
 
@@ -320,8 +355,8 @@ where
 
         // We sort the results by the estimated cardinality, which most likely will be the
         // already sorted but it is not guaranteed.
-        hashlist_report.sort_unstable_by(|a, b| a.cardinality.partial_cmp(&b.cardinality).unwrap());
-        hyperloglog_report.sort_unstable_by(|a, b| a.cardinality.partial_cmp(&b.cardinality).unwrap());
+        hashlist_report.par_sort_unstable_by(|a, b| a.cardinality.partial_cmp(&b.cardinality).unwrap());
+        hyperloglog_report.par_sort_unstable_by(|a, b| a.cardinality.partial_cmp(&b.cardinality).unwrap());
 
         // We average the values that have the same cardinality.
         let averaged_hashlist_report: Vec<CardinalityError> = average_report::<P>(hashlist_report, iterations);
