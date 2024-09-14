@@ -1,3 +1,4 @@
+//! This module contains implementations of the `Set` trait for various HyperLogLog
 use core::hash::BuildHasher;
 
 use hyperloglog_rs::prelude::ArrayRegister;
@@ -21,7 +22,9 @@ use std::marker::PhantomData;
 use streaming_algorithms::HyperLogLog as SAHyperLogLog;
 use crate::traits::Set;
 
+/// Trait to associate a Hasher with a HasherBuilder
 pub trait HasherBuilderAssociated: HasherType + MemSize {
+    /// The associated HasherBuilder
     type Builder: BuildHasher + Default + Clone + Send + Sync + MemSize;
 }
 
@@ -42,26 +45,31 @@ impl HasherBuilderAssociated for ahash::AHasher {
 }
 
 #[derive(Debug, Clone, Default, MemDbg, MemSize)]
+/// Wrapper for the SimpleHyperLogLog implementation
 pub struct SimpleHLL<H: HasherType, const P: usize> {
     estimator: SimpleHyperLogLog<H, P>,
 }
 
 #[derive(Debug, Clone, Default, MemDbg, MemSize)]
+/// Wrapper for the CloudFlare HyperLogLog implementation
 pub struct CloudFlareHLL<const P: usize, const B: usize, H: HasherType> {
     estimator: CardinalityEstimator<u64, H, P, B>,
 }
 
 #[derive(Debug, Clone, Default, MemDbg, MemSize)]
+/// Wrapper for the HyperTwoBits implementation
 pub struct HyperTwoBits<S: hypertwobits::h2b::Sketch, H: HasherBuilderAssociated> {
     estimator: H2B<S, H::Builder>,
 }
 
 #[derive(Debug, Clone, Default, MemDbg, MemSize)]
+/// Wrapper for the HyperThreeBits implementation
 pub struct HyperThreeBits<S: hypertwobits::h3b::Sketch, H: HasherBuilderAssociated> {
     estimator: H3B<S, H::Builder>,
 }
 
 #[derive(Debug, Clone, MemDbg, MemSize)]
+/// Wrapper for the SourMash implementation
 pub struct SourMash<P: Precision> {
     estimator: SourMashHyperLogLog,
     _precision: PhantomData<P>,
@@ -80,6 +88,7 @@ impl<P: Precision> Default for SourMash<P> {
 }
 
 #[derive(Debug, Clone, MemDbg, MemSize)]
+/// Wrapper for the RustHyperLogLog implementation
 pub struct RustHLL<P: Precision> {
     estimator: RustHyperLogLog,
     _precision: PhantomData<P>,
@@ -98,6 +107,7 @@ impl<P: Precision> Default for RustHLL<P> {
 }
 
 #[derive(Clone, MemDbg, MemSize)]
+/// Wrapper for the TabacHyperLogLogPlus implementation
 pub struct TabacHLLPlusPlus<P: Precision, H: HasherBuilderAssociated> {
     estimator: TabacHyperLogLogPlus<u64, H::Builder>,
     _precision: PhantomData<P>,
@@ -113,6 +123,7 @@ impl<P: Precision, H: HasherBuilderAssociated> Default for TabacHLLPlusPlus<P, H
 }
 
 #[derive(Clone, MemDbg, MemSize)]
+/// Wrapper for the TabacHyperLogLog implementation
 pub struct TabacHLL<P: Precision, H: HasherBuilderAssociated> {
     estimator: TabacHyperLogLogPF<u64, H::Builder>,
     _precision: PhantomData<P>,
@@ -128,6 +139,7 @@ impl<P: Precision, H: HasherBuilderAssociated> Default for TabacHLL<P, H> {
 }
 
 #[derive(Debug, Clone, MemDbg, MemSize)]
+/// Wrapper for the Alec HyperLogLog implementation
 pub struct AlecHLL<P: Precision> {
     estimator: SAHyperLogLog<u64>,
     _precision: PhantomData<P>,

@@ -891,7 +891,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                     prev_to_current_gap.uniform_delta,
                     Self::uniform_coefficient(hash_bits),
                     prev_to_current_gap.geometric_minus_one,
-                    if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
+                    if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
                         1
                     } else {
                         0
@@ -910,7 +910,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 current_to_next_gap.uniform_delta,
                 Self::uniform_coefficient(hash_bits),
                 current_to_next_gap.geometric_minus_one,
-                if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
+                if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
                     1
                 } else {
                     0
@@ -956,7 +956,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 prev_to_current_gap.uniform_delta,
                 prev_to_current_gap.geometric_minus_one,
                 Self::uniform_coefficient(hash_bits),
-                if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
+                if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
                     1
                 } else {
                     0
@@ -990,7 +990,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 current_to_next_gap.uniform_delta,
                 current_to_next_gap.geometric_minus_one,
                 Self::uniform_coefficient(hash_bits),
-                if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
+                if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
                     1
                 } else {
                     0
@@ -1153,7 +1153,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 fragment.uniform_delta,
                 fragment.geometric_minus_one,
                 uniform_coefficient,
-                if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
+                if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
                     1
                 } else {
                     0
@@ -1502,7 +1502,7 @@ impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeIter<'a, P, B> {
                 self.previous = self.bitstream.read_bits(self.hash_bits) as u32;
             } else {
                 let uniform_delta = self.bitstream.read_rice(self.uniform_coefficient);
-                let geometric_minus_one = if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
+                let geometric_minus_one = if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
                     self.bitstream.read_rice(1) as u8
                 } else {
                     self.bitstream.read_unary()   
@@ -1548,7 +1548,7 @@ impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeIter<'a, P, B> {
         }
 
         let uniform_delta = self.bitstream.read_rice(self.uniform_coefficient);
-        let geometric_minus_one = if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
+        let geometric_minus_one = if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
             self.bitstream.read_rice(1) as u8
         } else {
             self.bitstream.read_unary()   

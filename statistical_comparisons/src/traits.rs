@@ -15,10 +15,15 @@ impl TransparentMemSize for HashSet<u64> {
     }
 }
 
+/// A trait to represent a set.
 pub trait Set {
+    /// Inserts an element into the set.
     fn insert_element(&mut self, value: u64);
+    /// Returns the cardinality of the set.
     fn cardinality(&self) -> f64;
+    /// Returns the union of two sets.
     fn union(&self, other: &Self) -> f64;
+    /// Returns the name of the model.
     fn model_name(&self) -> String;
 }
 

@@ -59,7 +59,12 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
         // If the hash barely fits as is, we do not need to do anything special.
         if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
             let register = (u64::from(hash) & B::MASK) as u8;
-            debug_assert!(register > 0);
+            debug_assert!(
+                register > 0,
+                "The register value ({register}) must be greater than 0. Obtained from hash {hash:032b} with bits {hash_bits} and index {index}, with precision {} and bits {}.",
+                P::EXPONENT,
+                B::NUMBER_OF_BITS
+            );
             return HashFragment {
                 index,
                 register,
@@ -211,7 +216,7 @@ const fn maximal_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
         return 16;
     }
 
-    if P::EXPONENT < 15 {
+    if P::EXPONENT < 10 {
         return 24;
     }
 

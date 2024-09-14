@@ -2,8 +2,9 @@
 use std::{iter::Sum, ops::Div};
 
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Point {
     x: f64,
     y: f64,
@@ -82,8 +83,8 @@ fn perpendicular_distance(point: &Point, start: &Point, end: &Point) -> f64 {
 /// # Arguments
 /// * `points` - The list of points to simplify
 /// * `tolerance` - The maximum distance from the simplified line
-/// * `max_points` - The maximum number of points to return
-pub fn rdp(points: &[Point], tolerance: f64, max_points: usize) -> Vec<Point> {
+/// * `depth` - The current recursion depth
+pub fn rdp(points: &[Point], tolerance: f64, depth: usize) -> Vec<Point> {
     if points.len() < 2 {
         return points.to_vec();
     }
@@ -109,9 +110,9 @@ pub fn rdp(points: &[Point], tolerance: f64, max_points: usize) -> Vec<Point> {
         });
 
     // If the maximum distance is greater than the tolerance, recursively simplify
-    if max_distance > tolerance && max_points > 2 {
-        let mut result1 = rdp(&points[..=index], tolerance, max_points / 2);
-        let mut result2 = rdp(&points[index..], tolerance, max_points / 2);
+    if max_distance > tolerance && depth > 0 {
+        let mut result1 = rdp(&points[..=index], tolerance, depth - 1);
+        let mut result2 = rdp(&points[index..], tolerance, depth - 1);
 
         // Combine the results, removing the duplicate point at index
         result1.pop();

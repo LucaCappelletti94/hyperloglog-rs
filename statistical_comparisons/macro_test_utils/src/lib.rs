@@ -186,7 +186,7 @@ pub fn cardinality_benchmark(_attr: TokenStream, item: TokenStream) -> TokenStre
         .collect::<Vec<(usize, _)>>();
     let hashers = vec![
         Ident::new("XxHash64", fn_name.span()),
-        Ident::new("WyHash", fn_name.span()),
+        // Ident::new("WyHash", fn_name.span()),
         // Ident::new("AHasher", fn_name.span()),
         // Ident::new("XxH3", fn_name.span()),
     ];

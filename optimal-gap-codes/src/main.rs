@@ -176,7 +176,7 @@ where
         }
     }
 
-    let iterations = 4_000_000 / (1 << (P::EXPONENT - 4));
+    let iterations = 8_000_000 / (1 << (P::EXPONENT - 4));
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));
     progress_bar.set_style(
@@ -189,7 +189,7 @@ where
     );
 
     let random_state = 6_539_823_745_562_884_u64;
-    let geometric_coefficient = if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
+    let geometric_coefficient = if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
         1
     } else {
         0

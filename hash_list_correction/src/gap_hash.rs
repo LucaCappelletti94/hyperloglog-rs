@@ -93,12 +93,14 @@ pub fn compute_gap_hash_correction() {
     let mut hashlist_errors: Vec<TokenStream> = Vec::new();
     let mut hyperloglog_cardinalities: Vec<TokenStream> = Vec::new();
     let mut hyperloglog_errors: Vec<TokenStream> = Vec::new();
+    let mut hyperloglog_slopes: Vec<TokenStream> = Vec::new();
 
     (4..=maximal_precision).for_each(|exponent| {
         let mut this_hashlist_cardinalities: Vec<TokenStream> = Vec::new();
         let mut this_hashlist_errors: Vec<TokenStream> = Vec::new();
         let mut this_hyperloglog_cardinalities: Vec<TokenStream> = Vec::new();
         let mut this_hyperloglog_errors: Vec<TokenStream> = Vec::new();
+        let mut this_hyperloglog_slopes: Vec<f64> = Vec::new();
 
         (4..=6).for_each(|bit_size| {
             let (correction, _) = reports
@@ -131,6 +133,7 @@ pub fn compute_gap_hash_correction() {
             this_hyperloglog_errors.push(quote! {
                 &[#(#sub_hyperloglog_errors),*]
             });
+            this_hyperloglog_slopes.push(correction.hyperloglog_slope);
         });
 
         hashlist_cardinalities.push(quote! {
@@ -144,6 +147,9 @@ pub fn compute_gap_hash_correction() {
         });
         hyperloglog_errors.push(quote! {
             [#(#this_hyperloglog_errors),*]
+        });
+        hyperloglog_slopes.push(quote! {
+            [#(#this_hyperloglog_slopes),*]
         });
     });
 
@@ -184,6 +190,15 @@ pub fn compute_gap_hash_correction() {
         /// The hyperloglog-correction errors for the gap hash birthday paradox.
         pub(super) const HYPERLOGLOG_CORRECTION_BIAS: [[&[f64]; 3]; 15] = [
             #(#hyperloglog_errors),*
+        ];
+
+        #[expect(
+            clippy::unreadable_literal,
+            reason = "The values are used as a lookup table for the hyperloglog correction slopes."
+        )]
+        /// The hyperloglog-correction slopes for the gap hash birthday paradox.
+        pub(super) const HYPERLOGLOG_CORRECTION_SLOPES: [[f64; 3]; 15] = [
+            #(#hyperloglog_slopes),*
         ];
     };
 

@@ -2,8 +2,8 @@
 
 use crate::composite_hash::{CompositeHash, GapHash, SaturationError};
 use crate::correction_coefficients::{
-    HASHLIST_CORRECTION_CARDINALITIES, HASHLIST_CORRECTION_BIAS,
-    HYPERLOGLOG_CORRECTION_CARDINALITIES, HYPERLOGLOG_CORRECTION_BIAS,
+    HASHLIST_CORRECTION_BIAS, HASHLIST_CORRECTION_CARDINALITIES, HYPERLOGLOG_CORRECTION_BIAS,
+    HYPERLOGLOG_CORRECTION_CARDINALITIES, HYPERLOGLOG_CORRECTION_SLOPES,
 };
 use crate::prelude::*;
 use core::fmt::Debug;
@@ -37,13 +37,18 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> Default for Hyper
 }
 
 #[inline]
+fn correction_upper_bound<P: Precision>() -> f64 {
+    200.0 * f64::integer_exp2(P::EXPONENT)
+}
+
+#[inline]
 /// Returns the corrected estimate of the cardinality.
 fn correct_cardinality<P: Precision, B: Bits>(
     raw_estimate: f64,
     cardinalities: &[[&[u32]; 3]; 15],
     biases: &[[&[f64]; 3]; 15],
 ) -> f64 {
-    if raw_estimate > 5.0 * f64::from(1 << P::EXPONENT) {
+    if raw_estimate >= correction_upper_bound::<P>() {
         return raw_estimate;
     }
 
@@ -52,16 +57,14 @@ fn correct_cardinality<P: Precision, B: Bits>(
     let estimate_u32 = raw_estimate as u32;
 
     if estimate_u32 <= cardinalities[0] {
-        return raw_estimate
-            + f64::from(biases[0]) * raw_estimate / f64::from(cardinalities[0]).max(1.0);
+        return raw_estimate + biases[0] * raw_estimate / f64::from(cardinalities[0]).max(1.0);
     }
 
     if estimate_u32 > cardinalities[cardinalities.len() - 1] {
         return raw_estimate
-            + f64::from(biases[cardinalities.len() - 1]) * raw_estimate
+            + biases[cardinalities.len() - 1] * raw_estimate
                 / f64::from(cardinalities[cardinalities.len() - 1]);
     }
-
 
     // We use a binary-search-based partition search to find the point where the raw estimate is
     // located in the cardinalities.
@@ -77,8 +80,8 @@ fn correct_cardinality<P: Precision, B: Bits>(
     assert!(lower_cardinality < upper_cardinality);
 
     raw_estimate
-        + (raw_estimate
-            - f64::from(lower_cardinality)) / f64::from(upper_cardinality - lower_cardinality)
+        + (raw_estimate - f64::from(lower_cardinality))
+            / f64::from(upper_cardinality - lower_cardinality)
             * (upper_bias - lower_bias)
         + lower_bias
 }
@@ -212,6 +215,13 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         let writer_tell = self.get_writer_tell();
         self.harmonic_sum = f64::integer_exp2(P::EXPONENT);
 
+        debug_assert!(
+            GapHash::<P, B>::is_prefix_free_encoded(number_of_hashes, hash_bits, writer_tell),
+            "Downgrading hash list to HyperLogLog counter with non-prefix-free encoding. Number of hashes: {number_of_hashes}, hash bits: {hash_bits}, writer tell: {writer_tell}, precision: {}, bits: {}.",
+            P::EXPONENT,
+            B::NUMBER_OF_BITS
+        );
+
         GapHash::<P, B>::decoded(registers.as_ref(), number_of_hashes, hash_bits, writer_tell)
             .for_each(|(new_register_value, index)| {
                 new_counter.insert_register_value_and_index(new_register_value, index);
@@ -289,8 +299,27 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 &HASHLIST_CORRECTION_BIAS,
             )
         } else {
+            let raw_estimate =
+                P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / self.harmonic_sum;
+
+            if raw_estimate >= correction_upper_bound::<P>() {
+                return raw_estimate;
+            }
+
+            let cardinalities = HYPERLOGLOG_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
+                [B::NUMBER_OF_BITS as usize - 4];
+            let biases = HYPERLOGLOG_CORRECTION_BIAS[P::EXPONENT as usize - 4]
+                [B::NUMBER_OF_BITS as usize - 4];
+            let last_cardinality = f64::from(cardinalities[cardinalities.len() - 1]);
+            let last_bias = biases[biases.len() - 1];
+            if raw_estimate >= last_cardinality {
+                let angular_coefficient = HYPERLOGLOG_CORRECTION_SLOPES[P::EXPONENT as usize - 4]
+                    [B::NUMBER_OF_BITS as usize - 4];
+                return raw_estimate * angular_coefficient + last_bias;
+            }
+
             correct_cardinality::<P, B>(
-                P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / self.harmonic_sum,
+                raw_estimate,
                 &HYPERLOGLOG_CORRECTION_CARDINALITIES,
                 &HYPERLOGLOG_CORRECTION_BIAS,
             )
@@ -378,6 +407,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             "The register value {} must be less than or equal to the maximum register value {}.",
             register_value,
             (1 << <B as VariableWord>::NUMBER_OF_BITS) - 1
+        );
+
+        debug_assert!(
+            register_value > 0,
+            "The register value must be greater than zero."
         );
 
         (index, register_value, hash)

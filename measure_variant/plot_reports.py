@@ -5,6 +5,8 @@ column with the relative error of respectively the latest and reference variants
 
 """
 
+from glob import glob
+from tqdm.auto import tqdm
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -15,54 +17,34 @@ def hyperloglog_error(p: int) -> float:
 def plot_all():
     """Load the reports and plot the histograms, boxplots and relative error plots."""
     # Load the reports
-    latest_report = pd.read_csv("latest_report.csv")
-    reference_report = pd.read_csv("reference_report.csv")
-
-    latest_report.sort_values(by="cardinality", inplace=True)
-    reference_report.sort_values(by="cardinality", inplace=True)
-
     fig, axs = plt.subplots(2, 1, figsize=(10, 10), sharex=False, sharey=False)
+    for path in tqdm(glob("*.csv.gz"), desc="Loading reports", unit="report", leave=False):
+        model_name = path.split(".csv.gz")[0]
 
-    axs[0].plot(
-        latest_report.cardinality,
-        latest_report.relative_error,
-        label="Latest"
-    )
-    axs[0].plot(
-        reference_report.cardinality,
-        reference_report.relative_error, label="Reference", linestyle="--", alpha=0.7
-    )
+        reports = pd.read_csv(path)
+
+        axs[0].plot(
+            reports.cardinality,
+            reports.relative_error,
+            label=model_name
+        )
+
+        axs[1].plot(
+            reports.cardinality,
+            reports.memory_requirements,
+            label=model_name
+        )
 
     # We plot an horizontal line representing the expected error of the HyperLogLog algorithm.
-    axs[0].axhline(hyperloglog_error(14), color="red", label="Expected error")
+    # axs[0].axhline(hyperloglog_error(4), color="red", label="Expected error")
 
     axs[0].set_title("Relative error")
+    axs[1].set_title("Memory requirements")
     axs[0].set_xlabel("Cardinality")
-    axs[0].set_ylabel("Relative error")
-    axs[0].legend()
-
-
-    axs[1].plot(
-        latest_report.cardinality,
-        latest_report.estimated_cardinality - reference_report.estimated_cardinality,
-        label="Latest - Reference"
-    )
-
-    axs[1].plot(
-        latest_report.cardinality,
-        latest_report.cardinality - reference_report.estimated_cardinality,
-        label="GT - Reference"
-    )
-
-    axs[1].plot(
-        latest_report.cardinality,
-        latest_report.cardinality - latest_report.estimated_cardinality,
-        label="GT - Latest"
-    )
-
-    axs[1].set_title("Estimated cardinality difference")
     axs[1].set_xlabel("Cardinality")
-    axs[1].set_ylabel("Estimated cardinality difference")
+    axs[0].set_ylabel("Relative error")
+    axs[1].set_ylabel("Memory requirements (bytes)")
+    axs[0].legend()
     axs[1].legend()
 
     fig.tight_layout()
