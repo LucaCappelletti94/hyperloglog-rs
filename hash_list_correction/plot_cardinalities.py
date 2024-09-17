@@ -76,11 +76,14 @@ def plot_cardinality(path_json: str):
             hash_correction.hyperloglog_cardinalities,
         ),
     ]:
-        if not os.path.exists(path):
-            return
+        if len(correction) == 0:
+            continue
 
-        report = pd.read_csv(path)
-        largest_exact_cardinality = max(largest_exact_cardinality, report.y.max())
+        try:
+            report = pd.read_csv(path)
+        except FileNotFoundError:
+            return
+        largest_exact_cardinality = int(max(largest_exact_cardinality, report.y.max()))
         largest_estimated_cardinality = max(
             largest_estimated_cardinality, report.x.max()
         )
@@ -142,46 +145,49 @@ def plot_cardinality(path_json: str):
             label=f"{name} correction subtraction",
         )
 
-    # We plot the continuation of the expected estimation relative error and subtraction
-    # according to the Slope and Intercept we have determined for this particular hash correction.
-    extended_estimated_cardinalities = np.arange(
-        largest_estimated_cardinality + 1, largest_estimated_cardinality * 3 / 2
-    )
-    extended_exact_cardinalities = np.arange(
-        largest_exact_cardinality + 1, largest_exact_cardinality + len(extended_estimated_cardinalities)
-    )
+    if len(hash_correction.hyperloglog_cardinalities) > 0:
+        # We plot the continuation of the expected estimation relative error and subtraction
+        # according to the Slope and Intercept we have determined for this particular hash correction.
+        extended_estimated_cardinalities = np.arange(
+            largest_estimated_cardinality + 1, largest_estimated_cardinality * 3 / 2
+        )
+        extended_exact_cardinalities = np.arange(
+            largest_exact_cardinality + 1, largest_exact_cardinality + len(extended_estimated_cardinalities)
+        )
 
-    extended_predicted_cardinalities = (
-        hash_correction.hyperloglog_slope * (extended_estimated_cardinalities - largest_estimated_cardinality) + largest_estimated_cardinality
-    )
+        largest_exact_cardinality = max(largest_exact_cardinality, extended_exact_cardinalities[-1])
 
-    axs[0].plot(
-        extended_exact_cardinalities,
-        [
-            abs(estimated - exact) / max(exact, 1)
-            for exact, estimated in zip(
-                extended_exact_cardinalities, extended_predicted_cardinalities
-            )
-        ],
-        label="LS prediction relative error",
-        linestyle="-",
-        color="tab:pink",
-        alpha=0.9,
-    )
+        extended_predicted_cardinalities = (
+            hash_correction.hyperloglog_slope * (extended_estimated_cardinalities - largest_estimated_cardinality) + largest_estimated_cardinality
+        )
 
-    axs[1].plot(
-        extended_exact_cardinalities,
-        [
-            exact - estimated
-            for exact, estimated in zip(
-                extended_exact_cardinalities, extended_predicted_cardinalities
-            )
-        ],
-        label="LS prediction subtraction",
-        linestyle="-",
-        color="tab:pink",
-        alpha=0.9,
-    )
+        axs[0].plot(
+            extended_exact_cardinalities,
+            [
+                abs(estimated - exact) / max(exact, 1)
+                for exact, estimated in zip(
+                    extended_exact_cardinalities, extended_predicted_cardinalities
+                )
+            ],
+            label="LS prediction relative error",
+            linestyle="-",
+            color="tab:pink",
+            alpha=0.9,
+        )
+
+        axs[1].plot(
+            extended_exact_cardinalities,
+            [
+                exact - estimated
+                for exact, estimated in zip(
+                    extended_exact_cardinalities, extended_predicted_cardinalities
+                )
+            ],
+            label="LS prediction subtraction",
+            linestyle="-",
+            color="tab:pink",
+            alpha=0.9,
+        )
 
     # We plot an horizontal line with the expected HLL error.
     axs[0].axhline(
@@ -198,7 +204,6 @@ def plot_cardinality(path_json: str):
     # plot, we only display the positive expected error.
 
     expected_error = expected_hll_error(hash_correction.precision)
-    largest_exact_cardinality = int(max(extended_exact_cardinalities))
 
     if has_negative_deltas:
         axs[1].fill_between(

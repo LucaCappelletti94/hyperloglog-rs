@@ -14,7 +14,7 @@ use test_utils::prelude::write_csv;
 /// Procedural macro to generate the gap_hash_correction function for the provided precision,
 /// and bit sizes.
 macro_rules! generate_gap_hash_correction_for_precision {
-    ($reports:ident, $multiprogress:ident, $precision:ty, $($bit_size:ty),*) => {
+    ($reports:ident, $multiprogress:ident, $only_hashlist:ident, $precision:ty, $($bit_size:ty),*) => {
         let progress_bar = $multiprogress.add(ProgressBar::new(3 as u64));
 
         progress_bar.set_style(
@@ -27,7 +27,7 @@ macro_rules! generate_gap_hash_correction_for_precision {
         progress_bar.tick();
 
         $(
-            let report = hash_correction::<$precision, $bit_size>($multiprogress);
+            let report = hash_correction::<$precision, $bit_size>($multiprogress, $only_hashlist);
             $reports.push(report);
             progress_bar.inc(1);
         )*
@@ -38,7 +38,7 @@ macro_rules! generate_gap_hash_correction_for_precision {
 
 /// Procedural macro to generate the gap_hash_correction function for the provided precisions.
 macro_rules! generate_gap_hash_correction_for_precisions {
-    ($reports:ident, $multiprogress:ident, $($precision:ty),*) => {
+    ($reports:ident, $multiprogress:ident, $only_hashlist:ident, $($precision:ty),*) => {
         let progress_bar = $multiprogress.add(ProgressBar::new(15));
 
         progress_bar.set_style(
@@ -51,7 +51,7 @@ macro_rules! generate_gap_hash_correction_for_precisions {
         progress_bar.tick();
 
         $(
-            generate_gap_hash_correction_for_precision!($reports, $multiprogress, $precision, Bits4, Bits5, Bits6);
+            generate_gap_hash_correction_for_precision!($reports, $multiprogress, $only_hashlist, $precision, Bits4, Bits5, Bits6);
             progress_bar.inc(1);
         )*
 
@@ -59,27 +59,28 @@ macro_rules! generate_gap_hash_correction_for_precisions {
     };
 }
 
-pub fn compute_gap_hash_correction() {
+pub fn compute_gap_hash_correction(only_hashlist: bool) {
     let mut reports: Vec<(HashCorrection, CorrectionPerformance)> = Vec::new();
     let multiprogress = &MultiProgress::new();
     generate_gap_hash_correction_for_precisions!(
         reports,
         multiprogress,
+        only_hashlist,
         Precision4,
         Precision5,
         Precision6,
         Precision7,
         Precision8,
         Precision9,
-        Precision10,
-        Precision11,
-        Precision12,
-        Precision13,
-        Precision14,
-        Precision15,
-        Precision16,
-        Precision17,
-        Precision18
+        Precision10
+        // Precision11,
+        // Precision12,
+        // Precision13,
+        // Precision14,
+        // Precision15,
+        // Precision16,
+        // Precision17,
+        // Precision18
     );
     multiprogress.clear().unwrap();
 
@@ -217,5 +218,5 @@ pub fn compute_gap_hash_correction() {
     // Write the formatted code to the output file
     // std::fs::write(output_path, formatted_code).unwrap();
 
-    println!("Generated optimal codes in '{}'", output_path);
+    println!("Generated correction coefficients in '{}'", output_path);
 }

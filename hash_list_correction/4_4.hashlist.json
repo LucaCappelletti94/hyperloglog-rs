@@ -1,0 +1,1 @@
+{"precision":4,"bits":4,"hashlist_smallest_maximal_cardinality":8,"hashlist_mean_maximal_cardinality":17,"hashlist_largest_maximal_cardinality":47,"hashlist_relative_errors":[0.0,0.3402631434804526,1.077327562981477,1.9986689041410468,3.6462498221571096],"hyperloglog_relative_errors":[],"hashlist_cardinalities":[0,5,9,12,15],"hyperloglog_cardinalities":[],"hyperloglog_slope":1.0}
