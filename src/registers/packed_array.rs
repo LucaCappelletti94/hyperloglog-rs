@@ -565,10 +565,7 @@ pub trait PackedRegister<B: Bits>: Precision {
 
 const LOG2_USIZE: usize = (size_of::<usize>() * 8).trailing_zeros() as usize;
 
-#[expect(
-    clippy::cast_possible_truncation,
-    reason = "The value is guaranteed to be less than 256"
-)]
+#[inline]
 /// Extracts the word position and the relative register offset from the packed index.
 ///
 /// # Safety
@@ -581,28 +578,28 @@ const fn split_packed_index<V: VariableWord>(index: usize) -> (usize, u8) {
     (word_index, relative_register_offset)
 }
 
-pub trait DoubleSize {
-    fn double_size(&mut self, maximal_size: usize);
+pub trait IncreaseCapacity {
+    fn increase_capacity(&mut self, maximal_size: usize);
 }
 
-impl<const N: usize> DoubleSize for [u64; N] {
+impl<const N: usize> IncreaseCapacity for [u64; N] {
     #[inline]
-    fn double_size(&mut self, _maximal_size: usize) {
-        unimplemented!("The double_size method is not implemented for [u64; N]");
+    fn increase_capacity(&mut self, _maximal_size: usize) {
+        unimplemented!("The increase_capacity method is not implemented for [u64; N]");
     }
 }
 
 #[cfg(feature = "alloc")]
-impl DoubleSize for Vec<u64> {
+impl IncreaseCapacity for Vec<u64> {
     #[inline]
-    fn double_size(&mut self, maximal_size: usize) {
-        let new_length = if self.len() == 0 { 1 } else { self.len() * 2 }.min(maximal_size);
+    fn increase_capacity(&mut self, maximal_size: usize) {
+        let new_length = if self.len() == 0 { 1 } else { self.len() * 3 / 2 }.min(maximal_size);
         self.resize(new_length, 0);
     }
 }
 
 impl<
-        W: DoubleSize + Clone + Eq + Send + Sync + Debug + AsRef<[u64]> + AsMut<[u64]>,
+        W: IncreaseCapacity + Clone + Eq + Send + Sync + Debug + AsRef<[u64]> + AsMut<[u64]>,
         P: Precision,
         B: Bits,
     > Registers<P, B> for Packed<W, B>
@@ -616,9 +613,9 @@ where
             Self: 'words;
 
     #[inline]
-    fn double_size(&mut self) {
+    fn increase_capacity(&mut self) {
         self.words
-            .double_size(((1 << P::EXPONENT) * B::NUMBER_OF_BITS_USIZE).div_ceil(64));
+            .increase_capacity(((1 << P::EXPONENT) * B::NUMBER_OF_BITS_USIZE).div_ceil(64));
     }
 
     #[inline]

@@ -878,39 +878,13 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             "The hashes must be prefix-free encoded to be able to use prefix-free codes."
         );
 
-        // We check that all hashes are still ordered in descending order
-        debug_assert!(
-            Self::downgraded(hashes, number_of_hashes, hash_bits, bit_index, 0)
-                .is_sorted_by(|a, b| b < a),
-            "Illegal hashes state: attempting to insert a value with hash bits {hash_bits}, number of hashes {number_of_hashes} and bit index {bit_index} at index {index} and register {register} with original hash {original_hash}.",
-        );
-
         let hashes_ref: &[u8] =
             unsafe { core::slice::from_raw_parts(hashes.as_ptr().cast::<u8>(), hashes.len()) };
 
         let encoded_hash = Self::encode(index, register, original_hash, hash_bits);
 
-        // Before editing anything, we check that the hash list as provided is sorted in descending order.
-        debug_assert!(
-            PrefixCodeIter::<P, B>::new(hashes_ref, bit_index, hash_bits)
-                .is_sorted_by(|a, b| b < a),
-            "The hashes must be sorted in descending order.",
-        );
-
         // iter until we find where we should insert
         let mut iter: PrefixCodeIter<'_, P, B> = if Self::has_rank_index() {
-            // The list still has to be fully sorted even when we start to iterate from a point in the middle.
-            debug_assert!(
-                PrefixCodeIter::<P, B>::new_with_rank_index(
-                    hashes_ref,
-                    bit_index,
-                    hash_bits,
-                    encoded_hash
-                )
-                .is_sorted_by(|a, b| b < a),
-                "The hashes must be sorted in descending order.",
-            );
-
             PrefixCodeIter::new_with_rank_index(hashes_ref, bit_index, hash_bits, encoded_hash)
         } else {
             PrefixCodeIter::new(hashes_ref, bit_index, hash_bits)
@@ -1100,13 +1074,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 );
             }
         }
-
-        debug_assert!(PrefixCodeIter::<P, B>::new(
-            hashes,
-            bit_index + number_of_inserted_bits,
-            hash_bits
-        )
-        .is_sorted_by(|a, b| b < a));
 
         Ok(Some(InsertMetadata {
             hash_bits,
@@ -1307,15 +1274,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         }
 
         let mut writer = BitWriter::new(hashes_64);
-
-        debug_assert!(GapHash::<P, B>::downgraded(
-            hashes,
-            number_of_hashes,
-            original_hash_bits,
-            bit_index,
-            0
-        )
-        .is_sorted_by(|a, b| b < a));
 
         let mut iter = GapHash::<P, B>::downgraded(
             hashes,

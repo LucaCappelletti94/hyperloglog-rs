@@ -45,10 +45,6 @@ const BITS_FOR_HASH_BITS: usize = 5;
 const HASH_BITS_MASK: u64 = (1 << BITS_FOR_HASH_BITS) - 1;
 
 #[allow(unsafe_code)]
-#[expect(
-    clippy::transmute_ptr_to_ptr,
-    reason = "We are transmuting a mutable reference to a mutable reference, which is safe."
-)]
 fn encode_hash_bits(float: &mut f64, target_hash: u8) {
     debug_assert!((8..=32).contains(&target_hash));
     let harmonic_sum_as_u64: &mut u64 = unsafe { core::mem::transmute(float) };
@@ -76,20 +72,12 @@ const DUPLICATES_OFFSET: usize = BITS_FOR_HASH_BITS;
 const DUPLICATES_MASK: u64 = (1 << BITS_FOR_DUPLICATES) - 1;
 
 #[allow(unsafe_code)]
-#[expect(
-    clippy::transmute_ptr_to_ptr,
-    reason = "We are transmuting a mutable reference to a mutable reference, which is safe."
-)]
 /// Adds the count of duplicates to the harmonic sum.
 fn add_duplicates(float: &mut f64, new_duplicates: u32) {
     set_duplicates(float, decode_duplicates(*float) + new_duplicates);
 }
 
 #[allow(unsafe_code)]
-#[expect(
-    clippy::transmute_ptr_to_ptr,
-    reason = "We are transmuting a mutable reference to a mutable reference, which is safe."
-)]
 fn set_duplicates(float: &mut f64, duplicates: u32) {
     assert!(u64::from(duplicates) <= DUPLICATES_MASK);
 
@@ -110,10 +98,6 @@ const WRITER_TELL_OFFSET: usize = BITS_FOR_HASH_BITS + BITS_FOR_DUPLICATES;
 const WRITER_TELL_MASK: u64 = (1 << BITS_FOR_WRITER_TELL) - 1;
 
 #[allow(unsafe_code)]
-#[expect(
-    clippy::transmute_ptr_to_ptr,
-    reason = "We are transmuting a mutable reference to a mutable reference, which is safe."
-)]
 /// Sets the provided bit index to the harmonic sum.
 fn set_writer_tell(float: &mut f64, bit_index: u32) {
     assert!(u64::from(bit_index) <= WRITER_TELL_MASK);
@@ -136,10 +120,6 @@ const NUMBER_OF_HASHES_OFFSET: usize = WRITER_TELL_OFFSET + BITS_FOR_WRITER_TELL
 const NUMBER_OF_HASHES_MASK: u64 = (1 << BITS_FOR_NUMBER_OF_HASHES) - 1;
 
 #[allow(unsafe_code)]
-#[expect(
-    clippy::transmute_ptr_to_ptr,
-    reason = "We are transmuting a mutable reference to a mutable reference, which is safe."
-)]
 /// Sets the provided number of hashes to the harmonic sum.
 fn set_number_of_hashes(float: &mut f64, number_of_hashes: u32) {
     assert!(u64::from(number_of_hashes) <= NUMBER_OF_HASHES_MASK);
@@ -151,10 +131,6 @@ fn set_number_of_hashes(float: &mut f64, number_of_hashes: u32) {
 }
 
 #[allow(unsafe_code)]
-#[expect(
-    clippy::transmute_ptr_to_ptr,
-    reason = "We are transmuting a mutable reference to a mutable reference, which is safe."
-)]
 /// Returns the number of hashes stored in the harmonic sum.
 fn decode_number_of_hashes(float: f64) -> u32 {
     u32::try_from((float.to_bits() >> NUMBER_OF_HASHES_OFFSET) & NUMBER_OF_HASHES_MASK).unwrap()

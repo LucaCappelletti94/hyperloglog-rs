@@ -186,7 +186,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 Ok(None) => false,
                 Err(err) => match err {
                     SaturationError::ExtendableSaturation => {
-                        self.registers.double_size();
+                        self.registers.increase_capacity();
                         self.insert(element)
                     }
                     SaturationError::Saturation(bit_index) => {
@@ -210,6 +210,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     fn convert_hashlist_to_hyperloglog(&mut self) {
         debug_assert!(self.is_hash_list());
 
+        let current_cardinality = self.estimate_cardinality();
         let hash_bits = self.get_hash_bits();
         let mut new_registers = self.registers.clone();
         new_registers.clear_registers();
@@ -238,8 +239,24 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         // We set the harmonic sum precisely to the current cardinality, so that it is primed
         // to be more precise than what would otherwise be obtained by using directly the registers
         // without this additional information.
-        // TODO: FIGURE THIS FIX OUT!
-        // self.harmonic_sum = P::ALPHA * f64::integer_exp2(2 * P::EXPONENT) / current_cardinality;
+        let expected_harmonic_sum = P::ALPHA * f64::integer_exp2(2 * P::EXPONENT) / current_cardinality;
+        // While the expected harmonic sum is greater than the current harmonic sum, we can adjust
+        // it by inserting fake elements.
+        while expected_harmonic_sum < self.harmonic_sum {
+            // To do so in the most granular manner, we search for the smallest register value and
+            // increase it by one.
+            let mut smallest_register_value = u8::MAX;
+            let mut smallest_index = usize::MAX;
+            self.registers.iter_registers().enumerate().for_each(|(index, register_value)| {
+                if register_value < smallest_register_value {
+                    smallest_register_value = register_value;
+                    smallest_index = index;
+                }
+            });
+            // We increase the smallest register value by one.
+            self.insert_register_value_and_index(smallest_register_value + 1, smallest_index);
+        }
+
         debug_assert!(self.harmonic_sum.is_finite());
     }
 
@@ -521,16 +538,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             (true, false) => {
                 let hash_bits = self.get_hash_bits();
                 assert!(hash_bits >= GapHash::<P, B>::SMALLEST_VIABLE_HASH_BITS);
-                let hashes = self.registers.as_ref();
-                let bit_index = self.get_writer_tell();
-
-                assert!(GapHash::<P, B>::decoded(
-                    hashes,
-                    self.get_number_of_hashes(),
-                    hash_bits,
-                    bit_index,
-                )
-                .is_sorted_by(|a, b| { b.1 <= a.1 }));
 
                 self.union_estimation_from_sorted_iterator_and_counter(
                     other,

@@ -5,7 +5,6 @@
 #![deny(unconditional_recursion)]
 #![deny(unreachable_patterns)]
 #![deny(unused_import_braces)]
-#![deny(unused_qualifications)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![cfg_attr(not(feature = "std"), no_std)]

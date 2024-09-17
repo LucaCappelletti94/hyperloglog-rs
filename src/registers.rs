@@ -36,7 +36,7 @@ pub trait Registers<P: Precision, B: Bits>:
         Self: 'registers;
 
     /// Doubles or saturates the size of the registers.
-    fn double_size(&mut self);
+    fn increase_capacity(&mut self);
 
     /// Returns an iterator over the registers.
     fn iter_registers(&self) -> Self::Iter<'_>;

@@ -157,46 +157,26 @@ pub fn compute_gap_hash_correction(only_hashlist: bool) {
     let output = quote! {
         //! Correction coefficients.
 
-        #[expect(
-            clippy::unreadable_literal,
-            reason = "The values are used as a lookup table for the hashlist correction cardinalities."
-        )]
         /// The hashlist-correction cardinalities for the gap hash birthday paradox.
         pub(super) const HASHLIST_CORRECTION_CARDINALITIES: [[&[u32]; 3]; 15] = [
             #(#hashlist_cardinalities),*
         ];
 
-        #[expect(
-            clippy::unreadable_literal,
-            reason = "The values are used as a lookup table for the hashlist correction errors."
-        )]
         /// The hashlist-correction errors for the gap hash birthday paradox.
         pub(super) const HASHLIST_CORRECTION_BIAS: [[&[f64]; 3]; 15] = [
             #(#hashlist_errors),*
         ];
 
-        #[expect(
-            clippy::unreadable_literal,
-            reason = "The values are used as a lookup table for the hyperloglog correction cardinalities."
-        )]
         /// The hyperloglog-correction cardinalities for the gap hash birthday paradox.
         pub(super) const HYPERLOGLOG_CORRECTION_CARDINALITIES: [[&[u32]; 3]; 15] = [
             #(#hyperloglog_cardinalities),*
         ];
 
-        #[expect(
-            clippy::unreadable_literal,
-            reason = "The values are used as a lookup table for the hyperloglog correction errors."
-        )]
         /// The hyperloglog-correction errors for the gap hash birthday paradox.
         pub(super) const HYPERLOGLOG_CORRECTION_BIAS: [[&[f64]; 3]; 15] = [
             #(#hyperloglog_errors),*
         ];
 
-        #[expect(
-            clippy::unreadable_literal,
-            reason = "The values are used as a lookup table for the hyperloglog correction slopes."
-        )]
         /// The hyperloglog-correction slopes for the gap hash birthday paradox.
         pub(super) const HYPERLOGLOG_CORRECTION_SLOPES: [[f64; 3]; 15] = [
             #(#hyperloglog_slopes),*

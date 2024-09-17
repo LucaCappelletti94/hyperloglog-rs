@@ -580,10 +580,6 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
 
     #[must_use]
     #[inline]
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "Values are certain to be within bounds."
-    )]
     /// Decode the hash into the register value and index.
     pub(super) fn decode(hash: u32, hash_bits: u8) -> (u8, usize) {
         debug_assert!(
@@ -726,13 +722,6 @@ impl<'a, P: Precision, B: Bits> Iterator for DecodedIter<'a, P, B> {
     }
 }
 
-impl<'a, P: Precision, B: Bits> ExactSizeIterator for DecodedIter<'a, P, B> {
-    #[inline]
-    fn len(&self) -> usize {
-        self.variant.len()
-    }
-}
-
 impl<'a, P, B> From<IterVariants<'a>> for DecodedIter<'a, P, B> {
     fn from(variant: IterVariants<'a>) -> Self {
         DecodedIter {
@@ -784,13 +773,6 @@ impl<'a, P: Precision, B: Bits> Iterator for DowngradedIter<'a, P, B> {
     }
 }
 
-impl<'a, P: Precision, B: Bits> ExactSizeIterator for DowngradedIter<'a, P, B> {
-    #[inline]
-    fn len(&self) -> usize {
-        self.variant.len()
-    }
-}
-
 impl<'a, P, B> DowngradedIter<'a, P, B> {
     #[inline]
     /// Create a new iterator from the provided iterator and the number of bits to shift.
@@ -807,10 +789,6 @@ impl<'a, P, B> DowngradedIter<'a, P, B> {
 #[inline]
 #[must_use]
 #[allow(unsafe_code)]
-#[expect(
-    clippy::cast_ptr_alignment,
-    reason = "The hashes are stored in a slice of originally u64s, so the alignment is maintained."
-)]
 pub(super) fn into_variant(
     hashes: &[u8],
     number_of_hashes: u32,

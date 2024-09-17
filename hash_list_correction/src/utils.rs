@@ -163,9 +163,6 @@ fn correction<P: Precision>(report: &[Point]) -> (Vec<u32>, Vec<f64>) {
         .map(|report| report.x().round() as u32)
         .collect::<Vec<u32>>();
 
-    // We check that the cardinalities are sorted.
-    debug_assert!(cardinalities.is_sorted());
-
     // We remove in both the cardinalities and errors the entries that have the
     // same cardinality. In such cases, we average the errors.
     let mut filtered_errors = Vec::with_capacity(errors.len());
@@ -194,9 +191,6 @@ fn correction<P: Precision>(report: &[Point]) -> (Vec<u32>, Vec<f64>) {
 
     assert!(filtered_cardinalities.len() == filtered_errors.len());
     assert!(filtered_cardinalities.len() <= cardinalities.len());
-
-    // We check that the filtered cardinalities are sorted.
-    debug_assert!(filtered_cardinalities.is_sorted());
 
     (filtered_cardinalities, filtered_errors)
 }

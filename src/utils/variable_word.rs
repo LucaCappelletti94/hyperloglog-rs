@@ -35,10 +35,6 @@ impl VariableWord for u8 {
 
     #[inline]
     #[allow(unsafe_code)]
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "The value is checked to be within the bounds and the method is marked as unsafe."
-    )]
     unsafe fn unchecked_from_u64(value: u64) -> Self {
         debug_assert!(
             value <= <Self as VariableWord>::MASK,
@@ -55,10 +51,6 @@ impl VariableWord for u16 {
 
     #[inline]
     #[allow(unsafe_code)]
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "The value is checked to be within the bounds and the method is marked as unsafe."
-    )]
     unsafe fn unchecked_from_u64(value: u64) -> Self {
         debug_assert!(
             value <= <Self as VariableWord>::MASK,
@@ -75,10 +67,6 @@ impl VariableWord for u32 {
 
     #[inline]
     #[allow(unsafe_code)]
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "The value is checked to be within the bounds and the method is marked as unsafe."
-    )]
     unsafe fn unchecked_from_u64(value: u64) -> Self {
         debug_assert!(
             value <= <Self as VariableWord>::MASK,
