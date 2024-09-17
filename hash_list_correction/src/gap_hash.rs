@@ -66,21 +66,21 @@ pub fn compute_gap_hash_correction(only_hashlist: bool) {
         reports,
         multiprogress,
         only_hashlist,
-        // Precision4,
-        // Precision5,
-        // Precision6,
-        // Precision7,
-        // Precision8,
-        // Precision9,
-        // Precision10
+        Precision4,
+        Precision5,
+        Precision6,
+        Precision7,
+        Precision8,
+        Precision9
+        // Precision10,
         // Precision11,
         // Precision12,
         // Precision13,
         // Precision14,
         // Precision15,
         // Precision16,
-        Precision17,
-        Precision18
+        // Precision17,
+        // Precision18
     );
     multiprogress.clear().unwrap();
 

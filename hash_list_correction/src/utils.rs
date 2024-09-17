@@ -223,7 +223,7 @@ pub fn hash_correction<P: Precision, B: Bits>(
 where
     P: PackedRegister<B>,
 {
-    let iterations: u64 = 250 * 64;
+    let iterations: u64 = 200_000 * 64;
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations));
     progress_bar.set_style(
@@ -235,7 +235,7 @@ where
             .progress_chars("##-"),
     );
 
-    let maximal_cardinality = 3 * (1 << P::EXPONENT);
+    let maximal_cardinality = 10 * (1 << P::EXPONENT);
 
     let hashlist_output_path = format!("{}_{}.hashlist.csv.gz", P::EXPONENT, B::NUMBER_OF_BITS);
     let hyperloglog_output_path =
