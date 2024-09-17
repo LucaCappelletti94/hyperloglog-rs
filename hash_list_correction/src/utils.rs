@@ -168,7 +168,7 @@ fn correction<P: Precision>(report: &[Point]) -> (Vec<u32>, Vec<f64>) {
     // We remove in both the cardinalities and errors the entries that have the
     // same cardinality. In such cases, we average the errors.
     let mut filtered_errors = Vec::with_capacity(errors.len());
-    let mut filtered_cardinalities = Vec::with_capacity(cardinalities.len());
+    let mut filtered_cardinalities: Vec<u32> = Vec::with_capacity(cardinalities.len());
 
     let mut previous_cardinality = cardinalities[0];
     let mut previous_error = errors[0];
@@ -184,7 +184,7 @@ fn correction<P: Precision>(report: &[Point]) -> (Vec<u32>, Vec<f64>) {
             previous_error += *error;
             total_previous_cardinality += *cardinality as u64;
         } else {
-            filtered_cardinalities.push(total_previous_cardinality / count as u64);
+            filtered_cardinalities.push((total_previous_cardinality / count as u64) as u32);
             filtered_errors.push(previous_error / count);
 
             previous_cardinality = *cardinality;
@@ -241,7 +241,7 @@ where
 {
     let number_of_cpus = rayon::current_num_threads();
 
-    let iterations = 100_000 * number_of_cpus as u64;
+    let iterations = 50_000 * 64;
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations as u64));
     progress_bar.set_style(
