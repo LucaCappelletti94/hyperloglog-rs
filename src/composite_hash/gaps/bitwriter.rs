@@ -9,7 +9,7 @@ pub struct BitWriter<'a> {
     space_left_in_buffer: u8,
 }
 
-impl<'a> core::ops::Drop for BitWriter<'a> {
+impl<'a> Drop for BitWriter<'a> {
     #[inline]
     fn drop(&mut self) {
         self.flush();
@@ -137,12 +137,10 @@ impl<'a> BitWriter<'a> {
         uniform_delta: u32,
         geometric_minus_one: u8,
         b1: u8,
-        b2: u8,
     ) -> usize {
         usize::from(self.write_unary(uniform_delta >> b1))
             + usize::from(self.write_bits(uniform_delta, b1))
-            + usize::from(self.write_unary(geometric_minus_one >> b2))
-            + usize::from(self.write_bits(geometric_minus_one, b2))
+            + usize::from(self.write_unary(geometric_minus_one))
     }
 }
 

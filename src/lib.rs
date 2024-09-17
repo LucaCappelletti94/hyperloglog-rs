@@ -3,6 +3,9 @@
 #![deny(unsafe_code)]
 #![deny(unused_macro_rules)]
 #![deny(unconditional_recursion)]
+#![deny(unreachable_patterns)]
+#![deny(unused_import_braces)]
+#![deny(unused_qualifications)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -12,12 +15,12 @@ pub mod composite_hash;
 pub mod hyperloglog;
 // #[cfg(feature = "mle")]
 // mod mle;
+mod correction_coefficients;
+mod hashlist;
 mod precisions;
 mod registers;
-mod hashlist;
 pub mod sketches;
 pub mod utils;
-mod correction_coefficients;
 
 #[cfg(feature = "serde")]
 pub mod serde;

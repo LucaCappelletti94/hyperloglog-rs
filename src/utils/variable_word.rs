@@ -5,7 +5,7 @@ use super::PositiveInteger;
 use core::fmt::Debug;
 
 /// Trait marker for the variable word.
-pub trait VariableWord: Send + Sync + Clone + Copy + Debug + Default {
+pub trait VariableWord: Send + Sync + Clone + Copy + Debug + Default + Eq{
     /// The number of bits in the word.
     const NUMBER_OF_BITS: u8;
     /// The number of bits in the word as a usize.
@@ -41,7 +41,7 @@ impl VariableWord for u8 {
     )]
     unsafe fn unchecked_from_u64(value: u64) -> Self {
         debug_assert!(
-            value <= <Self as crate::prelude::VariableWord>::MASK,
+            value <= <Self as VariableWord>::MASK,
             "The value is too large for the number."
         );
         value as Self
@@ -61,7 +61,7 @@ impl VariableWord for u16 {
     )]
     unsafe fn unchecked_from_u64(value: u64) -> Self {
         debug_assert!(
-            value <= <Self as crate::prelude::VariableWord>::MASK,
+            value <= <Self as VariableWord>::MASK,
             "The value is too large for the number."
         );
         value as Self
@@ -81,7 +81,7 @@ impl VariableWord for u32 {
     )]
     unsafe fn unchecked_from_u64(value: u64) -> Self {
         debug_assert!(
-            value <= <Self as crate::prelude::VariableWord>::MASK,
+            value <= <Self as VariableWord>::MASK,
             "The value is too large for the number."
         );
         value as Self

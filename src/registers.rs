@@ -6,7 +6,7 @@ use crate::prelude::*;
 use crate::utils::{FloatOps, Zero};
 mod packed_array;
 
-pub use packed_array::{AllArrays, Array, ArrayRegister};
+pub use packed_array::{Packed, PackedRegister};
 
 /// Trait for a register word.
 pub(super) trait RegisterWord<B: Bits> {
@@ -34,6 +34,9 @@ pub trait Registers<P: Precision, B: Bits>:
     type IterZipped<'registers>: ExactSizeIterator<Item = [u8; 2]>
     where
         Self: 'registers;
+
+    /// Doubles or saturates the size of the registers.
+    fn double_size(&mut self);
 
     /// Returns an iterator over the registers.
     fn iter_registers(&self) -> Self::Iter<'_>;

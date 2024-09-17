@@ -36,10 +36,6 @@ mem_dbg = {version = "0.2.4", optional = true}
 hyperloglog-derive = { path = "hyperloglog-derive" }
 
 
-[build-dependencies]
-serde_json = "1.0"
-test_utils = { path = "test_utils" }
-
 [dev-dependencies]
 serde_json = "1.0"
 wyhash = "0.5.0"
@@ -49,54 +45,13 @@ ctor = "0.2.8"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
-default = ["low_precisions", "medium_precisions"]
+default = []
 mem_dbg = [
     "dep:mem_dbg",
     "std",
 ]
-std = []
-mle = ["std", "alloc"]
-precision_4 = []
-precision_5 = []
-precision_6 = []
-precision_7 = []
-precision_8 = []
-precision_9 = []
-precision_10 = []
-precision_11 = []
-precision_12 = []
-precision_13 = []
-precision_14 = []
-precision_15 = []
-precision_16 = []
-precision_17 = []
-precision_18 = []
-low_precisions = [
-    "precision_4",
-    "precision_5",
-    "precision_6",
-    "precision_7",
-    "precision_8",
-    "precision_9",
-    "precision_10",
-]
-medium_precisions = [
-    "precision_11",
-    "precision_12",
-    "precision_13",
-    "precision_14",
-    "precision_15",
-    "precision_16",
-]
-high_precisions = [
-    "precision_17",
-    "precision_18",
-]
-all_precisions = [
-    "low_precisions",
-    "medium_precisions",
-    "high_precisions",
-]
+std = ["alloc"]
+mle = ["std"]
 alloc = []
 
 [package.metadata.clippy]
@@ -116,8 +71,4 @@ opt-level = 3
 
 [[bench]]
 name = "hash_list_insert"
-harness = false
-
-[[bench]]
-name = "array"
 harness = false

@@ -1,7 +1,10 @@
 //! Composite hash which does not employ Prefix-free codes.
 
-use super::shared::{find, insert_sorted_desc, into_variant, DecodedIter, DowngradedIter};
-use super::{CompositeHash, SaturationError};
+use core::slice::Iter;
+
+use super::gaps::InsertMetadata;
+use super::{LastBufferedBit, SaturationError};
+use crate::composite_hash::GapHash;
 use crate::{bits::Bits, prelude::Precision};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -157,11 +160,11 @@ mod test_compose_scompose_hash {
     #[test_precisions_and_bits]
     fn test_compose_scompose_hash<P: Precision, B: Bits>()
     where
-        P: ArrayRegister<B>,
+        P: PackedRegister<B>,
     {
         for value in iter_random_values::<u64>(10_000, None, None) {
             let (index, register, original_hash) =
-                <HyperLogLog<P, B, <P as ArrayRegister<B>>::Packed>>::index_and_register_and_hash(
+                <HyperLogLog<P, B, <P as PackedRegister<B>>::Array>>::index_and_register_and_hash(
                     &value,
                 );
             for hash_bits in SwitchHash::<P, B>::SMALLEST_VIABLE_HASH_BITS
@@ -195,15 +198,7 @@ fn flag<P: Precision>(hash: u32, hash_bits: u8) -> bool {
 
 #[inline]
 pub(super) const fn smallest_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
-    if P::EXPONENT == 4 && B::NUMBER_OF_BITS == 4 {
-        return 8;
-    }
-
-    if P::EXPONENT + B::NUMBER_OF_BITS <= 16 {
-        return 16;
-    }
-
-    24
+    (P::EXPONENT + B::NUMBER_OF_BITS).div_ceil(8) * 8
 }
 
 #[inline]
@@ -216,109 +211,38 @@ const fn maximal_viable_switch_hash<P: Precision, B: Bits>() -> u8 {
         return 16;
     }
 
-    if P::EXPONENT < 10 {
+    if P::EXPONENT < 15 {
         return 24;
     }
 
     32
 }
 
-impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
-    type Precision = P;
-    type Bits = B;
-
-    type Decoded<'a> = DecodedIter<'a, Self>;
-    type Downgraded<'a> = DowngradedIter<'a, Self>;
-
+impl<P: Precision, B: Bits> SwitchHash<P, B> {
     const SMALLEST_VIABLE_HASH_BITS: u8 = smallest_viable_switch_hash::<P, B>();
-    const LARGEST_VIABLE_HASH_BITS: u8 = maximal_viable_switch_hash::<P, B>();
-
-    #[inline]
-    fn downgrade_inplace(
-        hashes: &mut [u8],
-        number_of_hashes: u32,
-        bit_index: u32,
-        hash_bits: u8,
-        shift: u8,
-    ) -> (u32, u32) {
-        assert_eq!(bit_index, u32::from(hash_bits) * number_of_hashes,);
-
-        if shift == 0 {
-            return (0, number_of_hashes * u32::from(hash_bits));
-        }
-
-        let hash_bytes = usize::from(hash_bits) / 8;
-        let downgraded_hash_bytes = usize::from(hash_bits - shift) / 8;
-        let mut previous_downgraded_hash = u32::MAX;
-        let mut duplicates = 0;
-
-        for i in 0..usize::try_from(number_of_hashes).unwrap() {
-            let current_hash = match hash_bytes {
-                2 => u32::from(u16::from_le_bytes([hashes[i * 2], hashes[i * 2 + 1]])),
-                3 => u32::from_le_bytes([
-                    hashes[i * 3],
-                    hashes[i * 3 + 1],
-                    hashes[i * 3 + 2],
-                    0,
-                ]),
-                4 => u32::from_le_bytes([
-                    hashes[i * 4],
-                    hashes[i * 4 + 1],
-                    hashes[i * 4 + 2],
-                    hashes[i * 4 + 3],
-                ]),
-                _ => unreachable!("The hash must be 2, 3 or 4 bytes."),
-            };
-            let downgraded_hash = Self::downgrade(current_hash, hash_bits, shift);
-            if downgraded_hash == previous_downgraded_hash {
-                duplicates += 1;
-                continue;
-            }
-            previous_downgraded_hash = downgraded_hash;
-            let downgraded_bytes = downgraded_hash.to_le_bytes();
-            hashes[(i - duplicates) * downgraded_hash_bytes
-                ..(i - duplicates + 1) * downgraded_hash_bytes]
-                .copy_from_slice(&downgraded_bytes[..downgraded_hash_bytes]);
-        }
-
-        let duplicates: u32 = u32::try_from(duplicates).unwrap();
-
-        (
-            duplicates,
-            (number_of_hashes - duplicates) * u32::from(hash_bits - shift),
-        )
-    }
-
-    #[inline]
-    fn target_downgraded_hash_bits(_number_of_hashes: u32, _bit_index: u32, hash_bits: u8) -> u8 {
-        if hash_bits == Self::SMALLEST_VIABLE_HASH_BITS {
-            unreachable!("The hash bits ({hash_bits}) must be greater than the smallest viable hash bits ({})", Self::SMALLEST_VIABLE_HASH_BITS);
-        }
-
-        hash_bits - 8
-    }
+    pub(super) const LARGEST_VIABLE_HASH_BITS: u8 = maximal_viable_switch_hash::<P, B>();
 
     #[inline]
     #[must_use]
-    fn downgraded(
+    pub(super) fn downgraded(
         hashes: &[u8],
         number_of_hashes: u32,
         hash_bits: u8,
         bit_index: u32,
         shift: u8,
-    ) -> Self::Downgraded<'_> {
+    ) -> DowngradedIter<'_, P, B> {
         assert_eq!(bit_index, number_of_hashes * u32::from(hash_bits));
         DowngradedIter::new(into_variant(hashes, number_of_hashes, hash_bits), shift)
     }
 
     #[inline]
     #[must_use]
-    fn decoded(
+    pub(super) fn decoded(
         hashes: &[u8],
         number_of_hashes: u32,
         hash_bits: u8,
         bit_index: u32,
-    ) -> Self::Decoded<'_> {
+    ) -> DecodedIter<'_, P, B> {
         assert!(
             hash_bits >= Self::SMALLEST_VIABLE_HASH_BITS,
             "The hash bits ({hash_bits}) must be greater or equal to the smallest viable hash bits ({})",
@@ -330,68 +254,210 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
 
     #[inline]
     #[allow(unsafe_code)]
-    fn find(
+    pub(super) fn find(
         hashes: &[u8],
         number_of_hashes: u32,
-        index: usize,
-        register: u8,
-        original_hash: u64,
+        encoded_hash: u32,
         hash_bits: u8,
         bit_index: u32,
-    ) -> bool {
-        find::<Self>(
-            hashes,
-            number_of_hashes,
-            index,
-            register,
-            original_hash,
-            hash_bits,
-            bit_index,
-        )
-        .is_ok()
+    ) -> Result<usize, (usize, u32)> {
+        assert!(hash_bits >= 8);
+        assert!(hash_bits == 8 || hash_bits == 16 || hash_bits == 24 || hash_bits == 32);
+        assert!(hash_bits >= Self::SMALLEST_VIABLE_HASH_BITS);
+        assert!(bit_index == number_of_hashes * u32::from(hash_bits));
+
+        let hashes: &[u8] =
+            &hashes[..usize::try_from(number_of_hashes).unwrap() * usize::from(hash_bits / 8)];
+
+        match hash_bits / 8 {
+            1 => {
+                let hash = u8::try_from(encoded_hash).unwrap();
+                hashes
+                    // The hashes are sorted in a descending order, so we need to find the first hash that is less than the encoded hash.
+                    .binary_search_by(|a| hash.cmp(a))
+                    .map(|index| index * usize::from(hash_bits))
+                    .map_err(|index| (index * usize::from(hash_bits), encoded_hash))
+            }
+            2 => {
+                // We transmute the hash to a u16, as we will be comparing it with other u16s.
+                let hashes: &[u16] = unsafe {
+                    core::slice::from_raw_parts(hashes.as_ptr().cast::<u16>(), hashes.len() / 2)
+                };
+                let hash = u16::try_from(encoded_hash).unwrap();
+                hashes
+                    // The hashes are sorted in a descending order, so we need to find the first hash that is less than the encoded hash.
+                    .binary_search_by(|a| hash.cmp(a))
+                    .map(|index| index * usize::from(hash_bits))
+                    .map_err(|index| (index * usize::from(hash_bits), encoded_hash))
+            }
+            3 => {
+                // We transmute the hash to a hash of [u8; 3], as we will be comparing it with other [u8; 3]s.
+                // Since these values are stored in little-endian, we need to reverse the bytes into a u32 before
+                // comparing them.
+                let hashes: &[[u8; 3]] = unsafe {
+                    core::slice::from_raw_parts(hashes.as_ptr().cast::<[u8; 3]>(), hashes.len() / 3)
+                };
+                let hash: u32 = u32::try_from(encoded_hash).unwrap();
+                hashes
+                    // The hashes are sorted in a descending order, so we need to find the first hash that is less than the encoded hash.
+                    .binary_search_by(|a| {
+                        let mut four_bytes = [0; 4];
+                        four_bytes[..3].copy_from_slice(a);
+                        let a = u32::from_le_bytes(four_bytes);
+                        hash.cmp(&a)
+                    })
+                    .map(|index| index * usize::from(hash_bits))
+                    .map_err(|index| (index * usize::from(hash_bits), encoded_hash))
+            }
+            4 => {
+                // We transmute the hash to a u32, as we will be comparing it with other u32s.
+                let hashes: &[u32] = unsafe {
+                    core::slice::from_raw_parts(hashes.as_ptr().cast::<u32>(), hashes.len() / 4)
+                };
+                let hash = u32::try_from(encoded_hash).unwrap();
+                hashes
+                    // The hashes are sorted in a descending order, so we need to find the first hash that is less than the encoded hash.
+                    .binary_search_by(|a| hash.cmp(a))
+                    .map(|index| index * usize::from(hash_bits))
+                    .map_err(|index| (index * usize::from(hash_bits), encoded_hash))
+            }
+            _ => unreachable!(),
+        }
     }
 
     #[inline]
     #[allow(unsafe_code)]
-    fn insert_sorted_desc(
+    pub(super) fn insert_sorted_desc(
         hashes: &mut [u8],
         number_of_hashes: u32,
         bit_index: u32,
-        index: usize,
-        register: u8,
-        original_hash: u64,
+        encoded_hash: u32,
         hash_bits: u8,
-    ) -> Result<Option<u32>, SaturationError> {
-        insert_sorted_desc::<Self>(
-            hashes,
-            number_of_hashes,
-            bit_index,
-            index,
-            register,
-            original_hash,
+    ) -> Result<Option<InsertMetadata>, SaturationError> {
+        assert!(hash_bits >= 8);
+        assert!(
+            hash_bits >= Self::SMALLEST_VIABLE_HASH_BITS,
+            "The hash bits ({}) must be greater or equal to the smallest viable hash bits ({})",
             hash_bits,
-        )
+            Self::SMALLEST_VIABLE_HASH_BITS,
+        );
+        assert!(hash_bits == 8 || hash_bits == 16 || hash_bits == 24 || hash_bits == 32);
+        assert_eq!(bit_index, number_of_hashes * u32::from(hash_bits));
+        let hash_bytes = usize::from(hash_bits / 8);
+
+        match Self::find(hashes, number_of_hashes, encoded_hash, hash_bits, bit_index) {
+            Ok(_) => Ok(None),
+            Err((bits, encoded_hash)) => {
+                // We check that there is indeed no hash identical to the provided
+                // encoded hash:
+                debug_assert!(
+                    Self::downgraded(hashes, number_of_hashes, hash_bits, bit_index, 0)
+                        .all(|hash| hash != encoded_hash),
+                    "The hash ({encoded_hash}) must not be present in the hashes",
+                );
+
+                // If we are in the case of a growable hashlist and the hashes are not yet
+                // saturated, we can raise a ExtendableSaturation error.
+                if hashes.len() * 8 < usize::from(hash_bits) + usize::try_from(bit_index).unwrap()
+                    && (!GapHash::<P, B>::has_rank_index()
+                        && hashes.len()
+                            != (B::NUMBER_OF_BITS_USIZE * (1 << P::EXPONENT)).div_ceil(64) * 8
+                        || GapHash::<P, B>::has_rank_index()
+                            && hashes.len()
+                                != (B::NUMBER_OF_BITS_USIZE * (1 << P::EXPONENT)).div_ceil(64) * 8
+                                    - usize::try_from(GapHash::<P, B>::rank_index_padded_size(
+                                        hash_bits,
+                                    ))
+                                    .unwrap())
+                {
+                    return Err(SaturationError::ExtendableSaturation);
+                }
+
+                if usize::try_from(bit_index).unwrap() / 8 + hash_bytes > hashes.len() {
+                    return Err(SaturationError::Saturation(bit_index));
+                }
+
+                let index = bits / usize::from(hash_bits);
+
+                match hash_bytes {
+                    1 => {
+                        hashes.copy_within(
+                            index..usize::try_from(number_of_hashes).unwrap(),
+                            index + 1,
+                        );
+                        hashes[index] = u8::try_from(encoded_hash).unwrap();
+                    }
+                    2 => {
+                        let hashes: &mut [u16] = unsafe {
+                            core::slice::from_raw_parts_mut(
+                                hashes.as_mut_ptr().cast::<u16>(),
+                                hashes.len() / 2,
+                            )
+                        };
+                        hashes.copy_within(
+                            index..usize::try_from(number_of_hashes).unwrap(),
+                            index + 1,
+                        );
+                        hashes[index] = u16::try_from(encoded_hash).unwrap();
+                    }
+                    3 => {
+                        let hashes: &mut [[u8; 3]] = unsafe {
+                            core::slice::from_raw_parts_mut(
+                                hashes.as_mut_ptr().cast::<[u8; 3]>(),
+                                hashes.len() / 3,
+                            )
+                        };
+                        hashes.copy_within(
+                            index..usize::try_from(number_of_hashes).unwrap(),
+                            index + 1,
+                        );
+                        let mut three_bytes = [0; 3];
+                        three_bytes.copy_from_slice(&encoded_hash.to_le_bytes()[..3]);
+                        hashes[index] = three_bytes;
+                    }
+                    4 => {
+                        let hashes: &mut [u32] = unsafe {
+                            core::slice::from_raw_parts_mut(
+                                hashes.as_mut_ptr().cast::<u32>(),
+                                hashes.len() / 4,
+                            )
+                        };
+                        hashes.copy_within(
+                            index..usize::try_from(number_of_hashes).unwrap(),
+                            index + 1,
+                        );
+                        hashes[index] = u32::try_from(encoded_hash).unwrap();
+                    }
+                    _ => unreachable!(),
+                }
+                Ok(Some(InsertMetadata {
+                    hash_bits,
+                    duplicates: 0,
+                    bit_index: (number_of_hashes + 1) * u32::from(hash_bits),
+                }))
+            }
+        }
     }
 
     #[inline]
-    fn downgrade(hash: u32, hash_bits: u8, shift: u8) -> u32 {
-        debug_assert!(hash_bits >= Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS + shift);
+    pub(super) fn downgrade(hash: u32, hash_bits: u8, shift: u8) -> u32 {
+        debug_assert!(hash_bits >= P::EXPONENT + B::NUMBER_OF_BITS + shift);
 
         if shift == 0 {
             return hash;
         }
 
-        if Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS == hash_bits {
+        if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
             unreachable!("The hash is already at the lowest precision, you cannot shift it down by {shift} bits.");
         }
 
         let fragmented = Self::scompose_hash(hash, hash_bits);
 
         debug_assert!(
-            fragmented.index < 1 << Self::Precision::EXPONENT,
+            fragmented.index < 1 << P::EXPONENT,
             "The index ({}) must be less than 2^({})",
             fragmented.index,
-            Self::Precision::EXPONENT,
+            P::EXPONENT,
         );
 
         debug_assert!(
@@ -403,10 +469,10 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         if fragmented.register_flag() {
             // If the register is stored explicitly, we can shift the hash to the right
             // and remove the extra padding to reduce it to the smaller variant.
-            if hash_bits - shift == Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS {
+            if hash_bits - shift == P::EXPONENT + B::NUMBER_OF_BITS {
                 // We also need to remove the flag bit, otherwise we would delete
                 // a bit of the register value.
-                (fragmented.index << Self::Bits::NUMBER_OF_BITS) | u32::from(fragmented.register)
+                (fragmented.index << B::NUMBER_OF_BITS) | u32::from(fragmented.register)
             } else {
                 hash >> shift
             }
@@ -426,24 +492,24 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
     #[inline]
     #[must_use]
     /// Encode the hash from the provided register value, index and the original unsplitted hash.
-    fn encode(index: usize, register: u8, original_hash: u64, hash_bits: u8) -> u32 {
+    pub(super) fn encode(index: usize, register: u8, original_hash: u64, hash_bits: u8) -> u32 {
         debug_assert!(register > 0);
         debug_assert!(
-            index < 1 << Self::Precision::EXPONENT,
+            index < 1 << P::EXPONENT,
             "The index ({index}) must be less than 2^({})",
-            Self::Precision::EXPONENT,
+            P::EXPONENT,
         );
         debug_assert!(
-            hash_bits >= Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS,
+            hash_bits >= P::EXPONENT + B::NUMBER_OF_BITS,
             "The hash bits ({hash_bits}) must be greater or equal to the sum of the exponent ({}) and the number of bits ({})",
-            Self::Precision::EXPONENT,
-            Self::Bits::NUMBER_OF_BITS,
+            P::EXPONENT,
+            B::NUMBER_OF_BITS,
         );
         // We start by encoding the index in the rightmost bits of the hash.
-        let mut composite_hash = u32::try_from(index).unwrap() << (hash_bits - Self::Precision::EXPONENT);
+        let mut composite_hash = u32::try_from(index).unwrap() << (hash_bits - P::EXPONENT);
 
         // If the hash barely fits as-is, we do not need to do anything special.
-        if Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS == hash_bits {
+        if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
             return composite_hash | u32::from(register);
         }
 
@@ -452,30 +518,29 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         // we are currently encoding minus the bits used for the index, instead of
         // storing the register value after the index, we store the higher bits of
         // the original hash after the index.
-        if register - 1 > Self::Bits::NUMBER_OF_BITS {
+        if register - 1 > B::NUMBER_OF_BITS {
             // In this case, the composite hash has the following structure:
             //
             // [index (exponent bits) | flag = 1 | registers (bitsize) | hash remainder]
 
             // We set to 1 the flag bit, which indicates that the composite hash
             // has the structure we described above.
-            composite_hash |= 1 << (hash_bits - Self::Precision::EXPONENT - 1);
+            composite_hash |= 1 << (hash_bits - P::EXPONENT - 1);
 
             // We place the register value in the rightmost bits of the hash, after the index
             // and the flag.
-            let register_offset =
-                hash_bits - Self::Precision::EXPONENT - 1 - Self::Bits::NUMBER_OF_BITS;
+            let register_offset = hash_bits - P::EXPONENT - 1 - B::NUMBER_OF_BITS;
             composite_hash |= u32::from(register) << register_offset;
 
             // We take the bits remaining in the original hash after having remove the last
             // p bits which were used for the index, and we place them in the rightmost bits
             // of the composite hash.
-            let mut censored_hash = u32::try_from(original_hash
-                >> (64 - hash_bits + Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS)).unwrap();
+            let mut censored_hash =
+                u32::try_from(original_hash >> (64 - hash_bits + P::EXPONENT + B::NUMBER_OF_BITS))
+                    .unwrap();
 
             // We determine the number of bits we intend to keep from the original hash.
-            let hash_offset =
-                hash_bits - Self::Precision::EXPONENT - 1 - Self::Bits::NUMBER_OF_BITS;
+            let hash_offset = hash_bits - P::EXPONENT - 1 - B::NUMBER_OF_BITS;
 
             // We mask out the bits we do not want to keep.
             let mask = (1 << hash_offset) - 1;
@@ -484,10 +549,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
             // We place the censored hash in the rightmost bits of the composite hash.
             composite_hash |= censored_hash;
 
-            debug_assert_eq!(
-                (composite_hash >> (hash_bits - Self::Precision::EXPONENT - 1)) & 1,
-                1
-            );
+            debug_assert_eq!((composite_hash >> (hash_bits - P::EXPONENT - 1)) & 1, 1);
         } else {
             // In this case, the composite hash has the following structure:
             //
@@ -498,15 +560,12 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
 
             // We shift the original hash to the right.
             let censored_hash =
-                u32::try_from((!original_hash) >> (64 - hash_bits + 1 + Self::Precision::EXPONENT)).unwrap();
+                u32::try_from((!original_hash) >> (64 - hash_bits + 1 + P::EXPONENT)).unwrap();
 
             // We place the censored hash in the rightmost bits of the composite hash.
             composite_hash |= censored_hash;
 
-            debug_assert_eq!(
-                (composite_hash >> (hash_bits - Self::Precision::EXPONENT - 1)) & 1,
-                0
-            );
+            debug_assert_eq!((composite_hash >> (hash_bits - P::EXPONENT - 1)) & 1, 0);
         }
 
         debug_assert!(
@@ -526,7 +585,7 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         reason = "Values are certain to be within bounds."
     )]
     /// Decode the hash into the register value and index.
-    fn decode(hash: u32, hash_bits: u8) -> (u8, usize) {
+    pub(super) fn decode(hash: u32, hash_bits: u8) -> (u8, usize) {
         debug_assert!(
             hash.leading_zeros() >= u32::from(32 - hash_bits),
             "The hash ({hash:032b}) should be composed of {hash_bits} bits and therefore must have at least {} leading zeros, but has only {}",
@@ -537,13 +596,250 @@ impl<P: Precision, B: Bits> CompositeHash for SwitchHash<P, B> {
         let fragmented = Self::scompose_hash(hash, hash_bits);
 
         debug_assert!(
-            fragmented.index < 1 << Self::Precision::EXPONENT,
+            fragmented.index < 1 << P::EXPONENT,
             "While decoding the hash ({hash:032b}), the index ({}) must be less than 2^({})",
             fragmented.index,
-            Self::Precision::EXPONENT
+            P::EXPONENT
         );
 
         (fragmented.register as u8, fragmented.index as usize)
+    }
+}
+
+/// Iterator variants.
+#[allow(non_camel_case_types)]
+#[derive(Debug)]
+pub(super) enum IterVariants<'a> {
+    /// Variant for 8-bit hashes.
+    u8(Iter<'a, u8>),
+    /// Variant for 16-bit hashes.
+    u16(Iter<'a, u16>),
+    /// Variant for 24-bit hashes.
+    u24(Iter<'a, [u8; 3]>),
+    /// Variant for 32-bit hashes.
+    u32(Iter<'a, u32>),
+}
+
+impl<'a> From<Iter<'a, u8>> for IterVariants<'a> {
+    fn from(iter: Iter<'a, u8>) -> Self {
+        IterVariants::u8(iter)
+    }
+}
+
+impl<'a> From<Iter<'a, u16>> for IterVariants<'a> {
+    fn from(iter: Iter<'a, u16>) -> Self {
+        IterVariants::u16(iter)
+    }
+}
+
+impl<'a> From<Iter<'a, [u8; 3]>> for IterVariants<'a> {
+    fn from(iter: Iter<'a, [u8; 3]>) -> Self {
+        IterVariants::u24(iter)
+    }
+}
+
+impl<'a> From<Iter<'a, u32>> for IterVariants<'a> {
+    fn from(iter: Iter<'a, u32>) -> Self {
+        IterVariants::u32(iter)
+    }
+}
+
+impl<'a> IterVariants<'a> {
+    #[inline]
+    pub(super) const fn hash_bits(&self) -> u8 {
+        match self {
+            IterVariants::u8(_) => 8,
+            IterVariants::u16(_) => 16,
+            IterVariants::u24(_) => 24,
+            IterVariants::u32(_) => 32,
+        }
+    }
+}
+
+impl Iterator for IterVariants<'_> {
+    type Item = u32;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            IterVariants::u8(iter) => iter.next().copied().map(u32::from),
+            IterVariants::u16(iter) => iter.next().copied().map(u32::from),
+            IterVariants::u24(iter) => iter.next().map(|hash| {
+                let mut bytes = [0; 4];
+                bytes[..3].copy_from_slice(hash);
+                u32::from_le_bytes(bytes)
+            }),
+            IterVariants::u32(iter) => iter.next().copied(),
+        }
+    }
+}
+
+impl<'a> ExactSizeIterator for IterVariants<'a> {
+    #[inline]
+    fn len(&self) -> usize {
+        match self {
+            IterVariants::u8(iter) => iter.len(),
+            IterVariants::u16(iter) => iter.len(),
+            IterVariants::u24(iter) => iter.len(),
+            IterVariants::u32(iter) => iter.len(),
+        }
+    }
+}
+
+#[derive(Debug)]
+/// An iterator over the decoded hashes.
+pub struct DecodedIter<'a, P, B> {
+    /// The iterator variant.
+    variant: IterVariants<'a>,
+    /// The initial length of the iterator.
+    number_of_hashes: usize,
+    /// Precision and Bits markers
+    _phantom: core::marker::PhantomData<&'a (P, B)>,
+}
+
+impl<'a, P, B> LastBufferedBit for DecodedIter<'a, P, B> {
+    #[inline]
+    fn last_buffered_bit(&self) -> u32 {
+        (self.number_of_hashes - self.variant.len()) as u32 * u32::from(self.variant.hash_bits())
+    }
+
+    #[inline]
+    fn hash_bits(&self) -> u8 {
+        self.variant.hash_bits()
+    }
+}
+
+impl<'a, P: Precision, B: Bits> Iterator for DecodedIter<'a, P, B> {
+    type Item = (u8, usize);
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.variant.next().map(|hash| {
+            let (register, index) = SwitchHash::<P, B>::decode(hash, self.variant.hash_bits());
+            (register, index)
+        })
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.variant.size_hint()
+    }
+}
+
+impl<'a, P: Precision, B: Bits> ExactSizeIterator for DecodedIter<'a, P, B> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.variant.len()
+    }
+}
+
+impl<'a, P, B> From<IterVariants<'a>> for DecodedIter<'a, P, B> {
+    fn from(variant: IterVariants<'a>) -> Self {
+        DecodedIter {
+            number_of_hashes: variant.len(),
+            variant,
+            _phantom: core::marker::PhantomData,
+        }
+    }
+}
+
+#[derive(Debug)]
+/// An iterator over the decoded hashes.
+pub struct DowngradedIter<'a, P, B> {
+    /// The iterator variant.
+    variant: IterVariants<'a>,
+    /// The number of bits to shift.
+    shift: u8,
+    /// The number of hashes when the iterator is newly created.
+    number_of_hashes: usize,
+    /// The composite hash type.
+    _phantom: core::marker::PhantomData<&'a (P, B)>,
+}
+
+impl<'a, P, B> LastBufferedBit for DowngradedIter<'a, P, B> {
+    #[inline]
+    fn last_buffered_bit(&self) -> u32 {
+        (self.number_of_hashes - self.variant.len()) as u32 * u32::from(self.variant.hash_bits())
+    }
+
+    #[inline]
+    fn hash_bits(&self) -> u8 {
+        self.variant.hash_bits()
+    }
+}
+
+impl<'a, P: Precision, B: Bits> Iterator for DowngradedIter<'a, P, B> {
+    type Item = u32;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.variant
+            .next()
+            .map(|hash| SwitchHash::<P, B>::downgrade(hash, self.variant.hash_bits(), self.shift))
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.variant.size_hint()
+    }
+}
+
+impl<'a, P: Precision, B: Bits> ExactSizeIterator for DowngradedIter<'a, P, B> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.variant.len()
+    }
+}
+
+impl<'a, P, B> DowngradedIter<'a, P, B> {
+    #[inline]
+    /// Create a new iterator from the provided iterator and the number of bits to shift.
+    pub(super) fn new(variant: IterVariants<'a>, shift: u8) -> Self {
+        DowngradedIter {
+            number_of_hashes: variant.len(),
+            variant,
+            shift,
+            _phantom: core::marker::PhantomData,
+        }
+    }
+}
+
+#[inline]
+#[must_use]
+#[allow(unsafe_code)]
+#[expect(
+    clippy::cast_ptr_alignment,
+    reason = "The hashes are stored in a slice of originally u64s, so the alignment is maintained."
+)]
+pub(super) fn into_variant(
+    hashes: &[u8],
+    number_of_hashes: u32,
+    hash_bits: u8,
+) -> IterVariants<'_> {
+    assert!(hash_bits >= 8);
+    assert!(hash_bits == 8 || hash_bits == 16 || hash_bits == 24 || hash_bits == 32);
+    let hashes = &hashes[..usize::try_from(number_of_hashes).unwrap() * usize::from(hash_bits / 8)];
+    match hash_bits {
+        8 => IterVariants::u8(hashes.iter()),
+        16 => {
+            let hashes: &[u16] = unsafe {
+                core::slice::from_raw_parts(hashes.as_ptr().cast::<u16>(), hashes.len() / 2)
+            };
+            IterVariants::u16(hashes.iter())
+        }
+        24 => {
+            let hashes: &[[u8; 3]] = unsafe {
+                core::slice::from_raw_parts(hashes.as_ptr().cast::<[u8; 3]>(), hashes.len() / 3)
+            };
+            IterVariants::u24(hashes.iter())
+        }
+        32 => {
+            let hashes: &[u32] = unsafe {
+                core::slice::from_raw_parts(hashes.as_ptr().cast::<u32>(), hashes.len() / 4)
+            };
+            IterVariants::u32(hashes.iter())
+        }
+        _ => unreachable!(),
     }
 }
 

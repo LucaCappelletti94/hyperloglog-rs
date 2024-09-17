@@ -9,24 +9,24 @@
 
 mod constants;
 mod hasher_type;
+mod intersection_from_sorted_iterators;
 mod matrix;
 mod number;
 mod random;
 mod variable_word;
-mod intersection_from_sorted_iterators;
 
 pub use constants::*;
 pub use hasher_type::HasherType;
+pub(crate) use intersection_from_sorted_iterators::intersection_from_sorted_iterators;
 pub use matrix::Matrix;
 pub(crate) use number::{FloatOps, Number, PositiveInteger};
 pub use random::*;
 pub use variable_word::VariableWord;
-pub(crate) use intersection_from_sorted_iterators::intersection_from_sorted_iterators;
 
 #[inline]
 #[must_use]
 /// Calculates the integer floor of the division of `numerator` by `denominator`.
-/// 
+///
 /// # Arguments
 /// * `numerator` - The numerator of the division.
 /// * `denominator` - The denominator of the division.

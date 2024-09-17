@@ -7,13 +7,13 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use statistical_comparisons::prelude::*;
 use std::collections::HashSet;
-use test_utils::prelude::{compare_features, write_csv};
+use test_utils::prelude::{compare_features, write_csv, read_csv};
 use twox_hash::XxHash64;
 
 type HLL1 = HyperLogLog<
-    Precision14,
+    Precision4,
     Bits6,
-    <Precision14 as ArrayRegister<Bits6>>::Packed,
+    <Precision4 as PackedRegister<Bits6>>::Vec,
     twox_hash::XxHash64,
 >;
 
@@ -32,7 +32,18 @@ fn measure<S: Set + Default + MemSize>(reference: Option<&[Report]>) -> Vec<Repo
 
     let max_hashes = (1 << 18) * 12;
 
+
     let model_name = S::default().model_name();
+    let path = format!("{}.csv.gz", model_name);
+
+    if let Ok(stored_reports) = read_csv(path.as_str()) {
+        if stored_reports.len() == ITERATIONS {
+            return stored_reports;
+        } else {
+            // We delete the file if the number of reports is different from the number of iterations
+            std::fs::remove_file(path.as_str()).unwrap();
+        }
+    }
 
     let progress_bar = ProgressBar::new(ITERATIONS as u64);
     progress_bar.set_style(
@@ -51,10 +62,12 @@ fn measure<S: Set + Default + MemSize>(reference: Option<&[Report]>) -> Vec<Repo
             let mut reports: Vec<Report> = Vec::with_capacity(max_hashes);
             let mut hashset: HashSet<u64> = HashSet::default();
 
-            for value in iter_random_values::<u64>(max_hashes as u64, None, Some(thread_random_state)) {
+            for value in
+                iter_random_values::<u64>(max_hashes as u64, None, Some(thread_random_state))
+            {
                 hll.insert_element(value);
 
-                if hashset.insert(value) && hashset.len() > 128 {
+                if hashset.insert(value) {
                     let cardinality = hll.cardinality();
                     let exact_cardinality = hashset.len() as u64;
                     let relative_error =
@@ -63,7 +76,9 @@ fn measure<S: Set + Default + MemSize>(reference: Option<&[Report]>) -> Vec<Repo
                         relative_error,
                         estimated_cardinality: cardinality as u64,
                         cardinality: exact_cardinality,
-                        memory_requirements: hll.mem_size(mem_dbg::SizeFlags::default() | mem_dbg::SizeFlags::FOLLOW_REFS),
+                        memory_requirements: hll.mem_size(
+                            mem_dbg::SizeFlags::default() | mem_dbg::SizeFlags::FOLLOW_REFS,
+                        ),
                     });
                 }
             }
@@ -100,7 +115,7 @@ fn measure<S: Set + Default + MemSize>(reference: Option<&[Report]>) -> Vec<Repo
     // reference report.
     write_csv(
         total_reports.iter(),
-        format!("{}.csv.gz", S::default().model_name()).as_str(),
+        &path,
     );
 
     if let Some(reference) = reference {
@@ -127,6 +142,6 @@ fn measure<S: Set + Default + MemSize>(reference: Option<&[Report]>) -> Vec<Repo
 /// Main function to compare the progress of two variants of HLL.
 fn main() {
     let reference = measure::<HLL1>(None);
-    measure::<CloudFlareHLL<14, 6, XxHash64>>(Some(&reference));
-    measure::<TabacHLLPlusPlus<Precision14, XxHash64>>(Some(&reference));
+    measure::<CloudFlareHLL<4, 6, XxHash64>>(Some(&reference));
+    measure::<TabacHLLPlusPlus<Precision4, XxHash64>>(Some(&reference));
 }

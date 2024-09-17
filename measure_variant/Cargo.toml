@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-hyperloglog-rs = {path="../", features=["all_precisions", "std", "mem_dbg"]}
+hyperloglog-rs = {path="../", features=["std", "mem_dbg"]}
 statistical_comparisons = {path="../statistical_comparisons"}
 indicatif = { version = "0.17.8", features = ["rayon"] }
 rayon = "1.10.0"

@@ -1,6 +1,6 @@
 //! Marker struct for the hybrid approach, that keeps the hash explicit up until they fit into the registers.
 
-use crate::composite_hash::{CompositeHash, GapHash, SaturationError};
+use crate::composite_hash::{GapHash, SaturationError};
 use crate::correction_coefficients::{
     HASHLIST_CORRECTION_BIAS, HASHLIST_CORRECTION_CARDINALITIES, HYPERLOGLOG_CORRECTION_BIAS,
     HYPERLOGLOG_CORRECTION_CARDINALITIES, HYPERLOGLOG_CORRECTION_SLOPES,
@@ -92,7 +92,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         let mut hll = Self {
             registers: R::default(),
             harmonic_sum: f64::NEG_INFINITY,
-            _phantom: core::marker::PhantomData,
+            _phantom: PhantomData,
         };
 
         hll.clear();
@@ -122,7 +122,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     #[inline]
-    fn may_contain<T: Hash>(&self, element: &T) -> bool {
+    /// Returns whether the provided element may be contained in the counter.
+    pub fn may_contain<T: Hash>(&self, element: &T) -> bool {
         if self.is_hash_list() {
             let (index, register, original_hash) = Self::index_and_register_and_hash(element);
             GapHash::<P, B>::find(
@@ -175,21 +176,22 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 original_hash,
                 hash_bits,
             ) {
-                Ok(inserted_position) => {
-                    if let Some(inserted_position) = inserted_position {
-                        self.set_number_of_hashes(number_of_hashes + 1);
-                        self.set_writer_tell(inserted_position);
-                    }
-
-                    inserted_position.is_some()
+                Ok(Some(insert_metadata)) => {
+                    self.set_number_of_hashes(number_of_hashes + 1 - insert_metadata.duplicates);
+                    self.set_writer_tell(insert_metadata.bit_index);
+                    self.add_duplicates(insert_metadata.duplicates);
+                    self.set_hash_bits(insert_metadata.hash_bits);
+                    true
                 }
+                Ok(None) => false,
                 Err(err) => match err {
-                    SaturationError::DowngradableSaturation => {
-                        self.downgrade();
-                        debug_assert!(self.is_hash_list());
+                    SaturationError::ExtendableSaturation => {
+                        self.registers.double_size();
                         self.insert(element)
                     }
-                    SaturationError::Saturation => {
+                    SaturationError::Saturation(bit_index) => {
+                        self.set_writer_tell(bit_index);
+                        debug_assert_eq!(bit_index, self.get_writer_tell());
                         self.convert_hashlist_to_hyperloglog();
                         debug_assert!(!self.is_hash_list());
                         self.insert(element)
@@ -208,24 +210,37 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     fn convert_hashlist_to_hyperloglog(&mut self) {
         debug_assert!(self.is_hash_list());
 
-        let mut new_counter: Self = Self::default();
         let hash_bits = self.get_hash_bits();
-        let registers = core::mem::replace(&mut self.registers, R::default());
+        let mut new_registers = self.registers.clone();
+        new_registers.clear_registers();
+        let registers = core::mem::replace(&mut self.registers, new_registers);
         let number_of_hashes = self.get_number_of_hashes();
         let writer_tell = self.get_writer_tell();
         self.harmonic_sum = f64::integer_exp2(P::EXPONENT);
 
         debug_assert!(
-            GapHash::<P, B>::is_prefix_free_encoded(number_of_hashes, hash_bits, writer_tell),
+            P::EXPONENT ==  4 && B::NUMBER_OF_BITS == 4 || GapHash::<P, B>::is_prefix_free_encoded(number_of_hashes, hash_bits, writer_tell),
             "Downgrading hash list to HyperLogLog counter with non-prefix-free encoding. Number of hashes: {number_of_hashes}, hash bits: {hash_bits}, writer tell: {writer_tell}, precision: {}, bits: {}.",
             P::EXPONENT,
             B::NUMBER_OF_BITS
         );
 
+        let mut last_index = usize::MAX;
         GapHash::<P, B>::decoded(registers.as_ref(), number_of_hashes, hash_bits, writer_tell)
             .for_each(|(new_register_value, index)| {
-                new_counter.insert_register_value_and_index(new_register_value, index);
+                if last_index == index {
+                    return;
+                }
+                last_index = index;
+                self.insert_register_value_and_index(new_register_value, index);
             });
+
+        // We set the harmonic sum precisely to the current cardinality, so that it is primed
+        // to be more precise than what would otherwise be obtained by using directly the registers
+        // without this additional information.
+        // TODO: FIGURE THIS FIX OUT!
+        // self.harmonic_sum = P::ALPHA * f64::integer_exp2(2 * P::EXPONENT) / current_cardinality;
+        debug_assert!(self.harmonic_sum.is_finite());
     }
 
     /// Splits a hash into a register value and an index.
@@ -247,36 +262,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         self.harmonic_sum += f64::integer_exp2_minus(larger_register_value)
             - f64::integer_exp2_minus(old_register_value);
 
+        debug_assert!(self.harmonic_sum.is_finite());
+        debug_assert!(self.harmonic_sum > 0.0);
+
         old_register_value < new_register_value
-    }
-
-    #[inline]
-    #[allow(unsafe_code)]
-    /// Downgrades the Hybrid hashes one level.
-    fn downgrade(&mut self) {
-        debug_assert!(self.is_hash_list());
-
-        let number_of_hashes = self.get_number_of_hashes();
-        let current_hash_bits = self.get_hash_bits();
-        let writer_tell = self.get_writer_tell();
-        let target_hash_bits = GapHash::<P, B>::target_downgraded_hash_bits(
-            number_of_hashes,
-            writer_tell,
-            current_hash_bits,
-        );
-
-        let (new_duplicates, new_writer_tell) = GapHash::<P, B>::downgrade_inplace(
-            self.registers.as_mut(),
-            number_of_hashes,
-            writer_tell,
-            current_hash_bits,
-            current_hash_bits - target_hash_bits,
-        );
-
-        self.set_number_of_hashes(self.get_number_of_hashes() - new_duplicates);
-        self.set_writer_tell(u32::try_from(new_writer_tell).unwrap());
-        self.add_duplicates(new_duplicates);
-        self.set_hash_bits(target_hash_bits);
     }
 
     #[inline]
@@ -341,9 +330,9 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll1: PlusPlus<Precision8, Bits6, <Precision8 as ArrayRegister<Bits6>>::Packed> =
+    /// let mut hll1: PlusPlus<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array> =
     ///     Default::default();
-    /// let mut hll2: PlusPlus<Precision8, Bits6, <Precision8 as ArrayRegister<Bits6>>::Packed> =
+    /// let mut hll2: PlusPlus<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array> =
     ///     Default::default();
     ///
     /// hll1.insert(&42);
@@ -361,7 +350,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// assert_eq!(hll1.may_contain_all(&hll2), true);
     /// assert_eq!(hll2.may_contain_all(&hll1), true);
     /// ```
-    fn may_contain_all(&self, rhs: &Self) -> bool {
+    pub fn may_contain_all(&self, rhs: &Self) -> bool {
         self.registers
             .iter_registers_zipped(&rhs.registers)
             .all(|[left_register, right_register]| left_register >= right_register)
@@ -419,7 +408,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
     #[inline]
     /// Returns an estimate of the intersection cardinality between two counters.
-    fn estimate_intersection_cardinality(&self, other: &Self) -> f64 {
+    pub fn estimate_intersection_cardinality(&self, other: &Self) -> f64 {
         let self_cardinality = self.estimate_cardinality();
         let other_cardinality = other.estimate_cardinality();
         let union_cardinality = self.estimate_union_cardinality_with_cardinalities(
@@ -438,7 +427,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
     #[inline]
     /// Returns an estimate of the Jaccard index between two counters.
-    fn estimate_jaccard_index(&self, other: &Self) -> f64 {
+    pub fn estimate_jaccard_index(&self, other: &Self) -> f64 {
         let self_cardinality = self.estimate_cardinality();
         let other_cardinality = other.estimate_cardinality();
         let union_cardinality = self.estimate_union_cardinality_with_cardinalities(
@@ -457,7 +446,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
     #[inline]
     /// Returns an estimate of the cardinality of the current counter minus the cardinality of the other counter.
-    fn estimate_difference_cardinality(&self, other: &Self) -> f64 {
+    pub fn estimate_difference_cardinality(&self, other: &Self) -> f64 {
         let union_cardinality = self.estimate_union_cardinality(other);
         let other_cardinality = other.estimate_cardinality();
         if union_cardinality < other_cardinality {

@@ -19,10 +19,7 @@ fn prepare_reports<S, T1, T2>(
 ) where
     T1: Fn(&HashSet<u64>, &MultiProgress) -> Vec<PerformanceReport>,
     T2: Fn(&S, &MultiProgress) -> Vec<PerformanceReport>,
-    S: Clone
-        + Set
-        + TransparentMemSize
-        + IntoEnumIterator,
+    S: Clone + Set + TransparentMemSize + IntoEnumIterator,
 {
     // We create a directory called "reports" if it does not exist.
     let _ = std::fs::create_dir("reports");
@@ -33,7 +30,10 @@ fn prepare_reports<S, T1, T2>(
     // We start by computing the exact cardinality of the set.
     let exact_estimator = HashSet::<u64>::new();
     // We determine the path where we will store the report.
-    let path = format!("reports/{test_name}-{}.csv.gz", exact_estimator.model_name());
+    let path = format!(
+        "reports/{test_name}-{}.csv.gz",
+        exact_estimator.model_name()
+    );
     // If the path does not already exist, we create it.
     let correct_report: Vec<PerformanceReport> = if std::path::Path::new(&path).exists() {
         read_csv(&path).unwrap()
@@ -98,13 +98,7 @@ fn prepare_reports<S, T1, T2>(
 }
 
 /// Trait to prepare the reports for the cardinality and union tests.
-pub trait SetTester:
-    Send + Sync
-    + Clone
-    + Set
-    + TransparentMemSize
-    + IntoEnumIterator
-{
+pub trait SetTester: Send + Sync + Clone + Set + TransparentMemSize + IntoEnumIterator {
     /// Prepare the reports for the cardinality test.
     fn prepare_cardinality_reports(multiprogress: &MultiProgress) {
         prepare_reports::<Self, _, _>(
@@ -121,12 +115,4 @@ pub trait SetTester:
     // }
 }
 
-impl<
-        S:  Send + Sync
-            + Clone
-            + Set
-            + TransparentMemSize
-            + IntoEnumIterator,
-    > SetTester for S
-{
-}
+impl<S: Send + Sync + Clone + Set + TransparentMemSize + IntoEnumIterator> SetTester for S {}

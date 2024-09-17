@@ -161,10 +161,8 @@ fn wilcoxon_test(mut reports: Vec<ErrorReports>, feature_name: &str) {
         .into_par_iter()
         .progress_with(progress_bar)
         .map(|(left, right)| {
-            let w_test = WilcoxonWTest::voracious_paired(
-                &left.absolute_errors,
-                &right.absolute_errors,
-            );
+            let w_test =
+                WilcoxonWTest::voracious_paired(&left.absolute_errors, &right.absolute_errors);
 
             WilcoxonTestResult {
                 first_approach_name: left.name.clone(),

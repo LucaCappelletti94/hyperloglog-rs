@@ -15,6 +15,6 @@ mod traits;
 /// The prelude module contains all the necessary imports to use the library.
 pub mod prelude {
     pub use crate::enumerations::*;
-    pub use crate::traits::*;
     pub use crate::proxy_implementations::*;
+    pub use crate::traits::*;
 }

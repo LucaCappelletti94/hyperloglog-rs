@@ -17,7 +17,11 @@ use core::cmp::Ordering;
 ///
 /// # Panics
 /// Panics if the number of unique values is greater than 2**32.
-pub(crate) fn intersection_from_sorted_iterators<T: Ord, I: Iterator<Item = T>, J: Iterator<Item = T>>(
+pub(crate) fn intersection_from_sorted_iterators<
+    T: Ord,
+    I: Iterator<Item = T>,
+    J: Iterator<Item = T>,
+>(
     mut left: I,
     mut right: J,
 ) -> u32 {
@@ -46,7 +50,7 @@ pub(crate) fn intersection_from_sorted_iterators<T: Ord, I: Iterator<Item = T>, 
 #[cfg(feature = "std")]
 mod tests {
     use super::*;
-    use crate::prelude::{splitmix64, iter_var_len_random_values};
+    use crate::prelude::{iter_var_len_random_values, splitmix64};
 
     #[test]
     fn test_intersection_from_sorted_iterators() {

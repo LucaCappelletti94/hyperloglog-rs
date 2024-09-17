@@ -67,8 +67,9 @@ pub fn iter_var_len_random_values<V: VariableWord>(
     state = splitmix64(state);
 
     (0..size).map(move |_| {
-        state = xorshift64(state);
-        unsafe { V::unchecked_from_u64(state & V::MASK) % actual_maximal_value }
+        state = splitmix64(state);
+        let value = xorshift64(state);
+        unsafe { V::unchecked_from_u64(value & V::MASK) % actual_maximal_value }
     })
 }
 

@@ -21,6 +21,9 @@ def plot_all():
     for path in tqdm(glob("*.csv.gz"), desc="Loading reports", unit="report", leave=False):
         model_name = path.split(".csv.gz")[0]
 
+        if "P4" not in model_name:
+            continue
+
         reports = pd.read_csv(path)
 
         axs[0].plot(
@@ -43,6 +46,7 @@ def plot_all():
     axs[0].set_xlabel("Cardinality")
     axs[1].set_xlabel("Cardinality")
     axs[0].set_ylabel("Relative error")
+    axs[1].set_xscale("log")
     axs[1].set_ylabel("Memory requirements (bytes)")
     axs[0].legend()
     axs[1].legend()

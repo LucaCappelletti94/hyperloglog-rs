@@ -58,7 +58,7 @@ pub enum HLLVariants<
     const BITS: usize,
     B,
 > where
-    P: ArrayRegister<B>,
+    P: PackedRegister<B>,
     B: Bits,
 {
     TabacHyperLogLogPlus(TabacHLLPlusPlus<P, H>),
@@ -67,5 +67,5 @@ pub enum HLLVariants<
     RustHyperLogLog(RustHLL<P>),
     CE(CloudFlareHLL<EXPONENT, BITS, H>),
     SimpleHLL(SimpleHLL<H, EXPONENT>),
-    HLL(HyperLogLog<P, B, <P as ArrayRegister<B>>::Packed, H>),
+    HLL(HyperLogLog<P, B, <P as PackedRegister<B>>::Array, H>),
 }

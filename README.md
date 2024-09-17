@@ -25,11 +25,11 @@ hyperloglog = "0.1"
 ```rust
 use hyperloglog_rs::prelude::*;
 
-let mut hll = PlusPlus::<Precision6, Bits5, <Precision6 as ArrayRegister<Bits5>>::Packed, twox_hash::XxHash>::default();
+let mut hll = PlusPlus::<Precision6, Bits5, <Precision6 as PackedRegister<Bits5>>::Array, twox_hash::XxHash>::default();
 hll.insert(&1);
 hll.insert(&2);
 
-let mut hll2 = PlusPlus::<Precision6, Bits5, <Precision6 as ArrayRegister<Bits5>>::Packed, twox_hash::XxHash>::default();
+let mut hll2 = PlusPlus::<Precision6, Bits5, <Precision6 as PackedRegister<Bits5>>::Array, twox_hash::XxHash>::default();
 hll2.insert(&2);
 hll2.insert(&3);
 
@@ -61,13 +61,13 @@ The [MLE estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github
 {
         use hyperloglog_rs::prelude::*;
 
-        let mut hll1: MLE<PlusPlus::<Precision6, Bits5, <Precision6 as ArrayRegister<Bits5>>::Packed, twox_hash::XxHash>> = MLE::default();
+        let mut hll1: MLE<PlusPlus::<Precision6, Bits5, <Precision6 as PackedRegister<Bits5>>::Array, twox_hash::XxHash>> = MLE::default();
         
         hll1.insert(&1);
         hll1.insert(&2);
         hll1.insert(&3);
 
-        let mut hll2: MLE<PlusPlus::<Precision6, Bits5, <Precision6 as ArrayRegister<Bits5>>::Packed, twox_hash::XxHash>> = MLE::default();
+        let mut hll2: MLE<PlusPlus::<Precision6, Bits5, <Precision6 as PackedRegister<Bits5>>::Array, twox_hash::XxHash>> = MLE::default();
 
         hll2.insert(&2);
         hll2.insert(&3);

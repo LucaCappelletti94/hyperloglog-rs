@@ -1,9 +1,10 @@
 //! This module contains implementations of the `Set` trait for various HyperLogLog
 use core::hash::BuildHasher;
 
-use hyperloglog_rs::prelude::ArrayRegister;
+use hyperloglog_rs::prelude::PackedRegister;
 use hyperloglog_rs::prelude::Bits;
 use hyperloglog_rs::prelude::HyperLogLog;
+use hyperloglog_rs::prelude::Registers;
 use mem_dbg::{MemDbg, MemSize};
 
 use cardinality_estimator::CardinalityEstimator;
@@ -13,6 +14,7 @@ use hyperloglogplus::HyperLogLogPF as TabacHyperLogLogPF;
 use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
 use hypertwobits::h2b::HyperTwoBits as H2B;
 
+use crate::traits::Set;
 use hypertwobits::h3b::HyperThreeBits as H3B;
 use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
 use simple_hll::HyperLogLog as SimpleHyperLogLog;
@@ -20,7 +22,6 @@ use sourmash::signature::SigsTrait;
 use sourmash::sketch::hyperloglog::HyperLogLog as SourMashHyperLogLog;
 use std::marker::PhantomData;
 use streaming_algorithms::HyperLogLog as SAHyperLogLog;
-use crate::traits::Set;
 
 /// Trait to associate a Hasher with a HasherBuilder
 pub trait HasherBuilderAssociated: HasherType + MemSize {
@@ -154,7 +155,9 @@ impl<P: Precision> Default for AlecHLL<P> {
     }
 }
 
-impl<H: HasherType, P: Precision + ArrayRegister<B>, B: Bits> Set for HyperLogLog<P, B, <P as ArrayRegister<B>>::Packed, H> {
+impl<H: HasherType, P: Precision, B: Bits, R: Registers<P, B>> Set
+    for HyperLogLog<P, B, R, H>
+{
     fn insert_element(&mut self, value: u64) {
         self.insert(&value);
     }
@@ -201,9 +204,7 @@ impl<H: HasherType, const P: usize> Set for SimpleHLL<H, P> {
     }
 }
 
-impl<S: hypertwobits::h2b::Sketch + Clone, H: HasherBuilderAssociated> Set
-    for HyperTwoBits<S, H>
-{
+impl<S: hypertwobits::h2b::Sketch + Clone, H: HasherBuilderAssociated> Set for HyperTwoBits<S, H> {
     fn insert_element(&mut self, item: u64) {
         self.estimator.insert(&item);
     }
@@ -273,9 +274,7 @@ impl<P: Precision> Set for SourMash<P> {
     }
 }
 
-impl<H: HasherType, const P: usize, const B: usize> Set
-    for CloudFlareHLL<P, B, H>
-{
+impl<H: HasherType, const P: usize, const B: usize> Set for CloudFlareHLL<P, B, H> {
     fn insert_element(&mut self, item: u64) {
         self.estimator.insert(&item);
     }
@@ -316,16 +315,11 @@ impl<P: Precision> Set for RustHLL<P> {
     }
 
     fn model_name(&self) -> String {
-        format!(
-            "FrankPP<P{}, B8> + SipHasher13",
-            P::EXPONENT
-        )
+        format!("FrankPP<P{}, B8> + SipHasher13", P::EXPONENT)
     }
 }
 
-impl<H: HasherBuilderAssociated, P: Precision> Set
-    for TabacHLLPlusPlus<P, H>
-{
+impl<H: HasherBuilderAssociated, P: Precision> Set for TabacHLLPlusPlus<P, H> {
     fn insert_element(&mut self, item: u64) {
         self.estimator.insert(&item);
     }

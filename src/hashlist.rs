@@ -1,7 +1,7 @@
-//!
+//! Methods relative to the HashList structure.
 mod float_bits_ops;
 use crate::{
-    composite_hash::{CompositeHash, GapHash},
+    composite_hash::GapHash,
     prelude::{Bits, HasherType, HyperLogLog, Precision, Registers},
     utils::{correct_union_estimate, FloatOps},
 };

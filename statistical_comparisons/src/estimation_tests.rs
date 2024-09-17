@@ -63,9 +63,7 @@ fn sample_interval_by_range(cardinality: u64) -> u64 {
     }
 }
 
-pub(crate) fn cardinality_test<
-    H: Clone + TransparentMemSize + Set +  Send + Sync,
->(
+pub(crate) fn cardinality_test<H: Clone + TransparentMemSize + Set + Send + Sync>(
     estimator: &H,
     multiprogress: &indicatif::MultiProgress,
 ) -> Vec<PerformanceReport> {

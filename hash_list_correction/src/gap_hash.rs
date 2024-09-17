@@ -215,7 +215,7 @@ pub fn compute_gap_hash_correction() {
     let formatted_code = unparse(&syntax_tree);
 
     // Write the formatted code to the output file
-    std::fs::write(output_path, formatted_code).unwrap();
+    // std::fs::write(output_path, formatted_code).unwrap();
 
     println!("Generated optimal codes in '{}'", output_path);
 }

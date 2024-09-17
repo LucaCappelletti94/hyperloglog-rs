@@ -5,7 +5,7 @@ use hyperloglog_rs::prelude::*;
 type Gap = HyperLogLog<
     Precision14,
     Bits5,
-    <Precision14 as ArrayRegister<Bits5>>::Packed,
+    <Precision14 as PackedRegister<Bits5>>::Array,
     twox_hash::XxHash64,
 >;
 

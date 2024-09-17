@@ -3,6 +3,7 @@
 from typing import List
 from glob import glob
 from multiprocessing import Pool
+import os
 from dataclasses import dataclass, field
 import pandas as pd
 import numpy as np
@@ -75,6 +76,9 @@ def plot_cardinality(path_json: str):
             hash_correction.hyperloglog_cardinalities,
         ),
     ]:
+        if not os.path.exists(path):
+            return
+
         report = pd.read_csv(path)
         largest_exact_cardinality = max(largest_exact_cardinality, report.y.max())
         largest_estimated_cardinality = max(
@@ -194,23 +198,36 @@ def plot_cardinality(path_json: str):
     # plot, we only display the positive expected error.
 
     expected_error = expected_hll_error(hash_correction.precision)
-    largest_exact_cardinality = max(extended_exact_cardinalities)
+    largest_exact_cardinality = int(max(extended_exact_cardinalities))
+
     if has_negative_deltas:
         axs[1].fill_between(
-            np.arange(0, largest_exact_cardinality + 1),
-            -expected_error * np.arange(0, largest_exact_cardinality + 1),
-            expected_error * np.arange(0, largest_exact_cardinality + 1),
-            color="tab:green",
-            alpha=0.1,
+            range(0, largest_exact_cardinality + 1),
+            [
+                -expected_error * max(exact, 1)
+                for exact in range(0, largest_exact_cardinality + 1)
+            ],
+            [
+                expected_error * max(exact, 1)
+                for exact in range(0, largest_exact_cardinality + 1)
+            ],
+            color="tab:red",
+            alpha=0.3,
             label="Expected HLL error",
         )
     else:
         axs[1].fill_between(
-            np.arange(0, largest_exact_cardinality + 1),
-            0,
-            expected_error * np.arange(0, largest_exact_cardinality + 1),
-            color="tab:green",
-            alpha=0.1,
+            range(0, largest_exact_cardinality + 1),
+            [
+                0
+                for exact in range(0, largest_exact_cardinality + 1)
+            ],
+            [
+                expected_error * max(exact, 1)
+                for exact in range(0, largest_exact_cardinality + 1)
+            ],
+            color="tab:red",
+            alpha=0.3,
             label="Expected HLL error",
         )
 
@@ -221,6 +238,22 @@ def plot_cardinality(path_json: str):
             color="tab:orange",
             linestyle="--",
             label="Mean hashlist cardinality",
+        )
+
+        # We plot a vertical line at the point of smallest hashlist cardinality.
+        ax.axvline(
+            hash_correction.hashlist_smallest_maximal_cardinality,
+            color="tab:green",
+            linestyle="--",
+            label="Smallest hashlist cardinality",
+        )
+
+        # We plot a vertical line at the point of largest hashlist cardinality.
+        ax.axvline(
+            hash_correction.hashlist_largest_maximal_cardinality,
+            color="tab:blue",
+            linestyle="--",
+            label="Largest hashlist cardinality",
         )
 
         # We plot for the range 1..=5 the number of registers for the current precision.
@@ -239,7 +272,10 @@ def plot_cardinality(path_json: str):
     axs[0].grid(which="both", linestyle="--", alpha=0.5)
     axs[1].set_xlabel("Exact cardinality")
     axs[1].set_ylabel("Exact - Estimated")
-    axs[1].legend(ncol=2, loc="upper right")
+    axs[1].set_yscale("symlog")
+    # axs[0].set_xscale("log")
+    # axs[1].set_xscale("log")
+    axs[1].legend(ncol=2, loc="lower right")
     axs[1].grid(which="both", linestyle="--", alpha=0.5)
     axs[0].set_title(
         f"Relative errors p={hash_correction.precision}, b={hash_correction.bits}"

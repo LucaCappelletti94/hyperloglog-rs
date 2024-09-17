@@ -9,7 +9,21 @@ use core::fmt::Debug;
 
 use crate::utils::FloatOps;
 
-include!(concat!(env!("OUT_DIR"), "/alpha_values.rs"));
+/// Macro defining the alpha constant for a given precision.
+macro_rules! alpha {
+    (4 ) => {
+        0.673
+    };
+    (5 ) => {
+        0.697
+    };
+    (6 ) => {
+        0.709
+    };
+    ($exponent:expr) => {
+        0.7213 / (1.0 + 1.079 / (1 << $exponent) as f64)
+    };
+}
 
 /// The precision of the [`HyperLogLog`] counter.
 pub trait Precision: Default + Copy + Eq + Debug + Send + Sync {
@@ -49,10 +63,9 @@ macro_rules! impl_precision {
             /// The precision of the HyperLogLog counter.
             pub struct [<Precision $exponent>];
 
-            #[cfg(feature = "precision_" $exponent)]
             impl Precision for [<Precision $exponent>] {
                 const EXPONENT: u8 = $exponent;
-                const ALPHA: f64 = [<ALPHA_ $exponent>];
+                const ALPHA: f64 = alpha!($exponent);
             }
         }
     };
@@ -86,7 +99,6 @@ mod tests {
             $(
                 paste::paste! {
                     #[test]
-                    #[cfg(feature = "precision_" $exponent)]
                     fn [<test_error_rate_simmetry_ $exponent>]() {
                         test_error_rate_simmetry::<[<Precision $exponent>]>();
                     }

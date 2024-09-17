@@ -262,7 +262,7 @@ macro_rules! test_hyper_spheres_by_precision_and_sizes {
             paste::paste! {
                 #[test]
                 fn [<test_plusplus_hyper_spheres_sketch_ $hasher:lower _ $precision:lower _ $bits:lower _left_ $left _right_ $right>]() {
-                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, HyperLogLog<$precision, $bits, <$precision as ArrayRegister<$bits>>::Packed, $hasher>, $left, $right>();
+                    test_hyper_spheres_sketch::<$hasher, $precision, $bits, HyperLogLog<$precision, $bits, <$precision as PackedRegister<$bits>>::Array, $hasher>, $left, $right>();
                 }
             }
         )+

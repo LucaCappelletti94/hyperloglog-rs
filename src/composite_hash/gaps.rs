@@ -4,7 +4,10 @@ use core::u64;
 mod bitreader;
 mod bitwriter;
 mod optimal_codes;
-use super::{CompositeHash, SaturationError, Debug, LastBufferedBit, Precision, SwitchHash};
+use super::{
+    switch::{DecodedIter, DowngradedIter},
+    Debug, LastBufferedBit, Precision, SaturationError, SwitchHash,
+};
 use crate::bits::Bits;
 use bitreader::{len_rice, BitReader};
 use bitwriter::BitWriter;
@@ -25,21 +28,48 @@ pub struct GapFragment {
     pub geometric_minus_one: u8,
 }
 
+struct EncodedHashEnvironment {
+    previous_to_current_gap: Option<GapFragment>,
+    current_to_next_gap: Option<GapFragment>,
+    number_of_inserted_bits: u32,
+    previous_to_current_size: u32,
+    current_to_next_size: u32,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) struct InsertMetadata {
+    pub(crate) hash_bits: u8,
+    pub(crate) duplicates: u32,
+    pub(crate) bit_index: u32,
+}
+
 trait SkipSliceAhead {
-    fn skip(self, position: usize) -> Self;
+    fn reserve(self, position: usize) -> Self;
+    fn len(&self) -> usize;
 }
 
 impl SkipSliceAhead for &[u8] {
     #[inline]
-    fn skip(self, position: usize) -> Self {
-        &self[position..]
+    fn reserve(self, position: usize) -> Self {
+        &self[..self.len() - position]
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        <[u8]>::len(self)
     }
 }
 
 impl SkipSliceAhead for &mut [u8] {
     #[inline]
-    fn skip(self, position: usize) -> Self {
-        &mut self[position..]
+    fn reserve(self, position: usize) -> Self {
+        let number_of_entries = <[u8]>::len(self);
+        &mut self[..number_of_entries - position]
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        <[u8]>::len(self)
     }
 }
 
@@ -69,7 +99,10 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         // no hash remainder to include in the uniform portion of the hash, as that
         // part of the hash is solely composed of the index.
         if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
-            GapFragment { uniform_delta: previous_fragment.index - fragment_to_encode.index, geometric_minus_one: fragment_to_encode.register - 1 }
+            GapFragment {
+                uniform_delta: previous_fragment.index - fragment_to_encode.index,
+                geometric_minus_one: fragment_to_encode.register - 1,
+            }
         } else {
             // The uniform portion of the hash is composed by the index and the hash remainder.
             let previous_uniform = previous_fragment.uniform(hash_bits);
@@ -80,19 +113,23 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             } else {
                 (to_encode_uniform - previous_uniform) << 1
             };
-            GapFragment { uniform_delta, geometric_minus_one: fragment_to_encode.register - 1 }
+            GapFragment {
+                uniform_delta,
+                geometric_minus_one: fragment_to_encode.register - 1,
+            }
         }
     }
 
     #[inline]
     /// Applies a gap to a replacement hash.
-    /// 
+    ///
     /// # Arguments
     /// * `current_hash` - The current hash.
     /// * `current_hash_gap_fragment` - The gap fragment between a previous (undecoded) hash and the current hash.
     /// * `replacement_hash` - The hash to apply the gap to.
-    /// * `hash_bits` - The number of bits used to encode the hashes.
-    /// 
+    /// * `hash_bits` - The number of bits used to decode the hashes.
+    /// * `target_hash_bits` - The number of bits used to encode the target hash.
+    ///
     /// # Implementative details
     /// The apply gap method is meant to apply the gap between an unknown previous hash that would be too expensive to decode
     /// and the current hash to a replacement hash.
@@ -106,13 +143,18 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         debug_assert!(current_hash < replacement_hash);
 
         let current_hash_fragment = SwitchHash::<P, B>::scompose_hash(current_hash, hash_bits);
-        let replacement_hash_fragment = SwitchHash::<P, B>::scompose_hash(replacement_hash, hash_bits);
+        let replacement_hash_fragment =
+            SwitchHash::<P, B>::scompose_hash(replacement_hash, hash_bits);
 
         if P::EXPONENT + B::NUMBER_OF_BITS == hash_bits {
-            let previous_hash_index = current_hash_gap_fragment.uniform_delta + current_hash_fragment.index;
+            let previous_hash_index =
+                current_hash_gap_fragment.uniform_delta + current_hash_fragment.index;
             let uniform_delta = previous_hash_index - replacement_hash_fragment.index;
 
-            GapFragment { uniform_delta, geometric_minus_one: replacement_hash_fragment.register - 1 }
+            GapFragment {
+                uniform_delta,
+                geometric_minus_one: replacement_hash_fragment.register - 1,
+            }
         } else {
             let current_hash_uniform = current_hash_fragment.uniform(hash_bits);
             let replacement_hash_uniform = replacement_hash_fragment.uniform(hash_bits);
@@ -129,7 +171,10 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 (replacement_hash_uniform - previous_uniform) << 1
             };
 
-            GapFragment { uniform_delta, geometric_minus_one: replacement_hash_fragment.register - 1 }
+            GapFragment {
+                uniform_delta,
+                geometric_minus_one: replacement_hash_fragment.register - 1,
+            }
         }
     }
 
@@ -139,7 +184,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// # Implementative details
     /// Since an index uses up some of the bits that we could use to encode the hash,
     /// we only employ it for cases where we store a large number of hashes.
-    const fn has_rank_index() -> bool {
+    pub(super) const fn has_rank_index() -> bool {
         (1_u64 << P::EXPONENT) * B::NUMBER_OF_BITS as u64 / Self::SMALLEST_VIABLE_HASH_BITS as u64
             > 500
     }
@@ -197,6 +242,12 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         (1 << Self::rank_index_bits()) - 1
     }
 
+    #[inline]
+    /// Returns the index offset given the hashes.
+    const fn rank_index_offset(hashes: &[u8], hash_bits: u8) -> u32 {
+        hashes.len() as u32 * 8 - Self::rank_index_total_size(hash_bits)
+    }
+
     #[allow(unsafe_code)]
     #[inline]
     /// Initializes the rank index with the given hashes.
@@ -206,16 +257,23 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         let hashes64 = unsafe {
             core::slice::from_raw_parts_mut(
                 hashes.as_mut_ptr().cast::<u64>(),
-                hashes.len() / core::mem::size_of::<u64>(),
+                hashes.len() / size_of::<u64>(),
             )
         };
 
         let mut writer = BitWriter::new(hashes64);
+        writer.seek(Self::rank_index_offset(hashes, hash_bits));
 
         for _ in 1..Self::rank_index_capacity() {
             writer.write_bits(Self::rank_index_mask(), Self::rank_index_bits());
             writer.write_bits(0u64, hash_bits);
         }
+
+        debug_assert_eq!(
+            writer.tell(),
+            hashes.len() as u32 * 8,
+            "The rank index must be fully initialized."
+        );
     }
 
     #[inline]
@@ -237,39 +295,45 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// the bucket that immediately follows the inserted hash, as part of the expansion is
     /// relative to the hash associated to the bucket itself. Here is a schema illustrating
     /// this particular case, split into two parts: the hashes part and the associated rank index.
-    /// 
+    ///
     /// Suppose we have a predecessor hash x, a hash y that we  want to insert and a successor hash 'successor_hash',
     /// which also happens to be the hash associated to the bucket that follows the inserted hash. We
     /// start from the following state:
-    /// 
+    ///
     /// ```text
     /// Indices: [ ... | bit index i, hash successor_hash | bit index (i + 1), hash q| ... ]
     /// Hash gaps: [ ... | (pred - x) | (x - successor_hash) | ... ]
     ///                               ↑
     ///                               This position is equal to bit index i
     /// ```
-    /// 
+    ///
     /// When we insert y, it will cause the hash list to expand, and as we are not inserting the hash
     /// itself but the gap between the hash and the predecessor and successor, the following state will
     /// be reached for the Hash gaps:
-    /// 
+    ///
     /// ```text
     /// Hash gaps: [ ... | (pred - x) | (x - y) | (y - successor_hash) | ... ]
     ///                               ↑
     ///                               This position is equal to 'bit_index_after_hash'
     /// ```
-    /// 
+    ///
     /// Such change needs to be reflected in the bit indices in the rank index. The bit index i + 1
     /// needs to become equal to 'bit_index_after_hash', i.e. the bit index of the position right after
     /// the newly inserted hash. Indices associated to subsequent buckets, instead, need to be fully
     /// shifted by the increased size of the hash list.
-    /// 
+    ///
     /// ```text
     /// Indices: [ ... | bit index i + bit_index_after_hash, hash successor_hash | bit index (i + 1) + shift, hash q| ... ]
     /// Hash gaps: [ ... | (pred - x) | (x - y) | (y - successor_hash) | ... ]
     /// ```
-    /// 
-    fn shift_index(hashes: &mut [u8], hash: u32, bit_index_after_hash: u32, successor_hash: u32, hash_bits: u8, shift: u32) {
+    fn shift_index(
+        hashes: &mut [u8],
+        hash: u32,
+        bit_index_after_hash: u32,
+        successor_hash: u32,
+        hash_bits: u8,
+        shift: u32,
+    ) {
         let hash_bucket = Self::rank_index_hash_bucket(hash_bits, hash);
 
         // If the hash bucket is the last one, we do not have any subsequent buckets to update.
@@ -283,23 +347,26 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         let hashes64 = unsafe {
             core::slice::from_raw_parts_mut(
                 hashes.as_mut_ptr().cast::<u64>(),
-                hashes.len() / core::mem::size_of::<u64>(),
+                hashes.len() / size_of::<u64>(),
             )
         };
 
         let hashes32 = unsafe {
             core::slice::from_raw_parts(
                 hashes.as_ptr().cast::<u32>(),
-                hashes.len() / core::mem::size_of::<u32>(),
+                hashes.len() / size_of::<u32>(),
             )
         };
 
-        let mut reader = BitReader::skip(hashes32, hash_bucket_position);
+        let mut reader = BitReader::skip(
+            hashes32,
+            Self::rank_index_offset(hashes, hash_bits) + hash_bucket_position,
+        );
         let mut writer = BitWriter::new(hashes64);
         let mut current_bit_index;
 
-        for bucket in hash_bucket..Self::rank_index_capacity() - 1{
-            writer.seek(bucket * bucket_size);
+        for bucket in hash_bucket..Self::rank_index_capacity() - 1 {
+            writer.seek(Self::rank_index_offset(hashes, hash_bits) + bucket * bucket_size);
 
             current_bit_index = reader.read_bits(Self::rank_index_bits()) as u32;
             // We move the reader ahead by hash_bits bits so it is positioned at the next entry.
@@ -307,7 +374,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
 
             // We check that the reader tell is within bounds.
             debug_assert!(
-                reader.last_read_bit_position() <= Self::rank_index_total_size(hash_bits),
+                reader.last_read_bit_position() >= Self::rank_index_offset(hashes, hash_bits),
                 "The reader tell ({}) must be less than the total size of the rank index ({}). We are at bucket {bucket} and started at hash bucket {hash_bucket}. The bucket bitsize is {bucket_size}.",
                 reader.last_read_bit_position(),
                 Self::rank_index_total_size(hash_bits)
@@ -357,9 +424,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
 
         // When we are done updating, the reader must be at the end of the rank index
         // and the writer must be at the end of the rank index minus hash_bits bits.
-        debug_assert_eq!(
-            reader.last_read_bit_position(), Self::rank_index_total_size(hash_bits),
-        );
+        debug_assert_eq!(reader.last_read_bit_position(), hashes.len() as u32 * 8,);
     }
 
     #[allow(unsafe_code)]
@@ -384,25 +449,28 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         let hashes32 = unsafe {
             core::slice::from_raw_parts(
                 hashes.as_ptr().cast::<u32>(),
-                hashes.len() / core::mem::size_of::<u32>(),
+                hashes.len() / size_of::<u32>(),
             )
         };
 
-        let mut reader = BitReader::skip(hashes32, hash_bucket_position);
+        let mut reader = BitReader::skip(
+            hashes32,
+            Self::rank_index_offset(hashes, hash_bits) + hash_bucket_position,
+        );
         let bucket_bit_index = reader.read_bits(Self::rank_index_bits()) as u32;
         let bucket_hash = reader.read_bits(hash_bits) as u32;
 
         let hashes64 = unsafe {
             core::slice::from_raw_parts_mut(
                 hashes.as_mut_ptr().cast::<u64>(),
-                hashes.len() / core::mem::size_of::<u64>(),
+                hashes.len() / size_of::<u64>(),
             )
         };
 
         // If the hash we received is smaller than the hash in the bucket, we update the bucket.
         if bucket_hash < hash || bucket_bit_index == Self::rank_index_mask() {
             let mut writer = BitWriter::new(hashes64);
-            writer.seek(hash_bucket_position);
+            writer.seek(Self::rank_index_offset(hashes, hash_bits) + hash_bucket_position);
             writer.write_bits(bit_index, Self::rank_index_bits());
             writer.write_bits(hash, hash_bits);
         }
@@ -457,16 +525,13 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         let hashes32 = unsafe {
             core::slice::from_raw_parts(
                 hashes.as_ptr().cast::<u32>(),
-                hashes.len() / core::mem::size_of::<u32>(),
+                hashes.len() / size_of::<u32>(),
             )
         };
 
         for bucket in (0..=hash_bucket).rev() {
             if bucket == 0 {
-                // We read the first hash (the largest one) explicitly, as it is not part of the index.
-                let end_of_index = Self::rank_index_total_size(hash_bits);
-
-                let mut reader = BitReader::skip(hashes32, end_of_index);
+                let mut reader = BitReader::new(hashes32);
                 let first_hash = reader.read_bits(hash_bits) as u32;
 
                 return (0, first_hash);
@@ -475,13 +540,16 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             let hash_bucket_position =
                 (bucket - 1) * u32::from(Self::rank_index_bits() + hash_bits);
 
-            let mut reader = BitReader::skip(hashes32, hash_bucket_position);
+            let mut reader = BitReader::skip(
+                hashes32,
+                Self::rank_index_offset(hashes, hash_bits) + hash_bucket_position,
+            );
 
             let bit_index = reader.read_bits(Self::rank_index_bits()) as u32;
             let hash = reader.read_bits(hash_bits) as u32;
 
             debug_assert!(
-                reader.last_read_bit_position() <= Self::rank_index_total_size(hash_bits),
+                reader.last_read_bit_position() >= Self::rank_index_offset(hashes, hash_bits),
             );
 
             if bit_index != Self::rank_index_mask() {
@@ -507,7 +575,17 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             0,
             "The hash bits must be a multiple of 8 when requiring to skip the rank index."
         );
-        hashes.skip(Self::rank_index_padded_size(hash_bits) as usize)
+
+        // If the hashes are more than half of the expected maximal capacity, we recerve the last
+        // `rank_index_padded_size` bytes for the rank index.
+
+        let maximal_size = ((1 << P::EXPONENT) * usize::from(B::NUMBER_OF_BITS)).div_ceil(64) * 8;
+
+        if hashes.len() > maximal_size / 2 {
+            hashes.reserve(Self::rank_index_padded_size(hash_bits) as usize)
+        } else {
+            hashes
+        }
     }
 }
 
@@ -515,11 +593,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     #[inline]
     #[must_use]
     /// Returns whether the hashes are currently to be considered prefix-free-encoded.
-    pub fn is_prefix_free_encoded(
-        number_of_hashes: u32,
-        hash_bits: u8,
-        bit_index: u32,
-    ) -> bool {
+    pub fn is_prefix_free_encoded(number_of_hashes: u32, hash_bits: u8, bit_index: u32) -> bool {
         hash_bits < Self::LARGEST_VIABLE_HASH_BITS
             || number_of_hashes * u32::from(hash_bits) > bit_index
     }
@@ -542,44 +616,18 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     fn uniform_coefficient(hash_bits: u8) -> u8 {
         Self::b(hash_bits).1
     }
-
-    #[inline]
-    fn has_rice_coefficients() -> bool {
-        !OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4]
-            .is_empty()
-    }
-
-    #[inline]
-    fn next_hash_bits(candidate_hash_bits: u8) -> u8 {
-        let data =
-            OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
-
-        for (target_hash_bits, _) in data.iter().rev() {
-            if candidate_hash_bits >= *target_hash_bits {
-                return *target_hash_bits;
-            }
-        }
-
-        unreachable!("The hash bits ({candidate_hash_bits}) must be one of the optimal hash bits.",);
-    }
 }
 
-impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
-    type Precision = P;
-    type Bits = B;
-
-    type Decoded<'a> = DispatchedDecodedIter<'a, P, B>;
-    type Downgraded<'a> = DispatchedDowngradedIter<'a, P, B>;
-
+impl<P: Precision, B: Bits> GapHash<P, B> {
     #[inline]
     #[must_use]
-    fn downgraded(
+    pub(crate) fn downgraded(
         hashes: &[u8],
         number_of_hashes: u32,
         hash_bits: u8,
         bit_index: u32,
         shift: u8,
-    ) -> Self::Downgraded<'_> {
+    ) -> DispatchedDowngradedIter<'_, P, B> {
         // If we are employing prefix-free codes, we use the DowngradedIter
         if Self::is_prefix_free_encoded(number_of_hashes, hash_bits, bit_index) {
             DispatchedDowngradedIter::PrefixCodeDowngradedIter(PrefixCodeDowngradedIter::new(
@@ -598,12 +646,12 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
 
     #[inline]
     #[must_use]
-    fn decoded(
+    pub(crate) fn decoded(
         hashes: &[u8],
         number_of_hashes: u32,
         hash_bits: u8,
         bit_index: u32,
-    ) -> Self::Decoded<'_> {
+    ) -> DispatchedDecodedIter<'_, P, B> {
         assert!(
             hash_bits >= Self::SMALLEST_VIABLE_HASH_BITS,
             "The hash bits ({hash_bits}) must be greater or equal to the smallest viable hash bits ({})",
@@ -626,12 +674,12 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
     #[inline]
     #[must_use]
     /// Encode the hash from the provided register value, index and the original unsplitted hash.
-    fn encode(index: usize, register: u8, original_hash: u64, hash_bits: u8) -> u32 {
+    pub fn encode(index: usize, register: u8, original_hash: u64, hash_bits: u8) -> u32 {
         debug_assert!(register > 0);
         debug_assert!(
-            index < 1 << Self::Precision::EXPONENT,
+            index < 1 << P::EXPONENT,
             "The index ({index}) must be less than 2^({})",
-            Self::Precision::EXPONENT,
+            P::EXPONENT,
         );
         SwitchHash::<P, B>::encode(index, register, original_hash, hash_bits)
     }
@@ -639,20 +687,20 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
     #[must_use]
     #[inline]
     /// Decode the hash into the register value and index.
-    fn decode(hash: u32, hash_bits: u8) -> (u8, usize) {
+    pub(super) fn decode(hash: u32, hash_bits: u8) -> (u8, usize) {
         SwitchHash::<P, B>::decode(hash, hash_bits)
     }
 
     #[inline]
     #[must_use]
     /// Downgrade the hash into a smaller hash.
-    fn downgrade(hash: u32, hash_bits: u8, shift: u8) -> u32 {
+    pub fn downgrade(hash: u32, hash_bits: u8, shift: u8) -> u32 {
         SwitchHash::<P, B>::downgrade(hash, hash_bits, shift)
     }
 
     #[inline]
     #[allow(unsafe_code)]
-    fn find(
+    pub(crate) fn find(
         hashes: &[u8],
         number_of_hashes: u32,
         index: usize,
@@ -663,14 +711,13 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
     ) -> bool {
         debug_assert!(register > 0);
         debug_assert!(
-            index < 1 << Self::Precision::EXPONENT,
+            index < 1 << P::EXPONENT,
             "The index ({index}) must be less than 2^({})",
-            Self::Precision::EXPONENT,
+            P::EXPONENT,
         );
+        let encoded_hash = Self::encode(index, register, original_hash, hash_bits);
 
         if Self::is_prefix_free_encoded(number_of_hashes, hash_bits, bit_index) {
-            let encoded_hash = Self::encode(index, register, original_hash, hash_bits);
-
             let iter: PrefixCodeIter<'_, P, B> = if Self::has_rank_index() {
                 PrefixCodeIter::new_with_rank_index(hashes, bit_index, hash_bits, encoded_hash)
             } else {
@@ -691,18 +738,105 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
             SwitchHash::<P, B>::find(
                 Self::skip_rank_index(hashes, hash_bits),
                 number_of_hashes,
-                index,
-                register,
-                original_hash,
+                encoded_hash,
                 hash_bits,
                 bit_index,
             )
+            .is_ok()
+        }
+    }
+
+    #[inline]
+    fn encoded_hash_environment(
+        previous_hash: Option<u32>,
+        current_hash: u32,
+        mut next_hash: Option<u32>,
+        hash_bits: u8,
+        last_read_bit_position: u32,
+        last_read_bit_position_variation: u32,
+        previous_gap_fragment: Option<GapFragment>,
+        backup_next_hash: Option<u32>,
+    ) -> EncodedHashEnvironment {
+        let previous_to_current_gap = match (previous_hash, Self::has_rank_index()) {
+            (None, true) => {
+                // When we use a rank index and we have immediately found the value we position where
+                // we would like to insert the value, it means we are replacing the first hash in the
+                // bucket. While we have stored this hash in the index, and we do have the gap informations
+                // between this hash and its successor, we do not have the true previous hash, which is the
+                // gap between the previous hash and the previous previous hash. A trivial approach like
+                // decoding the previous previous hash would require us to decode the entirety of the previous
+                // bucket and would therefore be inefficient.
+                next_hash = backup_next_hash;
+                // If the reader is at the first hash, and was not positioned at some later bit index,
+                // we truly do not have a previous hash to speak of.
+                if last_read_bit_position == 0 {
+                    None
+                } else {
+                    // If we do have a previous hash, but it is unknown because we jumped the reader to the
+                    // current position and we have not decoded all previous hashes, we necessarily must have
+                    // a current hash (i.e. the first hash in the bucket) and we can compute the gap between
+                    // the current hash and the previous (unknown) hash.
+                    Some(Self::apply_gap(
+                        next_hash.unwrap(),
+                        previous_gap_fragment.unwrap(),
+                        current_hash,
+                        hash_bits,
+                    ))
+                }
+            }
+            (Some(_), true) | (_, false) => previous_hash.map(|previous_hash| {
+                debug_assert!(previous_hash > current_hash);
+                Self::into_gap_fragment(previous_hash, current_hash, hash_bits)
+            }),
+        };
+
+        let current_to_next_gap = next_hash.map(|next_hash| {
+            debug_assert!(next_hash < current_hash);
+            Self::into_gap_fragment(current_hash, next_hash, hash_bits)
+        });
+
+        let previous_to_current_size =
+            previous_to_current_gap.map_or(u32::from(hash_bits), |previous_to_current_gap| {
+                len_rice(
+                    previous_to_current_gap.uniform_delta,
+                    Self::uniform_coefficient(hash_bits),
+                    previous_to_current_gap.geometric_minus_one,
+                )
+            });
+
+        // When the currently encoded value has a successor, we will be adding the gap between
+        // the current hash and the next hash. If it does not have a successor, then there is
+        // nothing to write. If there is no predecessor but there is a successor, it means that
+        // we are replacing the first hash in the hash list, which has size 'hash_bits'.
+        // Such delta is already accounted for in 'last_read_bit_position_variation'.
+        let current_to_next_size: u32 = current_to_next_gap.map_or(0, |current_to_next_gap| {
+            len_rice(
+                current_to_next_gap.uniform_delta,
+                Self::uniform_coefficient(hash_bits),
+                current_to_next_gap.geometric_minus_one,
+            )
+        });
+
+        debug_assert!(
+            previous_to_current_size + current_to_next_size >= last_read_bit_position_variation,
+            "The total size of the encoded hashes ({previous_to_current_size} + {current_to_next_size}) must be greater or equal to the last read bit position variation ({last_read_bit_position_variation}).",
+        );
+
+        let number_of_inserted_bits =
+            previous_to_current_size + current_to_next_size - last_read_bit_position_variation;
+
+        EncodedHashEnvironment {
+            previous_to_current_gap,
+            current_to_next_gap,
+            number_of_inserted_bits,
+            previous_to_current_size,
+            current_to_next_size,
         }
     }
 
     #[inline]
     #[allow(unsafe_code)]
-    fn insert_sorted_desc(
+    pub(crate) fn insert_sorted_desc(
         hashes: &mut [u8],
         number_of_hashes: u32,
         bit_index: u32,
@@ -710,53 +844,32 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
         register: u8,
         original_hash: u64,
         hash_bits: u8,
-    ) -> Result<Option<u32>, SaturationError> {
+    ) -> Result<Option<InsertMetadata>, SaturationError> {
         if !Self::is_prefix_free_encoded(number_of_hashes, hash_bits, bit_index) {
             return match SwitchHash::<P, B>::insert_sorted_desc(
                 Self::skip_rank_index(hashes, hash_bits),
                 number_of_hashes,
                 bit_index,
-                index,
-                register,
-                original_hash,
+                Self::encode(index, register, original_hash, hash_bits),
                 hash_bits,
             ) {
-                Err(_) => {
-                    // If we do not have rice coefficients for this particular combination of
-                    // Precision and Bits, we cannot proceed to using prefix-free codes, and
-                    // we must declare complete Saturation, which implies switching from the
-                    // HashList to the HyperLogLog registers.
-                    if !Self::has_rice_coefficients() {
-                        return Err(SaturationError::Saturation);
-                    }
-
-                    // We check whether we can dowgrade to the current hash bits, or if we need to
-                    // downgrade to a smaller hash bits.
-                    let next_hash_bits = Self::next_hash_bits(hash_bits);
-                    if hash_bits > next_hash_bits {
-                        return Err(SaturationError::DowngradableSaturation);
-                    };
-
-                    let (duplicates, new_bit_index) =
-                        Self::downgrade_inplace(hashes, number_of_hashes, bit_index, hash_bits, 0);
-
-                    debug_assert_eq!(
-                        duplicates, 0,
-                        "There should be no duplicates when first prefix-coding a new value."
-                    );
-
-                    // And we try to insert the hash again.
-                    Self::insert_sorted_desc(
+                Err(SaturationError::Saturation(_)) => {
+                    // If the non-Prefix-Free-Encoded hash list is saturated, we must switch to the
+                    // PFC variant, which generally requires a smaller number of bits to encode the hashes.
+                    // This procedure will potentially reduce the number of hash bits employed, introduce
+                    // duplicates (which are removed and we receive their number) and return the new bit index.
+                    Self::insert_downgrading(
                         hashes,
                         number_of_hashes,
-                        new_bit_index,
                         index,
                         register,
                         original_hash,
+                        bit_index,
                         hash_bits,
                     )
+                    .map(|metadata| Some(metadata))
                 }
-                Ok(value) => Ok(value),
+                other => other,
             };
         }
 
@@ -784,13 +897,17 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
             "The hashes must be sorted in descending order.",
         );
 
-
         // iter until we find where we should insert
         let mut iter: PrefixCodeIter<'_, P, B> = if Self::has_rank_index() {
             // The list still has to be fully sorted even when we start to iterate from a point in the middle.
             debug_assert!(
-                PrefixCodeIter::<P, B>::new_with_rank_index(hashes_ref, bit_index, hash_bits, encoded_hash)
-                    .is_sorted_by(|a, b| b < a),
+                PrefixCodeIter::<P, B>::new_with_rank_index(
+                    hashes_ref,
+                    bit_index,
+                    hash_bits,
+                    encoded_hash
+                )
+                .is_sorted_by(|a, b| b < a),
                 "The hashes must be sorted in descending order.",
             );
 
@@ -812,7 +929,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
         }
 
         debug_assert!(
-            last_read_bit_position >= Self::rank_index_total_size(hash_bits),
+            last_read_bit_position <= Self::rank_index_offset(hashes, hash_bits),
             "Last read bit position ({last_read_bit_position}) must be greater or equal to the rank index size ({}), otherwise instead of reading hashes it would be reading the rank index.",
             Self::rank_index_total_size(hash_bits),
         );
@@ -825,7 +942,8 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 if value == encoded_hash {
                     return Ok(None);
                 }
-                last_read_bit_position_variation = iter.last_read_bit_position() - last_read_bit_position;
+                last_read_bit_position_variation =
+                    iter.last_read_bit_position() - last_read_bit_position;
                 next_hash = Some(value);
                 break;
             }
@@ -834,107 +952,43 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
             previous_hash = Some(value);
         }
 
-        // If we are changing the first hash in the hast list, we expect that the 'last_read_bit_position_variation'
-        // is equal to the hash bits.
-        debug_assert!(
-            last_read_bit_position > Self::rank_index_total_size(hash_bits)
-                || last_read_bit_position_variation == u32::from(hash_bits),
-            "When we are changing the first hash in the hash list, the last read bit position variation ({last_read_bit_position_variation}) must be equal to the hash bits ({hash_bits}).",
+        let EncodedHashEnvironment {
+            previous_to_current_gap,
+            current_to_next_gap,
+            number_of_inserted_bits,
+            previous_to_current_size,
+            current_to_next_size,
+        } = Self::encoded_hash_environment(
+            previous_hash,
+            encoded_hash,
+            next_hash,
+            hash_bits,
+            last_read_bit_position,
+            last_read_bit_position_variation,
+            iter.previous_gap_fragment,
+            Some(iter.previous),
         );
 
-        let prev_to_current_gap = match (previous_hash, Self::has_rank_index()) {
-            (None, true) => {
-                // When we use a rank index and we have immediately found the value we position where
-                // we would like to insert the value, it means we are replacing the first hash in the
-                // bucket. While we have stored this hash in the index, and we do have the gap informations
-                // between this hash and its successor, we do not have the true previous hash, which is the
-                // gap between the previous hash and the previous previous hash. A trivial approach like
-                // decoding the previous previous hash would require us to decode the entirety of the previous
-                // bucket and would therefore be inefficient.
-                next_hash = Some(iter.previous);
-                if last_read_bit_position == Self::rank_index_total_size(hash_bits) {
-                    None
-                } else {
-                    Some(Self::apply_gap(next_hash.unwrap(), iter.previous_gap_fragment.unwrap(), encoded_hash, hash_bits))
-                }
-            }
-            (Some(_), true) | (_, false) => previous_hash
-                .map(|previous_hash| {
-                    debug_assert!(previous_hash > encoded_hash);
-                    Self::into_gap_fragment(previous_hash, encoded_hash, hash_bits)
-                })
-        };
-
-        let current_to_next_gap = next_hash
-            .map(|next_hash| {
-                debug_assert!(next_hash < encoded_hash);
-                Self::into_gap_fragment(encoded_hash, next_hash, hash_bits)
-            });
-
-        // We check that we would be actually able to insert the new value, given the current
-        // bit index and the size the new value would require.
-            
-        // When the currently encoded value has a predecessor, we will be adding the gap between
-        // the previous hash and the current hash. If it does not have a predecessor, we will be
-        // adding the current hash itself, so it will require the full hash bits.
-
-        debug_assert!(
-            prev_to_current_gap.is_some() || last_read_bit_position == Self::rank_index_total_size(hash_bits),
-            "The previous to current gap ({prev_to_current_gap:?}) must be None when the last read bit position ({last_read_bit_position}) is the size of the rank index ({}).",
-            Self::rank_index_total_size(hash_bits)
-        );
-
-        let previous_to_current_size = prev_to_current_gap.map_or(
-            u32::from(hash_bits),
-            |prev_to_current_gap| {
-                len_rice(
-                    prev_to_current_gap.uniform_delta,
-                    Self::uniform_coefficient(hash_bits),
-                    prev_to_current_gap.geometric_minus_one,
-                    if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
-                        1
-                    } else {
-                        0
-                    },
-                )
-            },
-        );
-
-        // When the currently encoded value has a successor, we will be adding the gap between
-        // the current hash and the next hash. If it does not have a successor, then there is
-        // nothing to write. If there is no predecessor but there is a successor, it means that
-        // we are replacing the first hash in the hash list, which has size 'hash_bits'.
-        // Such delta is already accounted for in 'last_read_bit_position_variation'.
-        let current_to_next_size: u32 = current_to_next_gap.map_or(0, |current_to_next_gap| {
-            len_rice(
-                current_to_next_gap.uniform_delta,
-                Self::uniform_coefficient(hash_bits),
-                current_to_next_gap.geometric_minus_one,
-                if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
-                    1
-                } else {
-                    0
-                },
+        if bit_index + number_of_inserted_bits > Self::rank_index_offset(hashes, hash_bits) {
+            // If inserting the newly encoded hash would cause the hash list to overflow, we must
+            // downgrade it. This will change the number of hash bits, bit index, and potentially
+            // introduce duplicates which will therefore reduce the number of hashes.
+            return Self::insert_downgrading(
+                hashes,
+                number_of_hashes,
+                index,
+                register,
+                original_hash,
+                bit_index,
+                hash_bits,
             )
-        });
-
-        let number_of_inserted_bits = previous_to_current_size + current_to_next_size - last_read_bit_position_variation;
-
-        let new_bit_index = bit_index + number_of_inserted_bits;
-
-        if new_bit_index + Self::rank_index_total_size(hash_bits)
-            > (hashes_ref.len() * 8) as u32
-        {
-            if hash_bits == Self::SMALLEST_VIABLE_HASH_BITS {
-                return Err(SaturationError::Saturation);
-            }
-            return Err(SaturationError::DowngradableSaturation);
+            .map(|metadata| Some(metadata));
         }
 
         let hashes64 = unsafe {
             core::slice::from_raw_parts_mut(
                 hashes.as_mut_ptr().cast::<u64>(),
-                hashes.len() / core::mem::size_of::<u64>(),
+                hashes.len() / size_of::<u64>(),
             )
         };
 
@@ -951,16 +1005,11 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
         // If there is no previos value, we would need to write the encoded value itself but
         // writing such a high value in prefix-free encoding would be inefficient. Therefore,
         // we write the first hash explicitly.
-        if let Some(prev_to_current_gap) = prev_to_current_gap {
+        if let Some(previous_to_current_gap) = previous_to_current_gap {
             let total_wrote = writer.write_rice(
-                prev_to_current_gap.uniform_delta,
-                prev_to_current_gap.geometric_minus_one,
+                previous_to_current_gap.uniform_delta,
+                previous_to_current_gap.geometric_minus_one,
                 Self::uniform_coefficient(hash_bits),
-                if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
-                    1
-                } else {
-                    0
-                },
             );
 
             debug_assert!(
@@ -972,7 +1021,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
         } else {
             debug_assert_eq!(
                 writer.tell(),
-                Self::rank_index_total_size(hash_bits),
+                0,
                 "The writer tell must be 0 or rank index size if there is no previous value"
             );
 
@@ -990,11 +1039,6 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 current_to_next_gap.uniform_delta,
                 current_to_next_gap.geometric_minus_one,
                 Self::uniform_coefficient(hash_bits),
-                if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
-                    1
-                } else {
-                    0
-                },
             );
 
             debug_assert!(
@@ -1003,10 +1047,10 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 bypass.last_buffered_bit(),
                 writer.tell(),
             );
-            
+
             // We check that practice matches theory:
             debug_assert_eq!(
-                writer.tell() - last_read_bit_position ,
+                writer.tell() - last_read_bit_position,
                 previous_to_current_size + current_to_next_size,
             );
 
@@ -1028,11 +1072,11 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
 
                 // We check that practice matches theory:
                 debug_assert_eq!(
-                    writer_tell - Self::rank_index_total_size(hash_bits),
-                    new_bit_index,
-                    "Expected writer tell (started at {last_read_bit_position} [{}], prev_hash: {previous_hash:?} next_hash {next_hash:?}) to match bit index {bit_index} + value variation {number_of_inserted_bits} = ({new_bit_index}). Rank index size: {}",
-                    last_read_bit_position - Self::rank_index_total_size(hash_bits),
-                    Self::rank_index_total_size(hash_bits),
+                    writer_tell,
+                    bit_index + number_of_inserted_bits,
+                    "Expected writer tell (started at {last_read_bit_position} [{}], prev_hash: {previous_hash:?} next_hash {next_hash:?}) to match bit index {bit_index} + value variation {number_of_inserted_bits} = ({}).",
+                    last_read_bit_position,
+                    bit_index + number_of_inserted_bits
                 );
             }
         }
@@ -1041,12 +1085,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
 
         if Self::has_rank_index() {
             // If we are using a rank index, we may need to update the values in the index.
-            Self::update_rank_index(
-                hashes,
-                hash_bits, 
-                last_read_bit_position - Self::rank_index_total_size(hash_bits),
-                encoded_hash
-            );
+            Self::update_rank_index(hashes, hash_bits, last_read_bit_position, encoded_hash);
 
             if let Some(next_hash) = next_hash {
                 // Furthermore, we need to shift the bit index associated to values that are smaller
@@ -1054,7 +1093,7 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
                 Self::shift_index(
                     hashes,
                     encoded_hash,
-                    last_read_bit_position + previous_to_current_size - Self::rank_index_total_size(hash_bits),
+                    last_read_bit_position + previous_to_current_size,
                     next_hash,
                     hash_bits,
                     number_of_inserted_bits,
@@ -1062,32 +1101,187 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
             }
         }
 
-        debug_assert!(
-            PrefixCodeIter::<P, B>::new(hashes, new_bit_index, hash_bits)
-                .is_sorted_by(|a, b| b < a)
-        );
+        debug_assert!(PrefixCodeIter::<P, B>::new(
+            hashes,
+            bit_index + number_of_inserted_bits,
+            hash_bits
+        )
+        .is_sorted_by(|a, b| b < a));
 
-        Ok(Some(new_bit_index))
+        Ok(Some(InsertMetadata {
+            hash_bits,
+            duplicates: 0,
+            bit_index: bit_index + number_of_inserted_bits,
+        }))
     }
+
+    /// The smallest viable hash bits that can be employed.
+    pub const SMALLEST_VIABLE_HASH_BITS: u8 = P::EXPONENT + B::NUMBER_OF_BITS;
+    /// The largest viable hash bits that can be employed.
+    pub const LARGEST_VIABLE_HASH_BITS: u8 = SwitchHash::<P, B>::LARGEST_VIABLE_HASH_BITS;
 
     #[inline]
     #[allow(unsafe_code)]
     /// Downgrade the hash into a smaller hash in place.
-    fn downgrade_inplace(
+    fn insert_downgrading(
         hashes: &mut [u8],
         number_of_hashes: u32,
+        index: usize,
+        register: u8,
+        original_hash: u64,
         bit_index: u32,
-        hash_bits: u8,
-        shift: u8,
-    ) -> (u32, u32) {
-        let target_hash_bits = hash_bits - shift;
+        mut hash_bits: u8,
+    ) -> Result<InsertMetadata, SaturationError> {
+        // First, we need to identify the target hash bits which will allow us to insert
+        // a new hash.
+        let original_hash_bits = hash_bits;
+        let expected_maximal_bit_index;
+        let mut uniform_coefficient: u8 = u8::MAX;
+        let mut encoded_hash: u32;
+
+        if hash_bits < Self::LARGEST_VIABLE_HASH_BITS {
+            hash_bits -= 1;
+        }
+
+        loop {
+            // If the hash is already prefix-free encoded, we need to search the next smaller
+            // hash that we can use to encode the hashes.
+            let data =
+                OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
+
+            let mut found_smaller = false;
+
+            for (target_hash_bits, target_uniform_coefficient) in data.iter().rev() {
+                if hash_bits >= *target_hash_bits {
+                    hash_bits = *target_hash_bits;
+                    uniform_coefficient = *target_uniform_coefficient;
+                    found_smaller = true;
+                    break;
+                }
+            }
+
+            if !found_smaller {
+                // If we cannot find a smaller hash bits, we need to return a Saturation error.
+                return Err(SaturationError::Saturation(bit_index));
+            }
+
+            // Then we verify whether this hash bits are viable, i.e. whether the size of the gaps encoded
+            // with this particular hash bits are ALWAYS smaller than the current ones. If this is the case,
+            // we can safely use this hash bits, otherwise we need to iterate to the next smaller hash bits.
+
+            let mut iter = GapHash::<P, B>::downgraded(
+                hashes,
+                number_of_hashes,
+                original_hash_bits,
+                bit_index,
+                original_hash_bits - hash_bits,
+            );
+
+            encoded_hash = Self::encode(index, register, original_hash, hash_bits);
+
+            let mut reader_buffer_overflow = false;
+
+            let mut previous_hash: Option<u32> = None;
+            let mut writer_tell = 0;
+            let mut maybe_next = iter.next();
+            let mut maybe_double_next = iter.next();
+            let mut encoded_hash_accounted_for = false;
+
+            while let Some(next) = maybe_next {
+                maybe_next = maybe_double_next;
+                maybe_double_next = iter.next();
+
+                if Some(next) == previous_hash {
+                    continue;
+                }
+
+                // If is possible that by downgrading the hash bits, the encoded hash
+                // will become equal to some other hash. In such cases, we will simply
+                // mark it as a duplicate and skip it.
+                if encoded_hash == next {
+                    encoded_hash_accounted_for = true;
+                }
+
+                // We have already checked that encoded hash is not present
+                // in the hash list, so we just need to check whether it is
+                // larger than the current hash.
+                writer_tell += if encoded_hash > next && !encoded_hash_accounted_for {
+                    encoded_hash_accounted_for = true;
+
+                    let previous_gap_size =
+                        previous_hash.map_or(u32::from(hash_bits), |previous_hash| {
+                            let gap =
+                                Self::into_gap_fragment(previous_hash, encoded_hash, hash_bits);
+                            len_rice(
+                                gap.uniform_delta,
+                                uniform_coefficient,
+                                gap.geometric_minus_one,
+                            )
+                        });
+
+                    let successor_gap_size = Self::into_gap_fragment(encoded_hash, next, hash_bits);
+                    previous_gap_size
+                        + len_rice(
+                            successor_gap_size.uniform_delta,
+                            uniform_coefficient,
+                            successor_gap_size.geometric_minus_one,
+                        )
+                } else if let Some(previous_hash) = previous_hash {
+                    let fragment =
+                        GapHash::<P, B>::into_gap_fragment(previous_hash, next, hash_bits);
+                    len_rice(
+                        fragment.uniform_delta,
+                        uniform_coefficient,
+                        fragment.geometric_minus_one,
+                    )
+                } else {
+                    // If we do not have a previous hash and we are not inserting the encoded hash,
+                    // we need to write the next hash explicitly using hash bits.
+                    u32::from(hash_bits)
+                };
+
+                previous_hash = Some(next);
+
+                // If we have not accounted for the encoded hash as it is smaller than all the
+                // hashes in the list, we need to add it as the last hash.
+                if maybe_next.is_none() && !encoded_hash_accounted_for {
+                    encoded_hash_accounted_for = true;
+                    let gap = Self::into_gap_fragment(next, encoded_hash, hash_bits);
+                    writer_tell += len_rice(
+                        gap.uniform_delta,
+                        uniform_coefficient,
+                        gap.geometric_minus_one,
+                    );
+                }
+
+                // If the writer tell with the current hash bits would end up overlapping
+                // with the reader buffer, we need to try with a smaller hash bits.
+                if writer_tell > iter.last_buffered_bit() || writer_tell > bit_index {
+                    reader_buffer_overflow = true;
+                    break;
+                }
+            }
+
+            debug_assert!(encoded_hash_accounted_for);
+
+            // If we encountered a reader overflow, or the new bit index is not small enough
+            // to accomodate a new hash, we need to try with a smaller hash bits.
+            if reader_buffer_overflow {
+                hash_bits -= 1;
+                continue;
+            }
+
+            // Otherwise we have identified the next hash bits to employ!
+            expected_maximal_bit_index = writer_tell;
+            break;
+        }
 
         // safe because the slice is originally allocated as u64s
-        debug_assert!(hashes.len() % core::mem::size_of::<u64>() == 0);
+        debug_assert!(hashes.len() % size_of::<u64>() == 0);
         let hashes_64 = unsafe {
             core::slice::from_raw_parts_mut(
                 hashes.as_mut_ptr().cast::<u64>(),
-                hashes.len() / core::mem::size_of::<u64>(),
+                hashes.len() / size_of::<u64>(),
             )
         };
 
@@ -1099,149 +1293,216 @@ impl<P: Precision, B: Bits> CompositeHash for GapHash<P, B> {
 
         #[cfg(test)]
         #[cfg(feature = "std")]
-        println!("Downgrading at hash size {hash_bits} with shift {shift}.");
+        println!(
+            "Downgrading from hash size {original_hash_bits} to {hash_bits}, from bit index {} to {}, total hashes bits {}, of which {} for rank index.",
+            bit_index,
+            expected_maximal_bit_index,
+            hashes.len() * 8,
+            Self::rank_index_total_size(hash_bits),
+        );
 
         // We initialize the index before we start writing the hashes.
-        if Self::has_rank_index() {
-            Self::initialize_rank_index(hashes, target_hash_bits);
+        if GapHash::<P, B>::has_rank_index() {
+            GapHash::<P, B>::initialize_rank_index(hashes, hash_bits);
         }
 
         let mut writer = BitWriter::new(hashes_64);
-        writer.seek(Self::rank_index_total_size(target_hash_bits));
 
-        debug_assert!(
-            Self::downgraded(hashes, number_of_hashes, hash_bits, bit_index, 0)
-                .is_sorted_by(|a, b| b < a)
+        debug_assert!(GapHash::<P, B>::downgraded(
+            hashes,
+            number_of_hashes,
+            original_hash_bits,
+            bit_index,
+            0
+        )
+        .is_sorted_by(|a, b| b < a));
+
+        let mut iter = GapHash::<P, B>::downgraded(
+            hashes,
+            number_of_hashes,
+            original_hash_bits,
+            bit_index,
+            original_hash_bits - hash_bits,
         );
-
-        let mut iter = Self::downgraded(hashes, number_of_hashes, hash_bits, bit_index, shift);
 
         // We write the first hash explicitly, as otherwise it would be
         // written in a very inefficient way.
-        let mut previous_hash = iter.next().unwrap();
-        writer.write_bits(previous_hash, target_hash_bits);
-
-        if Self::has_rank_index() {
-            Self::update_rank_index(hashes_8, target_hash_bits, 0, previous_hash);
-        }
-
+        let mut previous_hash: Option<u32> = None;
         let mut duplicates = 0;
 
         let mut maybe_next = iter.next();
         let mut maybe_double_next = iter.next();
 
-        let uniform_coefficient = Self::uniform_coefficient(target_hash_bits);
+        let mut encoded_hash_accounted_for = false;
 
         while let Some(next) = maybe_next {
             maybe_next = maybe_double_next;
             maybe_double_next = iter.next();
 
-            if next == previous_hash {
+            if Some(next) == previous_hash {
                 duplicates += 1;
                 continue;
             }
 
-            debug_assert!(
-                previous_hash > next,
-                "The hashes must be sorted in descending order. Found {previous_hash} <= {next}."
-            );
+            // If is possible that by downgrading the hash bits, the encoded hash
+            // will become equal to some other hash. In such cases, we will simply
+            // mark it as a duplicate and skip it.
+            if encoded_hash == next {
+                encoded_hash_accounted_for = true;
+                duplicates += 1;
+            }
 
-            let fragment = Self::into_gap_fragment(previous_hash, next, target_hash_bits);
-            let writer_tell_before_write = writer.tell() as u32;
+            let total_wrote: usize = if encoded_hash > next && !encoded_hash_accounted_for {
+                encoded_hash_accounted_for = true;
 
-            let total_wrote = writer.write_rice(
-                fragment.uniform_delta,
-                fragment.geometric_minus_one,
-                uniform_coefficient,
-                if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
-                    1
+                (if let Some(previous_hash) = previous_hash {
+                    let previous_to_current_gap =
+                        Self::into_gap_fragment(previous_hash, encoded_hash, hash_bits);
+                    if GapHash::<P, B>::has_rank_index() {
+                        let previous_hash_bucket =
+                            GapHash::<P, B>::rank_index_hash_bucket(hash_bits, previous_hash);
+                        let current_hash_bucket =
+                            GapHash::<P, B>::rank_index_hash_bucket(hash_bits, encoded_hash);
+
+                        if current_hash_bucket > previous_hash_bucket {
+                            GapHash::<P, B>::update_rank_index(
+                                hashes_8,
+                                hash_bits,
+                                writer.tell(),
+                                encoded_hash,
+                            );
+                        }
+                    }
+                    // If there is a previous gap, we write it.
+                    writer.write_rice(
+                        previous_to_current_gap.uniform_delta,
+                        previous_to_current_gap.geometric_minus_one,
+                        uniform_coefficient,
+                    )
                 } else {
-                    0
-                },
-            );
+                    // Otherwise this must be the first hash in the list.
+                    debug_assert_eq!(writer.tell(), 0);
+                    usize::from(writer.write_bits(encoded_hash, hash_bits))
+                }) + {
+                    let current_to_next_gap =
+                        Self::into_gap_fragment(encoded_hash, next, hash_bits);
+                    if GapHash::<P, B>::has_rank_index() {
+                        let previous_hash_bucket =
+                            GapHash::<P, B>::rank_index_hash_bucket(hash_bits, encoded_hash);
+                        let current_hash_bucket =
+                            GapHash::<P, B>::rank_index_hash_bucket(hash_bits, next);
 
-            // If we are using the index, we need to insert the position and the hash
-            // that represents the largest entry of the current bucket. First, we determine
-            // whether the current hash is the largest hash in the bucket. We can easily
-            // determine this by comparing the current hash with the previous hash. If the
-            // bucket demarking line is between the two hashes, since the hashes are sorted
-            // in descending order, the current hash is necessarily the largest hash in the
-            // bucket. We then write the position and the hash in the rank index.
-            if Self::has_rank_index() {
-                let previous_hash_bucket =
-                    Self::rank_index_hash_bucket(target_hash_bits, previous_hash);
-                let current_hash_bucket = Self::rank_index_hash_bucket(target_hash_bits, next);
-
-                if current_hash_bucket > previous_hash_bucket {
-                    Self::update_rank_index(
-                        hashes_8,
-                        target_hash_bits, 
-                        writer_tell_before_write - Self::rank_index_total_size(target_hash_bits),
-                        next
-                    );
+                        if current_hash_bucket > previous_hash_bucket {
+                            GapHash::<P, B>::update_rank_index(
+                                hashes_8,
+                                hash_bits,
+                                writer.tell(),
+                                next,
+                            );
+                        }
+                    }
+                    writer.write_rice(
+                        current_to_next_gap.uniform_delta,
+                        current_to_next_gap.geometric_minus_one,
+                        uniform_coefficient,
+                    )
                 }
+            } else if let Some(previous_hash) = previous_hash {
+                let fragment = GapHash::<P, B>::into_gap_fragment(previous_hash, next, hash_bits);
+                if GapHash::<P, B>::has_rank_index() {
+                    let previous_hash_bucket =
+                        GapHash::<P, B>::rank_index_hash_bucket(hash_bits, previous_hash);
+                    let current_hash_bucket =
+                        GapHash::<P, B>::rank_index_hash_bucket(hash_bits, next);
+
+                    if current_hash_bucket > previous_hash_bucket {
+                        GapHash::<P, B>::update_rank_index(
+                            hashes_8,
+                            hash_bits,
+                            writer.tell(),
+                            next,
+                        );
+                    }
+                }
+                writer.write_rice(
+                    fragment.uniform_delta,
+                    fragment.geometric_minus_one,
+                    uniform_coefficient,
+                )
+            } else {
+                usize::from(writer.write_bits(next, hash_bits))
+            };
+
+            previous_hash = Some(next);
+
+            // If we are at the last hash, and we have not accounted for the encoded hash, we need to write it.
+            if maybe_next.is_none() && !encoded_hash_accounted_for {
+                encoded_hash_accounted_for = true;
+                let previous_to_current_gap =
+                    Self::into_gap_fragment(next, encoded_hash, hash_bits);
+
+                writer.write_rice(
+                    previous_to_current_gap.uniform_delta,
+                    previous_to_current_gap.geometric_minus_one,
+                    uniform_coefficient,
+                );
             }
 
             debug_assert!(
                 iter.last_buffered_bit() >= writer.tell(),
-                "Reader tell ({}) must be greater than writer tell ({}, just wrote {total_wrote}, {previous_hash} - {next}) in downgrade at hash size {hash_bits} with shift {shift}. Precision: {}, Bits: {}.",
+                "Reader tell ({}) must be greater than writer tell ({}, just wrote {total_wrote}, {previous_hash:?} - {next}) in downgrade from hash size {original_hash_bits} to {hash_bits}. Precision: {}, Bits: {}.",
                 iter.last_buffered_bit(),
                 writer.tell(),
                 P::EXPONENT,
                 B::NUMBER_OF_BITS
             );
-            previous_hash = next;
         }
 
-        let writer_tell = writer.tell();
+        debug_assert!(encoded_hash_accounted_for);
 
-        // If we are using the rank index, we need to remove the index size from the writer tell to convert it into the updated bit index.
-        let updated_bit_index = writer_tell - Self::rank_index_total_size(target_hash_bits);
+        let writer_tell = writer.tell();
 
         drop(writer);
 
         debug_assert!(
-            updated_bit_index <= bit_index,
-            "PFC-ing at bit size {hash_bits} with shift {shift} should decrease the bit index ({bit_index}), but got writer tell {updated_bit_index}. Precision: {}, Bits: {}.",
+            writer_tell <= bit_index,
+            "PFC-ing from hash bits {original_hash_bits} to {hash_bits} must decrease the bit index ({bit_index}), but got writer tell {writer_tell} (maximal expected {expected_maximal_bit_index}). Precision: {}, Bits: {}.",
             P::EXPONENT,
             B::NUMBER_OF_BITS
+        );
+
+        debug_assert_eq!(
+            writer_tell, expected_maximal_bit_index,
+            "The writer tell ({writer_tell}) must match expected new bit index ({expected_maximal_bit_index}).",
         );
 
         #[cfg(test)]
         #[cfg(feature = "std")]
         println!(
-            "Writer tell at {updated_bit_index}, started from {bit_index}, with {duplicates} duplicates.",
+            "Writer tell at {writer_tell} (maximal expected {expected_maximal_bit_index}), started from {bit_index}, with {duplicates} duplicates.",
         );
 
         debug_assert_eq!(
             PrefixCodeIter::<P, B>::new(
                 hashes,
-                updated_bit_index,
-                target_hash_bits,
+                writer_tell,
+                hash_bits,
             )
             .count() as u32,
-            number_of_hashes - duplicates,
-            "The number of hashes (minus duplicates) must be the same after downgrading. Current writer tell: {updated_bit_index}, started from {bit_index}."
+            number_of_hashes + 1 - duplicates,
+            "The number of hashes (minus duplicates) must be the same after downgrading. Current writer tell: {writer_tell}, started from {bit_index}."
         );
 
         #[cfg(test)]
         #[cfg(feature = "std")]
         println!("Downgrading completed with {} duplicates.", duplicates);
 
-        (duplicates, updated_bit_index)
+        Ok(InsertMetadata {
+            hash_bits,
+            duplicates,
+            bit_index: writer_tell,
+        })
     }
-
-    #[inline]
-    fn target_downgraded_hash_bits(
-        _number_of_hashes: u32,
-        _bit_index: u32,
-        hash_bits: u8,
-    ) -> u8 {
-        Self::next_hash_bits(hash_bits - 1)
-    }
-
-    const SMALLEST_VIABLE_HASH_BITS: u8 = Self::Precision::EXPONENT + Self::Bits::NUMBER_OF_BITS;
-    const LARGEST_VIABLE_HASH_BITS: u8 = SwitchHash::<P, B>::LARGEST_VIABLE_HASH_BITS;
 }
 
 #[derive(Debug)]
@@ -1250,7 +1511,7 @@ pub enum DispatchedDowngradedIter<'a, P: Precision, B: Bits> {
     /// Variants for when the prefix-free codes are used.
     PrefixCodeDowngradedIter(PrefixCodeDowngradedIter<'a, P, B>),
     /// Variants for when the prefix-free codes are not used.
-    InnerDowngradedIter(<SwitchHash<P, B> as CompositeHash>::Downgraded<'a>),
+    InnerDowngradedIter(DowngradedIter<'a, P, B>),
 }
 
 impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDowngradedIter<'a, P, B> {
@@ -1258,10 +1519,7 @@ impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDowngradedIter<'a,
     fn last_buffered_bit(&self) -> u32 {
         match self {
             Self::PrefixCodeDowngradedIter(iter) => iter.last_buffered_bit(),
-            Self::InnerDowngradedIter(iter) => {
-                iter.last_buffered_bit()
-                    + GapHash::<P, B>::rank_index_total_size(iter.hash_bits())
-            }
+            Self::InnerDowngradedIter(iter) => iter.last_buffered_bit(),
         }
     }
 
@@ -1304,7 +1562,8 @@ impl Iterator for BypassIter<'_> {
         if self.bitstream.last_read_bit_position() >= self.bit_index {
             return None;
         }
-        let n_bits = core::cmp::min(64, self.bit_index - self.bitstream.last_read_bit_position()) as u8;
+        let n_bits =
+            core::cmp::min(64, self.bit_index - self.bitstream.last_read_bit_position()) as u8;
         Some((self.bitstream.read_bits(n_bits), n_bits))
     }
 }
@@ -1412,7 +1671,7 @@ impl<'a, P: Precision, B: Bits> PrefixCodeIter<'a, P, B> {
     fn into_bypass(self) -> BypassIter<'a> {
         BypassIter {
             bitstream: self.bitstream,
-            bit_index: self.maximal_bit_index + GapHash::<P, B>::rank_index_total_size(self.hash_bits),
+            bit_index: self.maximal_bit_index,
         }
     }
 
@@ -1431,7 +1690,7 @@ impl<'a, P: Precision, B: Bits> PrefixCodeIter<'a, P, B> {
             GapHash::<P, B>::best_search_start(hashes, hash_bits, current_hash);
 
         debug_assert!(
-            bit_index 
+            bit_index
                 <= maximal_bit_index,
             "The bit index ({bit_index}) must be less or equal to the maximal bit index ({maximal_bit_index})."
         );
@@ -1443,10 +1702,10 @@ impl<'a, P: Precision, B: Bits> PrefixCodeIter<'a, P, B> {
                 unsafe {
                     core::slice::from_raw_parts(
                         hashes.as_ptr().cast::<u32>(),
-                        hashes.len() / core::mem::size_of::<u32>(),
+                        hashes.len() / size_of::<u32>(),
                     )
                 },
-                bit_index + GapHash::<P, B>::rank_index_total_size(hash_bits),
+                bit_index,
             ),
             hash_bits,
             maximal_bit_index,
@@ -1467,15 +1726,12 @@ impl<'a, P: Precision, B: Bits> PrefixCodeIter<'a, P, B> {
         Self {
             previous: u32::MAX,
             first: true,
-            bitstream: BitReader::skip(
-                unsafe {
-                    core::slice::from_raw_parts(
-                        hashes.as_ptr().cast::<u32>(),
-                        hashes.len() / core::mem::size_of::<u32>(),
-                    )
-                },
-                GapHash::<P, B>::rank_index_total_size(hash_bits),
-            ),
+            bitstream: BitReader::new(unsafe {
+                core::slice::from_raw_parts(
+                    hashes.as_ptr().cast::<u32>(),
+                    hashes.len() / size_of::<u32>(),
+                )
+            }),
             hash_bits,
             maximal_bit_index,
             previous_gap_fragment: None,
@@ -1498,25 +1754,18 @@ impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeIter<'a, P, B> {
         if self.first {
             self.first = false;
 
-            if self.bitstream.last_read_bit_position() == GapHash::<P, B>::rank_index_total_size(self.hash_bits) {
+            if self.bitstream.last_read_bit_position() == 0 {
                 self.previous = self.bitstream.read_bits(self.hash_bits) as u32;
             } else {
                 let uniform_delta = self.bitstream.read_rice(self.uniform_coefficient);
-                let geometric_minus_one = if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
-                    self.bitstream.read_rice(1) as u8
-                } else {
-                    self.bitstream.read_unary()   
-                };
+                let geometric_minus_one = self.bitstream.read_unary();
                 self.previous_gap_fragment = Some(GapFragment {
                     uniform_delta,
                     geometric_minus_one,
                 });
             }
 
-            let hash_fragment = SwitchHash::<P, B>::scompose_hash(
-                self.previous,
-                self.hash_bits,
-            );
+            let hash_fragment = SwitchHash::<P, B>::scompose_hash(self.previous, self.hash_bits);
 
             // The geometric minus one should be always equal to the geometric portion of the hash fragment,
             // i.e. the register value.
@@ -1536,10 +1785,7 @@ impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeIter<'a, P, B> {
 
             return Some(self.previous);
         }
-        if self.maximal_bit_index
-            + GapHash::<P, B>::rank_index_total_size(self.hash_bits)
-            <= self.bitstream.last_read_bit_position()
-        {
+        if self.maximal_bit_index <= self.bitstream.last_read_bit_position() {
             return None;
         }
         #[cfg(test)]
@@ -1548,11 +1794,7 @@ impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeIter<'a, P, B> {
         }
 
         let uniform_delta = self.bitstream.read_rice(self.uniform_coefficient);
-        let geometric_minus_one = if P::EXPONENT == 4 && (B::NUMBER_OF_BITS == 4 || B::NUMBER_OF_BITS == 5) {
-            self.bitstream.read_rice(1) as u8
-        } else {
-            self.bitstream.read_unary()   
-        };
+        let geometric_minus_one = self.bitstream.read_unary();
         self.previous_gap_fragment = Some(GapFragment {
             uniform_delta,
             geometric_minus_one,
@@ -1646,7 +1888,7 @@ pub enum DispatchedDecodedIter<'a, P: Precision, B: Bits> {
     /// Variants for when the prefix-free codes are used.
     PrefixCodeDecodedIter(PrefixCodeDecodedIter<'a, P, B>),
     /// Variants for when the prefix-free codes are not used.
-    InnerDecodedIter(<SwitchHash<P, B> as CompositeHash>::Decoded<'a>),
+    InnerDecodedIter(DecodedIter<'a, P, B>),
 }
 
 impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDecodedIter<'a, P, B> {
@@ -1720,28 +1962,30 @@ impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeDecodedIter<'a, P, B> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hyperloglog_derive::test_precisions_and_bits;
     use crate::prelude::*;
+    use hyperloglog_derive::test_precisions_and_bits;
 
     #[test]
     #[allow(unsafe_code)]
     fn test_rank_index_initialization() {
         for hash_bits in 8..32 {
             let mut hashes = [0u8; 256];
-            let rank_index_bitindex_size =
-                GapHash::<Precision11, Bits4>::rank_index_bits();
-            assert_eq!(GapHash::<Precision11, Bits4>::rank_index_capacity(), 22);
+            let rank_index_bitindex_size = GapHash::<Precision11, Bits4>::rank_index_bits();
+            assert_eq!(GapHash::<Precision11, Bits4>::rank_index_capacity(), 4);
             GapHash::<Precision11, Bits4>::initialize_rank_index(&mut hashes, hash_bits);
 
             // We expect the just initialized rank index to be a series of 'rank_index_bitindex_size' ones
             // each one followed by 'hash_bits' zeros.
-            let hashes = unsafe {
+            let hashesu32 = unsafe {
                 core::slice::from_raw_parts(
                     hashes.as_ptr().cast::<u32>(),
-                    hashes.len() / core::mem::size_of::<u32>(),
+                    hashes.len() / size_of::<u32>(),
                 )
             };
-            let mut reader = BitReader::new(&hashes);
+            let mut reader = BitReader::skip(
+                hashesu32,
+                GapHash::<Precision11, Bits4>::rank_index_offset(&hashes, hash_bits),
+            );
             for _ in 0..(GapHash::<Precision11, Bits4>::rank_index_capacity() - 1) {
                 assert_eq!(
                     reader.read_bits(rank_index_bitindex_size),
@@ -1760,7 +2004,8 @@ mod tests {
         for hash_bits in 8..32 {
             random_state = splitmix64(random_state);
 
-            let expected_bucket_size = 1u32 << (hash_bits - GapHash::<Precision11, Bits4>::rank_index_exponent());
+            let expected_bucket_size =
+                1u32 << (hash_bits - GapHash::<Precision11, Bits4>::rank_index_exponent());
 
             for mut fake_hash in iter_random_values::<u32>(1_000, None, None) {
                 // We adjust the fake hash to the current hash bits.
@@ -1769,7 +2014,8 @@ mod tests {
                 GapHash::<Precision11, Bits4>::initialize_rank_index(&mut hashes, hash_bits);
 
                 let expected_bucket = GapHash::<Precision11, Bits4>::rank_index_capacity()
-                    - fake_hash / expected_bucket_size - 1;
+                    - fake_hash / expected_bucket_size
+                    - 1;
 
                 // We try to get the best starting point for the iterator from the rank index
                 // Since the index is empty, it should return as position 'hash_bits', as if
@@ -1781,8 +2027,7 @@ mod tests {
                     GapHash::<Precision11, Bits4>::best_search_start(&hashes, hash_bits, fake_hash);
 
                 assert_eq!(
-                    bit_index,
-                    0,
+                    bit_index, 0,
                     "Found unexpected bit index for hash {fake_hash}."
                 );
                 assert_eq!(bucket_hash, 0, "Found unexpected bucket hash.");
@@ -1792,9 +2037,7 @@ mod tests {
 
                 assert_eq!(determined_bucket, expected_bucket);
 
-                for bit_index in
-                    GapHash::<Precision11, Bits4>::rank_index_total_size(hash_bits)..64
-                {
+                for bit_index in 0..1024 {
                     // We reset the hashes to the initial state.
                     GapHash::<Precision11, Bits4>::initialize_rank_index(&mut hashes, hash_bits);
 
@@ -1813,8 +2056,23 @@ mod tests {
                             &hashes, hash_bits, fake_hash,
                         );
 
-                    assert_eq!(best_bit_index, bit_index);
-                    assert_eq!(best_bucket_hash, fake_hash);
+                    let hash_bucket =
+                        GapHash::<Precision11, Bits4>::rank_index_hash_bucket(hash_bits, fake_hash);
+
+                    if hash_bucket != 0 {
+                        assert_eq!(
+                            best_bit_index,
+                            bit_index,
+                            "Found unexpected bit index. Total hashes bit size {}, index bit size {}. The index mask is {}.",
+                            hashes.len() * 8,
+                            GapHash::<Precision11, Bits4>::rank_index_total_size(hash_bits),
+                            GapHash::<Precision11, Bits4>::rank_index_mask()
+                        );
+                        assert_eq!(
+                            best_bucket_hash, fake_hash,
+                            "Unable to read the fake hash at index {bit_index}."
+                        );
+                    }
                 }
             }
         }
@@ -1822,65 +2080,117 @@ mod tests {
 
     #[test_precisions_and_bits]
     /// Test that the apply_gap function works as expected.
-    fn test_apply_gap<P: Precision, B: Bits>() where P: ArrayRegister<B> {
+    fn test_apply_gap<P: Precision, B: Bits>()
+    where
+        P: PackedRegister<B>,
+    {
         const NUMBER_OF_HASHES: usize = 1_000;
         let mut first_random_state = 4_575_763_274_578_236u64;
         let mut second_random_state = 564_655_678_565_685_654u64;
         let mut third_random_state = 324_587_447_578_236u64;
 
         // We start from the maximal number of bits for the hash.
-        for hash_bits in GapHash::<P, B>::SMALLEST_VIABLE_HASH_BITS..=GapHash::<P, B>::LARGEST_VIABLE_HASH_BITS {
-
+        for hash_bits in
+            GapHash::<P, B>::SMALLEST_VIABLE_HASH_BITS..=GapHash::<P, B>::LARGEST_VIABLE_HASH_BITS
+        {
             first_random_state = splitmix64(first_random_state);
             second_random_state = splitmix64(second_random_state);
             third_random_state = splitmix64(third_random_state);
-            for ((first, second), third)in iter_random_values::<u64>(NUMBER_OF_HASHES as u64, None, Some(first_random_state)).zip(iter_random_values::<u64>(NUMBER_OF_HASHES as u64, None, Some(second_random_state))).zip(iter_random_values::<u64>(NUMBER_OF_HASHES as u64, None, Some(third_random_state))) {
+            for ((first, second), third) in
+                iter_random_values::<u64>(NUMBER_OF_HASHES as u64, None, Some(first_random_state))
+                    .zip(iter_random_values::<u64>(
+                        NUMBER_OF_HASHES as u64,
+                        None,
+                        Some(second_random_state),
+                    ))
+                    .zip(iter_random_values::<u64>(
+                        NUMBER_OF_HASHES as u64,
+                        None,
+                        Some(third_random_state),
+                    ))
+            {
                 let (first_index, first_register, first_original_hash) =
                     <HyperLogLog<
                         P,
                         B,
-                        <P as ArrayRegister<B>>::Packed,
+                        <P as PackedRegister<B>>::Array,
                     >>::index_and_register_and_hash(&first);
 
-                let first_encoded_hash = GapHash::<P, B>::encode(first_index, first_register, first_original_hash, hash_bits);
+                let first_encoded_hash = GapHash::<P, B>::encode(
+                    first_index,
+                    first_register,
+                    first_original_hash,
+                    hash_bits,
+                );
 
                 let (second_index, second_register, second_original_hash) =
                     <HyperLogLog<
                         P,
                         B,
-                        <P as ArrayRegister<B>>::Packed,
+                        <P as PackedRegister<B>>::Array,
                     >>::index_and_register_and_hash(&second);
 
-                let second_encoded_hash = GapHash::<P, B>::encode(second_index, second_register, second_original_hash, hash_bits);
+                let second_encoded_hash = GapHash::<P, B>::encode(
+                    second_index,
+                    second_register,
+                    second_original_hash,
+                    hash_bits,
+                );
 
                 let (third_index, third_register, third_original_hash) =
                     <HyperLogLog<
                         P,
                         B,
-                        <P as ArrayRegister<B>>::Packed,
+                        <P as PackedRegister<B>>::Array,
                     >>::index_and_register_and_hash(&third);
 
-                let third_encoded_hash = GapHash::<P, B>::encode(third_index, third_register, third_original_hash, hash_bits);
+                let third_encoded_hash = GapHash::<P, B>::encode(
+                    third_index,
+                    third_register,
+                    third_original_hash,
+                    hash_bits,
+                );
 
-                let largest = core::cmp::max(first_encoded_hash, core::cmp::max(second_encoded_hash, third_encoded_hash));
-                let smallest = core::cmp::min(first_encoded_hash, core::cmp::min(second_encoded_hash, third_encoded_hash));
-                let medium = first_encoded_hash + second_encoded_hash + third_encoded_hash - largest - smallest;
+                let largest = core::cmp::max(
+                    first_encoded_hash,
+                    core::cmp::max(second_encoded_hash, third_encoded_hash),
+                );
+                let smallest = core::cmp::min(
+                    first_encoded_hash,
+                    core::cmp::min(second_encoded_hash, third_encoded_hash),
+                );
+                let medium = if first_encoded_hash != largest && first_encoded_hash != smallest {
+                    first_encoded_hash
+                } else if second_encoded_hash != largest && second_encoded_hash != smallest {
+                    second_encoded_hash
+                } else {
+                    third_encoded_hash
+                };
 
                 if largest == smallest || largest == medium || medium == smallest {
                     continue;
                 }
 
                 // We now compute the gap between the largest and the smallest encoded hashes.
-                let largest_to_smallest_gap = GapHash::<P, B>::into_gap_fragment(largest, smallest, hash_bits);
+                let largest_to_smallest_gap =
+                    GapHash::<P, B>::into_gap_fragment(largest, smallest, hash_bits);
 
                 // Next, we try to apply the same gap to the medium hash, with the expectation
                 // that it should be equal to computing directly the gap with the largest hash.
-                let largest_to_medium_deduced_gap = GapHash::<P, B>::apply_gap(smallest, largest_to_smallest_gap,  medium, hash_bits);
-                let largest_to_medium_direct_gap = GapHash::<P, B>::into_gap_fragment(largest, medium, hash_bits);
+                let largest_to_medium_deduced_gap = GapHash::<P, B>::apply_gap(
+                    smallest,
+                    largest_to_smallest_gap,
+                    medium,
+                    hash_bits,
+                );
+                let largest_to_medium_direct_gap =
+                    GapHash::<P, B>::into_gap_fragment(largest, medium, hash_bits);
 
-                assert_eq!(largest_to_medium_deduced_gap, largest_to_medium_direct_gap, "Failed to apply gap at hash size {hash_bits}.");
+                assert_eq!(
+                    largest_to_medium_deduced_gap, largest_to_medium_direct_gap,
+                    "Failed to apply gap at hash size {hash_bits}."
+                );
             }
         }
     }
-
 }

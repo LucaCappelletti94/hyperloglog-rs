@@ -197,7 +197,7 @@ pub fn test_array(attr: TokenStream, item: TokenStream) -> TokenStream {
                     #[test]
                     /// Test the #generic type
                     fn #test_fn_name() {
-                        const NUMBER_OF_WORDS: usize = Array::<#number_of_words, #generic>::number_of_values() as usize;
+                        const NUMBER_OF_WORDS: usize = Packed::<#number_of_words, #generic>::number_of_values() as usize;
                         let mut reference = [<<#generic as VariableWord>::Word as Zero>::ZERO; NUMBER_OF_WORDS];
                         for (value, element) in iter_random_values::<#generic>(NUMBER_OF_WORDS as u64, None, None).zip(reference.iter_mut()) {
                             *element = value;
@@ -265,11 +265,8 @@ pub fn test_precisions_and_bits(attr: TokenStream, item: TokenStream) -> TokenSt
                 fn_name.span(),
             );
 
-            // For each precision, we need to check whether the feature precision_{exponent} is enabled
-            let precision_flag = format!("precision_{precision_exponent}");
             quote! {
                 #[test]
-                #[cfg(feature = #precision_flag)]
                 fn #test_fn_name() {
                     #fn_name::<#precision, #bit>();
                 }
@@ -310,36 +307,48 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
     ];
 
     // Generate the test functions
-    let test_functions = precisions.iter().enumerate().flat_map(|(i, precision)| {
-        let precision_exponent = i + 4;
+    let test_functions = precisions.iter().flat_map(|precision| {
         let hashers = hashers.clone();
         (bits).iter().flat_map(move |bit| {
             let hashers = hashers.clone();
             hashers.into_iter().flat_map(move |hasher| {
-                    let test_fn_name = Ident::new(
+                    let mut feature_constraints =
+                        vec![];
+
+                    // If in the name of the function there appears the word MLE, we add the feature mle
+                    if fn_name.to_string().contains("mle") {
+                        feature_constraints.push(quote! { #[cfg(feature = "mle")] });
+                    }
+
+                    let array_test_fn_name = Ident::new(
                         &format!(
-                            "{}_{}_{}_{}",
+                            "{}_{}_{}_{}_array",
                             fn_name, precision, bit, hasher
                         )
                         .to_lowercase(),
                         fn_name.span(),
                     );
 
-                    // For each precision, we need to check whether the feature precision_{exponent} is enabled
-                    let precision_flag = format!("precision_{precision_exponent}");
-                    let mut feature_constraints =
-                        vec![quote! { #[cfg(feature = #precision_flag)] }];
+                    let vec_test_fn_name = Ident::new(
+                        &format!(
+                            "{}_{}_{}_{}_vec",
+                            fn_name, precision, bit, hasher
+                        )
+                        .to_lowercase(),
+                        fn_name.span(),
+                    );
 
-                    // If in the name of the function there appears the word MLE, we add the feature mle
-                    if fn_name.to_string().contains("mle") {
-                        feature_constraints.push(quote! { #[cfg(feature = "mle")] });
-                    }
-                    
                     quote! {
                         #[test]
                         #(#feature_constraints)*
-                        fn #test_fn_name() {
-                            #fn_name::<#precision, #bit, <#precision as ArrayRegister<#bit>>::Packed, #hasher>();
+                        fn #array_test_fn_name() {
+                            #fn_name::<#precision, #bit, <#precision as PackedRegister<#bit>>::Array, #hasher>();
+                        }
+                        #[test]
+                        #[cfg(feature = "alloc")]
+                        #(#feature_constraints)*
+                        fn #vec_test_fn_name() {
+                            #fn_name::<#precision, #bit, <#precision as PackedRegister<#bit>>::Vec, #hasher>();
                         }
                     }
             })

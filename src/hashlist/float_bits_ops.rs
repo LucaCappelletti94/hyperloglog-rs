@@ -4,7 +4,6 @@
 use crate::prelude::*;
 
 impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
-
     pub(crate) fn set_hash_bits(&mut self, hash_bits: u8) {
         encode_hash_bits(&mut self.harmonic_sum, hash_bits);
     }
@@ -60,18 +59,17 @@ fn decode_hash_bits(float: f64) -> u8 {
     u8::try_from(float.to_bits() & HASH_BITS_MASK).unwrap() + 8
 }
 
-
 /// The maximum number of duplicates that can we need to store is equal to the
 /// number of hashes, but since these values are meant to be extremely unlikely,
 /// we can safely use less than the 20 bits needed to store the number of hashes.
 /// We use therefore all remaining bits to store the number of duplicates:
-/// 
+///
 /// We are currently using, out of the 64 bits of a f64:
 /// * 1 bit to represent we are in hash list mode.
 /// * 5 bits to represent the hash bits we are using (minus 8).
 /// * 20 bits to represent the number of hashes.
 /// * 21 bits to represent the bit index of the writer tell.
-/// 
+///
 /// Therefore, we have 17 bits left to represent the number of duplicates.
 const BITS_FOR_DUPLICATES: usize = 17;
 const DUPLICATES_OFFSET: usize = BITS_FOR_HASH_BITS;
@@ -121,8 +119,8 @@ fn set_writer_tell(float: &mut f64, bit_index: u32) {
     assert!(u64::from(bit_index) <= WRITER_TELL_MASK);
 
     let harmonic_sum_as_u64: &mut u64 = unsafe { core::mem::transmute(float) };
-    *harmonic_sum_as_u64 =
-        (*harmonic_sum_as_u64 & !(WRITER_TELL_MASK << WRITER_TELL_OFFSET)) | u64::from(bit_index) << WRITER_TELL_OFFSET;
+    *harmonic_sum_as_u64 = (*harmonic_sum_as_u64 & !(WRITER_TELL_MASK << WRITER_TELL_OFFSET))
+        | u64::from(bit_index) << WRITER_TELL_OFFSET;
 }
 
 fn decode_writer_tell(float: f64) -> u32 {
@@ -147,10 +145,10 @@ fn set_number_of_hashes(float: &mut f64, number_of_hashes: u32) {
     assert!(u64::from(number_of_hashes) <= NUMBER_OF_HASHES_MASK);
 
     let harmonic_sum_as_u64: &mut u64 = unsafe { core::mem::transmute(float) };
-    *harmonic_sum_as_u64 =
-        (*harmonic_sum_as_u64 & !(NUMBER_OF_HASHES_MASK << NUMBER_OF_HASHES_OFFSET)) | u64::from(number_of_hashes) << NUMBER_OF_HASHES_OFFSET;
+    *harmonic_sum_as_u64 = (*harmonic_sum_as_u64
+        & !(NUMBER_OF_HASHES_MASK << NUMBER_OF_HASHES_OFFSET))
+        | u64::from(number_of_hashes) << NUMBER_OF_HASHES_OFFSET;
 }
-
 
 #[allow(unsafe_code)]
 #[expect(

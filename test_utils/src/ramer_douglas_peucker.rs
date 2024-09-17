@@ -101,13 +101,16 @@ pub fn rdp(points: &[Point], tolerance: f64, depth: usize) -> Vec<Point> {
                 perpendicular_distance(point, &points[0], &points[points.len() - 1]),
             )
         })
-        .reduce(|| (0, 0.0), |(max_index, max_dist), (i, dist)| {
-            if dist > max_dist {
-                (i, dist)
-            } else {
-                (max_index, max_dist)
-            }
-        });
+        .reduce(
+            || (0, 0.0),
+            |(max_index, max_dist), (i, dist)| {
+                if dist > max_dist {
+                    (i, dist)
+                } else {
+                    (max_index, max_dist)
+                }
+            },
+        );
 
     // If the maximum distance is greater than the tolerance, recursively simplify
     if max_distance > tolerance && depth > 0 {

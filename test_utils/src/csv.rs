@@ -59,10 +59,7 @@ pub fn append_csv<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: Serial
         return;
     }
 
-    let file = std::fs::OpenOptions::new()
-        .append(true)
-        .open(path)
-        .unwrap();
+    let file = std::fs::OpenOptions::new().append(true).open(path).unwrap();
     let mut writer = csv::WriterBuilder::new()
         .has_headers(false)
         .from_writer(file);
