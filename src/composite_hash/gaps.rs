@@ -11,6 +11,7 @@ use super::{
 use crate::bits::Bits;
 use bitreader::{len_rice, BitReader};
 use bitwriter::BitWriter;
+use core::mem::size_of;
 use optimal_codes::OPTIMAL_RICE_COEFFICIENTS;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

@@ -18,6 +18,7 @@ use super::{
 };
 use crate::utils::VariableWord;
 use core::fmt::Debug;
+use core::mem::size_of;
 use core::marker::PhantomData;
 
 #[cfg(feature = "mem_dbg")]
