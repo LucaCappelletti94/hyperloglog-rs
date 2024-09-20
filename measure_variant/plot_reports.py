@@ -19,6 +19,7 @@ class Report:
 
     exact_cardinality_mean: float
     estimated_cardinality_mean: float
+    absolute_relative_error_mean: float
     relative_error_mean: float
     # memory_requirements: int
 
@@ -29,6 +30,7 @@ class Report:
         return Report(
             exact_cardinality_mean=series.exact_cardinality_mean,
             estimated_cardinality_mean=series.estimated_cardinality_mean,
+            absolute_relative_error_mean=series.absolute_relative_error_mean,
             relative_error_mean=series.relative_error_mean,
             # memory_requirements=series.memory_requirements,
         )
@@ -61,13 +63,18 @@ def plot_all():
         exact_cardinalities = np.array(
             [report.exact_cardinality_mean for report in reports]
         )
-        relative_errors = np.array([report.relative_error_mean for report in reports])
 
         # We plot several rectangles to illustrate the areas that are not covered by the reports.
         axs[0].plot(
             exact_cardinalities,
-            relative_errors,
-            label=model_name,
+            [report.absolute_relative_error_mean for report in reports],
+            label=f"{model_name} absolute relative errors",
+        )
+
+        axs[0].plot(
+            exact_cardinalities,
+            [report.relative_error_mean for report in reports],
+            label=f"{model_name} relative errors",
         )
 
         # We illustrate the variance of the subtraction of the exact and estimated cardinality
@@ -99,10 +106,11 @@ def plot_all():
         )
 
     # We plot a vertical line at 2^2^4 to determine whether it curresponds to the saturation point.
+    axs[0].axvline(5 * 2**4, color="tab:purple", linestyle="--", label="5*2^4")
     axs[0].axvline(2**16 - 1, color="black", linestyle="--", label="2^16-1")
     axs[1].axvline(2**16 - 1, color="black", linestyle="--", label="2^16-1")
-    axs[0].axvline(2**(2**5) - 1, color="red", linestyle="--", label="2^32-1")
-    axs[1].axvline(2**(2**5) - 1, color="red", linestyle="--", label="2^32-1")
+    # axs[0].axvline(2**(2**5) - 1, color="red", linestyle="--", label="2^32-1")
+    # axs[1].axvline(2**(2**5) - 1, color="red", linestyle="--", label="2^32-1")
 
     axs[0].set_title("Relative error")
     axs[1].set_title("Subtraction")
@@ -117,6 +125,9 @@ def plot_all():
     axs[1].set_xscale("log")
     axs[1].set_yscale("symlog")
     axs[2].set_xscale("log")
+    axs[0].grid(which="both", linestyle="--", alpha=0.5)
+    axs[1].grid(which="both", linestyle="--", alpha=0.5)
+    axs[2].grid(which="both", linestyle="--", alpha=0.5)
     axs[0].legend()
     axs[1].legend()
     axs[2].legend()

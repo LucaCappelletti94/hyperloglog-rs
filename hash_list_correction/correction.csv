@@ -1,0 +1,4 @@
+precision,bits,rate_of_improvement,uncorrected_error,corrected_error
+4,4,0.0106,0.6036,56.8696
+4,5,5.9804,0.2091,0.0350
+4,6,6.3678,0.2097,0.0329

@@ -5,6 +5,9 @@ mod ramer_douglas_peucker;
 mod readable_number;
 mod statistics;
 mod parallel;
+mod sample_builder;
+mod sample_collector;
+mod set;
 
 pub mod prelude {
     pub use crate::cardinality_to_index::{
@@ -17,4 +20,7 @@ pub mod prelude {
         compare_features, mean, mean_and_std, standard_deviation, BenchmarkResults, Stats,
     };
     pub use crate::parallel::*;
+    pub use crate::sample_builder::{CardinalitySampleBuilder, CardinalitySample};
+    pub use crate::sample_collector::{cardinality_samples, cardinality_samples_by_model, CardinalitySamplesByModel};
+    pub use crate::set::Set;
 }

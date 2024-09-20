@@ -1,12 +1,12 @@
 use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
-use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 use std::u32;
-use test_utils::prelude::{rdp, read_csv, write_csv, Point, index_to_cardinality_estimate, cardinality_estimate_to_index};
-use twox_hash::XxHash64;
+use test_utils::prelude::{
+    cardinality_samples_by_model, rdp, CardinalitySample, CardinalitySamplesByModel, Point,
+};
 
 fn small_float_formatter<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -31,14 +31,10 @@ pub struct CorrectionPerformance {
 pub struct HashCorrection {
     pub precision: u8,
     pub bits: u8,
-    pub hashlist_smallest_maximal_cardinality: u32,
-    pub hashlist_mean_maximal_cardinality: u32,
-    pub hashlist_largest_maximal_cardinality: u32,
-    pub hashlist_relative_errors: Vec<f64>,
-    pub hyperloglog_relative_errors: Vec<f64>,
-    pub hashlist_cardinalities: Vec<u32>,
+    pub hash_list_bias: Vec<f64>,
+    pub hyperloglog_relative_bias: Vec<f64>,
+    pub hash_list_cardinalities: Vec<u32>,
     pub hyperloglog_cardinalities: Vec<u32>,
-    pub hyperloglog_slope: f64,
 }
 
 impl HashCorrection {
@@ -80,86 +76,40 @@ impl HashCorrection {
     }
 
     /// Returns the estimated cardinality for the provided cardinality.
-    fn adjust_hashlist_cardinality(&self, cardinality_estimate: u32) -> f64 {
+    fn adjust_hash_list_cardinality(&self, cardinality_estimate: u32) -> f64 {
         Self::adjust_cardinality(
             cardinality_estimate,
-            &self.hashlist_cardinalities,
-            &self.hashlist_relative_errors,
+            &self.hash_list_cardinalities,
+            &self.hash_list_bias,
         )
     }
 
     /// Returns the estimated cardinality for the provided cardinality.
     fn adjust_hyperloglog_cardinality(&self, cardinality_estimate: u32) -> f64 {
-        if cardinality_estimate >= *self.hyperloglog_cardinalities.last().unwrap_or(&0) {
-            return f64::from(cardinality_estimate)
-                + self.hyperloglog_slope
-                    * f64::from(
-                        cardinality_estimate - *self.hyperloglog_cardinalities.last().unwrap_or(&0),
-                    );
-        }
-
         Self::adjust_cardinality(
             cardinality_estimate,
             &self.hyperloglog_cardinalities,
-            &self.hyperloglog_relative_errors,
+            &self.hyperloglog_relative_bias,
         )
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Default, Copy, Clone)]
-pub struct Metadata {
-    hashlist_minimum_cardinality: u32,
-    hashlist_mean_cardinality: u32,
-    hashlist_maximal_cardinality: u32,
-}
-
-impl Metadata {
-    pub fn new(cardinality: u32) -> Self {
-        Self {
-            hashlist_maximal_cardinality: cardinality,
-            hashlist_minimum_cardinality: if cardinality == 0 {
-                u32::MAX
-            } else {
-                cardinality
-            },
-            hashlist_mean_cardinality: cardinality,
-        }
-    }
-
-    pub fn merge(self, other: Self) -> Self {
-        Self {
-            hashlist_minimum_cardinality: self
-                .hashlist_minimum_cardinality
-                .min(other.hashlist_minimum_cardinality),
-            hashlist_mean_cardinality: self
-                .hashlist_mean_cardinality
-                .saturating_add(other.hashlist_mean_cardinality),
-            hashlist_maximal_cardinality: self
-                .hashlist_maximal_cardinality
-                .max(other.hashlist_maximal_cardinality),
-        }
-    }
-}
-
-fn correction<P: Precision>(report: &[Point]) -> (Vec<u32>, Vec<f64>) {
-    // We determine the maximal number of points to consider.
-    let k = 9;
-
+fn correction<P: Precision>(report: &[CardinalitySample]) -> (Vec<u32>, Vec<f64>) {
     // We split the data into k partitions, and we identify the largest discontinuity
     // in each partition.
-    let top_k_reports: Vec<Point> = rdp(report, 0.1, k);
+    let top_k_reports: Vec<Point> = rdp(report, 2.0);
 
     let number_of_reports = report.len();
 
     // We create the correction.
     let errors = top_k_reports
         .par_iter()
-        .map(|report| report.y() - report.x())
+        .map(|report| report.x() - report.y())
         .collect::<Vec<f64>>();
 
     let cardinalities = top_k_reports
         .par_iter()
-        .map(|report| report.x().round() as u32)
+        .map(|report| report.y().round() as u32)
         .collect::<Vec<u32>>();
 
     // We remove in both the cardinalities and errors the entries that have the
@@ -194,278 +144,90 @@ fn correction<P: Precision>(report: &[Point]) -> (Vec<u32>, Vec<f64>) {
     (filtered_cardinalities, filtered_errors)
 }
 
-/// Returns the bias and angular coefficient that best fits the provided points.
-fn least_squares_linear_regression(points: &[Point]) -> f64 {
-    let n = points.len() as f64;
+/// Returns the start and end CardinalitySample representing the largest stretch of near-zero relative error.
+fn find_largest_stretch_of_near_zero_relative_error(report: &[CardinalitySample]) -> (usize, usize) {
+    let mut start = 0;
+    let mut end = 0;
+    let mut current_start = 0;
+    let mut current_end = 0;
+    let mut current_relative_error = 0.0;
 
-    let sum_x = points.iter().map(|point| point.x()).sum::<f64>();
-    let sum_y = points.iter().map(|point| point.y()).sum::<f64>();
+    for (index, sample) in report.iter().enumerate() {
+        if sample.relative_error_mean < 0.01 {
+            if current_relative_error < 0.01 {
+                current_end = index;
+            } else {
+                current_start = index;
+                current_end = index;
+                current_relative_error = sample.relative_error_mean;
+            }
+        } else {
+            if current_end - current_start > end - start {
+                start = current_start;
+                end = current_end;
+            }
+            current_relative_error = 0.0;
+        }
+    }
 
-    let sum_y_squared = points
-        .iter()
-        .map(|point| point.y() * point.y())
-        .sum::<f64>();
-    let sum_xy = points
-        .iter()
-        .map(|point| point.x() * point.y())
-        .sum::<f64>();
-
-    (n * sum_xy - sum_x * sum_y) / (n * sum_y_squared - sum_y * sum_y)
+    (start, end)
 }
-
 
 
 #[allow(unsafe_code)]
 /// Measures the gap between subsequent hashes in the Listhash variant of HyperLogLog.
 pub fn hash_correction<P: Precision, B: Bits>(
-    multiprogress: &MultiProgress,
-    only_hashlist: bool,
+    _multiprogress: &MultiProgress,
+    only_hash_list: bool,
 ) -> (HashCorrection, CorrectionPerformance)
 where
     P: PackedRegister<B>,
 {
-    let iterations: u64 = 10_000 * 64;
+    let iterations: u64 = 10 * 64;
+    let maximum_cardinality = 1 << 33;
 
-    let progress_bar = multiprogress.add(ProgressBar::new(iterations));
-    progress_bar.set_style(
-        ProgressStyle::default_bar()
-            .template(
-                "Samples: [{elapsed_precise} | {eta}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
-            )
-            .unwrap()
-            .progress_chars("##-"),
-    );
+    let output_path = format!("{}_{}.report.json", P::EXPONENT, B::NUMBER_OF_BITS);
 
-    let maximal_cardinality = 10 * (1 << P::EXPONENT);
-    let capacity_to_allocate = cardinality_estimate_to_index(maximal_cardinality as u64) + 1;
-
-    let hashlist_output_path = format!("{}_{}.hashlist.csv.gz", P::EXPONENT, B::NUMBER_OF_BITS);
-    let hyperloglog_output_path =
-        format!("{}_{}.hyperloglog.csv.gz", P::EXPONENT, B::NUMBER_OF_BITS);
-
-    let hashlist_report = read_csv::<Point>(&hashlist_output_path);
-    let hyperloglog_report = read_csv::<Point>(&hyperloglog_output_path);
-
-    let (metadata, hashlist_report, hyperloglog_report) = if hashlist_report.is_ok()
-        && (only_hashlist || hyperloglog_report.is_ok())
+    let report = if let Some(report) = std::fs::File::open(output_path.clone())
+        .ok()
+        .and_then(|file| serde_json::from_reader(file).ok())
     {
-        // We also load the metadata.
-        let metadata_output_path = hashlist_output_path.replace(".csv.gz", ".metadata.json");
-
-        let metadata: Metadata =
-            serde_json::from_reader(std::fs::File::open(metadata_output_path).unwrap()).unwrap();
-
-        let hyperloglog_report = hyperloglog_report.unwrap_or_default();
-
-        (metadata, hashlist_report.unwrap(), hyperloglog_report)
+        report
     } else {
-        // We generate an hashset with 4 times the requested cardinality.
-        let random_state = 6_539_823_745_562_884_u64;
+        let cardinality_sample_by_model: CardinalitySamplesByModel =
+            cardinality_samples_by_model::<P, B, wyhash::WyHash>(iterations, maximum_cardinality);
 
-        let (mut metadata, hashlist_report, hyperloglog_report): (
-            Metadata,
-            Vec<(u32, u64)>,
-            Vec<(u32, u64)>,
-        ) = ParallelIterator::reduce(
-            (0..iterations)
-                .into_par_iter()
-                .progress_with(progress_bar)
-                .map(|i| {
-                    let mut random_state =
-                        splitmix64(splitmix64(random_state.wrapping_mul(splitmix64(i + 1))));
-
-                    let mut hll =
-                        HyperLogLog::<P, B, <P as PackedRegister<B>>::Array, XxHash64>::default();
-                    let mut hashlist_maximal_estimated_cardinality = 0;
-                    let mut hashlist_maximal_exact_cardinality = 0;
-
-                    let mut hashlist_cardinality_estimates: Vec<(u32, u64)> =
-                        vec![(0, 0); capacity_to_allocate];
-                    let mut hyperloglog_cardinality_estimates: Vec<(u32, u64)> = if only_hashlist {
-                        vec![]
-                    } else {
-                        vec![(0, 0); capacity_to_allocate]
-                    };
-
-                    let index =
-                        cardinality_estimate_to_index(hll.uncorrected_estimate_cardinality().round() as u64);
-                    hashlist_cardinality_estimates[index] = (1, 0);
-
-                    let mut exact_cardinality = 0;
-
-                    loop {
-                        random_state = splitmix64(random_state);
-                        let value = xorshift64(random_state);
-
-                        // hashset.insert(value);
-                        hll.insert(&value);
-                        exact_cardinality += 1;
-                        // let exact_cardinality = hashset.len();
-                        let raw_hll_estimate = hll.uncorrected_estimate_cardinality();
-                        let index: usize = cardinality_estimate_to_index(raw_hll_estimate.round() as u64);
-
-                        if index >= capacity_to_allocate {
-                            break;
-                        }
-
-                        if hll.is_hash_list() {
-                            hashlist_maximal_estimated_cardinality =
-                                raw_hll_estimate.round() as u32;
-                            hashlist_maximal_exact_cardinality = exact_cardinality as u32;
-
-                            hashlist_cardinality_estimates[index] = (
-                                hashlist_cardinality_estimates[index].0 + 1,
-                                hashlist_cardinality_estimates[index].1 + exact_cardinality as u64,
-                            );
-                        } else {
-                            if only_hashlist {
-                                break;
-                            }
-                            hyperloglog_cardinality_estimates[index] = (
-                                hyperloglog_cardinality_estimates[index].0 + 1,
-                                hyperloglog_cardinality_estimates[index].1
-                                    + exact_cardinality as u64,
-                            );
-                        }
-                    }
-
-                    let metadata = Metadata::new(hashlist_maximal_exact_cardinality);
-
-                    // Since we need to return them, we need to convert them into vectors:
-                    hashlist_cardinality_estimates
-                        .truncate(hashlist_maximal_estimated_cardinality as usize);
-
-                    (
-                        metadata,
-                        hashlist_cardinality_estimates,
-                        hyperloglog_cardinality_estimates,
-                    )
-                }),
-            || {
-                (
-                    Metadata::new(0),
-                    Vec::new(),
-                    if only_hashlist {
-                        Vec::new()
-                    } else {
-                        vec![(0, 0); maximal_cardinality]
-                    },
-                )
-            },
-            |(mut acc_metadata, mut acc_hashlist, mut acc_hyperloglog),
-             (metadata, hashlist_report, hyperloglog_report)| {
-                acc_metadata = acc_metadata.merge(metadata);
-
-                acc_hashlist = if acc_hashlist.is_empty() {
-                    hashlist_report
-                } else {
-                    let (mut larger, smaller) = if hashlist_report.len() > acc_hashlist.len() {
-                        (hashlist_report, acc_hashlist)
-                    } else {
-                        (acc_hashlist, hashlist_report)
-                    };
-
-                    larger.iter_mut().zip(smaller.iter()).for_each(|(l, s)| {
-                        l.0 += s.0;
-                        l.1 += s.1;
-                    });
-
-                    larger
-                };
-
-                acc_hyperloglog
-                    .iter_mut()
-                    .zip(hyperloglog_report.iter())
-                    .for_each(|(l, s)| {
-                        l.0 += s.0;
-                        l.1 += s.1;
-                    });
-
-                (acc_metadata, acc_hashlist, acc_hyperloglog)
-            },
-        );
-
-        metadata.hashlist_mean_cardinality /= iterations as u32;
-
-        // Now we determine the medians.
-        let hashlist_report: Vec<Point> = hashlist_report
-            .into_par_iter()
-            .enumerate()
-            .filter(|(_, (count, _))| *count > iterations as u32 / 10)
-            .map(|(index, (count, estimates_sum))| {
-                let cardinality = index_to_cardinality_estimate(index);
-                let exact_cardinality = estimates_sum as f64 / count as f64;
-                Point::from((cardinality as f64, exact_cardinality))
-            })
-            .collect();
-
-        // Analogously for the hyperloglog, with the caveat that some of the entries
-        // may be empty of with a small number of entries. We filter out those that
-        // have less than 'iterations / 10' entries.
-
-        let hyperloglog_report: Vec<Point> = hyperloglog_report
-            .into_par_iter()
-            .enumerate()
-            .filter(|(_, (count, _))| *count > iterations as u32 / 10)
-            .map(|(index, (count, estimates_sum))| {
-                let cardinality = index_to_cardinality_estimate(index);
-                let exact_cardinality = estimates_sum as f64 / count as f64;
-                Point::from((cardinality as f64, exact_cardinality))
-            })
-            .collect();
-
-        // We store the mined data-points to a CSV so to avoid recomputing them
-        // in the future.
-        write_csv(hashlist_report.iter(), &hashlist_output_path);
-        if !only_hashlist {
-            write_csv(hyperloglog_report.iter(), &hyperloglog_output_path);
-        }
-
-        // We store the maximal cardinality of the hashlist as JSON metadata.
-        let metadata_hashlist_output_path =
-            hashlist_output_path.replace(".csv.gz", ".metadata.json");
+        // We store the reports to a JSON file.
 
         serde_json::to_writer(
-            std::fs::File::create(metadata_hashlist_output_path.clone()).unwrap(),
-            &metadata,
+            std::fs::File::create(output_path.clone()).unwrap(),
+            &cardinality_sample_by_model,
         )
         .unwrap();
 
-        (metadata, hashlist_report, hyperloglog_report)
+        cardinality_sample_by_model
     };
 
-    let (hashlist_cardinalities, hashlist_relative_errors) = correction::<P>(&hashlist_report);
-    let (hyperloglog_cardinalities, hyperloglog_relative_errors) = if only_hashlist {
+    let (hash_list_cardinalities, hash_list_bias) = correction::<P>(&report.hash_list);
+    let (hyperloglog_cardinalities, hyperloglog_relative_bias) = if only_hash_list {
         (vec![], vec![])
     } else {
-        correction::<P>(&hyperloglog_report)
+        correction::<P>(&report.hyperloglog)
     };
-
-    let hyperloglog_slope = if only_hashlist {
-        1.0
-    } else {
-        least_squares_linear_regression(&hyperloglog_report[hyperloglog_report.len() / 2..])
-    };
-
-    assert!(hyperloglog_slope.is_finite());
 
     // We create the correction.
     let correction = HashCorrection {
         precision: P::EXPONENT,
         bits: B::NUMBER_OF_BITS,
-        hashlist_largest_maximal_cardinality: metadata.hashlist_maximal_cardinality,
-        hashlist_mean_maximal_cardinality: metadata.hashlist_mean_cardinality,
-        hashlist_smallest_maximal_cardinality: metadata.hashlist_minimum_cardinality,
-        hashlist_relative_errors,
-        hyperloglog_relative_errors,
-        hashlist_cardinalities,
+        hash_list_bias,
+        hyperloglog_relative_bias,
+        hash_list_cardinalities,
         hyperloglog_cardinalities,
-        hyperloglog_slope,
     };
 
     // We dump the HasHCorrection as a JSON file with the same path
     // as the output path but with a .json extension.
-    let json_output_path = format!("{}_{}.hashlist.json", P::EXPONENT, B::NUMBER_OF_BITS);
+    let json_output_path = format!("{}_{}.correction.json", P::EXPONENT, B::NUMBER_OF_BITS);
 
     serde_json::to_writer(
         std::fs::File::create(json_output_path.clone()).unwrap(),
@@ -473,31 +235,39 @@ where
     )
     .unwrap();
 
-    let uncorrected_error = hashlist_report
+    let uncorrected_error = report
+        .hash_list
         .iter()
-        .chain(hyperloglog_report.iter())
-        .map(|report| ((report.y()) - report.x()).abs() / report.y().max(1.0))
+        .chain(report.hyperloglog.iter())
+        .map(|report| report.absolute_relative_error_mean)
         .sum::<f64>()
-        / (hashlist_report.len() + hyperloglog_report.len()) as f64;
+        / (report.hash_list.len() + report.hyperloglog.len()) as f64;
 
-    let corrected_error = (hashlist_report
+    let corrected_error = (report
+        .hash_list
         .iter()
         .map(|report| {
-            ((report.y()) - correction.adjust_hashlist_cardinality(report.x().round() as u32)).abs()
-                / (report.y().abs()).max(1.0)
+            (report.exact_cardinality_mean
+                - correction
+                    .adjust_hash_list_cardinality(report.estimated_cardinality_mean.round() as u32))
+            .abs()
+                / report.exact_cardinality_mean.max(1.0)
         })
         .sum::<f64>()
-        / hashlist_report.len() as f64
-        + hyperloglog_report
+        / report.hash_list.len() as f64
+        + report
+            .hyperloglog
             .iter()
             .map(|report| {
-                ((report.y())
-                    - correction.adjust_hyperloglog_cardinality(report.x().round() as u32))
+                (report.exact_cardinality_mean
+                    - correction.adjust_hyperloglog_cardinality(
+                        report.estimated_cardinality_mean.round() as u32,
+                    ))
                 .abs()
-                    / (report.y()).max(1.0)
+                    / report.exact_cardinality_mean.max(1.0)
             })
             .sum::<f64>()
-            / hyperloglog_report.len() as f64)
+            / report.hyperloglog.len() as f64)
         / 2.0;
 
     // Rate of improvement.

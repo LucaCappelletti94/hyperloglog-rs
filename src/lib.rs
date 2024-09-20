@@ -15,7 +15,7 @@ pub mod hyperloglog;
 // #[cfg(feature = "mle")]
 // mod mle;
 mod correction_coefficients;
-mod hashlist;
+mod hash_list;
 mod precisions;
 mod registers;
 pub mod sketches;

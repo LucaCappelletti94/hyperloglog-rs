@@ -2,14 +2,13 @@
 use std::collections::HashSet;
 
 use crate::estimation_tests::cardinality_test;
-use crate::traits::Set;
 use crate::{
     estimation_tests::{ErrorReport, PerformanceReport},
     traits::TransparentMemSize,
 };
 use indicatif::MultiProgress;
 use strum::IntoEnumIterator;
-use test_utils::prelude::{read_csv, write_csv};
+use test_utils::prelude::{read_csv, write_csv, Set};
 
 fn prepare_reports<S, T1, T2>(
     test_for_hashset: T1,

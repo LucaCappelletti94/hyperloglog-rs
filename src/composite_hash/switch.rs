@@ -356,7 +356,7 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
                     "The hash ({encoded_hash}) must not be present in the hashes",
                 );
 
-                // If we are in the case of a growable hashlist and the hashes are not yet
+                // If we are in the case of a growable hash_list and the hashes are not yet
                 // saturated, we can raise a ExtendableSaturation error.
                 if hashes.len() * 8 < usize::from(hash_bits) + usize::try_from(bit_index).unwrap()
                     && (!GapHash::<P, B>::has_rank_index()

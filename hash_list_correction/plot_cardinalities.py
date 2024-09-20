@@ -1,53 +1,124 @@
 """Script to plot CSVs with the exact and estimated cardinalities."""
 
-from typing import List
+from typing import List, Optional, Dict
 from glob import glob
 from multiprocessing import Pool
-import os
-from dataclasses import dataclass, field
-import pandas as pd
-import numpy as np
+from dataclasses import dataclass
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import numpy as np
 import compress_json
 
 
 @dataclass
-class HashCorrection:
+class Correction:
     """Dataclass to store the hash correction data."""
 
     precision: int
     bits: int
-    hashlist_largest_maximal_cardinality: int
-    hashlist_mean_maximal_cardinality: int
-    hashlist_smallest_maximal_cardinality: int
-    hashlist_relative_errors: List[int]
-    hyperloglog_relative_errors: List[int]
-    hashlist_cardinalities: List[int]
-    hyperloglog_cardinalities: List[int]
-    hyperloglog_slope: float
+    hash_list_bias: np.ndarray
+    hyperloglog_relative_bias: np.ndarray
+    hash_list_cardinalities: np.ndarray
+    hyperloglog_cardinalities: np.ndarray
 
     @staticmethod
-    def from_json(path: str) -> "HashCorrection":
+    def from_json(path: str) -> "Correction":
         """Load the hash correction data from the JSON file."""
         data = compress_json.load(path)
-        return HashCorrection(
+        return Correction(
             precision=data.get("precision"),
             bits=data.get("bits"),
-            hashlist_largest_maximal_cardinality=data.get(
-                "hashlist_largest_maximal_cardinality"
+            hash_list_bias=np.array(data.get("hash_list_bias")),
+            hyperloglog_relative_bias=np.array(data.get("hyperloglog_relative_bias")),
+            hash_list_cardinalities=np.array(data.get("hash_list_cardinalities")),
+            hyperloglog_cardinalities=np.array(data.get("hyperloglog_cardinalities")),
+        )
+
+
+@dataclass
+class CardinalitySample:
+    """Dataclass to store cardinality samples."""
+
+    exact_cardinality_mean: np.ndarray
+    estimated_cardinality_mean: np.ndarray
+    absolute_relative_error_mean: np.ndarray
+    relative_error_mean: np.ndarray
+
+    @staticmethod
+    def from_dictionaries(data: List[Dict[str, float]]) -> "CardinalitySample":
+        """Create a CardinalitySample instance from a dictionary."""
+        return CardinalitySample(
+            exact_cardinality_mean=np.array(
+                [sample["exact_cardinality_mean"] for sample in data]
             ),
-            hashlist_mean_maximal_cardinality=data.get(
-                "hashlist_mean_maximal_cardinality"
+            estimated_cardinality_mean=np.array(
+                [sample["estimated_cardinality_mean"] for sample in data]
             ),
-            hashlist_smallest_maximal_cardinality=data.get(
-                "hashlist_smallest_maximal_cardinality"
+            absolute_relative_error_mean=np.array(
+                [sample["absolute_relative_error_mean"] for sample in data]
             ),
-            hashlist_relative_errors=data.get("hashlist_relative_errors"),
-            hyperloglog_relative_errors=data.get("hyperloglog_relative_errors"),
-            hashlist_cardinalities=data.get("hashlist_cardinalities"),
-            hyperloglog_cardinalities=data.get("hyperloglog_cardinalities"),
-            hyperloglog_slope=data.get("hyperloglog_slope"),
+            relative_error_mean=np.array(
+                [sample["relative_error_mean"] for sample in data]
+            ),
+        )
+
+    @property
+    def largest_exact_cardinality(self) -> int:
+        """Return the largest exact cardinality."""
+        return self.exact_cardinality_mean.max().astype(int)
+
+    @property
+    def largest_estimated_cardinality(self) -> int:
+        """Return the largest estimated cardinality."""
+        return self.estimated_cardinality_mean.max().astype(int)
+
+    @property
+    def subtraction(self) -> np.ndarray:
+        """Return the subtraction between the exact and estimated cardinalities."""
+        return self.exact_cardinality_mean - self.estimated_cardinality_mean
+
+    def has_negative_deltas(self) -> bool:
+        """Return whether the subtraction has negative values."""
+        return (self.exact_cardinality_mean - self.estimated_cardinality_mean < 0).any()
+
+@dataclass
+class CardinalitySamplesByModel:
+    """Dataclass to store the hash correction data."""
+
+    mean_hash_list_saturation: Optional[float]
+    mean_hyperloglog_saturation: Optional[float]
+    hyperloglog: CardinalitySample
+    hash_list: CardinalitySample
+
+    @property
+    def largest_exact_cardinality(self) -> int:
+        """Return the largest exact cardinality."""
+        return max(
+            self.hyperloglog.largest_exact_cardinality,
+            self.hash_list.largest_exact_cardinality,
+        )
+
+    @property
+    def largest_estimated_cardinality(self) -> int:
+        """Return the largest estimated cardinality."""
+        return max(
+            self.hyperloglog.largest_estimated_cardinality,
+            self.hash_list.largest_estimated_cardinality,
+        )
+    
+    def has_negative_deltas(self) -> bool:
+        """Return whether the subtraction has negative values."""
+        return self.hyperloglog.has_negative_deltas() or self.hash_list.has_negative_deltas()
+
+    @staticmethod
+    def from_json(path: str) -> "CardinalitySamplesByModel":
+        """Load the hash correction data from the JSON file."""
+        data = compress_json.load(path)
+        return CardinalitySamplesByModel(
+            mean_hash_list_saturation=data.get("mean_hash_list_saturation"),
+            mean_hyperloglog_saturation=data.get("mean_hyperloglog_saturation"),
+            hyperloglog=CardinalitySample.from_dictionaries(data.get("hyperloglog")),
+            hash_list=CardinalitySample.from_dictionaries(data.get("hash_list")),
         )
 
 
@@ -58,143 +129,156 @@ def expected_hll_error(precision: int) -> float:
 
 def plot_cardinality(path_json: str):
     """Load the reports and plot the histograms, boxplots and relative error plots."""
-    hashlist_path = path_json.replace(".hashlist.json", ".hashlist.csv.gz")
-    hyperloglog_path = path_json.replace(".hashlist.json", ".hyperloglog.csv.gz")
-    image_path = path_json.replace(".hashlist.json", ".png")
-    hash_correction = HashCorrection.from_json(path_json)
+    report_path = path_json.replace(".correction.json", ".report.json")
+    image_path = path_json.replace(".correction.json", ".png")
+    correction = Correction.from_json(path_json)
+    report = CardinalitySamplesByModel.from_json(report_path)
     fig, axs = plt.subplots(2, 1, figsize=(12, 12), sharex=False, sharey=False)
-    has_negative_deltas = False
 
-    largest_exact_cardinality = 0
-    largest_estimated_cardinality = 0
+    hyperloglog_color = "tab:orange"
+    hash_list_color = "tab:blue"
 
-    for path, name, correction in [
-        (hashlist_path, "Hashlist", hash_correction.hashlist_cardinalities),
-        (
-            hyperloglog_path,
-            "HyperLogLog",
-            hash_correction.hyperloglog_cardinalities,
-        ),
-    ]:
-        if len(correction) == 0:
-            continue
+    axs[0].plot(
+        report.hyperloglog.exact_cardinality_mean,
+        report.hyperloglog.absolute_relative_error_mean,
+        label="HyperLogLog absolute relative errors",
+        linestyle="-",
+        alpha=0.7,
+        color=hyperloglog_color,
+    )
 
-        try:
-            report = pd.read_csv(path)
-        except FileNotFoundError:
-            return
-        largest_exact_cardinality = int(max(largest_exact_cardinality, report.y.max()))
-        largest_estimated_cardinality = max(
-            largest_estimated_cardinality, report.x.max()
-        )
-        report.sort_values(by="y", inplace=True)
+    axs[0].plot(
+        report.hyperloglog.exact_cardinality_mean,
+        report.hyperloglog.relative_error_mean,
+        label="HyperLogLog relative errors",
+        linestyle="--",
+        alpha=0.7,
+        color=hyperloglog_color,
+    )
 
-        axs[0].plot(
-            report.y,
-            [
-                abs(estimated - exact) / max(exact, 1)
-                for exact, estimated in zip(report.y, report.x)
-            ],
-            label=f"{name} relative error",
-            linestyle="-",
-            alpha=0.7,
-        )
+    axs[0].plot(
+        report.hash_list.exact_cardinality_mean,
+        report.hash_list.absolute_relative_error_mean,
+        label="Hash List absolute relative errors",
+        linestyle="-",
+        alpha=0.7,
+        color=hash_list_color,
+    )
 
-        axs[1].plot(
-            report.y,
-            [exact - estimated for exact, estimated in zip(report.y, report.x)],
-            label=f"{name} subtraction",
-            linestyle="-",
-            alpha=0.7,
-        )
+    axs[0].plot(
+        report.hash_list.exact_cardinality_mean,
+        report.hash_list.relative_error_mean,
+        label="Hash List relative errors",
+        linestyle="--",
+        alpha=0.7,
+        color=hash_list_color,
+    )
 
-        if any(exact - estimated < 0 for exact, estimated in zip(report.y, report.x)):
-            has_negative_deltas = True
+    axs[1].plot(
+        report.hyperloglog.exact_cardinality_mean,
+        report.hyperloglog.subtraction,
+        label="HyperLogLog subtraction",
+        linestyle="-",
+        alpha=0.7,
+        color=hyperloglog_color,
+    )
 
-        # We plot as dots the cardinalities that appear in the hash correction data.
+    axs[1].plot(
+        report.hash_list.exact_cardinality_mean,
+        report.hash_list.subtraction,
+        label="Hash List subtraction",
+        linestyle="-",
+        alpha=0.7,
+        color=hash_list_color,
+    )
 
-        in_correction = []
-        cardinalities_covered = set()
+    for ax in axs:
+        if report.mean_hash_list_saturation is not None:
+            ax.axvline(
+                report.mean_hash_list_saturation,
+                linestyle="-.",
+                label="Hash List saturation",
+                color=hash_list_color,
+            )
+        if report.mean_hyperloglog_saturation is not None:
+            ax.axvline(
+                report.mean_hyperloglog_saturation,
+                linestyle="-.",
+                label="HyperLogLog saturation",
+                color=hyperloglog_color,
+            )
 
-        for exact, estimated in zip(report.y, report.x):
-            if (
-                round(estimated) in correction
-                and round(estimated) not in cardinalities_covered
-            ):
-                in_correction.append((exact, abs(estimated - exact) / max(exact, 1)))
-                cardinalities_covered.add(round(estimated))
+    # We plot as dots the cardinalities that appear in the hash correction data.
 
-        axs[0].scatter(
-            *zip(*in_correction),
-            label=f"{name} correction",
-        )
+    relative_errors = []
+    subtractions = []
+    cardinalities_covered = set()
 
-        in_correction = []
-        cardinalities_covered = set()
+    for exact, estimated in zip(
+        report.hyperloglog.exact_cardinality_mean,
+        report.hyperloglog.estimated_cardinality_mean,
+    ):
+        if (
+            round(estimated) in correction.hyperloglog_cardinalities
+            and round(estimated) not in cardinalities_covered
+        ):
+            relative_errors.append((exact, (exact - estimated) / max(exact, 1)))
+            subtractions.append((exact, exact - estimated))
+            cardinalities_covered.add(round(estimated))
 
-        for exact, estimated in zip(report.y, report.x):
-            if (
-                round(estimated) in correction
-                and round(estimated) not in cardinalities_covered
-            ):
-                in_correction.append((exact, exact - estimated))
-                cardinalities_covered.add(round(estimated))
+    axs[0].scatter(
+        *zip(*relative_errors),
+        marker=".",
+        label="HyperLogLog correction",
+        color=hyperloglog_color,
+    )
+    axs[1].scatter(
+        *zip(*subtractions),
+        marker=".",
+        label="HyperLogLog correction",
+        color=hyperloglog_color,
+    )
 
-        axs[1].scatter(
-            *zip(*in_correction),
-            label=f"{name} correction subtraction",
-        )
+    relative_errors = []
+    subtractions = []
+    cardinalities_covered = set()
 
-    if len(hash_correction.hyperloglog_cardinalities) > 0:
-        # We plot the continuation of the expected estimation relative error and subtraction
-        # according to the Slope and Intercept we have determined for this particular hash correction.
-        extended_estimated_cardinalities = np.arange(
-            largest_estimated_cardinality + 1, largest_estimated_cardinality * 3 / 2
-        )
-        extended_exact_cardinalities = np.arange(
-            largest_exact_cardinality + 1, largest_exact_cardinality + len(extended_estimated_cardinalities)
-        )
+    for exact, estimated in zip(
+        report.hash_list.exact_cardinality_mean, report.hash_list.estimated_cardinality_mean
+    ):
+        if (
+            round(estimated) in correction.hash_list_cardinalities
+            and round(estimated) not in cardinalities_covered
+        ):
+            relative_errors.append((exact, (exact - estimated) / max(exact, 1)))
+            subtractions.append((exact, exact - estimated))
+            cardinalities_covered.add(round(estimated))
 
-        largest_exact_cardinality = max(largest_exact_cardinality, extended_exact_cardinalities[-1])
-
-        extended_predicted_cardinalities = (
-            hash_correction.hyperloglog_slope * (extended_estimated_cardinalities - largest_estimated_cardinality) + largest_estimated_cardinality
-        )
-
-        axs[0].plot(
-            extended_exact_cardinalities,
-            [
-                abs(estimated - exact) / max(exact, 1)
-                for exact, estimated in zip(
-                    extended_exact_cardinalities, extended_predicted_cardinalities
-                )
-            ],
-            label="LS prediction relative error",
-            linestyle="-",
-            color="tab:pink",
-            alpha=0.9,
-        )
-
-        axs[1].plot(
-            extended_exact_cardinalities,
-            [
-                exact - estimated
-                for exact, estimated in zip(
-                    extended_exact_cardinalities, extended_predicted_cardinalities
-                )
-            ],
-            label="LS prediction subtraction",
-            linestyle="-",
-            color="tab:pink",
-            alpha=0.9,
-        )
+    axs[0].scatter(
+        *zip(*relative_errors),
+        marker=".",
+        label="HashList correction",
+        color=hash_list_color,
+    )
+    axs[1].scatter(
+        *zip(*subtractions),
+        marker=".",
+        label="HashList correction",
+        color=hash_list_color,
+    )
 
     # We plot an horizontal line with the expected HLL error.
     axs[0].axhline(
-        expected_hll_error(hash_correction.precision),
+        expected_hll_error(correction.precision),
         color="tab:red",
-        linestyle="--",
+        linestyle="-.",
         label="Expected HLL error",
+    )
+
+    axs[0].axhline(
+        -expected_hll_error(correction.precision),
+        color="tab:red",
+        linestyle="-.",
     )
 
     # We analogously plot the expected HLL error for the subtraction,
@@ -203,91 +287,52 @@ def plot_cardinality(path_json: str):
     # best display as a shaded area. If there are no negative values in this particular
     # plot, we only display the positive expected error.
 
-    expected_error = expected_hll_error(hash_correction.precision)
+    expected_error = expected_hll_error(correction.precision)
 
-    if has_negative_deltas:
-        axs[1].fill_between(
-            range(0, largest_exact_cardinality + 1),
-            [
-                -expected_error * max(exact, 1)
-                for exact in range(0, largest_exact_cardinality + 1)
-            ],
-            [
-                expected_error * max(exact, 1)
-                for exact in range(0, largest_exact_cardinality + 1)
-            ],
+    axs[1].plot(
+        [0, 1, report.largest_exact_cardinality],
+        [0, expected_error, expected_error * report.largest_exact_cardinality],
+        color="tab:red",
+        linestyle="-.",
+        label="Expected HLL error",
+    )
+    if report.has_negative_deltas():
+        axs[1].plot(
+            [0, 1, report.largest_exact_cardinality],
+            [0, -expected_error, -expected_error * report.largest_exact_cardinality],
+            linestyle="-.",
             color="tab:red",
-            alpha=0.3,
-            label="Expected HLL error",
-        )
-    else:
-        axs[1].fill_between(
-            range(0, largest_exact_cardinality + 1),
-            [
-                0
-                for exact in range(0, largest_exact_cardinality + 1)
-            ],
-            [
-                expected_error * max(exact, 1)
-                for exact in range(0, largest_exact_cardinality + 1)
-            ],
-            color="tab:red",
-            alpha=0.3,
-            label="Expected HLL error",
         )
 
     for ax in axs:
-        # We plot a vertical line at the point of mean hashlist cardinality.
-        ax.axvline(
-            hash_correction.hashlist_mean_maximal_cardinality,
-            color="tab:orange",
-            linestyle="--",
-            label="Mean hashlist cardinality",
-        )
-
-        # We plot a vertical line at the point of smallest hashlist cardinality.
-        ax.axvline(
-            hash_correction.hashlist_smallest_maximal_cardinality,
-            color="tab:green",
-            linestyle="--",
-            label="Smallest hashlist cardinality",
-        )
-
-        # We plot a vertical line at the point of largest hashlist cardinality.
-        ax.axvline(
-            hash_correction.hashlist_largest_maximal_cardinality,
-            color="tab:blue",
-            linestyle="--",
-            label="Largest hashlist cardinality",
-        )
-
         # We plot for the range 1..=5 the number of registers for the current precision.
-        precision = hash_correction.precision
-
         ax.axvline(
-            5 * 2**precision,
+            5 * 2**correction.precision,
             color="tab:purple",
-            linestyle="--",
-            label=f"5 * 2^{precision}",
+            linestyle="-.",
+            label=f"5 * 2^{correction.precision}",
         )
+        if report.largest_exact_cardinality > 2**(2**correction.bits) - 1:
+            ax.axvline(
+                2**(2**correction.bits) - 1,
+                color="tab:purple",
+                linestyle="--",
+                label=f"2^{2**correction.bits} - 1",
+            )
 
     axs[0].set_xlabel("Exact cardinality")
     axs[0].set_ylabel("Relative error")
-    axs[0].legend(ncol=2, loc="upper right")
+    axs[0].legend(ncol=2, loc="lower right")
+    axs[1].legend(ncol=2, loc="lower right")
     axs[0].grid(which="both", linestyle="--", alpha=0.5)
+    axs[1].grid(which="both", linestyle="--", alpha=0.5)
     axs[1].set_xlabel("Exact cardinality")
     axs[1].set_ylabel("Exact - Estimated")
     axs[1].set_yscale("symlog")
-    # axs[0].set_xscale("log")
-    # axs[1].set_xscale("log")
-    axs[1].legend(ncol=2, loc="lower right")
-    axs[1].grid(which="both", linestyle="--", alpha=0.5)
-    axs[0].set_title(
-        f"Relative errors p={hash_correction.precision}, b={hash_correction.bits}"
-    )
-    axs[1].set_title(
-        f"Subtraction p={hash_correction.precision}, b={hash_correction.bits}"
-    )
+    axs[0].set_xscale("log")
+    axs[1].set_xscale("log")
+    axs[0].set_title(f"Relative errors p={correction.precision}, b={correction.bits}")
+    axs[1].set_title(f"Subtraction p={correction.precision}, b={correction.bits}")
 
     fig.tight_layout()
 
@@ -297,7 +342,7 @@ def plot_cardinality(path_json: str):
 
 def plot_cardinalities():
     """Load the reports and plot the histograms, boxplots and relative error plots."""
-    paths = glob("*.hashlist.json")
+    paths = glob("*.correction.json")
     with Pool() as pool:
         list(
             tqdm(

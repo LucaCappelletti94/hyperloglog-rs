@@ -2,10 +2,11 @@
 //! obtain by the hyperloglog-rs library is equal or better than the
 //! competitor libraries.
 //! Evaluation of set-like properties across different data structures.
-use crate::traits::{Set, TransparentMemSize};
+use crate::traits::TransparentMemSize;
 use hyperloglog_rs::prelude::*;
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
+use test_utils::prelude::Set;
 
 #[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
 pub(crate) struct PerformanceReport {

@@ -192,7 +192,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                     SaturationError::Saturation(bit_index) => {
                         self.set_writer_tell(bit_index);
                         debug_assert_eq!(bit_index, self.get_writer_tell());
-                        self.convert_hashlist_to_hyperloglog();
+                        self.convert_hash_list_to_hyperloglog();
                         debug_assert!(!self.is_hash_list());
                         self.insert(element)
                     }
@@ -205,7 +205,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
     #[inline]
     /// Converts the Hybrid counter to a regular [`HyperLogLog`] counter.
-    fn convert_hashlist_to_hyperloglog(&mut self) {
+    fn convert_hash_list_to_hyperloglog(&mut self) {
         debug_assert!(self.is_hash_list());
 
         let current_cardinality = self.estimate_cardinality();

@@ -11,3 +11,4 @@ indicatif = "0.17.8"
 serde = { version = "1.0.208", features = ["derive"] }
 stattest = {git = "https://github.com/LucaCappelletti94/stattest", branch = "faster_wilcoxon", features=["voracious_radix_sort"]}
 rayon = "1.10.0"
+hyperloglog-rs = {path = "../"}

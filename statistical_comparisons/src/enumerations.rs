@@ -4,7 +4,7 @@ use crate::proxy_implementations::{
     AlecHLL, CloudFlareHLL, HasherBuilderAssociated, HyperThreeBits, HyperTwoBits, RustHLL,
     SimpleHLL, TabacHLL, TabacHLLPlusPlus,
 };
-use crate::traits::{Set, TransparentMemSize};
+use crate::traits::TransparentMemSize;
 use hyperloglog_rs::prelude::*;
 use hypertwobits::h2b::{
     M1024 as M1024H2B, M128 as M128H2B, M2048 as M2048H2B, M256 as M256H2B, M4096 as M4096H2B,
@@ -17,6 +17,7 @@ use hypertwobits::h3b::{
 use macro_test_utils::{Set, TransparentMemSize};
 use mem_dbg::MemSize;
 use strum_macros::EnumIter;
+use test_utils::prelude::Set;
 
 #[allow(missing_docs)]
 #[expect(

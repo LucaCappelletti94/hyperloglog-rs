@@ -1,5 +1,5 @@
 //! Correction coefficients.
-/// The hashlist-correction cardinalities for the gap hash birthday paradox.
+/// The hash_list-correction cardinalities for the gap hash birthday paradox.
 pub(super) const HASHLIST_CORRECTION_CARDINALITIES: [[&[u32]; 3]; 6usize] = [
     [
         &[0u32, 5u32, 9u32, 12u32, 15u32],
@@ -209,7 +209,7 @@ pub(super) const HASHLIST_CORRECTION_CARDINALITIES: [[&[u32]; 3]; 6usize] = [
         ],
     ],
 ];
-/// The hashlist-correction errors for the gap hash birthday paradox.
+/// The hash_list-correction errors for the gap hash birthday paradox.
 pub(super) const HASHLIST_CORRECTION_BIAS: [[&[f64]; 3]; 6usize] = [
     [
         &[0f64, 0.34f64, 1.08f64, 2f64, 3.65f64],

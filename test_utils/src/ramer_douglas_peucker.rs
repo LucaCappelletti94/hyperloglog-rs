@@ -6,14 +6,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Point {
-    x: f64,
-    y: f64,
-}
-
-impl From<(f64, f64)> for Point {
-    fn from((x, y): (f64, f64)) -> Self {
-        Self { x, y }
-    }
+    pub x: f64,
+    pub y: f64,
 }
 
 impl Sum for Point {
@@ -83,8 +77,9 @@ fn perpendicular_distance(point: &Point, start: &Point, end: &Point) -> f64 {
 /// # Arguments
 /// * `points` - The list of points to simplify
 /// * `tolerance` - The maximum distance from the simplified line
-/// * `depth` - The current recursion depth
-pub fn rdp(points: &[Point], tolerance: f64, depth: usize) -> Vec<Point> {
+pub fn rdp<X: Into<Point> + Copy>(points: &[X], tolerance: f64) -> Vec<Point> {
+    let points: Vec<Point> = points.iter().copied().map(Into::into).collect();
+
     if points.len() < 2 {
         return points.to_vec();
     }
@@ -113,9 +108,9 @@ pub fn rdp(points: &[Point], tolerance: f64, depth: usize) -> Vec<Point> {
         );
 
     // If the maximum distance is greater than the tolerance, recursively simplify
-    if max_distance > tolerance && depth > 0 {
-        let mut result1 = rdp(&points[..=index], tolerance, depth - 1);
-        let mut result2 = rdp(&points[index..], tolerance, depth - 1);
+    if max_distance > tolerance {
+        let mut result1 = rdp(&points[..=index], tolerance);
+        let mut result2 = rdp(&points[index..], tolerance);
 
         // Combine the results, removing the duplicate point at index
         result1.pop();
@@ -143,7 +138,7 @@ mod tests {
         ];
 
         let tolerance = 0.001;
-        let simplified = rdp(&points, tolerance, 10);
+        let simplified = rdp(&points, tolerance);
 
         // With a low tolerance, no simplification should occur
         assert_eq!(simplified.len(), 2);
@@ -161,7 +156,7 @@ mod tests {
         ];
 
         let tolerance = 1.0;
-        let simplified = rdp(&points, tolerance, 10);
+        let simplified = rdp(&points, tolerance);
 
         // All points are on a straight line, so the algorithm should return just the endpoints
         assert_eq!(simplified.len(), 2);
@@ -180,7 +175,7 @@ mod tests {
         ];
 
         let tolerance = 1.0;
-        let simplified = rdp(&points, tolerance, 10);
+        let simplified = rdp(&points, tolerance);
 
         assert_eq!(simplified.len(), 4);
         assert_eq!(simplified, vec![points[0], points[2], points[3], points[5]]);
@@ -198,7 +193,7 @@ mod tests {
         ];
 
         let tolerance = 5.0;
-        let simplified = rdp(&points, tolerance, 10);
+        let simplified = rdp(&points, tolerance);
 
         // With a high tolerance, the algorithm should return just the first and last points
         assert_eq!(simplified.len(), 2);
@@ -210,7 +205,7 @@ mod tests {
         let points = vec![Point { x: 0.0, y: 0.0 }];
 
         let tolerance = 0.1;
-        let simplified = rdp(&points, tolerance, 10);
+        let simplified = rdp(&points, tolerance);
 
         // A single point cannot be simplified
         assert_eq!(simplified.len(), 1);
@@ -222,7 +217,7 @@ mod tests {
         let points = vec![Point { x: 0.0, y: 0.0 }, Point { x: 1.0, y: 1.0 }];
 
         let tolerance = 0.1;
-        let simplified = rdp(&points, tolerance, 10);
+        let simplified = rdp(&points, tolerance);
 
         // Two points cannot be simplified further
         assert_eq!(simplified.len(), 2);
@@ -239,7 +234,7 @@ mod tests {
         ];
 
         let tolerance = 0.1;
-        let simplified = rdp(&points, tolerance, 10);
+        let simplified = rdp(&points, tolerance);
 
         // If all points are the same, the algorithm should return just one point
         assert_eq!(simplified.len(), 2);

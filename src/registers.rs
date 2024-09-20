@@ -8,19 +8,6 @@ mod packed_array;
 
 pub use packed_array::{Packed, PackedRegister};
 
-/// Trait for a register word.
-pub(super) trait RegisterWord<B: Bits> {
-    /// The mask for the lower register.
-    const LOWER_REGISTER_MASK: Self;
-    /// The number of bits in the word.
-    const NUMBER_OF_BITS: u8;
-}
-
-impl<B: Bits> RegisterWord<B> for u64 {
-    const LOWER_REGISTER_MASK: Self = (1 << B::NUMBER_OF_BITS) - 1;
-    const NUMBER_OF_BITS: u8 = 64;
-}
-
 /// Trait marker for the registers.
 pub trait Registers<P: Precision, B: Bits>:
     Eq + PartialEq + Clone + Debug + Send + Sync + Default + AsMut<[u8]> + AsRef<[u8]>

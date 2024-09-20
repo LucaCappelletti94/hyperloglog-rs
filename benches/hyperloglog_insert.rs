@@ -24,13 +24,6 @@ type HLLA = HyperLogLog<
     ahash::AHasher,
 >;
 
-type HLLN = HyperLogLog<
-    Precision9,
-    Bits6,
-    <Precision9 as PackedRegister<Bits6>>::Array,
-    NaiveIntegerHash,
->;
-
 
 fn bench_hyperloglog_insert(c: &mut Criterion) {
     let mut group = c.benchmark_group("hyperloglog_insert");
@@ -38,7 +31,6 @@ fn bench_hyperloglog_insert(c: &mut Criterion) {
     let mut hllx = HLLX::default();
     let mut hllw = HLLW::default();
     let mut hlla = HLLA::default();
-    let mut hlln = HLLN::default();
 
     // Since we are only interested in the time performance of when the data structure has
     // already switched from the HashList to the HyperLogLog, we will only saturate the
@@ -53,10 +45,7 @@ fn bench_hyperloglog_insert(c: &mut Criterion) {
         if hlla.is_hash_list() {
             hlla.insert(&random_value);
         }
-        if hlln.is_hash_list() {
-            hlln.insert(&random_value);
-        }
-        if !hllx.is_hash_list() && !hllw.is_hash_list() && !hlla.is_hash_list() && !hlln.is_hash_list() {
+        if !hllx.is_hash_list() && !hllw.is_hash_list() && !hlla.is_hash_list() {
             break;
         }
     }
@@ -89,17 +78,6 @@ fn bench_hyperloglog_insert(c: &mut Criterion) {
             let mut hlla = hlla.clone();
             for random_value in iter_random_values::<u64>(100_000, None, None) {
                 result ^= hlla.insert(black_box(&random_value));
-            }
-            result
-        });
-    });
-
-    group.bench_function("insert_naive", |b| {
-        b.iter(|| {
-            let mut result = false;
-            let mut hlln = hlln.clone();
-            for random_value in iter_random_values::<u64>(100_000, None, None) {
-                result ^= hlln.insert(black_box(&random_value));
             }
             result
         });

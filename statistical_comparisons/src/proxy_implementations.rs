@@ -1,9 +1,6 @@
 //! This module contains implementations of the `Set` trait for various HyperLogLog
 use core::hash::BuildHasher;
 
-use hyperloglog_rs::prelude::Bits;
-use hyperloglog_rs::prelude::HyperLogLog;
-use hyperloglog_rs::prelude::Registers;
 use mem_dbg::{MemDbg, MemSize};
 
 use cardinality_estimator::CardinalityEstimator;
@@ -13,7 +10,7 @@ use hyperloglogplus::HyperLogLogPF as TabacHyperLogLogPF;
 use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
 use hypertwobits::h2b::HyperTwoBits as H2B;
 
-use crate::traits::Set;
+use test_utils::prelude::Set;
 use hypertwobits::h3b::HyperThreeBits as H3B;
 use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
 use simple_hll::HyperLogLog as SimpleHyperLogLog;
@@ -159,34 +156,7 @@ impl<P: Precision> Default for AlecHLL<P> {
     }
 }
 
-impl<H: HasherType, P: Precision, B: Bits, R: Registers<P, B>> Set
-    for HyperLogLog<P, B, R, H>
-{   
-    #[inline]
-    fn insert_element(&mut self, value: u64) {
-        self.insert(&value);
-    }
 
-    #[inline]
-    fn cardinality(&self) -> f64 {
-        self.estimate_cardinality()
-    }
-
-    #[inline]
-    fn union(&self, other: &Self) -> f64 {
-        self.estimate_union_cardinality(other)
-    }
-
-    #[inline]
-    fn model_name(&self) -> String {
-        format!(
-            "HLL<P{}, B{}> + {}",
-            P::EXPONENT,
-            B::NUMBER_OF_BITS,
-            core::any::type_name::<H>().split("::").last().unwrap()
-        )
-    }
-}
 
 impl<H: HasherType, const P: usize> Set for SimpleHLL<H, P> {
     #[inline]
