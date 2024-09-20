@@ -154,31 +154,33 @@ pub fn compute_gap_hash_correction(only_hashlist: bool) {
         });
     });
 
+    let number_of_precisions = hashlist_cardinalities.len();
+
     let output = quote! {
         //! Correction coefficients.
 
         /// The hashlist-correction cardinalities for the gap hash birthday paradox.
-        pub(super) const HASHLIST_CORRECTION_CARDINALITIES: [[&[u32]; 3]; 15] = [
+        pub(super) const HASHLIST_CORRECTION_CARDINALITIES: [[&[u32]; 3]; #number_of_precisions] = [
             #(#hashlist_cardinalities),*
         ];
 
         /// The hashlist-correction errors for the gap hash birthday paradox.
-        pub(super) const HASHLIST_CORRECTION_BIAS: [[&[f64]; 3]; 15] = [
+        pub(super) const HASHLIST_CORRECTION_BIAS: [[&[f64]; 3]; #number_of_precisions] = [
             #(#hashlist_errors),*
         ];
 
         /// The hyperloglog-correction cardinalities for the gap hash birthday paradox.
-        pub(super) const HYPERLOGLOG_CORRECTION_CARDINALITIES: [[&[u32]; 3]; 15] = [
+        pub(super) const HYPERLOGLOG_CORRECTION_CARDINALITIES: [[&[u32]; 3]; #number_of_precisions] = [
             #(#hyperloglog_cardinalities),*
         ];
 
         /// The hyperloglog-correction errors for the gap hash birthday paradox.
-        pub(super) const HYPERLOGLOG_CORRECTION_BIAS: [[&[f64]; 3]; 15] = [
+        pub(super) const HYPERLOGLOG_CORRECTION_BIAS: [[&[f64]; 3]; #number_of_precisions] = [
             #(#hyperloglog_errors),*
         ];
 
         /// The hyperloglog-correction slopes for the gap hash birthday paradox.
-        pub(super) const HYPERLOGLOG_CORRECTION_SLOPES: [[f64; 3]; 15] = [
+        pub(super) const HYPERLOGLOG_CORRECTION_SLOPES: [[f64; 3]; #number_of_precisions] = [
             #(#hyperloglog_slopes),*
         ];
     };
@@ -196,7 +198,7 @@ pub fn compute_gap_hash_correction(only_hashlist: bool) {
     let formatted_code = unparse(&syntax_tree);
 
     // Write the formatted code to the output file
-    // std::fs::write(output_path, formatted_code).unwrap();
+    std::fs::write(output_path, formatted_code).unwrap();
 
     println!("Generated correction coefficients in '{}'", output_path);
 }

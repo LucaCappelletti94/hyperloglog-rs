@@ -6,6 +6,7 @@ use crate::correction_coefficients::{
     HYPERLOGLOG_CORRECTION_CARDINALITIES, HYPERLOGLOG_CORRECTION_SLOPES,
 };
 use crate::prelude::*;
+use core::f64;
 use core::fmt::Debug;
 use core::hash::Hash;
 use core::marker::PhantomData;
@@ -38,15 +39,15 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> Default for Hyper
 
 #[inline]
 fn correction_upper_bound<P: Precision>() -> f64 {
-    200.0 * f64::integer_exp2(P::EXPONENT)
+    f64::INFINITY
 }
 
 #[inline]
 /// Returns the corrected estimate of the cardinality.
 fn correct_cardinality<P: Precision, B: Bits>(
     raw_estimate: f64,
-    cardinalities: &[[&[u32]; 3]; 15],
-    biases: &[[&[f64]; 3]; 15],
+    cardinalities: &[[&[u32]; 3]; 6],
+    biases: &[[&[f64]; 3]; 6],
 ) -> f64 {
     if raw_estimate >= correction_upper_bound::<P>() {
         return raw_estimate;
@@ -124,8 +125,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     #[inline]
     /// Returns whether the provided element may be contained in the counter.
     pub fn may_contain<T: Hash>(&self, element: &T) -> bool {
+        let (index, register, original_hash) = Self::index_and_register_and_hash(element);
         if self.is_hash_list() {
-            let (index, register, original_hash) = Self::index_and_register_and_hash(element);
             GapHash::<P, B>::find(
                 self.registers.as_ref(),
                 self.get_number_of_hashes(),
@@ -136,7 +137,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 self.get_writer_tell(),
             )
         } else {
-            let (register, index) = Self::register_and_index::<T>(element);
             self.registers.get_register(index) >= register
         }
     }
@@ -161,11 +161,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     #[inline]
     /// Inserts an element into the counter.
     pub fn insert<T: Hash>(&mut self, element: &T) -> bool {
+        let (index, register, original_hash) = Self::index_and_register_and_hash(element);
         if self.is_hash_list() {
             let hash_bits = self.get_hash_bits();
             let number_of_hashes = self.get_number_of_hashes();
             let writer_tell = self.get_writer_tell();
-            let (index, register, original_hash) = Self::index_and_register_and_hash(element);
 
             match GapHash::<P, B>::insert_sorted_desc(
                 self.registers.as_mut(),
@@ -199,9 +199,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 },
             }
         } else {
-            let (new_register_value, index) = Self::register_and_index::<T>(element);
-
-            self.insert_register_value_and_index(new_register_value, index)
+            self.insert_register_value_and_index(register, index)
         }
     }
 
@@ -239,7 +237,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         // We set the harmonic sum precisely to the current cardinality, so that it is primed
         // to be more precise than what would otherwise be obtained by using directly the registers
         // without this additional information.
-        let expected_harmonic_sum = P::ALPHA * f64::integer_exp2(2 * P::EXPONENT) / current_cardinality;
+        let expected_harmonic_sum =
+            P::ALPHA * f64::integer_exp2(2 * P::EXPONENT) / current_cardinality;
         // While the expected harmonic sum is greater than the current harmonic sum, we can adjust
         // it by inserting fake elements.
         while expected_harmonic_sum < self.harmonic_sum {
@@ -247,12 +246,15 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             // increase it by one.
             let mut smallest_register_value = u8::MAX;
             let mut smallest_index = usize::MAX;
-            self.registers.iter_registers().enumerate().for_each(|(index, register_value)| {
-                if register_value < smallest_register_value {
-                    smallest_register_value = register_value;
-                    smallest_index = index;
-                }
-            });
+            self.registers
+                .iter_registers()
+                .enumerate()
+                .for_each(|(index, register_value)| {
+                    if register_value < smallest_register_value {
+                        smallest_register_value = register_value;
+                        smallest_index = index;
+                    }
+                });
             // We increase the smallest register value by one.
             self.insert_register_value_and_index(smallest_register_value + 1, smallest_index);
         }
@@ -260,6 +262,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         debug_assert!(self.harmonic_sum.is_finite());
     }
 
+    #[inline]
     /// Splits a hash into a register value and an index.
     fn insert_register_value_and_index(&mut self, new_register_value: u8, index: usize) -> bool {
         // Count leading zeros.
@@ -321,7 +324,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             if raw_estimate >= last_cardinality {
                 let angular_coefficient = HYPERLOGLOG_CORRECTION_SLOPES[P::EXPONENT as usize - 4]
                     [B::NUMBER_OF_BITS as usize - 4];
-                return raw_estimate * angular_coefficient + last_bias;
+
+                let delta = raw_estimate - last_cardinality;
+                return last_cardinality
+                    + last_bias
+                    + (delta + last_bias * delta / last_cardinality) * angular_coefficient;
             }
 
             correct_cardinality::<P, B>(
@@ -371,13 +378,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         self.registers
             .iter_registers_zipped(&rhs.registers)
             .all(|[left_register, right_register]| left_register >= right_register)
-    }
-
-    #[inline]
-    /// Hashes the element and returns the register value and the index of the register.
-    fn register_and_index<T: Hash>(element: &T) -> (u8, usize) {
-        let (index, register, _) = Self::index_and_register_and_hash::<T>(element);
-        (register, index)
     }
 
     #[inline]

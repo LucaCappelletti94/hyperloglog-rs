@@ -72,3 +72,7 @@ opt-level = 3
 [[bench]]
 name = "hash_list_insert"
 harness = false
+
+[[bench]]
+name = "hyperloglog_insert"
+harness = false

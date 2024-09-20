@@ -18,8 +18,8 @@ use super::{
 };
 use crate::utils::VariableWord;
 use core::fmt::Debug;
-use core::mem::size_of;
 use core::marker::PhantomData;
+use core::mem::size_of;
 
 #[cfg(feature = "mem_dbg")]
 use mem_dbg::{MemDbg, MemSize};
@@ -122,6 +122,7 @@ fn extract_bridge_value_from_word<V: VariableWord>(
     unsafe { V::unchecked_from_u64(word) }
 }
 
+#[inline]
 /// Extracts a bridge register from a starting word and an ending word.
 fn extract_bridge_value_from_words<V: VariableWord, const N: usize>(
     lower_word: [u64; N],
@@ -135,6 +136,7 @@ fn extract_bridge_value_from_words<V: VariableWord, const N: usize>(
     values
 }
 
+#[inline]
 fn insert_bridge_value_into_word<V: VariableWord>(
     lower_word: &mut u64,
     upper_word: &mut u64,
@@ -203,11 +205,12 @@ impl<A, const M: usize> PackedIter<A, M> {
 }
 
 /// Implementation of the `Iterator` trait for [`PackedIter`].
-impl<'array, W: AsRef<[u64]> + AsMut<[u64]>, V: VariableWord> Iterator
+impl<'array, W: Debug + AsRef<[u64]> + AsMut<[u64]>, V: VariableWord> Iterator
     for PackedIter<&'array Packed<W, V>, 2>
 {
     type Item = [V::Word; 2];
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if self.total_values == self.value_index {
             return None;
@@ -241,6 +244,7 @@ impl<'array, W: AsRef<[u64]> + AsMut<[u64]>, V: VariableWord> Iterator
         })
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let remaining_values = self.total_values - self.value_index;
         (remaining_values, Some(remaining_values))
@@ -248,11 +252,12 @@ impl<'array, W: AsRef<[u64]> + AsMut<[u64]>, V: VariableWord> Iterator
 }
 
 /// Implementation of the `Iterator` trait for [`PackedIter`].
-impl<'array, W: AsRef<[u64]> + AsMut<[u64]>, V: VariableWord> Iterator
+impl<'array, W: Debug + AsRef<[u64]> + AsMut<[u64]>, V: VariableWord> Iterator
     for PackedIter<&'array Packed<W, V>, 1>
 {
     type Item = V::Word;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if self.total_values == self.value_index {
             return None;
@@ -286,6 +291,7 @@ impl<'array, W: AsRef<[u64]> + AsMut<[u64]>, V: VariableWord> Iterator
         })
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let remaining_values = self.total_values - self.value_index;
         (remaining_values, Some(remaining_values))
@@ -307,7 +313,7 @@ pub struct Packed<W, V> {
     /// The packed array of registers.
     words: W,
     /// Phantom data to keep track of the variable word type.
-    _phantom: PhantomData<V>
+    _phantom: PhantomData<V>,
 }
 
 impl<W: AsRef<[u64]>, V> AsRef<[u64]> for Packed<W, V> {
@@ -322,12 +328,7 @@ impl<W: AsRef<[u64]>, V> AsRef<[u8]> for Packed<W, V> {
     #[allow(unsafe_code)]
     fn as_ref(&self) -> &[u8] {
         let words_u64: &[u64] = self.words.as_ref();
-        unsafe {
-            core::slice::from_raw_parts(
-                words_u64.as_ptr().cast::<u8>(),
-                words_u64.len() * 8 / size_of::<u8>(),
-            )
-        }
+        unsafe { core::slice::from_raw_parts(words_u64.as_ptr().cast::<u8>(), words_u64.len() * 8) }
     }
 }
 
@@ -339,7 +340,7 @@ impl<W: AsMut<[u64]>, V> AsMut<[u8]> for Packed<W, V> {
         let slice = unsafe {
             core::slice::from_raw_parts_mut(
                 words_u64.as_mut_ptr().cast::<u8>(),
-                words_u64.len() * 8 / size_of::<u8>(),
+                words_u64.len() * 8,
             )
         };
         debug_assert_eq!(slice.len() % size_of::<u64>(), 0);
@@ -347,14 +348,14 @@ impl<W: AsMut<[u64]>, V> AsMut<[u8]> for Packed<W, V> {
     }
 }
 
-impl<W: AsRef<[u64]>, V: VariableWord> Packed<W, V> {
+impl<W: Debug + AsRef<[u64]>, V: VariableWord> Packed<W, V> {
     #[inline]
     fn iter_values(&self, len: usize) -> PackedIter<&Self, 1> {
         PackedIter::new([self], len)
     }
 }
 
-impl<W: AsRef<[u64]>, V: VariableWord> Packed<W, V> {
+impl<W: Debug + AsRef<[u64]>, V: VariableWord> Packed<W, V> {
     #[inline]
     fn iter_values_zipped<'words>(
         &'words self,
@@ -429,54 +430,6 @@ impl<W: AsRef<[u64]> + AsMut<[u64]>, V: VariableWord> Packed<W, V> {
                 relative_value_offset,
                 value.into(),
             );
-        }
-    }
-
-    #[inline]
-    /// Applies a function to the value at the given index.
-    ///
-    /// # Arguments
-    /// * `index` - The index at which the value is to be set.
-    /// * `ops` - The function to apply to the value at the given index.
-    ///
-    /// # Returns
-    /// The previous value at the given index and the new value.
-    ///
-    /// # Safety
-    /// This method accesses values in the underlying array without checking whether the index is valid,
-    /// as it is guaranteed to be valid by the `split_index` method.
-    pub fn set_apply<F>(&mut self, index: usize, ops: F) -> (V::Word, V::Word)
-    where
-        F: Fn(V::Word) -> V::Word,
-    {
-        let (word_index, relative_value_offset) = split_packed_index::<V>(index);
-
-        if Self::is_bridge_offset(relative_value_offset) {
-            let (low, high) = self.words.as_mut().split_at_mut(word_index + 1);
-            let low = &mut low[word_index];
-            let high = &mut high[0];
-            let value = extract_bridge_value_from_word::<V>(*low, *high, relative_value_offset);
-            let new_value = ops(value);
-            insert_bridge_value_into_word::<V>(low, high, relative_value_offset, new_value.into());
-
-            debug_assert_eq!(self.get(index), new_value);
-
-            (value, new_value)
-        } else {
-            let value = extract_value_from_word::<V>(
-                self.words.as_ref()[word_index],
-                relative_value_offset,
-            );
-            let new_value = ops(value);
-            insert_value_into_word::<V>(
-                &mut self.words.as_mut()[word_index],
-                relative_value_offset,
-                new_value.into(),
-            );
-
-            debug_assert_eq!(self.get(index), new_value);
-
-            (value, new_value)
         }
     }
 
@@ -573,7 +526,7 @@ const LOG2_USIZE: usize = (size_of::<usize>() * 8).trailing_zeros() as usize;
 /// This method employs unsafe code to convert a usize to a u8, as it guarantees
 /// that the value is less than 256.
 const fn split_packed_index<V: VariableWord>(index: usize) -> (usize, u8) {
-    let absolute_register_offset: usize = (V::NUMBER_OF_BITS_USIZE) * index;
+    let absolute_register_offset: usize = V::NUMBER_OF_BITS_USIZE * index;
     let word_index: usize = absolute_register_offset >> LOG2_USIZE;
     let relative_register_offset = (absolute_register_offset - word_index * 64) as u8;
     (word_index, relative_register_offset)
@@ -594,7 +547,7 @@ impl<const N: usize> IncreaseCapacity for [u64; N] {
 impl IncreaseCapacity for Vec<u64> {
     #[inline]
     fn increase_capacity(&mut self, maximal_size: usize) {
-        let new_length = if self.len() == 0 { 1 } else { self.len() * 3 / 2 }.min(maximal_size);
+        let new_length = if self.is_empty() { 1 } else { self.len() * 2 }.min(maximal_size);
         self.resize(new_length, 0);
     }
 }
@@ -641,8 +594,37 @@ where
     }
 
     #[inline]
+    #[allow(unsafe_code)]
     fn set_greater(&mut self, index: usize, new_register: u8) -> (u8, u8) {
-        self.set_apply(index, |register| core::cmp::max(register, new_register))
+        let (word_index, relative_value_offset) = split_packed_index::<B>(index);
+
+        if Self::is_bridge_offset(relative_value_offset) {
+            let (low, high) = unsafe { self.words.as_mut().split_at_mut_unchecked(word_index + 1) };
+            let low = unsafe { low.get_unchecked_mut(word_index) };
+            let high = unsafe { high.get_unchecked_mut(0) };
+            let value = extract_bridge_value_from_word::<B>(*low, *high, relative_value_offset);
+            let new_value = core::cmp::max(value, new_register);
+            insert_bridge_value_into_word::<B>(low, high, relative_value_offset, new_value.into());
+
+            debug_assert_eq!(self.get(index), new_value);
+
+            (value, new_value)
+        } else {
+            let value = extract_value_from_word::<B>(
+                unsafe { *self.words.as_ref().get_unchecked(word_index) },
+                relative_value_offset,
+            );
+            let new_value = core::cmp::max(value, new_register);
+            insert_value_into_word::<B>(
+                unsafe { self.words.as_mut().get_unchecked_mut(word_index) },
+                relative_value_offset,
+                new_value.into(),
+            );
+
+            debug_assert_eq!(self.get(index), new_value);
+
+            (value, new_value)
+        }
     }
 
     #[inline]

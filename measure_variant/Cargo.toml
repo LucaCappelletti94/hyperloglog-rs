@@ -11,5 +11,5 @@ rayon = "1.10.0"
 serde = { version = "1.0.208", features = ["derive"] }
 test_utils = {path="../test_utils"}
 twox-hash = {git="https://github.com/LucaCappelletti94/twox-hash", branch="merged", features=["mem_dbg"]}
-colored = "2.1.0"
 mem_dbg = "0.2.4"
+wyhash = "0.5.0"

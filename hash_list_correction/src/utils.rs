@@ -4,9 +4,8 @@ use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::u32;
-use test_utils::prelude::{rdp, read_csv, write_csv, Point};
+use test_utils::prelude::{rdp, read_csv, write_csv, Point, index_to_cardinality_estimate, cardinality_estimate_to_index};
 use twox_hash::XxHash64;
 
 fn small_float_formatter<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
@@ -214,6 +213,8 @@ fn least_squares_linear_regression(points: &[Point]) -> f64 {
     (n * sum_xy - sum_x * sum_y) / (n * sum_y_squared - sum_y * sum_y)
 }
 
+
+
 #[allow(unsafe_code)]
 /// Measures the gap between subsequent hashes in the Listhash variant of HyperLogLog.
 pub fn hash_correction<P: Precision, B: Bits>(
@@ -223,7 +224,7 @@ pub fn hash_correction<P: Precision, B: Bits>(
 where
     P: PackedRegister<B>,
 {
-    let iterations: u64 = 200_000 * 64;
+    let iterations: u64 = 10_000 * 64;
 
     let progress_bar = multiprogress.add(ProgressBar::new(iterations));
     progress_bar.set_style(
@@ -236,6 +237,7 @@ where
     );
 
     let maximal_cardinality = 10 * (1 << P::EXPONENT);
+    let capacity_to_allocate = cardinality_estimate_to_index(maximal_cardinality as u64) + 1;
 
     let hashlist_output_path = format!("{}_{}.hashlist.csv.gz", P::EXPONENT, B::NUMBER_OF_BITS);
     let hyperloglog_output_path =
@@ -272,57 +274,56 @@ where
                     let mut random_state =
                         splitmix64(splitmix64(random_state.wrapping_mul(splitmix64(i + 1))));
 
-                    // We access the hashset of the current thread.
-                    let mut hashset: HashSet<u64> =
-                        HashSet::with_capacity(maximal_cardinality as usize);
-
                     let mut hll =
                         HyperLogLog::<P, B, <P as PackedRegister<B>>::Array, XxHash64>::default();
                     let mut hashlist_maximal_estimated_cardinality = 0;
                     let mut hashlist_maximal_exact_cardinality = 0;
 
                     let mut hashlist_cardinality_estimates: Vec<(u32, u64)> =
-                        vec![(0, 0); maximal_cardinality];
+                        vec![(0, 0); capacity_to_allocate];
                     let mut hyperloglog_cardinality_estimates: Vec<(u32, u64)> = if only_hashlist {
                         vec![]
                     } else {
-                        vec![(0, 0); maximal_cardinality]
+                        vec![(0, 0); capacity_to_allocate]
                     };
 
-                    let mut hll_estimate = hll.uncorrected_estimate_cardinality().round() as usize;
-                    hashlist_cardinality_estimates[hll_estimate] = (1, 0);
+                    let index =
+                        cardinality_estimate_to_index(hll.uncorrected_estimate_cardinality().round() as u64);
+                    hashlist_cardinality_estimates[index] = (1, 0);
+
+                    let mut exact_cardinality = 0;
 
                     loop {
                         random_state = splitmix64(random_state);
                         let value = xorshift64(random_state);
 
-                        hashset.insert(value);
+                        // hashset.insert(value);
                         hll.insert(&value);
-                        let exact_cardinality = hashset.len();
+                        exact_cardinality += 1;
+                        // let exact_cardinality = hashset.len();
                         let raw_hll_estimate = hll.uncorrected_estimate_cardinality();
-                        assert!(raw_hll_estimate.is_finite());
-                        hll_estimate = raw_hll_estimate.round() as usize;
+                        let index: usize = cardinality_estimate_to_index(raw_hll_estimate.round() as u64);
 
-                        if hll_estimate >= maximal_cardinality {
+                        if index >= capacity_to_allocate {
                             break;
                         }
 
                         if hll.is_hash_list() {
-                            hashlist_maximal_estimated_cardinality = hll_estimate as u32;
+                            hashlist_maximal_estimated_cardinality =
+                                raw_hll_estimate.round() as u32;
                             hashlist_maximal_exact_cardinality = exact_cardinality as u32;
 
-                            hashlist_cardinality_estimates[hll_estimate] = (
-                                hashlist_cardinality_estimates[hll_estimate].0 + 1,
-                                hashlist_cardinality_estimates[hll_estimate].1
-                                    + exact_cardinality as u64,
+                            hashlist_cardinality_estimates[index] = (
+                                hashlist_cardinality_estimates[index].0 + 1,
+                                hashlist_cardinality_estimates[index].1 + exact_cardinality as u64,
                             );
                         } else {
                             if only_hashlist {
                                 break;
                             }
-                            hyperloglog_cardinality_estimates[hll_estimate] = (
-                                hyperloglog_cardinality_estimates[hll_estimate].0 + 1,
-                                hyperloglog_cardinality_estimates[hll_estimate].1
+                            hyperloglog_cardinality_estimates[index] = (
+                                hyperloglog_cardinality_estimates[index].0 + 1,
+                                hyperloglog_cardinality_estimates[index].1
                                     + exact_cardinality as u64,
                             );
                         }
@@ -391,7 +392,8 @@ where
             .into_par_iter()
             .enumerate()
             .filter(|(_, (count, _))| *count > iterations as u32 / 10)
-            .map(|(cardinality, (count, estimates_sum))| {
+            .map(|(index, (count, estimates_sum))| {
+                let cardinality = index_to_cardinality_estimate(index);
                 let exact_cardinality = estimates_sum as f64 / count as f64;
                 Point::from((cardinality as f64, exact_cardinality))
             })
@@ -405,7 +407,8 @@ where
             .into_par_iter()
             .enumerate()
             .filter(|(_, (count, _))| *count > iterations as u32 / 10)
-            .map(|(cardinality, (count, estimates_sum))| {
+            .map(|(index, (count, estimates_sum))| {
+                let cardinality = index_to_cardinality_estimate(index);
                 let exact_cardinality = estimates_sum as f64 / count as f64;
                 Point::from((cardinality as f64, exact_cardinality))
             })
@@ -441,7 +444,7 @@ where
     let hyperloglog_slope = if only_hashlist {
         1.0
     } else {
-        least_squares_linear_regression(&hyperloglog_report[hyperloglog_report.len() * 3 / 4..])
+        least_squares_linear_regression(&hyperloglog_report[hyperloglog_report.len() / 2..])
     };
 
     assert!(hyperloglog_slope.is_finite());

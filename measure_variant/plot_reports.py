@@ -6,50 +6,120 @@ column with the relative error of respectively the latest and reference variants
 """
 
 from glob import glob
+from dataclasses import dataclass
 from tqdm.auto import tqdm
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
+
+
+@dataclass
+class Report:
+    """Dataclass to store the data of a report."""
+
+    exact_cardinality_mean: float
+    estimated_cardinality_mean: float
+    relative_error_mean: float
+    # memory_requirements: int
+
+    @staticmethod
+    def from_pandas_series(series: pd.Series):
+        """Create a Report instance from a pandas Series."""
+
+        return Report(
+            exact_cardinality_mean=series.exact_cardinality_mean,
+            estimated_cardinality_mean=series.estimated_cardinality_mean,
+            relative_error_mean=series.relative_error_mean,
+            # memory_requirements=series.memory_requirements,
+        )
+
 
 def hyperloglog_error(p: int) -> float:
     """Returns the expected error of the HyperLogLog algorithm for a given precision."""
-    return 1.04 / (p ** 0.5)
+    return 1.04 / (p**0.5)
+
 
 def plot_all():
     """Load the reports and plot the histograms, boxplots and relative error plots."""
     # Load the reports
-    fig, axs = plt.subplots(2, 1, figsize=(10, 10), sharex=False, sharey=False)
-    for path in tqdm(glob("*.csv.gz"), desc="Loading reports", unit="report", leave=False):
+    fig, axs = plt.subplots(3, 1, figsize=(10, 15), sharex=False, sharey=False)
+    for path in tqdm(
+        glob("*.csv.gz"), desc="Loading reports", unit="report", leave=False
+    ):
         model_name = path.split(".csv.gz")[0]
 
         if "P4" not in model_name:
             continue
 
-        reports = pd.read_csv(path)
+        reports = [
+            Report.from_pandas_series(series)
+            for series in pd.read_csv(path).itertuples(index=False)
+        ]
 
-        axs[0].plot(
-            reports.cardinality,
-            reports.relative_error,
-            label=model_name
+        reports = sorted(reports, key=lambda report: report.exact_cardinality_mean)
+
+        exact_cardinalities = np.array(
+            [report.exact_cardinality_mean for report in reports]
         )
+        relative_errors = np.array([report.relative_error_mean for report in reports])
+
+        # We plot several rectangles to illustrate the areas that are not covered by the reports.
+        axs[0].plot(
+            exact_cardinalities,
+            relative_errors,
+            label=model_name,
+        )
+
+        # We illustrate the variance of the subtraction of the exact and estimated cardinality
+        # as an area plot.
+
+        subtractions = np.array([
+            report.exact_cardinality_mean - report.estimated_cardinality_mean
+            for report in reports
+        ])
+
+        # We plot several rectangles to illustrate the areas that are not covered by the reports.
 
         axs[1].plot(
-            reports.cardinality,
-            reports.memory_requirements,
-            label=model_name
+            exact_cardinalities,
+            subtractions,
+            label=model_name,
         )
 
-    # We plot an horizontal line representing the expected error of the HyperLogLog algorithm.
-    # axs[0].axhline(hyperloglog_error(4), color="red", label="Expected error")
+        # axs[2].plot(
+        #     exact_cardinalities,
+        #     [report.memory_requirements for report in reports],
+        #     label=model_name,
+        # )
+
+        axs[1].plot(
+            exact_cardinalities,
+            exact_cardinalities - exact_cardinalities,
+            label="Exact",
+        )
+
+    # We plot a vertical line at 2^2^4 to determine whether it curresponds to the saturation point.
+    axs[0].axvline(2**16 - 1, color="black", linestyle="--", label="2^16-1")
+    axs[1].axvline(2**16 - 1, color="black", linestyle="--", label="2^16-1")
+    axs[0].axvline(2**(2**5) - 1, color="red", linestyle="--", label="2^32-1")
+    axs[1].axvline(2**(2**5) - 1, color="red", linestyle="--", label="2^32-1")
 
     axs[0].set_title("Relative error")
-    axs[1].set_title("Memory requirements")
-    axs[0].set_xlabel("Cardinality")
-    axs[1].set_xlabel("Cardinality")
+    axs[1].set_title("Subtraction")
+    axs[2].set_title("Memory requirements")
+    axs[0].set_xlabel("Cardinality (log scale)")
+    axs[1].set_xlabel("Cardinality (linear)")
+    axs[2].set_xlabel("Cardinality (log scale)")
     axs[0].set_ylabel("Relative error")
+    axs[1].set_ylabel("Exact - Estimate (linear)")
+    axs[2].set_ylabel("Memory requirements (bytes)")
+    axs[0].set_xscale("log")
     axs[1].set_xscale("log")
-    axs[1].set_ylabel("Memory requirements (bytes)")
+    axs[1].set_yscale("symlog")
+    axs[2].set_xscale("log")
     axs[0].legend()
     axs[1].legend()
+    axs[2].legend()
 
     fig.tight_layout()
     fig.savefig("comparison.png")

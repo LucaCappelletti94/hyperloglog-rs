@@ -4,38 +4,47 @@
 use crate::prelude::*;
 
 impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
+    #[inline]
     pub(crate) fn set_hash_bits(&mut self, hash_bits: u8) {
         encode_hash_bits(&mut self.harmonic_sum, hash_bits);
     }
 
+    #[inline]
     pub(crate) fn get_hash_bits(&self) -> u8 {
         decode_hash_bits(self.harmonic_sum)
     }
 
+    #[inline]
     pub(crate) fn add_duplicates(&mut self, new_duplicates: u32) {
         add_duplicates(&mut self.harmonic_sum, new_duplicates);
     }
 
+    #[inline]
     pub(crate) fn set_duplicates(&mut self, duplicates: u32) {
         set_duplicates(&mut self.harmonic_sum, duplicates);
     }
 
+    #[inline]
     pub(crate) fn get_duplicates(&self) -> u32 {
         decode_duplicates(self.harmonic_sum)
     }
 
+    #[inline]
     pub(crate) fn set_writer_tell(&mut self, bit_index: u32) {
         set_writer_tell(&mut self.harmonic_sum, bit_index);
     }
 
+    #[inline]
     pub(crate) fn get_writer_tell(&self) -> u32 {
         decode_writer_tell(self.harmonic_sum)
     }
 
+    #[inline]
     pub(crate) fn set_number_of_hashes(&mut self, number_of_hashes: u32) {
         set_number_of_hashes(&mut self.harmonic_sum, number_of_hashes);
     }
 
+    #[inline]
     pub(crate) fn get_number_of_hashes(&self) -> u32 {
         decode_number_of_hashes(self.harmonic_sum)
     }
@@ -45,12 +54,14 @@ const BITS_FOR_HASH_BITS: usize = 5;
 const HASH_BITS_MASK: u64 = (1 << BITS_FOR_HASH_BITS) - 1;
 
 #[allow(unsafe_code)]
+#[inline]
 fn encode_hash_bits(float: &mut f64, target_hash: u8) {
     debug_assert!((8..=32).contains(&target_hash));
     let harmonic_sum_as_u64: &mut u64 = unsafe { core::mem::transmute(float) };
     *harmonic_sum_as_u64 = (*harmonic_sum_as_u64 & !HASH_BITS_MASK) | u64::from(target_hash - 8);
 }
 
+#[inline]
 fn decode_hash_bits(float: f64) -> u8 {
     u8::try_from(float.to_bits() & HASH_BITS_MASK).unwrap() + 8
 }
@@ -72,12 +83,14 @@ const DUPLICATES_OFFSET: usize = BITS_FOR_HASH_BITS;
 const DUPLICATES_MASK: u64 = (1 << BITS_FOR_DUPLICATES) - 1;
 
 #[allow(unsafe_code)]
+#[inline]
 /// Adds the count of duplicates to the harmonic sum.
 fn add_duplicates(float: &mut f64, new_duplicates: u32) {
     set_duplicates(float, decode_duplicates(*float) + new_duplicates);
 }
 
 #[allow(unsafe_code)]
+#[inline]
 fn set_duplicates(float: &mut f64, duplicates: u32) {
     assert!(u64::from(duplicates) <= DUPLICATES_MASK);
 
@@ -86,6 +99,7 @@ fn set_duplicates(float: &mut f64, duplicates: u32) {
         | (u64::from(duplicates) << DUPLICATES_OFFSET);
 }
 
+#[inline]
 fn decode_duplicates(float: f64) -> u32 {
     u32::try_from((float.to_bits() >> DUPLICATES_OFFSET) & DUPLICATES_MASK).unwrap()
 }
@@ -98,6 +112,7 @@ const WRITER_TELL_OFFSET: usize = BITS_FOR_HASH_BITS + BITS_FOR_DUPLICATES;
 const WRITER_TELL_MASK: u64 = (1 << BITS_FOR_WRITER_TELL) - 1;
 
 #[allow(unsafe_code)]
+#[inline]
 /// Sets the provided bit index to the harmonic sum.
 fn set_writer_tell(float: &mut f64, bit_index: u32) {
     assert!(u64::from(bit_index) <= WRITER_TELL_MASK);
@@ -107,6 +122,7 @@ fn set_writer_tell(float: &mut f64, bit_index: u32) {
         | u64::from(bit_index) << WRITER_TELL_OFFSET;
 }
 
+#[inline]
 fn decode_writer_tell(float: f64) -> u32 {
     u32::try_from(float.to_bits() >> WRITER_TELL_OFFSET & WRITER_TELL_MASK).unwrap()
 }
@@ -120,6 +136,7 @@ const NUMBER_OF_HASHES_OFFSET: usize = WRITER_TELL_OFFSET + BITS_FOR_WRITER_TELL
 const NUMBER_OF_HASHES_MASK: u64 = (1 << BITS_FOR_NUMBER_OF_HASHES) - 1;
 
 #[allow(unsafe_code)]
+#[inline]
 /// Sets the provided number of hashes to the harmonic sum.
 fn set_number_of_hashes(float: &mut f64, number_of_hashes: u32) {
     assert!(u64::from(number_of_hashes) <= NUMBER_OF_HASHES_MASK);
@@ -131,6 +148,7 @@ fn set_number_of_hashes(float: &mut f64, number_of_hashes: u32) {
 }
 
 #[allow(unsafe_code)]
+#[inline]
 /// Returns the number of hashes stored in the harmonic sum.
 fn decode_number_of_hashes(float: f64) -> u32 {
     u32::try_from((float.to_bits() >> NUMBER_OF_HASHES_OFFSET) & NUMBER_OF_HASHES_MASK).unwrap()

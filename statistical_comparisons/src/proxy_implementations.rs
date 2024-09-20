@@ -1,7 +1,6 @@
 //! This module contains implementations of the `Set` trait for various HyperLogLog
 use core::hash::BuildHasher;
 
-use hyperloglog_rs::prelude::PackedRegister;
 use hyperloglog_rs::prelude::Bits;
 use hyperloglog_rs::prelude::HyperLogLog;
 use hyperloglog_rs::prelude::Registers;
@@ -77,6 +76,7 @@ pub struct SourMash<P: Precision> {
 }
 
 impl<P: Precision> Default for SourMash<P> {
+    #[inline]
     fn default() -> Self {
         Self {
             // Since to the best of my knowledge SourMash does not actually use the ksize
@@ -96,6 +96,7 @@ pub struct RustHLL<P: Precision> {
 }
 
 impl<P: Precision> Default for RustHLL<P> {
+    #[inline]
     fn default() -> Self {
         Self {
             estimator: RustHyperLogLog::new_deterministic(
@@ -115,6 +116,7 @@ pub struct TabacHLLPlusPlus<P: Precision, H: HasherBuilderAssociated> {
 }
 
 impl<P: Precision, H: HasherBuilderAssociated> Default for TabacHLLPlusPlus<P, H> {
+    #[inline]
     fn default() -> Self {
         Self {
             estimator: TabacHyperLogLogPlus::new(P::EXPONENT, H::Builder::default()).unwrap(),
@@ -131,6 +133,7 @@ pub struct TabacHLL<P: Precision, H: HasherBuilderAssociated> {
 }
 
 impl<P: Precision, H: HasherBuilderAssociated> Default for TabacHLL<P, H> {
+    #[inline]
     fn default() -> Self {
         Self {
             estimator: TabacHyperLogLogPF::new(P::EXPONENT, H::Builder::default()).unwrap(),
@@ -147,6 +150,7 @@ pub struct AlecHLL<P: Precision> {
 }
 
 impl<P: Precision> Default for AlecHLL<P> {
+    #[inline]
     fn default() -> Self {
         Self {
             estimator: SAHyperLogLog::new(P::error_rate()),
@@ -157,19 +161,23 @@ impl<P: Precision> Default for AlecHLL<P> {
 
 impl<H: HasherType, P: Precision, B: Bits, R: Registers<P, B>> Set
     for HyperLogLog<P, B, R, H>
-{
+{   
+    #[inline]
     fn insert_element(&mut self, value: u64) {
         self.insert(&value);
     }
 
+    #[inline]
     fn cardinality(&self) -> f64 {
         self.estimate_cardinality()
     }
 
+    #[inline]
     fn union(&self, other: &Self) -> f64 {
         self.estimate_union_cardinality(other)
     }
 
+    #[inline]
     fn model_name(&self) -> String {
         format!(
             "HLL<P{}, B{}> + {}",
@@ -181,20 +189,24 @@ impl<H: HasherType, P: Precision, B: Bits, R: Registers<P, B>> Set
 }
 
 impl<H: HasherType, const P: usize> Set for SimpleHLL<H, P> {
+    #[inline]
     fn insert_element(&mut self, item: u64) {
         self.estimator.add_object(&item);
     }
 
+    #[inline]
     fn cardinality(&self) -> f64 {
         self.estimator.count() as f64
     }
 
+    #[inline]
     fn union(&self, other: &Self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.merge(&other.estimator);
         copy.estimator.count() as f64
     }
 
+    #[inline]
     fn model_name(&self) -> String {
         format!(
             "SimpleHLL<P{}, B6> + {}",
@@ -205,20 +217,24 @@ impl<H: HasherType, const P: usize> Set for SimpleHLL<H, P> {
 }
 
 impl<S: hypertwobits::h2b::Sketch + Clone, H: HasherBuilderAssociated> Set for HyperTwoBits<S, H> {
+    #[inline]
     fn insert_element(&mut self, item: u64) {
         self.estimator.insert(&item);
     }
 
+    #[inline]
     fn cardinality(&self) -> f64 {
         self.estimator.count() as f64
     }
 
+    #[inline]
     fn union(&self, other: &Self) -> f64 {
         let mut copy = self.estimator.clone();
         copy.merge(other.estimator.clone());
         copy.count() as f64
     }
 
+    #[inline]
     fn model_name(&self) -> String {
         format!(
             "H2B<{}> + {}",
@@ -231,20 +247,24 @@ impl<S: hypertwobits::h2b::Sketch + Clone, H: HasherBuilderAssociated> Set for H
 impl<S: hypertwobits::h3b::Sketch + Clone, H: HasherBuilderAssociated> Set
     for HyperThreeBits<S, H>
 {
+    #[inline]
     fn insert_element(&mut self, item: u64) {
         self.estimator.insert(&item);
     }
 
+    #[inline]
     fn cardinality(&self) -> f64 {
         self.estimator.count() as f64
     }
 
+    #[inline]
     fn union(&self, other: &Self) -> f64 {
         let mut copy = self.estimator.clone();
         copy.merge(other.estimator.clone());
         copy.count() as f64
     }
-
+    
+    #[inline]
     fn model_name(&self) -> String {
         format!(
             "H3B<{}> + {}",
@@ -255,40 +275,48 @@ impl<S: hypertwobits::h3b::Sketch + Clone, H: HasherBuilderAssociated> Set
 }
 
 impl<P: Precision> Set for SourMash<P> {
+    #[inline]
     fn insert_element(&mut self, item: u64) {
         self.estimator
             .add_sequence(item.to_le_bytes().as_ref(), false)
             .unwrap();
     }
 
+    #[inline]
     fn cardinality(&self) -> f64 {
         self.estimator.cardinality() as f64
     }
 
+    #[inline]
     fn union(&self, other: &Self) -> f64 {
         self.estimator.union(&other.estimator) as f64
     }
 
+    #[inline]
     fn model_name(&self) -> String {
         format!("SM<P{}, B8> + Vec", P::EXPONENT)
     }
 }
 
 impl<H: HasherType, const P: usize, const B: usize> Set for CloudFlareHLL<P, B, H> {
+    #[inline]
     fn insert_element(&mut self, item: u64) {
         self.estimator.insert(&item);
     }
 
+    #[inline]
     fn cardinality(&self) -> f64 {
         self.estimator.estimate() as f64
     }
 
+    #[inline]
     fn union(&self, other: &Self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.merge(&other.estimator);
         copy.estimator.estimate() as f64
     }
 
+    #[inline]
     fn model_name(&self) -> String {
         format!(
             "CF<P{}, B{}, Mix> + {}",
@@ -300,41 +328,49 @@ impl<H: HasherType, const P: usize, const B: usize> Set for CloudFlareHLL<P, B, 
 }
 
 impl<P: Precision> Set for RustHLL<P> {
+    #[inline]
     fn insert_element(&mut self, item: u64) {
         self.estimator.insert(&item);
     }
 
+    #[inline]
     fn cardinality(&self) -> f64 {
         self.estimator.len()
     }
 
+    #[inline]
     fn union(&self, other: &Self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.merge(&other.estimator);
         copy.estimator.len()
     }
 
+    #[inline]
     fn model_name(&self) -> String {
         format!("FrankPP<P{}, B8> + SipHasher13", P::EXPONENT)
     }
 }
 
 impl<H: HasherBuilderAssociated, P: Precision> Set for TabacHLLPlusPlus<P, H> {
+    #[inline]
     fn insert_element(&mut self, item: u64) {
         self.estimator.insert(&item);
     }
 
+    #[inline]
     fn cardinality(&self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.count()
     }
 
+    #[inline]
     fn union(&self, other: &Self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.merge(&other.estimator).unwrap();
         copy.estimator.count()
     }
 
+    #[inline]
     fn model_name(&self) -> String {
         format!(
             "TabacPP<P{}, B6> + {}",
@@ -345,21 +381,25 @@ impl<H: HasherBuilderAssociated, P: Precision> Set for TabacHLLPlusPlus<P, H> {
 }
 
 impl<H: HasherBuilderAssociated, P: Precision> Set for TabacHLL<P, H> {
+    #[inline]
     fn insert_element(&mut self, item: u64) {
         self.estimator.insert(&item);
     }
 
+    #[inline]
     fn cardinality(&self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.count()
     }
 
+    #[inline]
     fn union(&self, other: &Self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.merge(&other.estimator).unwrap();
         copy.estimator.count()
     }
 
+    #[inline]
     fn model_name(&self) -> String {
         format!(
             "Tabac<P{}, B6> + {}",
@@ -370,20 +410,24 @@ impl<H: HasherBuilderAssociated, P: Precision> Set for TabacHLL<P, H> {
 }
 
 impl<P: Precision> Set for AlecHLL<P> {
+    #[inline]
     fn insert_element(&mut self, item: u64) {
         self.estimator.push(&item);
     }
 
+    #[inline]
     fn cardinality(&self) -> f64 {
         self.estimator.len()
     }
 
+    #[inline]
     fn union(&self, other: &Self) -> f64 {
         let mut copy = self.clone();
         copy.estimator.union(&other.estimator);
         copy.estimator.len()
     }
 
+    #[inline]
     fn model_name(&self) -> String {
         format!("SA<P{}, B6> + XxHash64", self.estimator.precision())
     }
