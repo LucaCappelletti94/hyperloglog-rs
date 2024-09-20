@@ -20,7 +20,6 @@ mod precisions;
 mod registers;
 pub mod sketches;
 pub mod utils;
-mod naive_integer_hash;
 
 #[cfg(feature = "serde")]
 pub mod serde;
@@ -36,5 +35,4 @@ pub mod prelude {
     pub use crate::sketches::*;
     pub use crate::utils::*;
     pub use core::ops::{BitOr, BitOrAssign};
-    pub use crate::naive_integer_hash::NaiveIntegerHash;
 }
