@@ -6,33 +6,87 @@ column with the relative error of respectively the latest and reference variants
 """
 
 from glob import glob
+import os
 from dataclasses import dataclass
 from tqdm.auto import tqdm
-import pandas as pd
 import numpy as np
+import compress_json
 import matplotlib.pyplot as plt
+
+
+def get_color_by_model_name(name: str) -> str:
+    """Return the color associated with the model name."""
+    if name.startswith("HLL<"):
+        return "tab:blue"
+
+    if "Simple" in name:
+        return "tab:orange"
+
+    raise ValueError(f"Unknown model name: {name}")
 
 
 @dataclass
 class Report:
     """Dataclass to store the data of a report."""
 
-    exact_cardinality_mean: float
-    estimated_cardinality_mean: float
-    absolute_relative_error_mean: float
-    relative_error_mean: float
-    # memory_requirements: int
+    exact_cardinalities: np.ndarray
+    estimated_cardinalities: np.ndarray
+    absolute_relative_errors: np.ndarray
+    memory_requirements: np.array
+    time_requirements: np.array
+    name: str
+    color: str
+
+    @property
+    def subtractions(self) -> np.ndarray:
+        """Return the subtraction of the exact and estimated cardinality."""
+        return self.exact_cardinalities - self.estimated_cardinalities
 
     @staticmethod
-    def from_pandas_series(series: pd.Series):
-        """Create a Report instance from a pandas Series."""
+    def from_path(path: str) -> "Report":
+        """Load a report from a given path."""
+        data = compress_json.load(path)
+
+        data = sorted(
+            data, key=lambda row: row["cardinality_sample"]["exact_cardinality_mean"]
+        )
+
+        exact_cardinalities_iterator = (
+            row["cardinality_sample"]["exact_cardinality_mean"] for row in data
+        )
+        estimated_cardinalities_iterator = (
+            row["cardinality_sample"]["estimated_cardinality_mean"] for row in data
+        )
+        absolute_relative_errors_iterator = (
+            row["cardinality_sample"]["absolute_relative_error_mean"] for row in data
+        )
+        memory_requirements_iterator = (row["memory_requirements_sum"] for row in data)
+        time_requirements_iterator = (row["time_requirements_sum"] for row in data)
+
+        exact_cardinalities = np.fromiter(
+            exact_cardinalities_iterator, dtype=np.float64
+        )
+        estimated_cardinalities = np.fromiter(
+            estimated_cardinalities_iterator, dtype=np.float64
+        )
+        absolute_relative_errors = np.fromiter(
+            absolute_relative_errors_iterator, dtype=np.float64
+        )
+        memory_requirements = np.fromiter(
+            memory_requirements_iterator, dtype=np.float64
+        )
+        time_requirements = np.fromiter(time_requirements_iterator, dtype=np.float64)
+
+        name = path.split(os.sep)[-1].split(".json")[0]
 
         return Report(
-            exact_cardinality_mean=series.exact_cardinality_mean,
-            estimated_cardinality_mean=series.estimated_cardinality_mean,
-            absolute_relative_error_mean=series.absolute_relative_error_mean,
-            relative_error_mean=series.relative_error_mean,
-            # memory_requirements=series.memory_requirements,
+            exact_cardinalities=exact_cardinalities,
+            estimated_cardinalities=estimated_cardinalities,
+            absolute_relative_errors=absolute_relative_errors,
+            memory_requirements=memory_requirements,
+            time_requirements=time_requirements,
+            name=name,
+            color=get_color_by_model_name(name),
         )
 
 
@@ -44,93 +98,60 @@ def hyperloglog_error(p: int) -> float:
 def plot_all():
     """Load the reports and plot the histograms, boxplots and relative error plots."""
     # Load the reports
-    fig, axs = plt.subplots(3, 1, figsize=(10, 15), sharex=False, sharey=False)
+    fig, axs = plt.subplots(2, 2, figsize=(15, 15), sharex=False, sharey=False)
     for path in tqdm(
-        glob("*.csv.gz"), desc="Loading reports", unit="report", leave=False
+        glob("*.json"),
+        desc="Loading reports",
+        unit="report",
+        leave=False,
+        dynamic_ncols=True,
     ):
-        model_name = path.split(".csv.gz")[0]
+        report = Report.from_path(path)
 
-        if "P4" not in model_name:
-            continue
-
-        reports = [
-            Report.from_pandas_series(series)
-            for series in pd.read_csv(path).itertuples(index=False)
-        ]
-
-        reports = sorted(reports, key=lambda report: report.exact_cardinality_mean)
-
-        exact_cardinalities = np.array(
-            [report.exact_cardinality_mean for report in reports]
+        # We plot several rectangles to illustrate the areas that are not covered by the reports.
+        axs[0][0].plot(
+            report.exact_cardinalities,
+            report.absolute_relative_errors,
+            label=report.name,
+            color=report.color,
         )
 
         # We plot several rectangles to illustrate the areas that are not covered by the reports.
-        axs[0].plot(
-            exact_cardinalities,
-            [report.absolute_relative_error_mean for report in reports],
-            label=f"{model_name} absolute relative errors",
+
+        axs[1][0].plot(
+            report.exact_cardinalities,
+            report.subtractions,
+            label=report.name,
+            color=report.color,
         )
 
-        axs[0].plot(
-            exact_cardinalities,
-            [report.relative_error_mean for report in reports],
-            label=f"{model_name} relative errors",
+        axs[0][1].plot(
+            report.exact_cardinalities,
+            report.memory_requirements,
+            label=report.name,
+            color=report.color,
         )
 
-        # We illustrate the variance of the subtraction of the exact and estimated cardinality
-        # as an area plot.
-
-        subtractions = np.array([
-            report.exact_cardinality_mean - report.estimated_cardinality_mean
-            for report in reports
-        ])
-
-        # We plot several rectangles to illustrate the areas that are not covered by the reports.
-
-        axs[1].plot(
-            exact_cardinalities,
-            subtractions,
-            label=model_name,
+        axs[1][1].plot(
+            report.exact_cardinalities,
+            report.time_requirements,
+            label=report.name,
+            color=report.color,
         )
 
-        # axs[2].plot(
-        #     exact_cardinalities,
-        #     [report.memory_requirements for report in reports],
-        #     label=model_name,
-        # )
+    axs[0][0].set_title("Relative error")
+    axs[1][0].set_title("Subtraction Exact - Estimate")
+    axs[1][0].set_yscale("symlog")
+    axs[0][1].set_title("Memory requirements (log, bytes)")
+    axs[0][1].set_yscale("symlog")
+    axs[1][1].set_title("Time requirements (log, ns)")
+    axs[1][1].set_yscale("symlog")
 
-        axs[1].plot(
-            exact_cardinalities,
-            exact_cardinalities - exact_cardinalities,
-            label="Exact",
-        )
-
-    # We plot a vertical line at 2^2^4 to determine whether it curresponds to the saturation point.
-    axs[0].axvline(5 * 2**4, color="tab:purple", linestyle="--", label="5*2^4")
-    axs[0].axvline(2**16 - 1, color="black", linestyle="--", label="2^16-1")
-    axs[1].axvline(2**16 - 1, color="black", linestyle="--", label="2^16-1")
-    # axs[0].axvline(2**(2**5) - 1, color="red", linestyle="--", label="2^32-1")
-    # axs[1].axvline(2**(2**5) - 1, color="red", linestyle="--", label="2^32-1")
-
-    axs[0].set_title("Relative error")
-    axs[1].set_title("Subtraction")
-    axs[2].set_title("Memory requirements")
-    axs[0].set_xlabel("Cardinality (log scale)")
-    axs[1].set_xlabel("Cardinality (linear)")
-    axs[2].set_xlabel("Cardinality (log scale)")
-    axs[0].set_ylabel("Relative error")
-    axs[1].set_ylabel("Exact - Estimate (linear)")
-    axs[2].set_ylabel("Memory requirements (bytes)")
-    axs[0].set_xscale("log")
-    axs[1].set_xscale("log")
-    axs[1].set_yscale("symlog")
-    axs[2].set_xscale("log")
-    axs[0].grid(which="both", linestyle="--", alpha=0.5)
-    axs[1].grid(which="both", linestyle="--", alpha=0.5)
-    axs[2].grid(which="both", linestyle="--", alpha=0.5)
-    axs[0].legend()
-    axs[1].legend()
-    axs[2].legend()
+    for ax in axs.flatten():
+        ax.set_xlabel("Exact cardinality (log scale)")
+        axs[0].set_yscale("symlog")
+        ax.grid(which="both", linestyle="--", alpha=0.5)
+        ax.legend()
 
     fig.tight_layout()
     fig.savefig("comparison.png")

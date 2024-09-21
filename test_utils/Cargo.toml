@@ -12,3 +12,5 @@ serde = { version = "1.0.208", features = ["derive"] }
 stattest = {git = "https://github.com/LucaCappelletti94/stattest", branch = "faster_wilcoxon", features=["voracious_radix_sort"]}
 rayon = "1.10.0"
 hyperloglog-rs = {path = "../"}
+wyhash = "0.5.0"
+mem_dbg = "0.2.4"

@@ -1159,16 +1159,38 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 maybe_next = maybe_double_next;
                 maybe_double_next = iter.next();
 
-                if Some(next) == previous_hash {
-                    continue;
-                }
-
                 // If is possible that by downgrading the hash bits, the encoded hash
                 // will become equal to some other hash. In such cases, we will simply
                 // mark it as a duplicate and skip it.
                 if encoded_hash == next {
                     encoded_hash_accounted_for = true;
                 }
+
+                // If we have not accounted for the encoded hash as it is smaller than all the
+                // hashes in the list, we need to add it as the last hash.
+                if encoded_hash < next && maybe_next.is_none() && !encoded_hash_accounted_for {
+                    encoded_hash_accounted_for = true;
+                    let gap = Self::into_gap_fragment(next, encoded_hash, hash_bits);
+                    writer_tell += len_rice(
+                        gap.uniform_delta,
+                        uniform_coefficient,
+                        gap.geometric_minus_one,
+                    );
+
+                    if writer_tell > iter.last_buffered_bit() || writer_tell > bit_index {
+                        reader_buffer_overflow = true;
+                        break;
+                    }
+                }
+
+                if Some(next) == previous_hash {
+                    continue;
+                }
+
+                debug_assert!(
+                    previous_hash.is_none() || previous_hash.unwrap() > next,
+                    "The previous hash ({previous_hash:?}) must be greater than the next hash ({next}). Currently working at hash bits {hash_bits} with original hash bits {original_hash_bits}."
+                );
 
                 // We have already checked that encoded hash is not present
                 // in the hash list, so we just need to check whether it is
@@ -1210,18 +1232,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
 
                 previous_hash = Some(next);
 
-                // If we have not accounted for the encoded hash as it is smaller than all the
-                // hashes in the list, we need to add it as the last hash.
-                if maybe_next.is_none() && !encoded_hash_accounted_for {
-                    encoded_hash_accounted_for = true;
-                    let gap = Self::into_gap_fragment(next, encoded_hash, hash_bits);
-                    writer_tell += len_rice(
-                        gap.uniform_delta,
-                        uniform_coefficient,
-                        gap.geometric_minus_one,
-                    );
-                }
-
                 // If the writer tell with the current hash bits would end up overlapping
                 // with the reader buffer, we need to try with a smaller hash bits.
                 if writer_tell > iter.last_buffered_bit() || writer_tell > bit_index {
@@ -1230,14 +1240,23 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 }
             }
 
-            debug_assert!(encoded_hash_accounted_for);
-
             // If we encountered a reader overflow, or the new bit index is not small enough
             // to accomodate a new hash, we need to try with a smaller hash bits.
             if reader_buffer_overflow {
                 hash_bits -= 1;
                 continue;
             }
+
+            // We check whether the encoded hash is accounted for in the hash list after having
+            // checked for reader overflow as the overflow might have happened before we could
+            // account for the encoded hash.
+            debug_assert!(
+                encoded_hash_accounted_for,
+                "Failed to account for the encoded hash {encoded_hash} in the hash list at precision {} and bits {}, with hash bits {}.",
+                P::EXPONENT,
+                B::NUMBER_OF_BITS,
+                hash_bits,
+            );
 
             // Otherwise we have identified the next hash bits to employ!
             expected_maximal_bit_index = writer_tell;
@@ -1300,54 +1319,76 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
 
             if Some(next) == previous_hash {
                 duplicates += 1;
-                continue;
-            }
+            } else {
+                // If is possible that by downgrading the hash bits, the encoded hash
+                // will become equal to some other hash. In such cases, we will simply
+                // mark it as a duplicate and skip it.
+                if encoded_hash == next {
+                    encoded_hash_accounted_for = true;
+                    duplicates += 1;
+                }
 
-            // If is possible that by downgrading the hash bits, the encoded hash
-            // will become equal to some other hash. In such cases, we will simply
-            // mark it as a duplicate and skip it.
-            if encoded_hash == next {
-                encoded_hash_accounted_for = true;
-                duplicates += 1;
-            }
+                if encoded_hash > next && !encoded_hash_accounted_for {
+                    encoded_hash_accounted_for = true;
 
-            let total_wrote: usize = if encoded_hash > next && !encoded_hash_accounted_for {
-                encoded_hash_accounted_for = true;
+                    (if let Some(previous_hash) = previous_hash {
+                        let previous_to_current_gap =
+                            Self::into_gap_fragment(previous_hash, encoded_hash, hash_bits);
+                        if GapHash::<P, B>::has_rank_index() {
+                            let previous_hash_bucket =
+                                GapHash::<P, B>::rank_index_hash_bucket(hash_bits, previous_hash);
+                            let current_hash_bucket =
+                                GapHash::<P, B>::rank_index_hash_bucket(hash_bits, encoded_hash);
 
-                (if let Some(previous_hash) = previous_hash {
-                    let previous_to_current_gap =
-                        Self::into_gap_fragment(previous_hash, encoded_hash, hash_bits);
+                            if current_hash_bucket > previous_hash_bucket {
+                                GapHash::<P, B>::update_rank_index(
+                                    hashes_8,
+                                    hash_bits,
+                                    writer.tell(),
+                                    encoded_hash,
+                                );
+                            }
+                        }
+                        // If there is a previous gap, we write it.
+                        writer.write_rice(
+                            previous_to_current_gap.uniform_delta,
+                            previous_to_current_gap.geometric_minus_one,
+                            uniform_coefficient,
+                        )
+                    } else {
+                        // Otherwise this must be the first hash in the list.
+                        debug_assert_eq!(writer.tell(), 0);
+                        usize::from(writer.write_bits(encoded_hash, hash_bits))
+                    }) + {
+                        let current_to_next_gap =
+                            Self::into_gap_fragment(encoded_hash, next, hash_bits);
+                        if GapHash::<P, B>::has_rank_index() {
+                            let previous_hash_bucket =
+                                GapHash::<P, B>::rank_index_hash_bucket(hash_bits, encoded_hash);
+                            let current_hash_bucket =
+                                GapHash::<P, B>::rank_index_hash_bucket(hash_bits, next);
+
+                            if current_hash_bucket > previous_hash_bucket {
+                                GapHash::<P, B>::update_rank_index(
+                                    hashes_8,
+                                    hash_bits,
+                                    writer.tell(),
+                                    next,
+                                );
+                            }
+                        }
+                        writer.write_rice(
+                            current_to_next_gap.uniform_delta,
+                            current_to_next_gap.geometric_minus_one,
+                            uniform_coefficient,
+                        )
+                    }
+                } else if let Some(previous_hash) = previous_hash {
+                    let fragment =
+                        GapHash::<P, B>::into_gap_fragment(previous_hash, next, hash_bits);
                     if GapHash::<P, B>::has_rank_index() {
                         let previous_hash_bucket =
                             GapHash::<P, B>::rank_index_hash_bucket(hash_bits, previous_hash);
-                        let current_hash_bucket =
-                            GapHash::<P, B>::rank_index_hash_bucket(hash_bits, encoded_hash);
-
-                        if current_hash_bucket > previous_hash_bucket {
-                            GapHash::<P, B>::update_rank_index(
-                                hashes_8,
-                                hash_bits,
-                                writer.tell(),
-                                encoded_hash,
-                            );
-                        }
-                    }
-                    // If there is a previous gap, we write it.
-                    writer.write_rice(
-                        previous_to_current_gap.uniform_delta,
-                        previous_to_current_gap.geometric_minus_one,
-                        uniform_coefficient,
-                    )
-                } else {
-                    // Otherwise this must be the first hash in the list.
-                    debug_assert_eq!(writer.tell(), 0);
-                    usize::from(writer.write_bits(encoded_hash, hash_bits))
-                }) + {
-                    let current_to_next_gap =
-                        Self::into_gap_fragment(encoded_hash, next, hash_bits);
-                    if GapHash::<P, B>::has_rank_index() {
-                        let previous_hash_bucket =
-                            GapHash::<P, B>::rank_index_hash_bucket(hash_bits, encoded_hash);
                         let current_hash_bucket =
                             GapHash::<P, B>::rank_index_hash_bucket(hash_bits, next);
 
@@ -1361,38 +1402,14 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                         }
                     }
                     writer.write_rice(
-                        current_to_next_gap.uniform_delta,
-                        current_to_next_gap.geometric_minus_one,
+                        fragment.uniform_delta,
+                        fragment.geometric_minus_one,
                         uniform_coefficient,
                     )
-                }
-            } else if let Some(previous_hash) = previous_hash {
-                let fragment = GapHash::<P, B>::into_gap_fragment(previous_hash, next, hash_bits);
-                if GapHash::<P, B>::has_rank_index() {
-                    let previous_hash_bucket =
-                        GapHash::<P, B>::rank_index_hash_bucket(hash_bits, previous_hash);
-                    let current_hash_bucket =
-                        GapHash::<P, B>::rank_index_hash_bucket(hash_bits, next);
-
-                    if current_hash_bucket > previous_hash_bucket {
-                        GapHash::<P, B>::update_rank_index(
-                            hashes_8,
-                            hash_bits,
-                            writer.tell(),
-                            next,
-                        );
-                    }
-                }
-                writer.write_rice(
-                    fragment.uniform_delta,
-                    fragment.geometric_minus_one,
-                    uniform_coefficient,
-                )
-            } else {
-                usize::from(writer.write_bits(next, hash_bits))
-            };
-
-            previous_hash = Some(next);
+                } else {
+                    usize::from(writer.write_bits(next, hash_bits))
+                };
+            }
 
             // If we are at the last hash, and we have not accounted for the encoded hash, we need to write it.
             if maybe_next.is_none() && !encoded_hash_accounted_for {
@@ -1407,9 +1424,11 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 );
             }
 
+            previous_hash = Some(next);
+
             debug_assert!(
                 iter.last_buffered_bit() >= writer.tell(),
-                "Reader tell ({}) must be greater than writer tell ({}, just wrote {total_wrote}, {previous_hash:?} - {next}) in downgrade from hash size {original_hash_bits} to {hash_bits}. Precision: {}, Bits: {}.",
+                "Reader tell ({}) must be greater than writer tell ({}, {previous_hash:?} - {next}) in downgrade from hash size {original_hash_bits} to {hash_bits}. Precision: {}, Bits: {}.",
                 iter.last_buffered_bit(),
                 writer.tell(),
                 P::EXPONENT,

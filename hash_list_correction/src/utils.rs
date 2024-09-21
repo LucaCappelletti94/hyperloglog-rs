@@ -1,11 +1,10 @@
 use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
-use rayon::prelude::*;
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 use std::u32;
 use test_utils::prelude::{
-    cardinality_samples_by_model, rdp, CardinalitySample, CardinalitySamplesByModel, Point,
+    rdp, uncorrected_cardinality_samples_by_model, CardinalitySample, CardinalitySamplesByModel,
 };
 
 fn small_float_formatter<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
@@ -20,14 +19,20 @@ pub struct CorrectionPerformance {
     pub precision: u8,
     pub bits: u8,
     #[serde(serialize_with = "small_float_formatter")]
-    pub rate_of_improvement: f64,
+    pub rate_of_hash_list_improvement: f64,
     #[serde(serialize_with = "small_float_formatter")]
-    pub uncorrected_error: f64,
+    pub uncorrected_hash_list_error: f64,
     #[serde(serialize_with = "small_float_formatter")]
-    pub corrected_error: f64,
+    pub corrected_hash_list_error: f64,
+    #[serde(serialize_with = "small_float_formatter")]
+    pub rate_of_hyperloglog_improvement: f64,
+    #[serde(serialize_with = "small_float_formatter")]
+    pub uncorrected_hyperloglog_error: f64,
+    #[serde(serialize_with = "small_float_formatter")]
+    pub corrected_hyperloglog_error: f64,
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct HashCorrection {
     pub precision: u8,
     pub bits: u8,
@@ -39,45 +44,11 @@ pub struct HashCorrection {
 
 impl HashCorrection {
     /// Returns the estimated cardinality for the provided cardinality.
-    fn adjust_cardinality(
-        cardinality_estimate: u32,
-        cardinalities: &[u32],
-        relative_errors: &[f64],
+    fn adjust_hash_list_cardinality<P: Precision, B: Bits>(
+        &self,
+        cardinality_estimate: f64,
     ) -> f64 {
-        if cardinality_estimate >= *cardinalities.last().unwrap() {
-            return f64::from(cardinality_estimate)
-                + f64::from(*relative_errors.last().unwrap()) * f64::from(cardinality_estimate)
-                    / f64::from(*cardinalities.last().unwrap()).max(1.0);
-        }
-
-        if cardinality_estimate <= cardinalities[0] {
-            return f64::from(cardinality_estimate)
-                + f64::from(relative_errors[0]) * f64::from(cardinality_estimate)
-                    / f64::from(cardinalities[0]).max(1.0);
-        }
-
-        // Otherwise, we find the partition that contains the cardinality estimate.
-        let partition = cardinalities
-            .windows(2)
-            .position(|window| {
-                let (lower, upper) = (window[0], window[1]);
-                cardinality_estimate >= lower && cardinality_estimate < upper
-            })
-            .unwrap();
-
-        let (lower, upper) = (cardinalities[partition], cardinalities[partition + 1]);
-        let (lower_error, upper_error) =
-            (relative_errors[partition], relative_errors[partition + 1]);
-
-        let slope = f64::from(cardinality_estimate - lower) / f64::from(upper - lower)
-            * f64::from(upper_error - lower_error);
-
-        f64::from(cardinality_estimate) + f64::from(lower_error) + slope
-    }
-
-    /// Returns the estimated cardinality for the provided cardinality.
-    fn adjust_hash_list_cardinality(&self, cardinality_estimate: u32) -> f64 {
-        Self::adjust_cardinality(
+        correct_cardinality::<P, B>(
             cardinality_estimate,
             &self.hash_list_cardinalities,
             &self.hash_list_bias,
@@ -85,8 +56,11 @@ impl HashCorrection {
     }
 
     /// Returns the estimated cardinality for the provided cardinality.
-    fn adjust_hyperloglog_cardinality(&self, cardinality_estimate: u32) -> f64 {
-        Self::adjust_cardinality(
+    fn adjust_hyperloglog_cardinality<P: Precision, B: Bits>(
+        &self,
+        cardinality_estimate: f64,
+    ) -> f64 {
+        correct_cardinality::<P, B>(
             cardinality_estimate,
             &self.hyperloglog_cardinalities,
             &self.hyperloglog_relative_bias,
@@ -94,97 +68,61 @@ impl HashCorrection {
     }
 }
 
-fn correction<P: Precision>(report: &[CardinalitySample]) -> (Vec<u32>, Vec<f64>) {
+fn correction<P: Precision>(report: &[CardinalitySample], tolerance: f64) -> (Vec<u32>, Vec<f64>) {
     // We split the data into k partitions, and we identify the largest discontinuity
     // in each partition.
-    let top_k_reports: Vec<Point> = rdp(report, 2.0);
+    let mut top_k_reports: Vec<CardinalitySample> = rdp(report, tolerance);
 
-    let number_of_reports = report.len();
-
-    // We create the correction.
-    let errors = top_k_reports
-        .par_iter()
-        .map(|report| report.x() - report.y())
-        .collect::<Vec<f64>>();
-
-    let cardinalities = top_k_reports
-        .par_iter()
-        .map(|report| report.y().round() as u32)
-        .collect::<Vec<u32>>();
+    // We sort the samples by estimated_cardinality_mean
+    top_k_reports.sort_by(|a, b| {
+        a.estimated_cardinality_mean
+            .partial_cmp(&b.estimated_cardinality_mean)
+            .unwrap()
+    });
 
     // We remove in both the cardinalities and errors the entries that have the
     // same cardinality. In such cases, we average the errors.
-    let mut filtered_errors = Vec::with_capacity(errors.len());
-    let mut filtered_cardinalities: Vec<u32> = Vec::with_capacity(cardinalities.len());
+    let mut biases: Vec<f64> = Vec::with_capacity(top_k_reports.len());
+    let mut cardinalities: Vec<u32> = Vec::with_capacity(top_k_reports.len());
 
-    let mut previous_cardinality = cardinalities[0];
-    let mut previous_error = errors[0];
+    let mut previous_cardinality = top_k_reports[0].estimated_cardinality_mean.round() as u32;
+    let mut previous_error = top_k_reports[0].subtraction();
     let mut count = 1.0;
 
-    for (cardinality, error) in cardinalities.iter().zip(errors.iter()).skip(1) {
-        if *cardinality <= previous_cardinality + number_of_reports as u32 / 42 {
+    for report in top_k_reports.into_iter().skip(1) {
+        if report.estimated_cardinality_mean.round() as u32 == previous_cardinality {
             count += 1.0;
-            previous_error += *error;
+            previous_error += report.subtraction();
         } else {
-            filtered_cardinalities.push(previous_cardinality);
-            filtered_errors.push(previous_error / count);
+            cardinalities.push(previous_cardinality);
+            biases.push(previous_error / count);
 
-            previous_cardinality = *cardinality;
-            previous_error = *error;
+            previous_cardinality = report.estimated_cardinality_mean.round() as u32;
+            previous_error = report.subtraction();
             count = 1.0;
         }
     }
 
-    filtered_cardinalities.push(previous_cardinality);
-    filtered_errors.push(previous_error / count);
+    cardinalities.push(previous_cardinality);
+    biases.push(previous_error / count);
 
-    assert!(filtered_cardinalities.len() == filtered_errors.len());
-    assert!(filtered_cardinalities.len() <= cardinalities.len());
+    assert!(cardinalities.len() == biases.len());
+    assert!(cardinalities.len() <= cardinalities.len());
 
-    (filtered_cardinalities, filtered_errors)
+    (cardinalities, biases)
 }
-
-/// Returns the start and end CardinalitySample representing the largest stretch of near-zero relative error.
-fn find_largest_stretch_of_near_zero_relative_error(report: &[CardinalitySample]) -> (usize, usize) {
-    let mut start = 0;
-    let mut end = 0;
-    let mut current_start = 0;
-    let mut current_end = 0;
-    let mut current_relative_error = 0.0;
-
-    for (index, sample) in report.iter().enumerate() {
-        if sample.relative_error_mean < 0.01 {
-            if current_relative_error < 0.01 {
-                current_end = index;
-            } else {
-                current_start = index;
-                current_end = index;
-                current_relative_error = sample.relative_error_mean;
-            }
-        } else {
-            if current_end - current_start > end - start {
-                start = current_start;
-                end = current_end;
-            }
-            current_relative_error = 0.0;
-        }
-    }
-
-    (start, end)
-}
-
 
 #[allow(unsafe_code)]
 /// Measures the gap between subsequent hashes in the Listhash variant of HyperLogLog.
 pub fn hash_correction<P: Precision, B: Bits>(
-    _multiprogress: &MultiProgress,
+    multiprogress: &MultiProgress,
     only_hash_list: bool,
 ) -> (HashCorrection, CorrectionPerformance)
 where
     P: PackedRegister<B>,
 {
-    let iterations: u64 = 10 * 64;
-    let maximum_cardinality = 1 << 33;
+    let iterations: u64 = 10_000 * 64;
+    let maximum_cardinality = 25 * (1 << P::EXPONENT);
 
     let output_path = format!("{}_{}.report.json", P::EXPONENT, B::NUMBER_OF_BITS);
 
@@ -195,7 +133,12 @@ where
         report
     } else {
         let cardinality_sample_by_model: CardinalitySamplesByModel =
-            cardinality_samples_by_model::<P, B, wyhash::WyHash>(iterations, maximum_cardinality);
+            uncorrected_cardinality_samples_by_model::<P, B>(
+                iterations,
+                maximum_cardinality,
+                only_hash_list,
+                multiprogress,
+            );
 
         // We store the reports to a JSON file.
 
@@ -208,11 +151,11 @@ where
         cardinality_sample_by_model
     };
 
-    let (hash_list_cardinalities, hash_list_bias) = correction::<P>(&report.hash_list);
+    let (hash_list_cardinalities, hash_list_bias) = correction::<P>(&report.hash_list, 0.01);
     let (hyperloglog_cardinalities, hyperloglog_relative_bias) = if only_hash_list {
         (vec![], vec![])
     } else {
-        correction::<P>(&report.hyperloglog)
+        correction::<P>(&report.hyperloglog_fully_imprinted, 0.15)
     };
 
     // We create the correction.
@@ -235,50 +178,60 @@ where
     )
     .unwrap();
 
-    let uncorrected_error = report
+    let uncorrected_hash_list_error = report
         .hash_list
         .iter()
-        .chain(report.hyperloglog.iter())
         .map(|report| report.absolute_relative_error_mean)
         .sum::<f64>()
-        / (report.hash_list.len() + report.hyperloglog.len()) as f64;
+        / report.hash_list.len() as f64;
 
-    let corrected_error = (report
+    let uncorrected_hyperloglog_error = report
+        .hyperloglog_fully_imprinted
+        .iter()
+        .map(|report| report.absolute_relative_error_mean)
+        .sum::<f64>()
+        / report.hyperloglog.len() as f64;
+
+    let corrected_hash_list_error = report
         .hash_list
         .iter()
         .map(|report| {
             (report.exact_cardinality_mean
                 - correction
-                    .adjust_hash_list_cardinality(report.estimated_cardinality_mean.round() as u32))
+                    .adjust_hash_list_cardinality::<P, B>(report.estimated_cardinality_mean))
             .abs()
                 / report.exact_cardinality_mean.max(1.0)
         })
         .sum::<f64>()
-        / report.hash_list.len() as f64
-        + report
-            .hyperloglog
-            .iter()
-            .map(|report| {
-                (report.exact_cardinality_mean
-                    - correction.adjust_hyperloglog_cardinality(
-                        report.estimated_cardinality_mean.round() as u32,
-                    ))
-                .abs()
-                    / report.exact_cardinality_mean.max(1.0)
-            })
-            .sum::<f64>()
-            / report.hyperloglog.len() as f64)
-        / 2.0;
+        / report.hash_list.len() as f64;
+
+    let corrected_hyperloglog_error = report
+        .hyperloglog_fully_imprinted
+        .iter()
+        .map(|report| {
+            (report.exact_cardinality_mean
+                - correction
+                    .adjust_hyperloglog_cardinality::<P, B>(report.estimated_cardinality_mean))
+            .abs()
+                / report.exact_cardinality_mean.max(1.0)
+        })
+        .sum::<f64>()
+        / report.hyperloglog.len() as f64;
 
     // Rate of improvement.
-    let rate_of_improvement = uncorrected_error / corrected_error;
+    let rate_of_hash_list_improvemet = uncorrected_hash_list_error / corrected_hash_list_error;
+    let rate_of_hyperloglog_improvemet =
+        uncorrected_hyperloglog_error / corrected_hyperloglog_error;
 
     let performance = CorrectionPerformance {
         precision: P::EXPONENT,
         bits: B::NUMBER_OF_BITS,
-        rate_of_improvement,
-        uncorrected_error,
-        corrected_error,
+        rate_of_hash_list_improvement: rate_of_hash_list_improvemet,
+        uncorrected_hash_list_error,
+        corrected_hash_list_error,
+        rate_of_hyperloglog_improvement: rate_of_hyperloglog_improvemet,
+        uncorrected_hyperloglog_error,
+        corrected_hyperloglog_error,
     };
 
     (correction, performance)

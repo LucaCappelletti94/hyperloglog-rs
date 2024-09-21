@@ -1,6 +1,9 @@
 //! This module contains implementations of the `Set` trait for various HyperLogLog
 use core::hash::BuildHasher;
 
+use hyperloglog_rs::prelude::Bits;
+use hyperloglog_rs::prelude::HyperLogLog;
+use hyperloglog_rs::prelude::PackedRegister;
 use mem_dbg::{MemDbg, MemSize};
 
 use cardinality_estimator::CardinalityEstimator;
@@ -10,7 +13,6 @@ use hyperloglogplus::HyperLogLogPF as TabacHyperLogLogPF;
 use hyperloglogplus::HyperLogLogPlus as TabacHyperLogLogPlus;
 use hypertwobits::h2b::HyperTwoBits as H2B;
 
-use test_utils::prelude::Set;
 use hypertwobits::h3b::HyperThreeBits as H3B;
 use rust_hyperloglog::HyperLogLog as RustHyperLogLog;
 use simple_hll::HyperLogLog as SimpleHyperLogLog;
@@ -18,6 +20,8 @@ use sourmash::signature::SigsTrait;
 use sourmash::sketch::hyperloglog::HyperLogLog as SourMashHyperLogLog;
 use std::marker::PhantomData;
 use streaming_algorithms::HyperLogLog as SAHyperLogLog;
+use test_utils::prelude::Set;
+use wyhash::WyHash;
 
 /// Trait to associate a Hasher with a HasherBuilder
 pub trait HasherBuilderAssociated: HasherType + MemSize {
@@ -39,6 +43,145 @@ impl HasherBuilderAssociated for wyhash::WyHash {
 
 impl HasherBuilderAssociated for ahash::AHasher {
     type Builder = ahash::RandomState;
+}
+
+#[derive(Clone, MemSize)]
+/// Wrapper for the Uncorrected implementation
+pub struct HashListCorrectedImprinted<P: Precision + PackedRegister<B>, B: Bits> {
+    hll: HyperLogLog<P, B, <P as PackedRegister<B>>::Array, WyHash>,
+}
+
+impl<P: Precision + PackedRegister<B>, B: Bits> Default for HashListCorrectedImprinted<P, B> {
+    fn default() -> Self {
+        Self {
+            hll: HyperLogLog::default(),
+        }
+    }
+}
+
+impl<P: Precision + PackedRegister<B>, B: Bits> Set for HashListCorrectedImprinted<P, B> {
+    #[inline]
+    fn cardinality(&self) -> f64 {
+        if self.hll.is_hash_list() {
+            self.hll.estimate_cardinality()
+        } else {
+            self.hll.uncorrected_estimate_cardinality()
+        }
+    }
+
+    #[inline]
+    fn insert_element(&mut self, value: u64) {
+        self.hll.insert(&value);
+    }
+
+    #[inline]
+    fn model_name(&self) -> String {
+        format!(
+            "HashListCorrectedImprinted<P{}, B{}>",
+            P::EXPONENT,
+            B::NUMBER_OF_BITS
+        )
+    }
+
+    #[inline]
+    fn union(&self, _other: &Self) -> f64 {
+        unimplemented!()
+    }
+}
+
+
+#[derive(Clone, MemSize)]
+/// Wrapper for the Uncorrected implementation
+pub struct HashListCorrectedNotImprinted<P: Precision + PackedRegister<B>, B: Bits> {
+    hll: HyperLogLog<P, B, <P as PackedRegister<B>>::Array, WyHash>,
+}
+
+impl<P: Precision + PackedRegister<B>, B: Bits> Default for HashListCorrectedNotImprinted<P, B> {
+    fn default() -> Self {
+        Self {
+            hll: HyperLogLog::default(),
+        }
+    }
+}
+
+impl<P: Precision + PackedRegister<B>, B: Bits> Set for HashListCorrectedNotImprinted<P, B> {
+    #[inline]
+    fn cardinality(&self) -> f64 {
+        if self.hll.is_hash_list() {
+            self.hll.estimate_cardinality()
+        } else {
+            self.hll.uncorrected_estimate_cardinality()
+        }
+    }
+
+    #[inline]
+    fn insert_element(&mut self, value: u64) {
+        if self.hll.is_hash_list() {
+            let mut copy = self.hll.clone();
+            self.hll.insert(&value);
+            if !self.hll.is_hash_list() {
+                copy.convert_hash_list_to_hyperloglog(false, false).unwrap();
+                self.hll = copy;
+                self.hll.insert(&value);
+            }
+        } else {
+            self.hll.insert(&value);
+        }
+    }
+
+    #[inline]
+    fn model_name(&self) -> String {
+        format!(
+            "HashListCorrectedNotImprinted<P{}, B{}>",
+            P::EXPONENT,
+            B::NUMBER_OF_BITS
+        )
+    }
+
+    #[inline]
+    fn union(&self, _other: &Self) -> f64 {
+        unimplemented!()
+    }
+}
+
+#[derive(Clone, MemSize)]
+/// Wrapper for the UncorrectedNoHashList implementation
+pub struct UncorrectedNoHashList<P: Precision + PackedRegister<B>, B: Bits> {
+    hll: HyperLogLog<P, B, <P as PackedRegister<B>>::Array, WyHash>,
+}
+
+impl<P: Precision + PackedRegister<B>, B: Bits> Default for UncorrectedNoHashList<P, B> {
+    fn default() -> Self {
+        let mut hll = HyperLogLog::default();
+        hll.convert_hash_list_to_hyperloglog(false, false).unwrap();
+        Self { hll }
+    }
+}
+
+impl<P: Precision + PackedRegister<B>, B: Bits> Set for UncorrectedNoHashList<P, B> {
+    #[inline]
+    fn cardinality(&self) -> f64 {
+        self.hll.uncorrected_estimate_cardinality()
+    }
+
+    #[inline]
+    fn insert_element(&mut self, value: u64) {
+        self.hll.insert(&value);
+    }
+
+    #[inline]
+    fn model_name(&self) -> String {
+        format!(
+            "UncorrectedNoHashList<P{}, B{}>",
+            P::EXPONENT,
+            B::NUMBER_OF_BITS
+        )
+    }
+
+    #[inline]
+    fn union(&self, _other: &Self) -> f64 {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug, Clone, Default, MemDbg, MemSize)]
@@ -156,8 +299,6 @@ impl<P: Precision> Default for AlecHLL<P> {
     }
 }
 
-
-
 impl<H: HasherType, const P: usize> Set for SimpleHLL<H, P> {
     #[inline]
     fn insert_element(&mut self, item: u64) {
@@ -233,7 +374,7 @@ impl<S: hypertwobits::h3b::Sketch + Clone, H: HasherBuilderAssociated> Set
         copy.merge(other.estimator.clone());
         copy.count() as f64
     }
-    
+
     #[inline]
     fn model_name(&self) -> String {
         format!(

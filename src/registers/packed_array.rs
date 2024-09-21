@@ -18,6 +18,7 @@ use super::{
 };
 use crate::utils::VariableWord;
 use core::fmt::Debug;
+use core::hash::Hash;
 use core::marker::PhantomData;
 use core::mem::size_of;
 
@@ -553,7 +554,7 @@ impl IncreaseCapacity for Vec<u64> {
 }
 
 impl<
-        W: IncreaseCapacity + Clone + Eq + Send + Sync + Debug + AsRef<[u64]> + AsMut<[u64]>,
+        W: Hash + IncreaseCapacity + Clone + Eq + Send + Sync + Debug + AsRef<[u64]> + AsMut<[u64]>,
         P: Precision,
         B: Bits,
     > Registers<P, B> for Packed<W, B>
@@ -624,6 +625,29 @@ where
             debug_assert_eq!(self.get(index), new_value);
 
             (value, new_value)
+        }
+    }
+
+    #[inline]
+    #[allow(unsafe_code)]
+    fn set(&mut self, index: usize, new_register: u8) {
+        let (word_index, relative_value_offset) = split_packed_index::<B>(index);
+
+        if Self::is_bridge_offset(relative_value_offset) {
+            let (low, high) = unsafe { self.words.as_mut().split_at_mut_unchecked(word_index + 1) };
+            let low = unsafe { low.get_unchecked_mut(word_index) };
+            let high = unsafe { high.get_unchecked_mut(0) };
+            insert_bridge_value_into_word::<B>(low, high, relative_value_offset, new_register.into());
+
+            debug_assert_eq!(self.get(index), new_register);
+        } else {
+            insert_value_into_word::<B>(
+                unsafe { self.words.as_mut().get_unchecked_mut(word_index) },
+                relative_value_offset,
+                new_register.into(),
+            );
+
+            debug_assert_eq!(self.get(index), new_register);
         }
     }
 

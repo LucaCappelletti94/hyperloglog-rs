@@ -1,9 +1,9 @@
 //! Submodule providing the trait marker Bits.
 use crate::prelude::VariableWord;
-use core::fmt::Debug;
+use core::{fmt::Debug, hash::Hash};
 
 /// Trait marker for the number of bits.
-pub trait Bits: VariableWord {}
+pub trait Bits: VariableWord + Hash {}
 
 /// Implementation
 macro_rules! impl_bits {

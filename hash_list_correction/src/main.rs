@@ -76,17 +76,17 @@ fn correction(only_hash_list: bool) {
         reports,
         multiprogress,
         only_hash_list,
-        Precision4
-        // Precision5,
-        // Precision6,
-        // Precision7,
-        // Precision8,
-        // Precision9,
-        // Precision10,
-        // Precision11,
-        // Precision12,
-        // Precision13,
-        // Precision14,
+        Precision4,
+        Precision5,
+        Precision6,
+        Precision7,
+        Precision8,
+        Precision9,
+        Precision10,
+        Precision11,
+        Precision12,
+        Precision13,
+        Precision14
         // Precision15,
         // Precision16,
         // Precision17,
@@ -104,14 +104,12 @@ fn correction(only_hash_list: bool) {
     let mut hash_list_errors: Vec<TokenStream> = Vec::new();
     let mut hyperloglog_cardinalities: Vec<TokenStream> = Vec::new();
     let mut hyperloglog_errors: Vec<TokenStream> = Vec::new();
-    let mut hyperloglog_slopes: Vec<TokenStream> = Vec::new();
 
     (4..=maximal_precision).for_each(|exponent| {
         let mut this_hash_list_cardinalities: Vec<TokenStream> = Vec::new();
         let mut this_hash_list_errors: Vec<TokenStream> = Vec::new();
         let mut this_hyperloglog_cardinalities: Vec<TokenStream> = Vec::new();
         let mut this_hyperloglog_errors: Vec<TokenStream> = Vec::new();
-        let mut this_hyperloglog_slopes: Vec<f64> = Vec::new();
 
         (4..=6).for_each(|bit_size| {
             let (correction, _) = reports
@@ -158,9 +156,6 @@ fn correction(only_hash_list: bool) {
         hyperloglog_errors.push(quote! {
             [#(#this_hyperloglog_errors),*]
         });
-        hyperloglog_slopes.push(quote! {
-            [#(#this_hyperloglog_slopes),*]
-        });
     });
 
     let number_of_precisions = hash_list_cardinalities.len();
@@ -187,11 +182,6 @@ fn correction(only_hash_list: bool) {
         pub(super) const HYPERLOGLOG_CORRECTION_BIAS: [[&[f64]; 3]; #number_of_precisions] = [
             #(#hyperloglog_errors),*
         ];
-
-        /// The hyperloglog-correction slopes for the gap hash birthday paradox.
-        pub(super) const HYPERLOGLOG_CORRECTION_SLOPES: [[f64; 3]; #number_of_precisions] = [
-            #(#hyperloglog_slopes),*
-        ];
     };
 
     // We write out the output token stream to '../src/composite_hash/gap_birthday_paradox.rs'
@@ -207,7 +197,7 @@ fn correction(only_hash_list: bool) {
     let formatted_code = unparse(&syntax_tree);
 
     // Write the formatted code to the output file
-    // std::fs::write(output_path, formatted_code).unwrap();
+    std::fs::write(output_path, formatted_code).unwrap();
 
     println!("Generated correction coefficients in '{}'", output_path);
 }

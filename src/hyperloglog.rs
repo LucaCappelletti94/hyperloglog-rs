@@ -3,7 +3,7 @@
 use crate::composite_hash::{GapHash, SaturationError};
 use crate::correction_coefficients::{
     HASHLIST_CORRECTION_BIAS, HASHLIST_CORRECTION_CARDINALITIES, HYPERLOGLOG_CORRECTION_BIAS,
-    HYPERLOGLOG_CORRECTION_CARDINALITIES, HYPERLOGLOG_CORRECTION_SLOPES,
+    HYPERLOGLOG_CORRECTION_CARDINALITIES,
 };
 use crate::prelude::*;
 use core::f64;
@@ -39,23 +39,21 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> Default for Hyper
 
 #[inline]
 fn correction_upper_bound<P: Precision>() -> f64 {
-    f64::INFINITY
+    25.0 * f64::integer_exp2(P::EXPONENT)
 }
 
 #[inline]
 /// Returns the corrected estimate of the cardinality.
-fn correct_cardinality<P: Precision, B: Bits>(
+pub fn correct_cardinality<P: Precision, B: Bits>(
     raw_estimate: f64,
-    cardinalities: &[[&[u32]; 3]; 6],
-    biases: &[[&[f64]; 3]; 6],
+    cardinalities: &[u32],
+    biases: &[f64],
 ) -> f64 {
-    if raw_estimate >= correction_upper_bound::<P>() {
+    if raw_estimate >= correction_upper_bound::<P>() || cardinalities.is_empty() {
         return raw_estimate;
     }
 
-    let cardinalities = &cardinalities[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
-    let biases = &biases[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
-    let estimate_u32 = raw_estimate as u32;
+    let estimate_u32 = raw_estimate.round() as u32;
 
     if estimate_u32 <= cardinalities[0] {
         return raw_estimate + biases[0] * raw_estimate / f64::from(cardinalities[0]).max(1.0);
@@ -69,6 +67,8 @@ fn correct_cardinality<P: Precision, B: Bits>(
 
     // We use a binary-search-based partition search to find the point where the raw estimate is
     // located in the cardinalities.
+
+    debug_assert!(cardinalities.windows(2).all(|window| window[0] < window[1]));
 
     let index = cardinalities.partition_point(|&x| x < estimate_u32);
 
@@ -192,7 +192,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                     SaturationError::Saturation(bit_index) => {
                         self.set_writer_tell(bit_index);
                         debug_assert_eq!(bit_index, self.get_writer_tell());
-                        self.convert_hash_list_to_hyperloglog();
+                        self.convert_hash_list_to_hyperloglog(true, true).unwrap();
                         debug_assert!(!self.is_hash_list());
                         self.insert(element)
                     }
@@ -205,10 +205,15 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
     #[inline]
     /// Converts the Hybrid counter to a regular [`HyperLogLog`] counter.
-    fn convert_hash_list_to_hyperloglog(&mut self) {
-        debug_assert!(self.is_hash_list());
-
-        let current_cardinality = self.estimate_cardinality();
+    pub fn convert_hash_list_to_hyperloglog(
+        &mut self,
+        imprint_up: bool,
+        imprint_down: bool,
+    ) -> Result<(), &str> {
+        if !self.is_hash_list() {
+            return Err("The counter is already in HyperLogLog mode.");
+        }
+        let current_cardinality = 0.0;//self.estimate_cardinality();
         let hash_bits = self.get_hash_bits();
         let mut new_registers = self.registers.clone();
         new_registers.clear_registers();
@@ -216,13 +221,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         let number_of_hashes = self.get_number_of_hashes();
         let writer_tell = self.get_writer_tell();
         self.harmonic_sum = f64::integer_exp2(P::EXPONENT);
-
-        debug_assert!(
-            P::EXPONENT ==  4 && B::NUMBER_OF_BITS == 4 || GapHash::<P, B>::is_prefix_free_encoded(number_of_hashes, hash_bits, writer_tell),
-            "Downgrading hash list to HyperLogLog counter with non-prefix-free encoding. Number of hashes: {number_of_hashes}, hash bits: {hash_bits}, writer tell: {writer_tell}, precision: {}, bits: {}.",
-            P::EXPONENT,
-            B::NUMBER_OF_BITS
-        );
 
         let mut last_index = usize::MAX;
         GapHash::<P, B>::decoded(registers.as_ref(), number_of_hashes, hash_bits, writer_tell)
@@ -234,32 +232,43 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 self.insert_register_value_and_index(new_register_value, index);
             });
 
-        // We set the harmonic sum precisely to the current cardinality, so that it is primed
-        // to be more precise than what would otherwise be obtained by using directly the registers
-        // without this additional information.
-        let expected_harmonic_sum =
-            P::ALPHA * f64::integer_exp2(2 * P::EXPONENT) / current_cardinality;
-        // While the expected harmonic sum is greater than the current harmonic sum, we can adjust
-        // it by inserting fake elements.
-        while expected_harmonic_sum < self.harmonic_sum {
-            // To do so in the most granular manner, we search for the smallest register value and
-            // increase it by one.
-            let mut smallest_register_value = u8::MAX;
-            let mut smallest_index = usize::MAX;
-            self.registers
-                .iter_registers()
-                .enumerate()
-                .for_each(|(index, register_value)| {
-                    if register_value < smallest_register_value {
-                        smallest_register_value = register_value;
-                        smallest_index = index;
-                    }
-                });
-            // We increase the smallest register value by one.
-            self.insert_register_value_and_index(smallest_register_value + 1, smallest_index);
+        if imprint_up || imprint_down {
+            // We set the harmonic sum precisely to the current cardinality, so that it is primed
+            // to be more precise than what would otherwise be obtained by using directly the registers
+            // without this additional information.
+            let expected_harmonic_sum =
+                P::ALPHA * f64::integer_exp2(2 * P::EXPONENT) / current_cardinality;
+
+            self.registers.apply_to_registers(|mut register_value| {
+                if imprint_down
+                    && register_value <= 1
+                    && self.harmonic_sum - 0.5 > expected_harmonic_sum
+                {
+                    self.harmonic_sum += f64::integer_exp2_minus(register_value + 1)
+                        - f64::integer_exp2_minus(register_value);
+                    register_value = register_value + 1;
+                }
+
+                register_value
+            });
+
+            self.registers.apply_to_registers(|mut register_value| {
+                if imprint_up
+                    && register_value > 0
+                    && register_value < 3
+                    && self.harmonic_sum - 0.25 < expected_harmonic_sum
+                {
+                    self.harmonic_sum += 1.0 - f64::integer_exp2_minus(register_value);
+                    register_value = 0;
+                }
+
+                register_value
+            });
         }
 
         debug_assert!(self.harmonic_sum.is_finite());
+
+        Ok(())
     }
 
     #[inline]
@@ -270,10 +279,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             new_register_value <= u8::try_from(B::MASK).unwrap(),
             "Register value is too large: {new_register_value} > {}",
             B::MASK
-        );
-        debug_assert!(
-            new_register_value > 0,
-            "Register value is zero, which is not allowed."
         );
 
         let (old_register_value, larger_register_value) =
@@ -304,37 +309,20 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         if self.is_hash_list() {
             correct_cardinality::<P, B>(
                 f64::from(self.get_number_of_hashes() + self.get_duplicates()),
-                &HASHLIST_CORRECTION_CARDINALITIES,
-                &HASHLIST_CORRECTION_BIAS,
+                &HASHLIST_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
+                    [B::NUMBER_OF_BITS as usize - 4],
+                &HASHLIST_CORRECTION_BIAS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4],
             )
         } else {
             let raw_estimate =
                 P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / self.harmonic_sum;
 
-            if raw_estimate >= correction_upper_bound::<P>() {
-                return raw_estimate;
-            }
-
-            let cardinalities = HYPERLOGLOG_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
-                [B::NUMBER_OF_BITS as usize - 4];
-            let biases = HYPERLOGLOG_CORRECTION_BIAS[P::EXPONENT as usize - 4]
-                [B::NUMBER_OF_BITS as usize - 4];
-            let last_cardinality = f64::from(cardinalities[cardinalities.len() - 1]);
-            let last_bias = biases[biases.len() - 1];
-            if raw_estimate >= last_cardinality {
-                let angular_coefficient = HYPERLOGLOG_CORRECTION_SLOPES[P::EXPONENT as usize - 4]
-                    [B::NUMBER_OF_BITS as usize - 4];
-
-                let delta = raw_estimate - last_cardinality;
-                return last_cardinality
-                    + last_bias
-                    + (delta + last_bias * delta / last_cardinality) * angular_coefficient;
-            }
-
             correct_cardinality::<P, B>(
                 raw_estimate,
-                &HYPERLOGLOG_CORRECTION_CARDINALITIES,
-                &HYPERLOGLOG_CORRECTION_BIAS,
+                &HYPERLOGLOG_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
+                    [B::NUMBER_OF_BITS as usize - 4],
+                &HYPERLOGLOG_CORRECTION_BIAS[P::EXPONENT as usize - 4]
+                    [B::NUMBER_OF_BITS as usize - 4],
             )
         }
     }
@@ -554,8 +542,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 let union_estimate = correct_cardinality::<P, B>(
                     P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT)
                         / self.registers.get_union_harmonic_sum(&other.registers),
-                    &HYPERLOGLOG_CORRECTION_CARDINALITIES,
-                    &HYPERLOGLOG_CORRECTION_BIAS,
+                    &HYPERLOGLOG_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
+                        [B::NUMBER_OF_BITS as usize - 4],
+                    &HYPERLOGLOG_CORRECTION_BIAS[P::EXPONENT as usize - 4]
+                        [B::NUMBER_OF_BITS as usize - 4],
                 );
                 correct_union_estimate(self_cardinality, other_cardinality, union_estimate)
             }
