@@ -13,3 +13,5 @@ test_utils = {path="../test_utils"}
 twox-hash = {git="https://github.com/LucaCappelletti94/twox-hash", branch="merged", features=["mem_dbg"]}
 mem_dbg = "0.2.4"
 wyhash = {git="https://github.com/LucaCappelletti94/wyhash-rs", branch="merged", features=["mem_dbg"]}
+serde_json = "1.0.128"
+hypertwobits = {git="https://github.com/axiomhq/hypertwobits", features = ["mem_dbg"]}

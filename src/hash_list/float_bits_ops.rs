@@ -10,8 +10,16 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     #[inline]
-    pub(crate) fn get_hash_bits(&self) -> u8 {
-        decode_hash_bits(self.harmonic_sum)
+    /// Returns the number of bits used to store the hash.
+    /// 
+    /// # Errors
+    /// If the counter is not in hash list mode, an error is returned.
+    pub fn get_hash_bits(&self) -> Result<u8, &'static str> {
+        if self.is_hash_list() {
+            Ok(decode_hash_bits(self.harmonic_sum))
+        } else {
+            Err("The counter is not in hash list mode.")
+        }
     }
 
     #[inline]
@@ -45,8 +53,16 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     #[inline]
-    pub(crate) fn get_number_of_hashes(&self) -> u32 {
-        decode_number_of_hashes(self.harmonic_sum)
+    /// Returns the number of hashes stored in the harmonic sum.
+    /// 
+    /// # Errors
+    /// If the counter is not in hash list mode, an error is returned.
+    pub fn get_number_of_hashes(&self) -> Result<u32, &'static str> {
+        if self.is_hash_list() {
+            Ok(decode_number_of_hashes(self.harmonic_sum))
+        } else {
+            Err("The counter is not in hash list mode.")
+        }
     }
 }
 

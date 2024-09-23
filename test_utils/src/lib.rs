@@ -13,7 +13,7 @@ pub mod prelude {
     pub use crate::cardinality_to_index::{
         cardinality_estimate_to_index, index_to_cardinality_estimate,
     };
-    pub use crate::csv::{append_csv, read_csv, write_csv};
+    pub use crate::csv::{append_csv, read_report, write_report};
     pub use crate::parallel::*;
     pub use crate::ramer_douglas_peucker::{rdp, Point};
     pub use crate::readable_number::ReadableNumber;

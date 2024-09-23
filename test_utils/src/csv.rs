@@ -11,36 +11,42 @@ use serde::Serialize;
 ///
 /// # Implementation
 /// The function uses csv Writer combined with flate2 to write the CSV file.
-pub fn write_csv<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: Serialize>(
+pub fn write_report<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: Serialize>(
     report: I,
     path: &str,
 ) {
-    // If the path ends with ".gz", we use Gzip compression.
-    let use_gzip_compression = std::path::Path::new(path)
-        .extension()
-        .map_or(false, |ext| ext.eq_ignore_ascii_case("gz"));
+    let format = FileType::from_path(path);
 
-    if use_gzip_compression {
-        let file = std::fs::File::create(path).unwrap();
-        let mut writer = csv::Writer::from_writer(flate2::write::GzEncoder::new(
-            file,
-            flate2::Compression::default(),
-        ));
+    match format {
+        FileType::CSV { compression } => {
+            if compression {
+                let file = std::fs::File::create(path).unwrap();
+                let mut writer = csv::WriterBuilder::new().has_headers(false).from_writer(
+                    flate2::write::GzEncoder::new(file, flate2::Compression::default()),
+                );
 
-        for record in report {
-            writer.serialize(record).unwrap();
+                for record in report {
+                    writer.serialize(record).unwrap();
+                }
+
+                writer.flush().unwrap();
+            } else {
+                let file = std::fs::File::create(path).unwrap();
+                let mut writer = csv::WriterBuilder::new()
+                    .has_headers(false)
+                    .from_writer(file);
+
+                for record in report {
+                    writer.serialize(record).unwrap();
+                }
+
+                writer.flush().unwrap();
+            }
         }
-
-        writer.flush().unwrap();
-    } else {
-        let file = std::fs::File::create(path).unwrap();
-        let mut writer = csv::Writer::from_writer(file);
-
-        for record in report {
-            writer.serialize(record).unwrap();
+        FileType::JSON => {
+            let file = std::fs::File::create(path).unwrap();
+            serde_json::to_writer(file, &report.collect::<Vec<V>>()).unwrap();
         }
-
-        writer.flush().unwrap();
     }
 }
 
@@ -55,7 +61,7 @@ pub fn append_csv<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: Serial
 ) {
     // If the file does not exist, we create it.
     if !std::path::Path::new(path).exists() {
-        write_csv(report, path);
+        write_report(report, path);
         return;
     }
 
@@ -71,6 +77,25 @@ pub fn append_csv<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: Serial
     writer.flush().unwrap();
 }
 
+enum FileType {
+    CSV { compression: bool },
+    JSON,
+}
+
+impl FileType {
+    fn from_path(path: &str) -> Self {
+        if path.ends_with(".csv.gz") {
+            FileType::CSV { compression: true }
+        } else if path.ends_with(".csv") {
+            FileType::CSV { compression: false }
+        } else if path.ends_with(".json") {
+            FileType::JSON
+        } else {
+            panic!("Unsupported file format.");
+        }
+    }
+}
+
 /// CSV reader for a given deserializable type.
 ///
 /// # Arguments
@@ -78,20 +103,29 @@ pub fn append_csv<I: Iterator<Item = V> + ExactSizeIterator<Item = V>, V: Serial
 ///
 /// # Implementation
 /// The function uses csv Reader combined with flate2 to read the CSV file.
-pub fn read_csv<V: DeserializeOwned>(path: &str) -> Result<Vec<V>, csv::Error> {
-    let use_gzip_compression = std::path::Path::new(path)
-        .extension()
-        .map_or(false, |ext| ext.eq_ignore_ascii_case("gz"));
+pub fn read_report<V: DeserializeOwned>(path: &str) -> Option<Vec<V>> {
+    let format = FileType::from_path(path);
 
-    if use_gzip_compression {
-        let file = std::fs::File::open(path)?;
-        let reader = csv::Reader::from_reader(flate2::read::GzDecoder::new(file));
-
-        reader.into_deserialize().collect()
-    } else {
-        let file = std::fs::File::open(path)?;
-        let reader = csv::Reader::from_reader(file);
-
-        reader.into_deserialize().collect()
+    match format {
+        FileType::CSV { compression } => {
+            let file = std::fs::File::open(path).ok()?;
+            if compression {
+                let reader = csv::Reader::from_reader(flate2::read::GzDecoder::new(file));
+                reader
+                    .into_deserialize()
+                    .collect::<Result<Vec<V>, _>>()
+                    .ok()
+            } else {
+                let reader = csv::Reader::from_reader(file);
+                reader
+                    .into_deserialize()
+                    .collect::<Result<Vec<V>, _>>()
+                    .ok()
+            }
+        }
+        FileType::JSON => {
+            let file = std::fs::File::open(path).ok()?;
+            serde_json::from_reader(file).ok()
+        }
     }
 }

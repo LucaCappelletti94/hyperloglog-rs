@@ -28,8 +28,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
         for (left_register_value, index) in GapHash::<P, B>::decoded(
             self.registers.as_ref(),
-            self.get_number_of_hashes(),
-            self.get_hash_bits(),
+            self.get_number_of_hashes().unwrap(),
+            self.get_hash_bits().unwrap(),
             self.get_writer_tell(),
         ) {
             debug_assert!(

@@ -439,7 +439,7 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub(super) fn downgrade(hash: u32, hash_bits: u8, shift: u8) -> u32 {
         debug_assert!(hash_bits >= P::EXPONENT + B::NUMBER_OF_BITS + shift);
 
@@ -655,7 +655,7 @@ impl<'a> IterVariants<'a> {
 impl Iterator for IterVariants<'_> {
     type Item = u32;
 
-    #[inline]
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             IterVariants::u8(iter) => iter.next().copied().map(u32::from),

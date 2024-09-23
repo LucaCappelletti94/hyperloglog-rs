@@ -39,7 +39,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> Default for Hyper
 
 #[inline]
 fn correction_upper_bound<P: Precision>() -> f64 {
-    25.0 * f64::integer_exp2(P::EXPONENT)
+    7.5 * f64::integer_exp2(P::EXPONENT)
 }
 
 #[inline]
@@ -49,11 +49,11 @@ pub fn correct_cardinality<P: Precision, B: Bits>(
     cardinalities: &[u32],
     biases: &[f64],
 ) -> f64 {
-    if raw_estimate >= correction_upper_bound::<P>() || cardinalities.is_empty() {
+    if raw_estimate >= correction_upper_bound::<P>() {
         return raw_estimate;
     }
 
-    let estimate_u32 = raw_estimate.round() as u32;
+    let estimate_u32 = u32::try_from(raw_estimate as u64).unwrap();
 
     if estimate_u32 <= cardinalities[0] {
         return raw_estimate + biases[0] * raw_estimate / f64::from(cardinalities[0]).max(1.0);
@@ -104,7 +104,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     #[inline]
     /// Returns whether the counter is empty.
     pub fn is_empty(&self) -> bool {
-        self.is_hash_list() && self.get_number_of_hashes() == 0
+        self.is_hash_list() && self.get_number_of_hashes().unwrap() == 0
     }
 
     #[inline]
@@ -129,11 +129,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         if self.is_hash_list() {
             GapHash::<P, B>::find(
                 self.registers.as_ref(),
-                self.get_number_of_hashes(),
+                self.get_number_of_hashes().unwrap(),
                 index,
                 register,
                 original_hash,
-                self.get_hash_bits(),
+                self.get_hash_bits().unwrap(),
                 self.get_writer_tell(),
             )
         } else {
@@ -145,6 +145,23 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// Returns whether the counter is in hybrid mode.
     pub fn is_hash_list(&self) -> bool {
         self.harmonic_sum.to_bits().leading_zeros() == 0
+    }
+
+    #[inline]
+    /// Returns the number of registers equal to zero.
+    ///
+    /// # Raises
+    /// If the counter is in HashList mode, an error is raised.
+    pub fn number_of_zero_registers(&self) -> Result<usize, &'static str> {
+        if self.is_hash_list() {
+            Err("The counter is in HashList mode.")
+        } else {
+            Ok(self
+                .registers
+                .iter_registers()
+                .filter(|&register| register == 0)
+                .count())
+        }
     }
 
     #[inline]
@@ -163,8 +180,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     pub fn insert<T: Hash>(&mut self, element: &T) -> bool {
         let (index, register, original_hash) = Self::index_and_register_and_hash(element);
         if self.is_hash_list() {
-            let hash_bits = self.get_hash_bits();
-            let number_of_hashes = self.get_number_of_hashes();
+            let hash_bits = self.get_hash_bits().unwrap();
+            let number_of_hashes = self.get_number_of_hashes().unwrap();
             let writer_tell = self.get_writer_tell();
 
             match GapHash::<P, B>::insert_sorted_desc(
@@ -192,7 +209,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                     SaturationError::Saturation(bit_index) => {
                         self.set_writer_tell(bit_index);
                         debug_assert_eq!(bit_index, self.get_writer_tell());
-                        self.convert_hash_list_to_hyperloglog(true, true).unwrap();
+                        self.convert_hash_list_to_hyperloglog().unwrap();
                         debug_assert!(!self.is_hash_list());
                         self.insert(element)
                     }
@@ -205,20 +222,15 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
     #[inline]
     /// Converts the Hybrid counter to a regular [`HyperLogLog`] counter.
-    pub fn convert_hash_list_to_hyperloglog(
-        &mut self,
-        imprint_up: bool,
-        imprint_down: bool,
-    ) -> Result<(), &str> {
+    pub fn convert_hash_list_to_hyperloglog(&mut self) -> Result<(), &str> {
         if !self.is_hash_list() {
             return Err("The counter is already in HyperLogLog mode.");
         }
-        let current_cardinality = 0.0;//self.estimate_cardinality();
-        let hash_bits = self.get_hash_bits();
+        let hash_bits = self.get_hash_bits().unwrap();
         let mut new_registers = self.registers.clone();
         new_registers.clear_registers();
         let registers = core::mem::replace(&mut self.registers, new_registers);
-        let number_of_hashes = self.get_number_of_hashes();
+        let number_of_hashes = self.get_number_of_hashes().unwrap();
         let writer_tell = self.get_writer_tell();
         self.harmonic_sum = f64::integer_exp2(P::EXPONENT);
 
@@ -231,40 +243,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 last_index = index;
                 self.insert_register_value_and_index(new_register_value, index);
             });
-
-        if imprint_up || imprint_down {
-            // We set the harmonic sum precisely to the current cardinality, so that it is primed
-            // to be more precise than what would otherwise be obtained by using directly the registers
-            // without this additional information.
-            let expected_harmonic_sum =
-                P::ALPHA * f64::integer_exp2(2 * P::EXPONENT) / current_cardinality;
-
-            self.registers.apply_to_registers(|mut register_value| {
-                if imprint_down
-                    && register_value <= 1
-                    && self.harmonic_sum - 0.5 > expected_harmonic_sum
-                {
-                    self.harmonic_sum += f64::integer_exp2_minus(register_value + 1)
-                        - f64::integer_exp2_minus(register_value);
-                    register_value = register_value + 1;
-                }
-
-                register_value
-            });
-
-            self.registers.apply_to_registers(|mut register_value| {
-                if imprint_up
-                    && register_value > 0
-                    && register_value < 3
-                    && self.harmonic_sum - 0.25 < expected_harmonic_sum
-                {
-                    self.harmonic_sum += 1.0 - f64::integer_exp2_minus(register_value);
-                    register_value = 0;
-                }
-
-                register_value
-            });
-        }
 
         debug_assert!(self.harmonic_sum.is_finite());
 
@@ -297,7 +275,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// Returns the uncorrected estimate of the cardinality.
     pub fn uncorrected_estimate_cardinality(&self) -> f64 {
         if self.is_hash_list() {
-            f64::from(self.get_number_of_hashes() + self.get_duplicates())
+            f64::from(self.get_number_of_hashes().unwrap() + self.get_duplicates())
         } else {
             P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / self.harmonic_sum
         }
@@ -308,7 +286,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     pub fn estimate_cardinality(&self) -> f64 {
         if self.is_hash_list() {
             correct_cardinality::<P, B>(
-                f64::from(self.get_number_of_hashes() + self.get_duplicates()),
+                f64::from(self.get_number_of_hashes().unwrap() + self.get_duplicates()),
                 &HASHLIST_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
                     [B::NUMBER_OF_BITS as usize - 4],
                 &HASHLIST_CORRECTION_BIAS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4],
@@ -480,8 +458,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     ) -> f64 {
         match (self.is_hash_list(), other.is_hash_list()) {
             (true, true) => {
-                let left_hash_bits = self.get_hash_bits();
-                let right_hash_bits = other.get_hash_bits();
+                let left_hash_bits = self.get_hash_bits().unwrap();
+                let right_hash_bits = other.get_hash_bits().unwrap();
                 assert!(left_hash_bits >= GapHash::<P, B>::SMALLEST_VIABLE_HASH_BITS);
                 assert!(right_hash_bits >= GapHash::<P, B>::SMALLEST_VIABLE_HASH_BITS);
 
@@ -504,14 +482,14 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 let intersection_cardinality = f64::from(intersection_from_sorted_iterators(
                     GapHash::<P, B>::downgraded(
                         left_hashes,
-                        self.get_number_of_hashes(),
+                        self.get_number_of_hashes().unwrap(),
                         left_hash_bits,
                         left_bit_index,
                         left_shift,
                     ),
                     GapHash::<P, B>::downgraded(
                         right_hashes,
-                        other.get_number_of_hashes(),
+                        other.get_number_of_hashes().unwrap(),
                         right_hash_bits,
                         right_bit_index,
                         right_shift,
@@ -524,7 +502,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 correct_union_estimate(self_cardinality, other_cardinality, union_cardinality)
             }
             (true, false) => {
-                let hash_bits = self.get_hash_bits();
+                let hash_bits = self.get_hash_bits().unwrap();
                 assert!(hash_bits >= GapHash::<P, B>::SMALLEST_VIABLE_HASH_BITS);
 
                 self.union_estimation_from_sorted_iterator_and_counter(
@@ -565,7 +543,7 @@ mod test_hybrid_propertis {
         assert!(hybrid.is_hash_list());
         assert!(hybrid.is_empty());
         assert!(!hybrid.is_full());
-        assert_eq!(hybrid.get_number_of_hashes(), 0);
+        assert_eq!(hybrid.get_number_of_hashes().unwrap(), 0);
         let mut normalized_error = 0.0;
         let mut non_normalized_error = 0.0;
         let mut random_state = 34567897654354_u64;
@@ -580,7 +558,7 @@ mod test_hybrid_propertis {
             assert!(
                 !hybrid.insert(&random_state),
                 "The Hybrid counter should NOT already contain the element {random_state}. Hash size: {}. Iteration n. {iterations}. Hash list status: {}",
-                hybrid.get_hash_bits(),
+                hybrid.get_hash_bits().unwrap(),
                 hybrid.is_hash_list()
             );
             assert!(

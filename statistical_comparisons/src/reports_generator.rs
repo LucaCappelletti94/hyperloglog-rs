@@ -8,7 +8,7 @@ use crate::{
 };
 use indicatif::MultiProgress;
 use strum::IntoEnumIterator;
-use test_utils::prelude::{read_csv, write_csv, Set};
+use test_utils::prelude::{read_report, write_report, Set};
 
 fn prepare_reports<S, T1, T2>(
     test_for_hashset: T1,
@@ -35,14 +35,14 @@ fn prepare_reports<S, T1, T2>(
     );
     // If the path does not already exist, we create it.
     let correct_report: Vec<PerformanceReport> = if std::path::Path::new(&path).exists() {
-        read_csv(&path).unwrap()
+        read_report(&path).unwrap()
     } else {
         // We log the progress of the computation.
         log::info!("Computing the exact {} of the set.", test_name);
 
         let correct_report = test_for_hashset(&exact_estimator, multiprogress);
         // And we store it into the "reports/cardinality/{estimator_name}.csv" file.
-        write_csv(correct_report.iter().copied(), &path);
+        write_report(correct_report.iter().copied(), &path);
         correct_report
     };
 
@@ -85,7 +85,7 @@ fn prepare_reports<S, T1, T2>(
         let path = format!("reports/{test_name}/{}.csv.gz", enum_entry.model_name());
         entries_progress_bar.set_message(enum_entry.model_name());
         let report = test(&enum_entry, multiprogress);
-        write_csv(
+        write_report(
             report
                 .into_iter()
                 .zip(correct_report.iter().copied())

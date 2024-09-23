@@ -76,3 +76,4 @@ harness = false
 [[bench]]
 name = "hyperloglog_insert"
 harness = false
+

@@ -5,10 +5,10 @@ use core::ops::Div;
 use stattest::test::StatisticalTest;
 use stattest::test::WilcoxonWTest;
 
-pub fn standard_deviation(values: &[f64], mean: f64) -> f64 {
+pub fn standard_deviation(values: &[f64], mean: f64, occurrences: &[usize]) -> f64 {
     // The values are always less than `u32::MAX`, so we can safely convert them.
-    let number_of_values = f64::from(u32::try_from(values.len()).unwrap());
-    let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / number_of_values;
+    let number_of_values = occurrences.iter().sum::<usize>() as f64;
+    let variance = values.iter().zip(occurrences.iter().copied()).map(|(v, o)| (v - mean).powi(2)*o as f64).sum::<f64>() / number_of_values;
     variance.sqrt()
 }
 
@@ -24,9 +24,10 @@ where
 }
 
 /// Returns a tuple with the mean and standard deviation of the values.
-pub fn mean_and_std(values: &[f64]) -> (f64, f64) {
-    let mean = mean(values.iter().copied());
-    let std = standard_deviation(values, mean);
+pub fn mean_and_std(values: &[f64], occurrences: &[usize]) -> (f64, f64) {
+    let total_occurrences = occurrences.iter().sum::<usize>();
+    let mean = values.iter().zip(occurrences.iter()).map(|(v, o)| v * *o as f64).sum::<f64>() / total_occurrences as f64;
+    let std = standard_deviation(values, mean, occurrences);
     (mean, std)
 }
 
@@ -45,6 +46,8 @@ pub struct BenchmarkResults<'a> {
     pub feature: &'a str,
     pub new_stats: Stats,
     pub old_stats: Stats,
+    pub new_model: &'a str,
+    pub old_model: &'a str,
     pub p_value: TestResult,
 }
 
@@ -74,11 +77,13 @@ impl<'a> BenchmarkResults<'a> {
         unimplemented!("Feature target not found for '{}'", self.feature);
     }
 
-    pub fn new(feature: &'a str, new_stats: Stats, old_stats: Stats, p_value: TestResult) -> Self {
+    pub fn new(feature: &'a str, new_stats: Stats, old_stats: Stats, new_model: &'a str, old_model: &'a str, p_value: TestResult) -> Self {
         Self {
             feature,
             new_stats,
             old_stats,
+            new_model,
+            old_model,
             p_value,
         }
     }
@@ -101,7 +106,8 @@ impl<'a> BenchmarkResults<'a> {
         println!(
             "{}",
             format!(
-                "New Mean: {:.4} ± {:.4}",
+                "{} Mean: {:.4} ± {:.4}",
+                self.new_model,
                 self.new_stats.mean, self.new_stats.std
             )
             .blue()
@@ -111,7 +117,8 @@ impl<'a> BenchmarkResults<'a> {
         println!(
             "{}",
             format!(
-                "Old Mean: {:.4} ± {:.4}",
+                "{} Mean: {:.4} ± {:.4}",
+                self.old_model,
                 self.old_stats.mean, self.old_stats.std
             )
             .yellow()
@@ -125,13 +132,13 @@ impl<'a> BenchmarkResults<'a> {
         match self.p_value {
             TestResult::Significant(p_value) => {
                 println!(
-                    "{}: YES ({:.4})",
+                    "{}: YES ({:+e})",
                     "Statistical Significance".green(),
                     p_value
                 );
             }
             TestResult::NotSignificant(p_value) => {
-                println!("{}: NO ({:.4})", "Statistical Significance".red(), p_value);
+                println!("{}: NO ({:+e})", "Statistical Significance".red(), p_value);
             }
             TestResult::Unknown => {
                 println!("{}: UNKNOWN", "Statistical Significance".red());
@@ -165,12 +172,15 @@ impl<'a> BenchmarkResults<'a> {
 pub fn compare_features<'a>(
     new_results: &'a [f64],
     old_results: &'a [f64],
+    occurrences: &'a [usize],
     feature: &'a str,
+    new_model: &'a str,
+    old_model: &'a str,
 ) -> BenchmarkResults<'a> {
-    let (new_mean, new_std) = mean_and_std(new_results);
-    let (old_mean, old_std) = mean_and_std(old_results);
+    let (new_mean, new_std) = mean_and_std(new_results, occurrences);
+    let (old_mean, old_std) = mean_and_std(old_results, occurrences);
 
-    let test = WilcoxonWTest::voracious_paired(new_results, old_results);
+    let test = WilcoxonWTest::weighted_paired(new_results, old_results, occurrences);
 
     BenchmarkResults {
         feature,
@@ -182,6 +192,8 @@ pub fn compare_features<'a>(
             mean: old_mean,
             std: old_std,
         },
+        new_model,
+        old_model,
         p_value: if let Ok(test) = test {
             if test.p_value() < 0.05 {
                 TestResult::Significant(test.p_value())

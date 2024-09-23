@@ -362,7 +362,7 @@ impl<W: Debug + AsRef<[u64]>, V: VariableWord> Packed<W, V> {
         &'words self,
         other: &'words Self,
         len: usize,
-    ) -> PackedIter<&'_ Self, 2> {
+    ) -> PackedIter<&'words Self, 2> {
         PackedIter::new([self, other], len)
     }
 }

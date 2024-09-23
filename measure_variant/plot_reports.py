@@ -7,6 +7,7 @@ column with the relative error of respectively the latest and reference variants
 
 from glob import glob
 import os
+from typing import Optional
 from dataclasses import dataclass
 from tqdm.auto import tqdm
 import numpy as np
@@ -18,6 +19,33 @@ def get_color_by_model_name(name: str) -> str:
     """Return the color associated with the model name."""
     if name.startswith("HLL<"):
         return "tab:blue"
+
+    if name.startswith("CF"):
+        return "tab:green"
+
+    if name.startswith("TabacPP"):
+        return "tab:red"
+
+    if name.startswith("Tabac"):
+        return "tab:purple"
+
+    if name.startswith("SA"):
+        return "tab:brown"
+
+    if name.startswith("FrankPP"):
+        return "tab:pink"
+
+    if name.startswith("SM"):
+        return "tab:gray"
+
+    if name.startswith("SM"):
+        return "tab:cyan"
+
+    if name.startswith("H3B"):
+        return "tab:olive"
+
+    if name.startswith("H2B"):
+        return "#7A9F22"
 
     if "Simple" in name:
         return "tab:orange"
@@ -34,6 +62,8 @@ class Report:
     absolute_relative_errors: np.ndarray
     memory_requirements: np.array
     time_requirements: np.array
+    precision: Optional[int]
+    bits: Optional[int]
     name: str
     color: str
 
@@ -46,22 +76,29 @@ class Report:
     def from_path(path: str) -> "Report":
         """Load a report from a given path."""
         data = compress_json.load(path)
+        measurements = data["measures"]
 
-        data = sorted(
-            data, key=lambda row: row["cardinality_sample"]["exact_cardinality_mean"]
+        measurements = sorted(
+            measurements, key=lambda row: row["cardinality_sample"]["exact_cardinality_mean"]
         )
 
         exact_cardinalities_iterator = (
-            row["cardinality_sample"]["exact_cardinality_mean"] for row in data
+            row["cardinality_sample"]["exact_cardinality_mean"] for row in measurements
         )
         estimated_cardinalities_iterator = (
-            row["cardinality_sample"]["estimated_cardinality_mean"] for row in data
+            row["cardinality_sample"]["estimated_cardinality_mean"]
+            for row in measurements
         )
         absolute_relative_errors_iterator = (
-            row["cardinality_sample"]["absolute_relative_error_mean"] for row in data
+            row["cardinality_sample"]["absolute_relative_error_mean"]
+            for row in measurements
         )
-        memory_requirements_iterator = (row["memory_requirements_sum"] for row in data)
-        time_requirements_iterator = (row["time_requirements_sum"] for row in data)
+        memory_requirements_iterator = (
+            row["memory_requirements_mean"] for row in measurements
+        )
+        time_requirements_iterator = (
+            row["time_requirements_mean"] for row in measurements
+        )
 
         exact_cardinalities = np.fromiter(
             exact_cardinalities_iterator, dtype=np.float64
@@ -85,6 +122,8 @@ class Report:
             absolute_relative_errors=absolute_relative_errors,
             memory_requirements=memory_requirements,
             time_requirements=time_requirements,
+            precision=data["precision"],
+            bits=data["bits"],
             name=name,
             color=get_color_by_model_name(name),
         )
@@ -99,6 +138,9 @@ def plot_all():
     """Load the reports and plot the histograms, boxplots and relative error plots."""
     # Load the reports
     fig, axs = plt.subplots(2, 2, figsize=(15, 15), sharex=False, sharey=False)
+
+    plotted_precisions = []
+
     for path in tqdm(
         glob("*.json"),
         desc="Loading reports",
@@ -107,6 +149,10 @@ def plot_all():
         dynamic_ncols=True,
     ):
         report = Report.from_path(path)
+
+        if report.precision is not None:
+            if report.precision != 9:
+                continue
 
         # We plot several rectangles to illustrate the areas that are not covered by the reports.
         axs[0][0].plot(
@@ -139,7 +185,24 @@ def plot_all():
             color=report.color,
         )
 
+        if report.precision is not None and report.precision not in plotted_precisions:
+            for ax in axs.flatten():
+                ax.axvline(
+                    5 * 2**report.precision,
+                    linestyle="--",
+                    color=report.color,
+                    label=f"5 * 2**{report.precision}",
+                )
+                ax.axvline(
+                    7.5 * 2**report.precision,
+                    linestyle="--",
+                    color=report.color,
+                    label=f"7.5 * 2**{report.precision}",
+                )
+                plotted_precisions.append(report.precision)
+
     axs[0][0].set_title("Relative error")
+    axs[0][0].set_yscale("log")
     axs[1][0].set_title("Subtraction Exact - Estimate")
     axs[1][0].set_yscale("symlog")
     axs[0][1].set_title("Memory requirements (log, bytes)")
@@ -147,9 +210,14 @@ def plot_all():
     axs[1][1].set_title("Time requirements (log, ns)")
     axs[1][1].set_yscale("symlog")
 
+    axs[0][0].set_ylabel("Relative error")
+    axs[1][0].set_ylabel("Subtraction Exact - Estimate")
+    axs[0][1].set_ylabel("Memory requirements (bytes)")
+    axs[1][1].set_ylabel("Time requirements (log, ns)")
+
     for ax in axs.flatten():
         ax.set_xlabel("Exact cardinality (log scale)")
-        axs[0].set_yscale("symlog")
+        ax.set_xscale("symlog")
         ax.grid(which="both", linestyle="--", alpha=0.5)
         ax.legend()
 

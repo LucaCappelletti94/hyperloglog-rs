@@ -8,10 +8,10 @@ use crate::prelude::Point;
 #[derive(Default, Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct CardinalitySampleBuilder {
     count: u64,
+    number_of_measurements: u64,
     exact_cardinality_sum: f64,
     estimated_cardinality_sum: f64,
     absolute_relative_error_sum: f64,
-    relative_error_sum: f64,
 }
 
 #[derive(Default, Debug, Copy, Clone, Serialize, Deserialize)]
@@ -33,14 +33,19 @@ impl ExtendedCardinalitySample {
     pub fn absolute_relative_error_mean(&self) -> f64 {
         self.cardinality_sample.absolute_relative_error_mean
     }
+
+    #[inline]
+    pub fn count(&self) -> usize {
+        self.cardinality_sample.count
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct CardinalitySample {
+    pub count: usize,
     pub exact_cardinality_mean: f64,
     pub estimated_cardinality_mean: f64,
     pub absolute_relative_error_mean: f64,
-    pub relative_error_mean: f64,
 }
 
 impl CardinalitySample {
@@ -58,8 +63,7 @@ impl Point for CardinalitySample {
 
     #[inline]
     fn y(&self) -> f64 {
-        // (self.exact_cardinality_mean - self.estimated_cardinality_mean).abs() / self.exact_cardinality_mean.max(1.0)
-        self.subtraction()
+        (self.exact_cardinality_mean - self.estimated_cardinality_mean).abs() / self.exact_cardinality_mean.max(1.0)
     }
 }
 
@@ -72,10 +76,17 @@ impl ExtendedCardinalitySampleBuilder {
         memory_requirements: usize,
         time_requirements: u128,
     ) {
-        self.cardinality_sample_builder
-            .update(exact_cardinality, estimated_cardinality);
+        self.cardinality_sample_builder.update(
+            exact_cardinality,
+            estimated_cardinality,
+        );
         self.memory_requirements_sum += memory_requirements;
         self.time_requirements_sum += time_requirements;
+    }
+
+    #[inline]
+    pub fn increase_measuremenet_count(&mut self) {
+        self.cardinality_sample_builder.increase_measuremenet_count();
     }
 }
 
@@ -88,8 +99,11 @@ impl CardinalitySampleBuilder {
         self.absolute_relative_error_sum += (exact_cardinality as f64 - estimated_cardinality)
             .abs()
             / exact_cardinality.max(1) as f64;
-        self.relative_error_sum +=
-            (exact_cardinality as f64 - estimated_cardinality) / exact_cardinality.max(1) as f64;
+    }
+
+    #[inline]
+    pub fn increase_measuremenet_count(&mut self) {
+        self.number_of_measurements += 1;
     }
 
     #[inline]
@@ -105,12 +119,12 @@ impl Add for CardinalitySampleBuilder {
     fn add(self, other: Self) -> Self {
         Self {
             count: self.count + other.count,
+            number_of_measurements: self.number_of_measurements + other.number_of_measurements,
             exact_cardinality_sum: self.exact_cardinality_sum + other.exact_cardinality_sum,
             estimated_cardinality_sum: self.estimated_cardinality_sum
                 + other.estimated_cardinality_sum,
             absolute_relative_error_sum: self.absolute_relative_error_sum
                 + other.absolute_relative_error_sum,
-            relative_error_sum: self.relative_error_sum + other.relative_error_sum,
         }
     }
 }
@@ -148,11 +162,11 @@ impl From<CardinalitySampleBuilder> for CardinalitySample {
     fn from(builder: CardinalitySampleBuilder) -> Self {
         assert_ne!(builder.count, 0);
         CardinalitySample {
+            count: (builder.count as usize) / builder.number_of_measurements as usize,
             exact_cardinality_mean: builder.exact_cardinality_sum / builder.count as f64,
             estimated_cardinality_mean: builder.estimated_cardinality_sum / builder.count as f64,
             absolute_relative_error_mean: builder.absolute_relative_error_sum
                 / builder.count as f64,
-            relative_error_mean: builder.relative_error_sum / builder.count as f64,
         }
     }
 }

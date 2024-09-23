@@ -116,14 +116,10 @@ fn correction<P: Precision>(report: &[CardinalitySample], tolerance: f64) -> (Ve
 /// Measures the gap between subsequent hashes in the Listhash variant of HyperLogLog.
 pub fn hash_correction<P: Precision, B: Bits>(
     multiprogress: &MultiProgress,
-    only_hash_list: bool,
 ) -> (HashCorrection, CorrectionPerformance)
 where
     P: PackedRegister<B>,
 {
-    let iterations: u64 = 10_000 * 64;
-    let maximum_cardinality = 25 * (1 << P::EXPONENT);
-
     let output_path = format!("{}_{}.report.json", P::EXPONENT, B::NUMBER_OF_BITS);
 
     let report = if let Some(report) = std::fs::File::open(output_path.clone())
@@ -132,11 +128,12 @@ where
     {
         report
     } else {
-        let cardinality_sample_by_model: CardinalitySamplesByModel =
+        let iterations: u64 = 12_800_000 * 64 / (1 << (P::EXPONENT as u64 - 4));
+        let maximum_cardinality = 40 * (1 << P::EXPONENT);
+            let cardinality_sample_by_model: CardinalitySamplesByModel =
             uncorrected_cardinality_samples_by_model::<P, B>(
                 iterations,
                 maximum_cardinality,
-                only_hash_list,
                 multiprogress,
             );
 
@@ -151,12 +148,18 @@ where
         cardinality_sample_by_model
     };
 
-    let (hash_list_cardinalities, hash_list_bias) = correction::<P>(&report.hash_list, 0.01);
-    let (hyperloglog_cardinalities, hyperloglog_relative_bias) = if only_hash_list {
-        (vec![], vec![])
-    } else {
-        correction::<P>(&report.hyperloglog_fully_imprinted, 0.15)
-    };
+    let (hash_list_cardinalities, hash_list_bias) = correction::<P>(&report.hash_list, 0.00001);
+
+    // For the hyperloglog correction, we only take into consideration cardinality values upwards to 7.5 * (1 << P::EXPONENT)
+
+    let filtered_hyperloglog: Vec<CardinalitySample> = report
+        .hyperloglog
+        .iter()
+        .filter(|report| report.exact_cardinality_mean < 7.5 * (1 << P::EXPONENT) as f64)
+        .cloned()
+        .collect();
+
+    let (hyperloglog_cardinalities, hyperloglog_relative_bias) = correction::<P>(&filtered_hyperloglog, 0.000005);
 
     // We create the correction.
     let correction = HashCorrection {
@@ -186,7 +189,7 @@ where
         / report.hash_list.len() as f64;
 
     let uncorrected_hyperloglog_error = report
-        .hyperloglog_fully_imprinted
+        .hyperloglog
         .iter()
         .map(|report| report.absolute_relative_error_mean)
         .sum::<f64>()
@@ -206,7 +209,7 @@ where
         / report.hash_list.len() as f64;
 
     let corrected_hyperloglog_error = report
-        .hyperloglog_fully_imprinted
+        .hyperloglog
         .iter()
         .map(|report| {
             (report.exact_cardinality_mean

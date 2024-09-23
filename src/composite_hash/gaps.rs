@@ -692,7 +692,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         SwitchHash::<P, B>::decode(hash, hash_bits)
     }
 
-    #[inline]
+    #[inline(always)]
     #[must_use]
     /// Downgrade the hash into a smaller hash.
     pub fn downgrade(hash: u32, hash_bits: u8, shift: u8) -> u32 {
@@ -1107,9 +1107,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         let mut uniform_coefficient: u8 = u8::MAX;
         let mut encoded_hash: u32;
 
-        if hash_bits < Self::LARGEST_VIABLE_HASH_BITS {
-            hash_bits -= 1;
-        }
+        hash_bits -= u8::from(hash_bits < Self::LARGEST_VIABLE_HASH_BITS);
 
         loop {
             // If the hash is already prefix-free encoded, we need to search the next smaller
@@ -1162,9 +1160,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 // If is possible that by downgrading the hash bits, the encoded hash
                 // will become equal to some other hash. In such cases, we will simply
                 // mark it as a duplicate and skip it.
-                if encoded_hash == next {
-                    encoded_hash_accounted_for = true;
-                }
+                encoded_hash_accounted_for |= encoded_hash == next;
 
                 // If we have not accounted for the encoded hash as it is smaller than all the
                 // hashes in the list, we need to add it as the last hash.
@@ -1177,7 +1173,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                         gap.geometric_minus_one,
                     );
 
-                    if writer_tell > iter.last_buffered_bit() || writer_tell > bit_index {
+                    if writer_tell > iter.last_buffered_bit() {
                         reader_buffer_overflow = true;
                         break;
                     }
@@ -1234,10 +1230,14 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
 
                 // If the writer tell with the current hash bits would end up overlapping
                 // with the reader buffer, we need to try with a smaller hash bits.
-                if writer_tell > iter.last_buffered_bit() || writer_tell > bit_index {
+                if writer_tell > iter.last_buffered_bit() {
                     reader_buffer_overflow = true;
                     break;
                 }
+            }
+
+            if writer_tell > bit_index {
+                reader_buffer_overflow = true;
             }
 
             // If we encountered a reader overflow, or the new bit index is not small enough
@@ -1277,16 +1277,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         let hashes_8: &mut [u8] = unsafe {
             core::slice::from_raw_parts_mut(hashes.as_mut_ptr().cast::<u8>(), hashes.len())
         };
-
-        #[cfg(test)]
-        #[cfg(feature = "std")]
-        println!(
-            "Downgrading from hash size {original_hash_bits} to {hash_bits}, from bit index {} to {}, total hashes bits {}, of which {} for rank index.",
-            bit_index,
-            expected_maximal_bit_index,
-            hashes.len() * 8,
-            Self::rank_index_total_size(hash_bits),
-        );
 
         // We initialize the index before we start writing the hashes.
         if GapHash::<P, B>::has_rank_index() {
@@ -1454,12 +1444,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             "The writer tell ({writer_tell}) must match expected new bit index ({expected_maximal_bit_index}).",
         );
 
-        #[cfg(test)]
-        #[cfg(feature = "std")]
-        println!(
-            "Writer tell at {writer_tell} (maximal expected {expected_maximal_bit_index}), started from {bit_index}, with {duplicates} duplicates.",
-        );
-
         debug_assert_eq!(
             PrefixCodeIter::<P, B>::new(
                 hashes,
@@ -1470,10 +1454,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             number_of_hashes + 1 - duplicates,
             "The number of hashes (minus duplicates) must be the same after downgrading. Current writer tell: {writer_tell}, started from {bit_index}."
         );
-
-        #[cfg(test)]
-        #[cfg(feature = "std")]
-        println!("Downgrading completed with {} duplicates.", duplicates);
 
         Ok(InsertMetadata {
             hash_bits,
@@ -1513,7 +1493,7 @@ impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDowngradedIter<'a,
 impl<'a, P: Precision, B: Bits> Iterator for DispatchedDowngradedIter<'a, P, B> {
     type Item = u32;
 
-    #[inline]
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             Self::PrefixCodeDowngradedIter(iter) => iter.next(),
@@ -1599,7 +1579,7 @@ impl<'a, P: Precision, B: Bits> PrefixCodeDowngradedIter<'a, P, B> {
 impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeDowngradedIter<'a, P, B> {
     type Item = u32;
 
-    #[inline]
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         Some(GapHash::<P, B>::downgrade(
             self.iter.next()?,

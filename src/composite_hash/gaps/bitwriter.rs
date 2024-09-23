@@ -54,12 +54,12 @@ impl<'a> BitWriter<'a> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn tell(&self) -> u32 {
         (self.word_idx as u32 + 1) * 64 - u32::from(self.space_left_in_buffer)
     }
 
-    #[inline]
+    #[inline(always)]
     pub(super) fn write_bits<U: Into<u64>>(&mut self, value: U, n_bits: u8) -> u8 {
         debug_assert!(n_bits <= 64);
         debug_assert!(self.space_left_in_buffer > 0);
@@ -87,7 +87,7 @@ impl<'a> BitWriter<'a> {
         n_bits
     }
 
-    #[inline]
+    #[inline(always)]
     pub(super) fn write_unary<U: Into<u64>>(&mut self, value: U) -> u8 {
         debug_assert!(self.space_left_in_buffer > 0);
         let mut value = value.into();
@@ -131,7 +131,7 @@ impl<'a> BitWriter<'a> {
         code_length
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn write_rice(
         &mut self,
         uniform_delta: u32,

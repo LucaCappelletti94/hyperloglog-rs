@@ -1,5 +1,5 @@
 //! This module contains implementations of the `Set` trait for various HyperLogLog
-use core::hash::BuildHasher;
+use core::hash::{BuildHasher, Hash, Hasher};
 
 use hyperloglog_rs::prelude::Bits;
 use hyperloglog_rs::prelude::HyperLogLog;
@@ -89,61 +89,6 @@ impl<P: Precision + PackedRegister<B>, B: Bits> Set for HashListCorrectedImprint
     }
 }
 
-
-#[derive(Clone, MemSize)]
-/// Wrapper for the Uncorrected implementation
-pub struct HashListCorrectedNotImprinted<P: Precision + PackedRegister<B>, B: Bits> {
-    hll: HyperLogLog<P, B, <P as PackedRegister<B>>::Array, WyHash>,
-}
-
-impl<P: Precision + PackedRegister<B>, B: Bits> Default for HashListCorrectedNotImprinted<P, B> {
-    fn default() -> Self {
-        Self {
-            hll: HyperLogLog::default(),
-        }
-    }
-}
-
-impl<P: Precision + PackedRegister<B>, B: Bits> Set for HashListCorrectedNotImprinted<P, B> {
-    #[inline]
-    fn cardinality(&self) -> f64 {
-        if self.hll.is_hash_list() {
-            self.hll.estimate_cardinality()
-        } else {
-            self.hll.uncorrected_estimate_cardinality()
-        }
-    }
-
-    #[inline]
-    fn insert_element(&mut self, value: u64) {
-        if self.hll.is_hash_list() {
-            let mut copy = self.hll.clone();
-            self.hll.insert(&value);
-            if !self.hll.is_hash_list() {
-                copy.convert_hash_list_to_hyperloglog(false, false).unwrap();
-                self.hll = copy;
-                self.hll.insert(&value);
-            }
-        } else {
-            self.hll.insert(&value);
-        }
-    }
-
-    #[inline]
-    fn model_name(&self) -> String {
-        format!(
-            "HashListCorrectedNotImprinted<P{}, B{}>",
-            P::EXPONENT,
-            B::NUMBER_OF_BITS
-        )
-    }
-
-    #[inline]
-    fn union(&self, _other: &Self) -> f64 {
-        unimplemented!()
-    }
-}
-
 #[derive(Clone, MemSize)]
 /// Wrapper for the UncorrectedNoHashList implementation
 pub struct UncorrectedNoHashList<P: Precision + PackedRegister<B>, B: Bits> {
@@ -153,7 +98,7 @@ pub struct UncorrectedNoHashList<P: Precision + PackedRegister<B>, B: Bits> {
 impl<P: Precision + PackedRegister<B>, B: Bits> Default for UncorrectedNoHashList<P, B> {
     fn default() -> Self {
         let mut hll = HyperLogLog::default();
-        hll.convert_hash_list_to_hyperloglog(false, false).unwrap();
+        hll.convert_hash_list_to_hyperloglog().unwrap();
         Self { hll }
     }
 }
@@ -325,6 +270,16 @@ impl<H: HasherType, const P: usize> Set for SimpleHLL<H, P> {
             core::any::type_name::<H>().split("::").last().unwrap()
         )
     }
+
+    #[inline]
+    fn precision(&self) -> Option<u8> {
+        Some(P as u8)
+    }
+
+    #[inline]
+    fn bits(&self) -> Option<u8> {
+        Some(8)
+    }
 }
 
 impl<S: hypertwobits::h2b::Sketch + Clone, H: HasherBuilderAssociated> Set for HyperTwoBits<S, H> {
@@ -388,9 +343,9 @@ impl<S: hypertwobits::h3b::Sketch + Clone, H: HasherBuilderAssociated> Set
 impl<P: Precision> Set for SourMash<P> {
     #[inline]
     fn insert_element(&mut self, item: u64) {
-        self.estimator
-            .add_sequence(item.to_le_bytes().as_ref(), false)
-            .unwrap();
+        let mut wyhash = WyHash::default();
+        item.hash(&mut wyhash);
+        self.estimator.add_hash(wyhash.finish());
     }
 
     #[inline]
@@ -406,6 +361,16 @@ impl<P: Precision> Set for SourMash<P> {
     #[inline]
     fn model_name(&self) -> String {
         format!("SM<P{}, B8> + Vec", P::EXPONENT)
+    }
+
+    #[inline]
+    fn precision(&self) -> Option<u8> {
+        Some(P::EXPONENT)
+    }
+
+    #[inline]
+    fn bits(&self) -> Option<u8> {
+        Some(8)
     }
 }
 
@@ -436,6 +401,16 @@ impl<H: HasherType, const P: usize, const B: usize> Set for CloudFlareHLL<P, B, 
             core::any::type_name::<H>().split("::").last().unwrap()
         )
     }
+
+    #[inline]
+    fn precision(&self) -> Option<u8> {
+        Some(P as u8)
+    }
+
+    #[inline]
+    fn bits(&self) -> Option<u8> {
+        Some(B as u8)
+    }
 }
 
 impl<P: Precision> Set for RustHLL<P> {
@@ -459,6 +434,16 @@ impl<P: Precision> Set for RustHLL<P> {
     #[inline]
     fn model_name(&self) -> String {
         format!("FrankPP<P{}, B8> + SipHasher13", P::EXPONENT)
+    }
+
+    #[inline]
+    fn precision(&self) -> Option<u8> {
+        Some(P::EXPONENT)
+    }
+
+    #[inline]
+    fn bits(&self) -> Option<u8> {
+        Some(8)
     }
 }
 
@@ -489,6 +474,16 @@ impl<H: HasherBuilderAssociated, P: Precision> Set for TabacHLLPlusPlus<P, H> {
             core::any::type_name::<H>().split("::").last().unwrap()
         )
     }
+
+    #[inline]
+    fn precision(&self) -> Option<u8> {
+        Some(P::EXPONENT)
+    }
+
+    #[inline]
+    fn bits(&self) -> Option<u8> {
+        Some(6)
+    }
 }
 
 impl<H: HasherBuilderAssociated, P: Precision> Set for TabacHLL<P, H> {
@@ -518,6 +513,16 @@ impl<H: HasherBuilderAssociated, P: Precision> Set for TabacHLL<P, H> {
             core::any::type_name::<H>().split("::").last().unwrap()
         )
     }
+
+    #[inline]
+    fn precision(&self) -> Option<u8> {
+        Some(P::EXPONENT)
+    }
+
+    #[inline]
+    fn bits(&self) -> Option<u8> {
+        Some(6)
+    }
 }
 
 impl<P: Precision> Set for AlecHLL<P> {
@@ -541,5 +546,15 @@ impl<P: Precision> Set for AlecHLL<P> {
     #[inline]
     fn model_name(&self) -> String {
         format!("SA<P{}, B6> + XxHash64", self.estimator.precision())
+    }
+
+    #[inline]
+    fn precision(&self) -> Option<u8> {
+        Some(P::EXPONENT)
+    }
+
+    #[inline]
+    fn bits(&self) -> Option<u8> {
+        Some(8)
     }
 }

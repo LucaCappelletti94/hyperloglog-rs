@@ -8,7 +8,6 @@ extern crate quote;
 extern crate syn;
 
 mod utils;
-use clap::Parser;
 
 use prettyplease::unparse;
 use proc_macro2::TokenStream;
@@ -19,12 +18,12 @@ use crate::utils::{hash_correction, CorrectionPerformance, HashCorrection};
 use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
 use indicatif::{ProgressBar, ProgressStyle};
-use test_utils::prelude::write_csv;
+use test_utils::prelude::write_report;
 
 /// Procedural macro to generate the correction function for the provided precision,
 /// and bit sizes.
 macro_rules! generate_gap_for_precision {
-    ($reports:ident, $multiprogress:ident, $only_hash_list:ident, $precision:ty, $($bit_size:ty),*) => {
+    ($reports:ident, $multiprogress:ident, $precision:ty, $($bit_size:ty),*) => {
         let progress_bar = $multiprogress.add(ProgressBar::new(3 as u64));
 
         progress_bar.set_style(
@@ -37,7 +36,7 @@ macro_rules! generate_gap_for_precision {
         progress_bar.tick();
 
         $(
-            let report = hash_correction::<$precision, $bit_size>($multiprogress, $only_hash_list);
+            let report = hash_correction::<$precision, $bit_size>($multiprogress);
             $reports.push(report);
             progress_bar.inc(1);
         )*
@@ -48,7 +47,7 @@ macro_rules! generate_gap_for_precision {
 
 /// Procedural macro to generate the correction function for the provided precisions.
 macro_rules! generate_gap_for_precisions {
-    ($reports:ident, $multiprogress:ident, $only_hash_list:ident, $($precision:ty),*) => {
+    ($reports:ident, $multiprogress:ident, $($precision:ty),*) => {
         let progress_bar = $multiprogress.add(ProgressBar::new(15));
 
         progress_bar.set_style(
@@ -61,7 +60,7 @@ macro_rules! generate_gap_for_precisions {
         progress_bar.tick();
 
         $(
-            generate_gap_for_precision!($reports, $multiprogress, $only_hash_list, $precision, Bits4, Bits5, Bits6);
+            generate_gap_for_precision!($reports, $multiprogress, $precision, Bits4, Bits5, Bits6);
             progress_bar.inc(1);
         )*
 
@@ -69,13 +68,12 @@ macro_rules! generate_gap_for_precisions {
     };
 }
 
-fn correction(only_hash_list: bool) {
+fn correction() {
     let mut reports: Vec<(HashCorrection, CorrectionPerformance)> = Vec::new();
     let multiprogress = &MultiProgress::new();
     generate_gap_for_precisions!(
         reports,
         multiprogress,
-        only_hash_list,
         Precision4,
         Precision5,
         Precision6,
@@ -86,8 +84,8 @@ fn correction(only_hash_list: bool) {
         Precision11,
         Precision12,
         Precision13,
-        Precision14
-        // Precision15,
+        Precision14,
+        Precision15
         // Precision16,
         // Precision17,
         // Precision18
@@ -96,7 +94,7 @@ fn correction(only_hash_list: bool) {
 
     let path = "correction.csv";
 
-    write_csv(reports.iter().map(|(_, c)| c), path);
+    write_report(reports.iter().map(|(_, c)| c), path);
 
     let maximal_precision = reports.iter().map(|(c, _)| c.precision).max().unwrap();
 
@@ -202,13 +200,6 @@ fn correction(only_hash_list: bool) {
     println!("Generated correction coefficients in '{}'", output_path);
 }
 
-#[derive(Parser)]
-struct Opts {
-    only_hash_list: Option<bool>,
-}
-
 fn main() {
-    let opts = Opts::parse();
-
-    correction(opts.only_hash_list.unwrap_or(false));
+    correction();
 }

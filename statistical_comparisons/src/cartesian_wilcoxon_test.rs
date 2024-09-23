@@ -9,7 +9,7 @@ use stattest::test::StatisticalTest;
 use stattest::test::WilcoxonWTest;
 use std::iter::Sum;
 use std::ops::Div;
-use test_utils::prelude::{read_csv, write_csv};
+use test_utils::prelude::{read_report, write_report};
 
 fn float_formatter<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -39,10 +39,10 @@ struct ErrorReports {
 impl ErrorReports {
     fn from_path(path: &std::path::Path, normalized: bool) -> Self {
         let path: &str = path.to_str().unwrap();
-        let reports: Vec<ErrorReport> = match read_csv(path) {
-            Ok(reports) => reports,
-            Err(err) => {
-                eprintln!("Error reading the CSV file: {err}");
+        let reports: Vec<ErrorReport> = match read_report(path) {
+            Some(reports) => reports,
+            None => {
+                eprintln!("Error reading the CSV file");
 
                 // We delete the file and exit with an error code.
                 std::fs::remove_file(path).unwrap();
@@ -172,7 +172,7 @@ fn wilcoxon_test(mut reports: Vec<ErrorReports>, feature_name: &str) {
         })
         .collect::<Vec<WilcoxonTestResult>>();
 
-    write_csv(
+    write_report(
         results.iter(),
         &format!("reports/{feature_name}_wilcoxon.csv.gz"),
     );
@@ -227,7 +227,7 @@ fn wilcoxon_test(mut reports: Vec<ErrorReports>, feature_name: &str) {
     });
 
     // We write the model performance to a CSV file.
-    write_csv(
+    write_report(
         models_performance.iter(),
         &format!("reports/{feature_name}_performance.csv"),
     );

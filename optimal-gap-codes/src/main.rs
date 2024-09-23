@@ -25,7 +25,7 @@ use serde::{Deserialize, Serializer};
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::{u64, u8};
-use test_utils::prelude::{append_csv, read_csv, write_csv};
+use test_utils::prelude::{append_csv, read_report, write_report};
 
 fn float_formatter<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -134,7 +134,7 @@ where
     P: PackedRegister<B>,
 {
     // We check that this particular combination was not already measured.
-    if let Ok(reports) = read_csv::<GapReport>("optimal-gap-codes.csv") {
+    if let Some(reports) = read_report::<GapReport>("optimal-gap-codes.csv") {
         if reports
             .iter()
             .any(|report| report.precision == P::EXPONENT && report.bit_size == B::NUMBER_OF_BITS)
@@ -453,11 +453,11 @@ fn main() {
     multiprogress.clear().unwrap();
 
     // We reload the report one more time, sort it and re-write it.
-    let mut reports = read_csv::<GapReport>("optimal-gap-codes.csv").unwrap();
+    let mut reports = read_report::<GapReport>("optimal-gap-codes.csv").unwrap();
 
     reports.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
-    write_csv(reports.iter(), "optimal-gap-codes.csv");
+    write_report(reports.iter(), "optimal-gap-codes.csv");
 
     let rice_coefficients: Vec<TokenStream> = (4..=18)
         .map(|exponent| {
