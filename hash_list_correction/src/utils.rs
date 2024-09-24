@@ -129,7 +129,7 @@ where
         report
     } else {
         let iterations: u64 = 12_800_000 * 64 / (1 << (P::EXPONENT as u64 - 4));
-        let maximum_cardinality = 40 * (1 << P::EXPONENT);
+        let maximum_cardinality = 200 * (1 << P::EXPONENT);
             let cardinality_sample_by_model: CardinalitySamplesByModel =
             uncorrected_cardinality_samples_by_model::<P, B>(
                 iterations,
