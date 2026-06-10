@@ -25,15 +25,15 @@ hyperloglog = "0.1"
 ```rust
 use hyperloglog_rs::prelude::*;
 
-let mut hll = PlusPlus::<Precision6, Bits5, <Precision6 as PackedRegister<Bits5>>::Array, twox_hash::XxHash>::default();
+let mut hll = HyperLogLog::<Precision6, Bits5, <Precision6 as PackedRegister<Bits5>>::Array, twox_hash::XxHash>::default();
 hll.insert(&1);
 hll.insert(&2);
 
-let mut hll2 = PlusPlus::<Precision6, Bits5, <Precision6 as PackedRegister<Bits5>>::Array, twox_hash::XxHash>::default();
+let mut hll2 = HyperLogLog::<Precision6, Bits5, <Precision6 as PackedRegister<Bits5>>::Array, twox_hash::XxHash>::default();
 hll2.insert(&2);
 hll2.insert(&3);
 
-let union = hll | hll2;
+let union = &hll | &hll2;
 
 let estimated_cardinality: f64 = union.estimate_cardinality();
 assert!(

@@ -77,3 +77,7 @@ harness = false
 name = "hyperloglog_insert"
 harness = false
 
+[[bench]]
+name = "hyperloglog_union"
+harness = false
+

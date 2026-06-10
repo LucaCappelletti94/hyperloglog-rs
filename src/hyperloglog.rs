@@ -179,6 +179,23 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// Inserts an element into the counter.
     pub fn insert<T: Hash>(&mut self, element: &T) -> bool {
         let (index, register, original_hash) = Self::index_and_register_and_hash(element);
+        self.insert_index_register_hash(index, register, original_hash)
+    }
+
+    #[inline]
+    /// Inserts a pre-hashed element, given its register index, register value and the
+    /// original hash it was derived from.
+    ///
+    /// This is the shared core of [`HyperLogLog::insert`] and of the counter merging
+    /// performed by the [`BitOr`] implementations: both need to route a hash through the
+    /// hash-list insertion path (with its saturation and downgrade handling) or, once the
+    /// counter is a fully-fledged [`HyperLogLog`], straight into the registers.
+    fn insert_index_register_hash(
+        &mut self,
+        index: usize,
+        register: u8,
+        original_hash: u64,
+    ) -> bool {
         if self.is_hash_list() {
             let hash_bits = self.get_hash_bits().unwrap();
             let number_of_hashes = self.get_number_of_hashes().unwrap();
@@ -204,14 +221,14 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 Err(err) => match err {
                     SaturationError::ExtendableSaturation => {
                         self.registers.increase_capacity();
-                        self.insert(element)
+                        self.insert_index_register_hash(index, register, original_hash)
                     }
                     SaturationError::Saturation(bit_index) => {
                         self.set_writer_tell(bit_index);
                         debug_assert_eq!(bit_index, self.get_writer_tell());
                         self.convert_hash_list_to_hyperloglog().unwrap();
                         debug_assert!(!self.is_hash_list());
-                        self.insert(element)
+                        self.insert_index_register_hash(index, register, original_hash)
                     }
                 },
             }
@@ -320,9 +337,9 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll1: PlusPlus<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array> =
+    /// let mut hll1: HyperLogLog<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array> =
     ///     Default::default();
-    /// let mut hll2: PlusPlus<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array> =
+    /// let mut hll2: HyperLogLog<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array> =
     ///     Default::default();
     ///
     /// hll1.insert(&42);
@@ -528,6 +545,127 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 correct_union_estimate(self_cardinality, other_cardinality, union_estimate)
             }
         }
+    }
+
+    #[inline]
+    /// Merges another counter into this one, equivalent to a set union.
+    ///
+    /// # Implementative details
+    /// When both counters are still in hash-list mode, the union is itself kept as a hash
+    /// list, preserving the accuracy of small cardinalities: the hashes of the
+    /// higher-precision counter are downgraded and inserted into the lower-precision one
+    /// (a stored hash can only be downgraded, never upgraded). As soon as either operand
+    /// is a fully-fledged [`HyperLogLog`], the result is a [`HyperLogLog`] whose registers
+    /// are the element-wise maximum of the two operands.
+    fn merge(&mut self, rhs: &Self) {
+        match (self.is_hash_list(), rhs.is_hash_list()) {
+            (false, false) => {
+                // Both counters are fully-fledged HyperLogLogs: element-wise register maximum.
+                for (index, register) in rhs.registers.iter_registers().enumerate() {
+                    self.insert_register_value_and_index(register, index);
+                }
+            }
+            (true, false) => {
+                // Only `self` is a hash list: materialize it, then take the register maximum.
+                self.convert_hash_list_to_hyperloglog().unwrap();
+                for (index, register) in rhs.registers.iter_registers().enumerate() {
+                    self.insert_register_value_and_index(register, index);
+                }
+            }
+            (false, true) => {
+                // Only `rhs` is a hash list: fold its hashes into `self`'s registers.
+                let mut last_index = usize::MAX;
+                for (register, index) in GapHash::<P, B>::decoded(
+                    rhs.registers.as_ref(),
+                    rhs.get_number_of_hashes().unwrap(),
+                    rhs.get_hash_bits().unwrap(),
+                    rhs.get_writer_tell(),
+                ) {
+                    if index == last_index {
+                        continue;
+                    }
+                    last_index = index;
+                    self.insert_register_value_and_index(register, index);
+                }
+            }
+            (true, true) => {
+                // Both counters are hash lists: keep the union as a hash list by inserting the
+                // hashes of the higher-precision counter into the lower-precision one. A stored
+                // hash can only be downgraded, never upgraded, so the lower-precision counter
+                // (the one with the larger or equal hash size... i.e. fewer hashes) is used as
+                // the base, and the other counter's hashes are downgraded to its hash size.
+                // Inserting an already-present hash is a no-op, which keeps the union idempotent.
+                let self_hash_bits = self.get_hash_bits().unwrap();
+                let rhs_hash_bits = rhs.get_hash_bits().unwrap();
+
+                if self_hash_bits <= rhs_hash_bits {
+                    for encoded_hash in GapHash::<P, B>::downgraded(
+                        rhs.registers.as_ref(),
+                        rhs.get_number_of_hashes().unwrap(),
+                        rhs_hash_bits,
+                        rhs.get_writer_tell(),
+                        rhs_hash_bits - self_hash_bits,
+                    ) {
+                        let (index, register, original_hash) =
+                            GapHash::<P, B>::decode_full(encoded_hash, self_hash_bits);
+                        self.insert_index_register_hash(index, register, original_hash);
+                    }
+                } else {
+                    let mut base = rhs.clone();
+                    for encoded_hash in GapHash::<P, B>::downgraded(
+                        self.registers.as_ref(),
+                        self.get_number_of_hashes().unwrap(),
+                        self_hash_bits,
+                        self.get_writer_tell(),
+                        self_hash_bits - rhs_hash_bits,
+                    ) {
+                        let (index, register, original_hash) =
+                            GapHash::<P, B>::decode_full(encoded_hash, rhs_hash_bits);
+                        base.insert_index_register_hash(index, register, original_hash);
+                    }
+                    *self = base;
+                }
+            }
+        }
+    }
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOrAssign<&Self>
+    for HyperLogLog<P, B, R, H>
+{
+    #[inline]
+    fn bitor_assign(&mut self, rhs: &Self) {
+        self.merge(rhs);
+    }
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOrAssign
+    for HyperLogLog<P, B, R, H>
+{
+    #[inline]
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.merge(&rhs);
+    }
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOr for HyperLogLog<P, B, R, H> {
+    type Output = Self;
+
+    #[inline]
+    fn bitor(mut self, rhs: Self) -> Self::Output {
+        self.merge(&rhs);
+        self
+    }
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOr for &HyperLogLog<P, B, R, H> {
+    type Output = HyperLogLog<P, B, R, H>;
+
+    #[inline]
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let mut result = self.clone();
+        result.merge(rhs);
+        result
     }
 }
 

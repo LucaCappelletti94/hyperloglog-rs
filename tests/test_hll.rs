@@ -121,3 +121,165 @@ pub fn test_approximated_counter_at_precision_and_bits<
 fn test_hyperloglog<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
     test_approximated_counter_at_precision_and_bits::<P, B, R, H>();
 }
+
+/// Tests the `BitOr` merger: building a merged counter via `&a | &b` must yield a
+/// counter whose cardinality estimate matches the exact union cardinality, across
+/// both the hash-list mode (small cardinalities) and the HyperLogLog mode (large
+/// cardinalities). This is stronger than `estimate_union_cardinality`, which never
+/// materializes a merged counter.
+pub fn test_union_merge_at_precision_and_bits<
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B>,
+    H: HasherType,
+>() {
+    // The hash-list cardinality correction tables only cover precisions 4..=15, so
+    // `estimate_cardinality` in hash-list mode panics at precisions 16..=18 (a pre-existing
+    // gap in the generated correction coefficients, unrelated to the merger). We restrict
+    // this test to the supported range.
+    if P::EXPONENT > 15 {
+        return;
+    }
+
+    let mut left: HyperLogLog<P, B, R, H> = Default::default();
+    let mut right: HyperLogLog<P, B, R, H> = Default::default();
+    let mut exact_left = std::collections::HashSet::new();
+    let mut exact_right = std::collections::HashSet::new();
+
+    let mut left_random_state = splitmix64(splitmix64(0xC0FF_EE00_u64));
+    let mut right_random_state = splitmix64(splitmix64(0xDEAD_BEEF_u64));
+
+    let number_of_elements = 100_000;
+    let mut sampling_rate = 1;
+    let mut total_error_rate = 0.0;
+    let mut total_reference_error_rate = 0.0;
+    let mut samples = 0;
+
+    for i in 0..number_of_elements {
+        left_random_state = splitmix64(left_random_state);
+        right_random_state = splitmix64(right_random_state);
+        left.insert(&left_random_state);
+        exact_left.insert(left_random_state);
+        right.insert(&right_random_state);
+        exact_right.insert(right_random_state);
+
+        if i % sampling_rate == 0 {
+            // Ramp up the sampling rate so we densely cover small cardinalities (where
+            // the hash-list mode matters) and sparsely cover the large ones.
+            sampling_rate += 1 + i / 16;
+
+            let merged = &left | &right;
+
+            // Every inserted element must be reported as possibly contained.
+            assert!(
+                merged.may_contain(&left_random_state),
+                "Merged counter must contain the last left element."
+            );
+            assert!(
+                merged.may_contain(&right_random_state),
+                "Merged counter must contain the last right element."
+            );
+
+            // The union operator must be (approximately) commutative. It is not bit-exact
+            // because the hash-list estimate carries each operand's own duplicate tally, and
+            // the merge inherits the base operand's, but the cardinality estimates must agree
+            // to within the precision's error rate.
+            let merged_estimate = merged.estimate_cardinality();
+            let merged_swapped = &right | &left;
+            let merged_swapped_estimate = merged_swapped.estimate_cardinality();
+            assert!(
+                (merged_estimate - merged_swapped_estimate).abs()
+                    <= merged_estimate.max(merged_swapped_estimate) * P::error_rate() + 1.0,
+                "The union operator must be approximately commutative ({merged_estimate} vs {merged_swapped_estimate})."
+            );
+
+            // Merging a counter with itself must be idempotent.
+            let self_union = &left | &left;
+            let left_estimate = left.estimate_cardinality();
+            assert!(
+                (self_union.estimate_cardinality() - left_estimate).abs()
+                    <= left_estimate * P::error_rate() + 1.0,
+                "Merging a counter with itself must be idempotent (got {} vs {left_estimate}).",
+                self_union.estimate_cardinality(),
+            );
+
+            let exact_union = exact_left.union(&exact_right).count() as f64;
+            let estimated_union = merged.estimate_cardinality();
+            total_error_rate += (estimated_union - exact_union).abs() / exact_union;
+
+            // Reference: the established `estimate_union_cardinality` path, which never
+            // materializes a merged counter. The merger must be no worse than this.
+            let reference_union = left.estimate_union_cardinality(&right);
+            total_reference_error_rate += (reference_union - exact_union).abs() / exact_union;
+
+            samples += 1;
+        }
+    }
+
+    let mean_error_rate = total_error_rate / samples as f64;
+    let mean_reference_error_rate = total_reference_error_rate / samples as f64;
+
+    // The merged counter must estimate the union with an error comparable to the precision's
+    // nominal error rate and to the reference `estimate_union_cardinality` path. Materializing
+    // a counter (rather than estimating directly via inclusion-exclusion) carries the base
+    // operand's hash-list duplicate tally, which inflates the variance at the smallest
+    // precisions; the 1.5 factor absorbs that. The bound tracks the precision (it shrinks with
+    // it), so it still catches regressions at higher precisions.
+    let tolerance = P::error_rate().max(mean_reference_error_rate) * 1.5;
+
+    assert!(
+        mean_error_rate <= tolerance,
+        "Union-merge error rate ({mean_error_rate}) over {samples} samples exceeds the tolerance ({tolerance}; reference {mean_reference_error_rate}, nominal {}) for precision {}.",
+        P::error_rate(),
+        P::EXPONENT,
+    );
+}
+
+#[test_estimator]
+fn test_union_merge<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
+    test_union_merge_at_precision_and_bits::<P, B, R, H>();
+}
+
+/// Deterministic regression test pinning the core requirement: a union of two small
+/// sets (both still in hash-list mode) must produce an accurate cardinality estimate.
+/// A naive register-wise-max union forces the result out of hash-list mode and wildly
+/// over-estimates here.
+#[test]
+fn test_union_small_cardinality_stays_accurate() {
+    type Counter =
+        HyperLogLog<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut a: Counter = Default::default();
+    let mut b: Counter = Default::default();
+
+    for element in 0..5_u64 {
+        a.insert(&element);
+    }
+    for element in 3..8_u64 {
+        b.insert(&element);
+    }
+
+    assert!(
+        a.is_hash_list(),
+        "Small counter `a` must be in hash-list mode."
+    );
+    assert!(
+        b.is_hash_list(),
+        "Small counter `b` must be in hash-list mode."
+    );
+
+    let union = &a | &b;
+
+    let estimate = union.estimate_cardinality();
+    assert!(
+        (estimate - 8.0).abs() <= 1.0,
+        "Union of {{0..5}} and {{3..8}} should estimate ~8, got {estimate}.",
+    );
+
+    for element in 0..8_u64 {
+        assert!(
+            union.may_contain(&element),
+            "Merged counter must contain element {element}.",
+        );
+    }
+}

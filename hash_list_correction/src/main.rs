@@ -85,10 +85,10 @@ fn correction() {
         Precision12,
         Precision13,
         Precision14,
-        Precision15
-        // Precision16,
-        // Precision17,
-        // Precision18
+        Precision15,
+        Precision16,
+        Precision17,
+        Precision18
     );
     multiprogress.clear().unwrap();
 

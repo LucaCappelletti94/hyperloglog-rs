@@ -42,6 +42,30 @@ impl<P: Precision, B: Bits> HashFragment<P, B> {
     }
 
     #[inline]
+    /// Reconstructs an `original_hash` value which, when passed back to
+    /// [`SwitchHash::encode`] at the same `hash_bits`, reproduces the encoded hash this
+    /// fragment was decomposed from.
+    ///
+    /// # Implementative details
+    /// Only the bits retained at `hash_bits` are recoverable, so the lower bits of the
+    /// returned hash are zeroed. This is sufficient to re-encode the hash at the same or
+    /// any smaller `hash_bits`, which is exactly what merging a higher-precision counter
+    /// into a lower-precision one requires.
+    fn reconstruct_original_hash(&self, hash_bits: u8) -> u64 {
+        // At the smallest hash size only the index and register are stored (no hash
+        // remainder) and `encode` ignores the original hash entirely, so any value works.
+        if hash_bits == P::EXPONENT + B::NUMBER_OF_BITS {
+            return 0;
+        }
+
+        if self.register_flag() {
+            u64::from(self.hash_remainder) << (64 - hash_bits + P::EXPONENT + B::NUMBER_OF_BITS)
+        } else {
+            self.restored_hash(hash_bits)
+        }
+    }
+
+    #[inline]
     fn register_flag(&self) -> bool {
         self.register - 1 > B::NUMBER_OF_BITS
     }
@@ -599,6 +623,31 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
         );
 
         (fragmented.register as u8, fragmented.index as usize)
+    }
+
+    #[must_use]
+    #[inline]
+    /// Decode the hash into the index, register value and a reconstructed `original_hash`.
+    ///
+    /// The returned triple can be fed back into the insertion routines (at the same or a
+    /// smaller `hash_bits`) to reproduce the stored hash, which is what counter merging
+    /// relies upon.
+    pub(super) fn decode_full(hash: u32, hash_bits: u8) -> (usize, u8, u64) {
+        let fragment = Self::scompose_hash(hash, hash_bits);
+        let original_hash = fragment.reconstruct_original_hash(hash_bits);
+
+        debug_assert_eq!(
+            Self::encode(
+                fragment.index as usize,
+                fragment.register,
+                original_hash,
+                hash_bits
+            ),
+            hash,
+            "Reconstructed hash does not re-encode to the original at hash bits {hash_bits}."
+        );
+
+        (fragment.index as usize, fragment.register, original_hash)
     }
 }
 

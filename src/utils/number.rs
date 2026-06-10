@@ -112,13 +112,11 @@ macro_rules! impl_positive_integer_number {
 impl_positive_integer_number!(u8, u16, u32, u64);
 
 impl FloatOps for f64 {
-    #[must_use]
     #[inline]
     fn integer_exp2_minus(register: u8) -> Self {
         f64::from_le_bytes((u64::from(1023_u16 - u16::from(register)) << 52).to_le_bytes())
     }
 
-    #[must_use]
     #[inline]
     fn integer_exp2_minus_signed(register: i16) -> Self {
         debug_assert!(
@@ -128,7 +126,6 @@ impl FloatOps for f64 {
         f64::from_le_bytes((u64::try_from(1023_i16 - register).unwrap() << 52).to_le_bytes())
     }
 
-    #[must_use]
     #[inline]
     fn integer_exp2(register: u8) -> Self {
         f64::from_le_bytes((u64::from(1023_u16 + u16::from(register)) << 52).to_le_bytes())

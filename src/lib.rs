@@ -21,9 +21,6 @@ mod registers;
 pub mod sketches;
 pub mod utils;
 
-#[cfg(feature = "serde")]
-pub mod serde;
-
 /// Re-exports of the most important traits and structs.
 pub mod prelude {
     pub use crate::bits::*;

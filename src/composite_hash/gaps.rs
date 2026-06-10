@@ -692,6 +692,13 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         SwitchHash::<P, B>::decode(hash, hash_bits)
     }
 
+    #[must_use]
+    #[inline]
+    /// Decode the hash into the index, register value and a reconstructed `original_hash`.
+    pub(crate) fn decode_full(hash: u32, hash_bits: u8) -> (usize, u8, u64) {
+        SwitchHash::<P, B>::decode_full(hash, hash_bits)
+    }
+
     #[inline(always)]
     #[must_use]
     /// Downgrade the hash into a smaller hash.
