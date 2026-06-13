@@ -434,6 +434,7 @@ fn mle_cardinality<P: Precision, B: Bits>(
 /// See `docs/joint_mle_math.md`. Each pattern contributes `count * ln(P_reg)` to the joint
 /// log-likelihood, where `P_reg = sum over terms of sign * exp(-sum over (region, c) of
 /// e^{phi_region} * c)` and `c = 2^-(P + level)` is the level constant baked in here.
+#[cfg(test)]
 struct JointPattern {
     /// How many registers exhibit this exact `(left values, right values)` pattern.
     count: f64,
@@ -443,11 +444,103 @@ struct JointPattern {
     terms: Vec<(f64, Vec<(usize, f64)>)>,
 }
 
-/// Tabulates the distinct joint register patterns and precomputes their inclusion-exclusion terms.
+/// Builds the `2^(M+N)` inclusion-exclusion terms for a single observed register pattern
+/// `(a_pat, b_pat)` (sorted left/right values). This is the exact-but-exponential reference
+/// evaluation. Each term is `(sign, [(region index, 2^-(P+level))])`; a region at the saturation
+/// cap is dropped (survival 1), and a term knocking a zero-valued counter below zero is dropped.
+#[cfg(test)]
+fn build_pattern_terms<const M: usize, const N: usize>(
+    a_pat: &[u8; M],
+    b_pat: &[u8; N],
+    p_exponent: u8,
+    q_plus_one: u8,
+) -> Vec<(f64, Vec<(usize, f64)>)> {
+    let n_overlap = M * N;
+    let mut terms = Vec::new();
+    // Inclusion-exclusion over per-counter unit knockdowns: u over the M lefts, v over the N
+    // rights. Bit set means that counter is pushed one level down.
+    for u in 0u32..(1u32 << M) {
+        for v in 0u32..(1u32 << N) {
+            // Adjusted (knocked-down) observed values; a knockdown below zero kills the term.
+            let mut al = [0i16; M];
+            let mut killed = false;
+            for i in 0..M {
+                let adjusted = i16::from(a_pat[i]) - i16::from((u >> i) & 1 == 1);
+                if adjusted < 0 {
+                    killed = true;
+                }
+                al[i] = adjusted;
+            }
+            let mut ar = [0i16; N];
+            for j in 0..N {
+                let adjusted = i16::from(b_pat[j]) - i16::from((v >> j) & 1 == 1);
+                if adjusted < 0 {
+                    killed = true;
+                }
+                ar[j] = adjusted;
+            }
+            if killed {
+                continue;
+            }
+
+            let sign = if (u.count_ones() + v.count_ones()) % 2 == 0 {
+                1.0
+            } else {
+                -1.0
+            };
+
+            // A region's level is the minimum adjusted value over ALL counters that contain it.
+            // The overlap cell `O_ij` is contained in the left counters `i..M-1` and the right
+            // counters `j..N-1`, the left margin `D^A_i` in the left counters `i..M-1`, and the
+            // right margin `D^B_j` in the right counters `j..N-1`. After a knockdown the adjusted
+            // values are not necessarily monotone, so we take the suffix minima explicitly rather
+            // than assuming the lowest index binds.
+            let mut suffix_min_al = [0i16; M];
+            let mut running = i16::MAX;
+            for i in (0..M).rev() {
+                running = running.min(al[i]);
+                suffix_min_al[i] = running;
+            }
+            let mut suffix_min_ar = [0i16; N];
+            running = i16::MAX;
+            for j in (0..N).rev() {
+                running = running.min(ar[j]);
+                suffix_min_ar[j] = running;
+            }
+
+            // A region at the saturation cap contributes survival 1 (skipped).
+            let mut regions: Vec<(usize, f64)> = Vec::new();
+            let mut push_region = |idx: usize, level: i16| {
+                if level < i16::from(q_plus_one) {
+                    let c = f64::integer_exp2_minus(p_exponent + level as u8);
+                    regions.push((idx, c));
+                }
+            };
+            for i in 0..M {
+                for j in 0..N {
+                    push_region(i * N + j, suffix_min_al[i].min(suffix_min_ar[j]));
+                }
+            }
+            for i in 0..M {
+                push_region(n_overlap + i, suffix_min_al[i]);
+            }
+            for j in 0..N {
+                push_region(n_overlap + M + j, suffix_min_ar[j]);
+            }
+
+            terms.push((sign, regions));
+        }
+    }
+    terms
+}
+
+/// Tabulates the distinct joint register value patterns and their multiplicities (the cheap part
+/// of pattern accounting, shared by the polynomial and reference paths). Nesting is enforced by a
+/// cumulative max along each chain so the observed values are monotone.
 ///
 /// `K = M*N + M + N` is the number of disjoint regions, indexed as: overlap `O_ij` at `i*N + j`,
 /// left margin `D^A_i` at `M*N + i`, right margin `D^B_j` at `M*N + M + j`.
-fn tabulate_joint_patterns<
+fn tabulate_joint_value_patterns<
     P: Precision,
     B: Bits,
     R: Registers<P, B>,
@@ -457,7 +550,7 @@ fn tabulate_joint_patterns<
 >(
     lefts: &[HyperLogLog<P, B, R, H>; M],
     rights: &[HyperLogLog<P, B, R, H>; N],
-) -> Vec<JointPattern> {
+) -> Vec<([u8; M], [u8; N], f64)> {
     use std::collections::HashMap;
 
     let left_regs: [Vec<u8>; M] =
@@ -465,14 +558,9 @@ fn tabulate_joint_patterns<
     let right_regs: [Vec<u8>; N] =
         core::array::from_fn(|j| rights[j].registers.iter_registers().collect());
 
-    // q_plus_one is the saturation value; levels above q contribute survival 1 (constant 0).
-    let q_plus_one: u8 = (1 << B::NUMBER_OF_BITS) - 1;
-
     let m_registers = 1_usize << P::EXPONENT;
     let mut counts: HashMap<([u8; M], [u8; N]), f64> = HashMap::new();
     for r in 0..m_registers {
-        // Enforce the nesting prior by taking the cumulative max along each chain, so the observed
-        // values are monotone even if the inputs are imperfectly nested.
         let mut a_pat = [0u8; M];
         let mut acc = 0u8;
         for i in 0..M {
@@ -488,93 +576,41 @@ fn tabulate_joint_patterns<
         *counts.entry((a_pat, b_pat)).or_insert(0.0) += 1.0;
     }
 
-    let n_overlap = M * N;
     counts
         .into_iter()
-        .map(|((a_pat, b_pat), count)| {
-            let mut terms = Vec::new();
-            // Inclusion-exclusion over per-counter unit knockdowns: u over the M lefts, v over the
-            // N rights. Bit set means that counter is pushed one level down.
-            for u in 0u32..(1u32 << M) {
-                for v in 0u32..(1u32 << N) {
-                    // Adjusted (knocked-down) observed values; a knockdown below zero kills the term.
-                    let mut al = [0i16; M];
-                    let mut killed = false;
-                    for i in 0..M {
-                        let adjusted = i16::from(a_pat[i]) - i16::from((u >> i) & 1 == 1);
-                        if adjusted < 0 {
-                            killed = true;
-                        }
-                        al[i] = adjusted;
-                    }
-                    let mut ar = [0i16; N];
-                    for j in 0..N {
-                        let adjusted = i16::from(b_pat[j]) - i16::from((v >> j) & 1 == 1);
-                        if adjusted < 0 {
-                            killed = true;
-                        }
-                        ar[j] = adjusted;
-                    }
-                    if killed {
-                        continue;
-                    }
+        .map(|((a_pat, b_pat), count)| (a_pat, b_pat, count))
+        .collect()
+}
 
-                    let sign = if (u.count_ones() + v.count_ones()) % 2 == 0 {
-                        1.0
-                    } else {
-                        -1.0
-                    };
-
-                    // A region's level is the minimum adjusted value over ALL counters that contain
-                    // it. The overlap cell `O_ij` is contained in the left counters `i..M-1` and the
-                    // right counters `j..N-1`, the left margin `D^A_i` in the left counters
-                    // `i..M-1`, and the right margin `D^B_j` in the right counters `j..N-1`. After a
-                    // knockdown the adjusted values are not necessarily monotone, so we take the
-                    // suffix minima explicitly rather than assuming the lowest index binds.
-                    let mut suffix_min_al = [0i16; M];
-                    let mut running = i16::MAX;
-                    for i in (0..M).rev() {
-                        running = running.min(al[i]);
-                        suffix_min_al[i] = running;
-                    }
-                    let mut suffix_min_ar = [0i16; N];
-                    running = i16::MAX;
-                    for j in (0..N).rev() {
-                        running = running.min(ar[j]);
-                        suffix_min_ar[j] = running;
-                    }
-
-                    // A region at the saturation cap contributes survival 1 (skipped).
-                    let mut regions: Vec<(usize, f64)> = Vec::new();
-                    let mut push_region = |idx: usize, level: i16| {
-                        if level < i16::from(q_plus_one) {
-                            let c = f64::integer_exp2_minus(P::EXPONENT + level as u8);
-                            regions.push((idx, c));
-                        }
-                    };
-                    for i in 0..M {
-                        for j in 0..N {
-                            push_region(i * N + j, suffix_min_al[i].min(suffix_min_ar[j]));
-                        }
-                    }
-                    for i in 0..M {
-                        push_region(n_overlap + i, suffix_min_al[i]);
-                    }
-                    for j in 0..N {
-                        push_region(n_overlap + M + j, suffix_min_ar[j]);
-                    }
-
-                    terms.push((sign, regions));
-                }
-            }
-            JointPattern { count, terms }
+/// Tabulates the distinct joint register patterns and precomputes their inclusion-exclusion terms.
+/// This is the exact-but-exponential `2^(M+N)` reference path, retained as the oracle that the
+/// polynomial path is validated against.
+#[cfg(test)]
+fn tabulate_joint_patterns<
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B>,
+    H: HasherType,
+    const M: usize,
+    const N: usize,
+>(
+    lefts: &[HyperLogLog<P, B, R, H>; M],
+    rights: &[HyperLogLog<P, B, R, H>; N],
+) -> Vec<JointPattern> {
+    // q_plus_one is the saturation value; levels above q contribute survival 1 (constant 0).
+    let q_plus_one: u8 = (1 << B::NUMBER_OF_BITS) - 1;
+    tabulate_joint_value_patterns::<P, B, R, H, M, N>(lefts, rights)
+        .into_iter()
+        .map(|(a_pat, b_pat, count)| JointPattern {
+            count,
+            terms: build_pattern_terms::<M, N>(&a_pat, &b_pat, P::EXPONENT, q_plus_one),
         })
         .collect()
 }
 
 /// Generalized joint MLE over the disjoint-region model, assuming all counters are in register
-/// mode. Returns `(overlap[M][N], left_diff[M], right_diff[N])`.
-#[allow(clippy::needless_range_loop)]
+/// mode. Returns `(overlap[M][N], left_diff[M], right_diff[N])`. Uses the polynomial per-pattern
+/// log-likelihood gradient.
 fn joint_sketch_mle_from_registers<
     P: Precision,
     B: Bits,
@@ -585,6 +621,38 @@ fn joint_sketch_mle_from_registers<
 >(
     lefts: &[HyperLogLog<P, B, R, H>; M],
     rights: &[HyperLogLog<P, B, R, H>; N],
+) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+    let value_patterns = tabulate_joint_value_patterns::<P, B, R, H, M, N>(lefts, rights);
+    let p_exponent = P::EXPONENT;
+    let q_plus_one: u8 = (1 << B::NUMBER_OF_BITS) - 1;
+
+    joint_sketch_mle_core(lefts, rights, |phis, gradient| {
+        let ephi: Vec<f64> = phis.iter().map(|phi| phi.exp()).collect();
+        for (a_pat, b_pat, count) in &value_patterns {
+            joint_pattern_ll_and_gradient_poly::<M, N>(
+                a_pat, b_pat, &ephi, p_exponent, q_plus_one, *count, gradient,
+            );
+        }
+    })
+}
+
+/// Runs the warm-started, marginal-anchored Adam optimization of the disjoint-region model and
+/// returns the cell matrices. The per-iteration log-likelihood gradient is supplied by
+/// `ll_gradient`, which receives the current `phis` and a pre-zeroed gradient buffer to accumulate
+/// into. Production passes the polynomial evaluation; tests pass the exponential `2^(M+N)` oracle
+/// for cross-validation.
+#[allow(clippy::needless_range_loop)]
+fn joint_sketch_mle_core<
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B>,
+    H: HasherType,
+    const M: usize,
+    const N: usize,
+>(
+    lefts: &[HyperLogLog<P, B, R, H>; M],
+    rights: &[HyperLogLog<P, B, R, H>; N],
+    mut ll_gradient: impl FnMut(&[f64], &mut [f64]),
 ) -> ([[f64; N]; M], [f64; M], [f64; N]) {
     let n_overlap = M * N;
     let k = n_overlap + M + N;
@@ -608,8 +676,6 @@ fn joint_sketch_mle_from_registers<
     for j in 0..N {
         phis[n_overlap + M + j] = right0[j].max(f64::EPSILON).ln();
     }
-
-    let patterns = tabulate_joint_patterns::<P, B, R, H, M, N>(lefts, rights);
 
     // Marginal anchors. The deep overlap cells (contained only in the largest counters) are weakly
     // identified at high load: `x = n * 2^-(P + level)` is negligible at the high register levels
@@ -655,9 +721,13 @@ fn joint_sketch_mle_from_registers<
     let relative_error_limit = 10.0_f64.powi(-2) / f64::integer_exp2(P::EXPONENT).sqrt();
 
     let mut optimizer = JointAdam::new(k);
+    let mut gradients = vec![f64::ZERO; k];
 
     for _ in 0_u16..10_000_u16 {
-        let (_ll, mut gradients) = joint_ll_and_gradient(&patterns, &phis, k);
+        for gradient in &mut gradients {
+            *gradient = f64::ZERO;
+        }
+        ll_gradient(&phis, &mut gradients);
         add_marginal_anchor_gradient(&anchors, &phis, &mut gradients);
 
         optimizer.apply(&mut gradients, &mut phis);
@@ -691,7 +761,8 @@ fn joint_sketch_mle_from_registers<
 /// Forward-mode differentiation: each per-register inclusion-exclusion term is log-linear in the
 /// `phis`, so `d/dphi_rho` of `sign * exp(-sum_x)` is `-x_rho * sign * exp(-sum_x)`. The
 /// log-likelihood gradient follows by the quotient `d ln P_reg = dP_reg / P_reg`. See
-/// `docs/joint_mle_math.md`, section 5.
+/// `docs/joint_mle_math.md`, section 5. Retained as the test-only oracle for the polynomial path.
+#[cfg(test)]
 fn joint_ll_and_gradient(patterns: &[JointPattern], phis: &[f64], k: usize) -> (f64, Vec<f64>) {
     let ephi: Vec<f64> = phis.iter().map(|phi| phi.exp()).collect();
     let mut gradient = vec![f64::ZERO; k];
@@ -720,6 +791,228 @@ fn joint_ll_and_gradient(patterns: &[JointPattern], phis: &[f64], k: usize) -> (
     }
 
     (log_likelihood, gradient)
+}
+
+/// Polynomial per-pattern log-likelihood: the level-factor / block-collapse evaluation that
+/// reproduces [`build_pattern_terms`] exactly in `O((M+N)^2 + M*N)` instead of `O(2^(M+N))`.
+///
+/// `ephi[rho] = n_rho = exp(phi_rho)`. The likelihood factorizes as `P_reg = exp(base) * prod_w
+/// Q_w`: a CDF base (empty-above-ceiling) times one achievement factor per distinct observed value
+/// `w`. Each counter block (the contiguous run of counters sharing value `w`) collapses to its
+/// smallest index because nesting makes "contained in `A_l`" monotone. See `docs/joint_mle_math.md`.
+///
+/// The cancellation-free value-only reference (production optimizes via the gradient form below);
+/// used by the likelihood and finite-difference cross-checks.
+#[cfg(test)]
+fn joint_pattern_ll_poly<const M: usize, const N: usize>(
+    a_pat: &[u8; M],
+    b_pat: &[u8; N],
+    ephi: &[f64],
+    p_exponent: u8,
+    q_plus_one: u8,
+) -> f64 {
+    let n_overlap = M * N;
+    let q = q_plus_one - 1;
+
+    // x_rho at level k, and y_rho(w) = P(region empty at level w). The saturated top bucket
+    // (w = q+1) uses level q, matching the existing register model.
+    let x = |rho: usize, level: u8| ephi[rho] * f64::integer_exp2_minus(p_exponent + level);
+    let y = |rho: usize, w: u8| (-x(rho, w.min(q))).exp();
+
+    // CDF base: -sum over regions of x_rho(ceil_rho). Saturated ceilings (>= q+1) contribute 0.
+    let mut ln_p = 0.0_f64;
+    for i in 0..M {
+        for j in 0..N {
+            let ceiling = a_pat[i].min(b_pat[j]);
+            if ceiling < q_plus_one {
+                ln_p -= x(i * N + j, ceiling);
+            }
+        }
+    }
+    for i in 0..M {
+        if a_pat[i] < q_plus_one {
+            ln_p -= x(n_overlap + i, a_pat[i]);
+        }
+    }
+    for j in 0..N {
+        if b_pat[j] < q_plus_one {
+            ln_p -= x(n_overlap + M + j, b_pat[j]);
+        }
+    }
+
+    // Achievement factor Q_w for every value w that some counter attains.
+    for w in 1..=q_plus_one {
+        let left_p = (0..M).find(|&i| a_pat[i] == w);
+        let right_r = (0..N).find(|&j| b_pat[j] == w);
+        if left_p.is_none() && right_r.is_none() {
+            continue;
+        }
+
+        // PL = P(smallest left counter at value w not hit); PR symmetric; PLR = both missed.
+        let product_left = |p: usize| {
+            let mut product = y(n_overlap + p, w);
+            for j in 0..N {
+                if b_pat[j] >= w {
+                    product *= y(p * N + j, w);
+                }
+            }
+            product
+        };
+        let product_right = |r: usize| {
+            let mut product = y(n_overlap + M + r, w);
+            for i in 0..M {
+                if a_pat[i] >= w {
+                    product *= y(i * N + r, w);
+                }
+            }
+            product
+        };
+
+        let q_w = match (left_p, right_r) {
+            (Some(p), Some(r)) => {
+                let pl = product_left(p);
+                let pr = product_right(r);
+                // Union product: rows of p, plus column r excluding the shared cell O_{p,r}.
+                let mut plr = y(n_overlap + p, w) * y(n_overlap + M + r, w);
+                for j in 0..N {
+                    if b_pat[j] >= w {
+                        plr *= y(p * N + j, w);
+                    }
+                }
+                for i in 0..M {
+                    if a_pat[i] >= w && i != p {
+                        plr *= y(i * N + r, w);
+                    }
+                }
+                1.0 - pl - pr + plr
+            }
+            (Some(p), None) => 1.0 - product_left(p),
+            (None, Some(r)) => 1.0 - product_right(r),
+            (None, None) => unreachable!(),
+        };
+
+        ln_p += q_w.max(f64::MIN_POSITIVE).ln();
+    }
+
+    ln_p
+}
+
+/// Polynomial per-pattern log-likelihood and its exact gradient. Accumulates `count * d ln P_reg /
+/// d phi_rho` into `gradient` and returns `count * ln P_reg`. The gradient is the closed-form
+/// derivative of the level-factor form in [`joint_pattern_ll_poly`]: `d base / d phi_rho =
+/// -x_rho(ceil_rho)` (one term per region), and `d ln Q_w / d phi_rho = (1/Q_w) * dQ_w` built from
+/// `d(prod y)/d phi_rho = prod * (-x_rho(w))` for the regions in that product.
+fn joint_pattern_ll_and_gradient_poly<const M: usize, const N: usize>(
+    a_pat: &[u8; M],
+    b_pat: &[u8; N],
+    ephi: &[f64],
+    p_exponent: u8,
+    q_plus_one: u8,
+    count: f64,
+    gradient: &mut [f64],
+) -> f64 {
+    let n_overlap = M * N;
+    let q = q_plus_one - 1;
+
+    let x = |rho: usize, level: u8| ephi[rho] * f64::integer_exp2_minus(p_exponent + level);
+    let y = |rho: usize, w: u8| (-x(rho, w.min(q))).exp();
+
+    let mut ln_p = 0.0_f64;
+
+    // CDF base and its gradient: each region contributes -x_rho(ceil_rho) to both.
+    let mut base_region = |rho: usize, ceiling: u8| {
+        if ceiling < q_plus_one {
+            let xv = x(rho, ceiling);
+            ln_p -= xv;
+            gradient[rho] += count * (-xv);
+        }
+    };
+    for i in 0..M {
+        for j in 0..N {
+            base_region(i * N + j, a_pat[i].min(b_pat[j]));
+        }
+    }
+    for i in 0..M {
+        base_region(n_overlap + i, a_pat[i]);
+    }
+    for j in 0..N {
+        base_region(n_overlap + M + j, b_pat[j]);
+    }
+
+    // Achievement factors and their gradients.
+    for w in 1..=q_plus_one {
+        let left_p = (0..M).find(|&i| a_pat[i] == w);
+        let right_r = (0..N).find(|&j| b_pat[j] == w);
+        if left_p.is_none() && right_r.is_none() {
+            continue;
+        }
+
+        // Hitter region indices for the smallest left/right counters at value w.
+        let left_hitters = |p: usize| -> Vec<usize> {
+            let mut hitters = vec![n_overlap + p];
+            for j in 0..N {
+                if b_pat[j] >= w {
+                    hitters.push(p * N + j);
+                }
+            }
+            hitters
+        };
+        let right_hitters = |r: usize| -> Vec<usize> {
+            let mut hitters = vec![n_overlap + M + r];
+            for i in 0..M {
+                if a_pat[i] >= w {
+                    hitters.push(i * N + r);
+                }
+            }
+            hitters
+        };
+
+        let l_hit = left_p.map(left_hitters).unwrap_or_default();
+        let r_hit = right_r.map(right_hitters).unwrap_or_default();
+        let pl: f64 = l_hit.iter().map(|&rho| y(rho, w)).product();
+        let pr: f64 = r_hit.iter().map(|&rho| y(rho, w)).product();
+        let mut plr = pl;
+        for &rho in &r_hit {
+            if !l_hit.contains(&rho) {
+                plr *= y(rho, w);
+            }
+        }
+
+        let both = left_p.is_some() && right_r.is_some();
+        let q_w = if both {
+            1.0 - pl - pr + plr
+        } else if left_p.is_some() {
+            1.0 - pl
+        } else {
+            1.0 - pr
+        };
+        ln_p += q_w.max(f64::MIN_POSITIVE).ln();
+
+        // dQ_w/dphi_rho = [in L]*PL + [in R]*PR - [in L or R]*PLR, times x_rho(w); then /Q_w.
+        let inverse = count / q_w.max(f64::MIN_POSITIVE);
+        let mut accumulate = |rho: usize| {
+            let in_l = l_hit.contains(&rho);
+            let in_r = r_hit.contains(&rho);
+            let coefficient = if both {
+                f64::from(u8::from(in_l)) * pl + f64::from(u8::from(in_r)) * pr - plr
+            } else if left_p.is_some() {
+                pl
+            } else {
+                pr
+            };
+            gradient[rho] += inverse * coefficient * x(rho, w.min(q));
+        };
+        for &rho in &l_hit {
+            accumulate(rho);
+        }
+        for &rho in &r_hit {
+            if !l_hit.contains(&rho) {
+                accumulate(rho);
+            }
+        }
+    }
+
+    count * ln_p
 }
 
 /// Adds the gradient of the marginal-anchor log-prior to `gradient` (which already holds the
@@ -1007,5 +1300,340 @@ mod tests {
                 grad[rho],
             );
         }
+    }
+
+    /// Evaluates `ln P_reg` for one pattern via the exponential `2^(M+N)` reference (oracle).
+    #[cfg(feature = "mle")]
+    fn oracle_pattern_ln_p_reg<const M: usize, const N: usize>(
+        a_pat: &[u8; M],
+        b_pat: &[u8; N],
+        ephi: &[f64],
+        p_exponent: u8,
+        q_plus_one: u8,
+    ) -> f64 {
+        let terms = build_pattern_terms::<M, N>(a_pat, b_pat, p_exponent, q_plus_one);
+        let mut p = 0.0_f64;
+        for (sign, regions) in &terms {
+            let mut sum_x = 0.0;
+            for &(rho, c) in regions {
+                sum_x += ephi[rho] * c;
+            }
+            p += sign * (-sum_x).exp();
+        }
+        p.max(f64::EPSILON).ln()
+    }
+
+    /// Draws a sorted (monotone) register pattern of length `L` with values in `0..=q_plus_one`.
+    #[cfg(feature = "mle")]
+    fn random_monotone_pattern<const L: usize>(state: &mut u64, q_plus_one: u8) -> [u8; L] {
+        let mut pattern: [u8; L] = core::array::from_fn(|_| {
+            *state = splitmix64(*state);
+            (*state % (u64::from(q_plus_one) + 1)) as u8
+        });
+        pattern.sort_unstable();
+        pattern
+    }
+
+    /// Draws region cardinalities `n_rho = exp(phi)` with `phi` uniform in `[ln 2, ln 40]`, the
+    /// regime where the signed `2^(M+N)` oracle is numerically reliable (matching the Python
+    /// cross-check). The polynomial form is cancellation-free at any scale.
+    #[cfg(feature = "mle")]
+    fn random_ephi(state: &mut u64, k: usize) -> Vec<f64> {
+        (0..k)
+            .map(|_| {
+                *state = splitmix64(*state);
+                let u = (*state >> 11) as f64 / (1u64 << 53) as f64;
+                (2.0_f64.ln() + (40.0_f64.ln() - 2.0_f64.ln()) * u).exp()
+            })
+            .collect()
+    }
+
+    /// The polynomial per-pattern log-likelihood must match the exponential `2^(M+N)` oracle to
+    /// floating-point tolerance across random monotone patterns (covering ties, zeros, saturation)
+    /// and random region cardinalities, for several `(M, N)` including rectangular shapes.
+    #[cfg(feature = "mle")]
+    fn check_poly_likelihood_matches_oracle<const M: usize, const N: usize>(
+        seed: u64,
+        p_exponent: u8,
+        q_plus_one: u8,
+    ) {
+        let k = M * N + M + N;
+        let mut state = seed;
+        let mut tested = 0;
+        for _ in 0..1500 {
+            let a_pat = random_monotone_pattern::<M>(&mut state, q_plus_one);
+            let b_pat = random_monotone_pattern::<N>(&mut state, q_plus_one);
+            let ephi = random_ephi(&mut state, k);
+
+            let oracle =
+                oracle_pattern_ln_p_reg::<M, N>(&a_pat, &b_pat, &ephi, p_exponent, q_plus_one);
+            // Skip patterns where the signed oracle sum loses precision to catastrophic
+            // cancellation (small P_reg from tiny x at high levels); the polynomial form is
+            // cancellation-free, so the oracle is the limiting factor here, not the poly.
+            if oracle < -18.0 {
+                continue;
+            }
+            let poly = joint_pattern_ll_poly::<M, N>(&a_pat, &b_pat, &ephi, p_exponent, q_plus_one);
+            assert!(
+                (oracle - poly).abs() < 1e-7,
+                "M={M} N={N} a={a_pat:?} b={b_pat:?}: oracle ln={oracle} poly ln={poly}"
+            );
+            tested += 1;
+        }
+        assert!(tested > 20, "too few non-degenerate trials: {tested}");
+    }
+
+    #[cfg(feature = "mle")]
+    #[test]
+    fn test_poly_pattern_likelihood_matches_oracle() {
+        // Small p_exponent keeps x in a range where the signed oracle is numerically reliable; the
+        // per-pattern algorithm is independent of p_exponent (it only scales x), so this fully
+        // validates correctness. q_plus_one = 7 exercises the saturation boundary.
+        for &q_plus_one in &[7u8, 15u8] {
+            let p = 4u8;
+            check_poly_likelihood_matches_oracle::<1, 1>(0x1111, p, q_plus_one);
+            check_poly_likelihood_matches_oracle::<2, 2>(0x2222, p, q_plus_one);
+            check_poly_likelihood_matches_oracle::<3, 2>(0x3232, p, q_plus_one);
+            check_poly_likelihood_matches_oracle::<2, 3>(0x2323, p, q_plus_one);
+            check_poly_likelihood_matches_oracle::<3, 3>(0x3333, p, q_plus_one);
+        }
+
+        // Explicit edge cases: all-zero, all-saturated, all-equal mid, a single zero.
+        let p = 4u8;
+        let q1 = 7u8;
+        let k = 2 * 2 + 2 + 2;
+        let ephi: Vec<f64> = (0..k).map(|i| (1.0 + 0.5 * i as f64).exp()).collect();
+        for (a, b) in [
+            ([0u8, 0], [0u8, 0]),
+            ([7, 7], [7, 7]),
+            ([3, 3], [3, 3]),
+            ([0, 3], [0, 5]),
+            ([0, 7], [2, 7]),
+        ] {
+            let oracle = oracle_pattern_ln_p_reg::<2, 2>(&a, &b, &ephi, p, q1);
+            let poly = joint_pattern_ll_poly::<2, 2>(&a, &b, &ephi, p, q1);
+            assert!(
+                (oracle - poly).abs() < 1e-7,
+                "edge a={a:?} b={b:?}: oracle={oracle} poly={poly}"
+            );
+        }
+    }
+
+    /// Gradient of `ln P_reg` for one pattern via the exponential `2^(M+N)` oracle.
+    #[cfg(feature = "mle")]
+    fn oracle_pattern_gradient<const M: usize, const N: usize>(
+        a_pat: &[u8; M],
+        b_pat: &[u8; N],
+        phis: &[f64],
+        p_exponent: u8,
+        q_plus_one: u8,
+        k: usize,
+    ) -> Vec<f64> {
+        let pattern = JointPattern {
+            count: 1.0,
+            terms: build_pattern_terms::<M, N>(a_pat, b_pat, p_exponent, q_plus_one),
+        };
+        joint_ll_and_gradient(&[pattern], phis, k).1
+    }
+
+    /// The polynomial per-pattern gradient must match both a central finite difference of the
+    /// polynomial likelihood and the exponential oracle gradient, across random patterns.
+    #[cfg(feature = "mle")]
+    fn check_poly_gradient_matches_oracle_and_fd<const M: usize, const N: usize>(
+        seed: u64,
+        p_exponent: u8,
+        q_plus_one: u8,
+    ) {
+        let k = M * N + M + N;
+        let mut state = seed;
+        let mut tested = 0;
+        for _ in 0..1500 {
+            let a_pat = random_monotone_pattern::<M>(&mut state, q_plus_one);
+            let b_pat = random_monotone_pattern::<N>(&mut state, q_plus_one);
+            let ephi = random_ephi(&mut state, k);
+            let phis: Vec<f64> = ephi.iter().map(|e| e.ln()).collect();
+
+            let ll = joint_pattern_ll_poly::<M, N>(&a_pat, &b_pat, &ephi, p_exponent, q_plus_one);
+            if ll < -18.0 {
+                continue;
+            }
+
+            let mut grad = vec![0.0_f64; k];
+            let ret = joint_pattern_ll_and_gradient_poly::<M, N>(
+                &a_pat, &b_pat, &ephi, p_exponent, q_plus_one, 1.0, &mut grad,
+            );
+            assert!(
+                (ret - ll).abs() < 1e-9,
+                "returned ll {ret} != value-fn ll {ll}"
+            );
+
+            // Finite-difference cross-check (perturb in phi-space).
+            let h = 1e-6_f64;
+            for rho in 0..k {
+                let mut ep = ephi.clone();
+                let mut em = ephi.clone();
+                ep[rho] = ephi[rho] * h.exp();
+                em[rho] = ephi[rho] * (-h).exp();
+                let lp = joint_pattern_ll_poly::<M, N>(&a_pat, &b_pat, &ep, p_exponent, q_plus_one);
+                let lm = joint_pattern_ll_poly::<M, N>(&a_pat, &b_pat, &em, p_exponent, q_plus_one);
+                let fd = (lp - lm) / (2.0 * h);
+                let scale = grad[rho].abs().max(fd.abs()).max(1.0);
+                assert!(
+                    (grad[rho] - fd).abs() / scale < 1e-4,
+                    "FD mismatch M={M} N={N} a={a_pat:?} b={b_pat:?} rho={rho}: grad={} fd={fd}",
+                    grad[rho]
+                );
+            }
+
+            // Oracle gradient cross-check.
+            let ograd =
+                oracle_pattern_gradient::<M, N>(&a_pat, &b_pat, &phis, p_exponent, q_plus_one, k);
+            for rho in 0..k {
+                let scale = grad[rho].abs().max(ograd[rho].abs()).max(1.0);
+                assert!(
+                    (grad[rho] - ograd[rho]).abs() / scale < 1e-6,
+                    "oracle mismatch M={M} N={N} a={a_pat:?} b={b_pat:?} rho={rho}: poly={} oracle={}",
+                    grad[rho],
+                    ograd[rho]
+                );
+            }
+            tested += 1;
+        }
+        assert!(tested > 20, "too few non-degenerate trials: {tested}");
+    }
+
+    #[cfg(feature = "mle")]
+    #[test]
+    fn test_poly_pattern_gradient_matches_oracle_and_fd() {
+        for &q_plus_one in &[7u8, 15u8] {
+            let p = 4u8;
+            check_poly_gradient_matches_oracle_and_fd::<1, 1>(0xA1A1, p, q_plus_one);
+            check_poly_gradient_matches_oracle_and_fd::<2, 2>(0xB2B2, p, q_plus_one);
+            check_poly_gradient_matches_oracle_and_fd::<3, 2>(0xC3C2, p, q_plus_one);
+            check_poly_gradient_matches_oracle_and_fd::<2, 3>(0xD2D3, p, q_plus_one);
+            check_poly_gradient_matches_oracle_and_fd::<3, 3>(0xE3E3, p, q_plus_one);
+        }
+    }
+
+    /// The full estimator driven by the polynomial gradient must converge to the same cell matrices
+    /// as the same optimization driven by the exponential `2^(M+N)` oracle gradient, confirming the
+    /// production rewrite is faithful end to end.
+    #[cfg(feature = "mle")]
+    fn check_full_estimator_poly_vs_oracle<const M: usize, const N: usize>(unit: u64) {
+        type Counter = HyperLogLog<
+            crate::prelude::Precision10,
+            crate::prelude::Bits6,
+            <crate::prelude::Precision10 as crate::prelude::PackedRegister<
+                crate::prelude::Bits6,
+            >>::Array,
+            twox_hash::XxHash64,
+        >;
+        let build = |ranges: &[(u64, u64)]| -> Counter {
+            let mut hll = Counter::default();
+            for &(start, count) in ranges {
+                for v in start..start + count {
+                    hll.insert(&v);
+                }
+            }
+            hll
+        };
+        // Disjoint integer ranges, one per region; nested counters built from them.
+        let mut cursor = 0u64;
+        let mut ranges_o = [[(0u64, 0u64); N]; M];
+        for i in 0..M {
+            for j in 0..N {
+                let count = unit * (2 + ((i * 5 + j * 3) % 4) as u64);
+                ranges_o[i][j] = (cursor, count);
+                cursor += count;
+            }
+        }
+        let mut ranges_da = [(0u64, 0u64); M];
+        for i in 0..M {
+            let count = unit * (1 + (i % 2) as u64);
+            ranges_da[i] = (cursor, count);
+            cursor += count;
+        }
+        let mut ranges_db = [(0u64, 0u64); N];
+        for j in 0..N {
+            let count = unit * (1 + (j % 3) as u64);
+            ranges_db[j] = (cursor, count);
+            cursor += count;
+        }
+        let lefts: [Counter; M] = core::array::from_fn(|i| {
+            let mut ranges = Vec::new();
+            for ii in 0..=i {
+                for j in 0..N {
+                    ranges.push(ranges_o[ii][j]);
+                }
+                ranges.push(ranges_da[ii]);
+            }
+            build(&ranges)
+        });
+        let rights: [Counter; N] = core::array::from_fn(|j| {
+            let mut ranges = Vec::new();
+            for jj in 0..=j {
+                for i in 0..M {
+                    ranges.push(ranges_o[i][jj]);
+                }
+                ranges.push(ranges_db[jj]);
+            }
+            build(&ranges)
+        });
+
+        let p_exponent = crate::prelude::Precision10::EXPONENT;
+        let q_plus_one: u8 = (1 << crate::prelude::Bits6::NUMBER_OF_BITS) - 1;
+        let k = M * N + M + N;
+
+        // Production path (polynomial gradient).
+        let value_patterns = tabulate_joint_value_patterns::<_, _, _, _, M, N>(&lefts, &rights);
+        let (ov_poly, l_poly, r_poly) = joint_sketch_mle_core(&lefts, &rights, |phis, gradient| {
+            let ephi: Vec<f64> = phis.iter().map(|phi| phi.exp()).collect();
+            for (a_pat, b_pat, count) in &value_patterns {
+                joint_pattern_ll_and_gradient_poly::<M, N>(
+                    a_pat, b_pat, &ephi, p_exponent, q_plus_one, *count, gradient,
+                );
+            }
+        });
+
+        // Oracle path (exponential gradient).
+        let oracle_patterns = tabulate_joint_patterns::<_, _, _, _, M, N>(&lefts, &rights);
+        let (ov_oracle, l_oracle, r_oracle) =
+            joint_sketch_mle_core(&lefts, &rights, |phis, gradient| {
+                let (_ll, g) = joint_ll_and_gradient(&oracle_patterns, phis, k);
+                for (slot, value) in gradient.iter_mut().zip(g) {
+                    *slot += value;
+                }
+            });
+
+        // The per-pattern gradients agree to ~1e-7, but the two paths sum patterns in different
+        // (HashMap) orders and the oracle carries ~1e-7 cancellation error, which compound over the
+        // 10_000 Adam iterations along weakly-identified directions. A 0.1% end-to-end agreement
+        // still confirms the rewrite is faithful; a real bug would diverge grossly (as the
+        // tight per-pattern gradient test would already catch).
+        let close = |a: f64, b: f64| (a - b).abs() <= 1e-3 * a.abs().max(b.abs()) + 1.0;
+        for i in 0..M {
+            for j in 0..N {
+                assert!(
+                    close(ov_poly[i][j], ov_oracle[i][j]),
+                    "M={M} N={N} overlap[{i}][{j}]: poly={} oracle={}",
+                    ov_poly[i][j],
+                    ov_oracle[i][j]
+                );
+            }
+        }
+        for i in 0..M {
+            assert!(close(l_poly[i], l_oracle[i]), "M={M} N={N} left[{i}]");
+        }
+        for j in 0..N {
+            assert!(close(r_poly[j], r_oracle[j]), "M={M} N={N} right[{j}]");
+        }
+    }
+
+    #[cfg(feature = "mle")]
+    #[test]
+    fn test_poly_joint_sketch_matches_oracle() {
+        check_full_estimator_poly_vs_oracle::<1, 1>(20_000);
+        check_full_estimator_poly_vs_oracle::<2, 2>(8_000);
+        check_full_estimator_poly_vs_oracle::<3, 2>(5_000);
     }
 }

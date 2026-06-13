@@ -162,7 +162,7 @@ where
     }
     let cf = cells as f64;
     println!(
-        "M={M} N={N} P{:<2} load~{:>4.0} cells={:<3} terms={:<5} | pair={:.4} mle={:.4} ({:+.0}%) | pair={:>7.2}ms mle={:>9.2}ms",
+        "M={M} N={N} P{:<2} load~{:>4.0} cells={:<3} ie_avoided={:<6} | pair={:.4} mle={:.4} ({:+.0}%) | pair={:>7.2}ms mle={:>9.2}ms",
         P::EXPONENT,
         total / (1u64 << P::EXPONENT) as f64,
         cells,
@@ -176,18 +176,25 @@ where
 }
 
 fn main() {
-    println!("Per-cell error (normalized by union) and wall-clock, Bits6, unit=2^P/16:\n");
-    // Square ladder at P8.
+    println!("Per-cell error (normalized by union) and wall-clock, Bits6.");
+    println!(
+        "ie_avoided = 2^(M+N), the exponential term count the polynomial path no longer pays.\n"
+    );
+    // Square ladder at P8, now reaching sizes the exponential path could not.
     measure::<Precision8, Bits6, 1, 1>(1 << 8);
     measure::<Precision8, Bits6, 2, 2>(1 << 8);
     measure::<Precision8, Bits6, 3, 3>(1 << 8);
     measure::<Precision8, Bits6, 4, 4>(1 << 8);
     measure::<Precision8, Bits6, 5, 5>(1 << 8);
+    measure::<Precision8, Bits6, 6, 6>(1 << 8);
+    measure::<Precision8, Bits6, 7, 7>(1 << 8);
+    measure::<Precision8, Bits6, 8, 8>(1 << 8);
     println!();
-    // Rectangular.
+    // Rectangular, including large.
     measure::<Precision8, Bits6, 2, 4>(1 << 8);
     measure::<Precision8, Bits6, 3, 5>(1 << 8);
     measure::<Precision8, Bits6, 4, 6>(1 << 8);
+    measure::<Precision8, Bits6, 6, 8>(1 << 8);
     println!();
     // Precision ladder at M=N=3 (unit scaled with the register count to hold load constant).
     measure::<Precision6, Bits6, 3, 3>(1 << 6);

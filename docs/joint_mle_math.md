@@ -200,3 +200,27 @@ Joint-case `phi_J` score (with `y_* = exp(-x_*)`, `z_* = 1 - y_*`), confirm it s
 d/dt log( exp(-A e^t) ... )   ->   use A = 2^-(P+k); the simplified result is
 x_J * ( (y_J y_L + y_J z_L y_R) / (z_J + y_J z_L z_R) - 1 )
 ```
+
+## 9. Polynomial evaluation (the level-factor / block-collapse form)
+
+The inclusion-exclusion sum of section 4 has `2^(M+N)` terms per register pattern, which is the cost wall for larger `M, N` (M=N=5 took ~15 s, M=N=8 would take hours). Exploiting two structural facts, the same `P_reg` and its gradient can be evaluated in `O((M+N)^2 + M*N)` per pattern. This is what the production estimator uses, and the `2^(M+N)` form is retained only as the test oracle.
+
+The two facts:
+
+1. Independence across rank levels. By Poisson thinning, the occupancy `O_rho(k)` ("region `rho` has an element of rank exactly `k` at this register") is independent across regions AND levels, with `P(O_rho(k) = 1) = z_rho(k) = 1 - exp(-x_rho(k))`. Each counter value is the maximum occupied level over the regions it contains, so the likelihood is a product over the `q` rank levels rather than a sum over `2^(M+N)` corners.
+
+2. Nested-chain monotonicity. The left counters form a chain and the right counters form a chain. The counters that attain a given value `w` are a contiguous block (the observed values are sorted), and because nesting makes "contained in `A_l`" monotone in `l`, hitting the smallest counter in a block hits all of them. So each block collapses to its smallest index.
+
+The result factorizes as `P_reg = exp(base) * prod over distinct values w of Q_w`:
+
+- CDF base: `base = -sum over regions of x_rho(ceil_rho)` with `ceil(O_ij) = min(a^*_i, b^*_j)`, `ceil(D^A_i) = a^*_i`, `ceil(D^B_j) = b^*_j`. A region whose ceiling is `q + 1` (saturated) contributes 0.
+- For each value `w` that some counter attains, let `p` be the smallest left index with `a^*_p = w` and `r` the smallest right index with `b^*_r = w` (either may be absent). Define the hitter sets `L_w = {D^A_p} union {O_{p,j} : b^*_j >= w}` and `R_w = {D^B_r} union {O_{i,r} : a^*_i >= w}`, and `y_rho(w) = exp(-x_rho(min(w, q)))` (the saturated top bucket uses level `q`). With `PL = prod_{L_w} y`, `PR = prod_{R_w} y`, and `PLR = prod_{L_w union R_w} y` (the union shares only the cell `O_{p,r}`):
+  - both blocks present: `Q_w = 1 - PL - PR + PLR`,
+  - only the left block: `Q_w = 1 - PL`,
+  - only the right block: `Q_w = 1 - PR`.
+
+Gradient: `ln P_reg = base + sum_w ln Q_w`. The base contributes `-x_rho(ceil_rho)` to `d/dphi_rho` (one term per region). For each value `w`, `d ln Q_w / d phi_rho = (1 / Q_w) * dQ_w` where `dQ_w/dphi_rho` is assembled from `d(prod y)/dphi_rho = (prod y) * (-x_rho(w))` for the regions in each product (only the hitter regions of level `w` have nonzero contribution). Both the value and the gradient are cancellation-free (products of positive factors), unlike the signed `2^(M+N)` sum.
+
+This polynomial form reproduces the section-4 formula to machine precision (validated against both the `2^(M+N)` oracle and a Monte-Carlo simulation for `M = N = 1`, `M = 2, N = 1`, `M = 2, N = 2`, `M = 3, N = 2`, including ties, zeros, and saturation). For `M = N = 1` each region is contained in at most one counter per side, so the blocks are trivial and the achievement factors reduce exactly to the three cases of section 6.
+
+Reference for the open problem this resolves: Otmar Ertl notes (arXiv 1702.01284) that joint estimation across more than two sketches "would scale at least exponentially with the number of involved HyperLogLog sketches" for arbitrary sets. The nested-chain structure here (only `M*N + M + N` disjoint regions, not a `2^k`-region Venn diagram) is what makes a polynomial likelihood possible.
