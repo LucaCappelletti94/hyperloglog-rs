@@ -446,16 +446,11 @@ fn test_joint_sketch_mle_with_custom_optimizer() {
     let exact_union = 75_000.0_f64;
     let error_rate = Precision10::error_rate();
 
-    // A user composes a custom optimizer: an Adam warmup followed by L-BFGS polishing.
-    let optimizer = Chain {
-        first: Adam {
-            learning_rate: 0.1,
-            iterations: 300,
-        },
-        second: Lbfgs::default(),
-    };
-    let (overlap, left_diff, right_diff) =
-        Counter::joint_sketch_mle_with(&[left.clone()], &[right.clone()], &optimizer);
+    // A user composes a custom optimizer by type: an Adam warmup followed by L-BFGS polishing.
+    let (overlap, left_diff, right_diff) = Counter::joint_sketch_mle_with::<Chain<Adam, Lbfgs>, _, _>(
+        &[left.clone()],
+        &[right.clone()],
+    );
     let union = overlap[0][0] + left_diff[0] + right_diff[0];
     let error = (union - exact_union).abs() / exact_union;
     assert!(
@@ -465,7 +460,7 @@ fn test_joint_sketch_mle_with_custom_optimizer() {
 
     // A plain L-BFGS optimizer must also work.
     let (overlap, left_diff, right_diff) =
-        Counter::joint_sketch_mle_with(&[left], &[right], &Lbfgs::default());
+        Counter::joint_sketch_mle_with::<Lbfgs, _, _>(&[left], &[right]);
     let union = overlap[0][0] + left_diff[0] + right_diff[0];
     assert!((union - exact_union).abs() / exact_union <= error_rate);
 }
