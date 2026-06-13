@@ -308,3 +308,31 @@ fn test_mle_union_matches_exact() {
         Precision10::error_rate(),
     );
 }
+
+/// The single-counter Maximum Likelihood Estimation of the cardinality (Ertl's secant-method
+/// estimator) must estimate a fully-fledged HyperLogLog counter within the precision's error
+/// rate. (It is known to be less accurate and much slower than the default HyperLogLog++
+/// corrected estimate, and its advantage over the uncorrected estimate is an average-over-
+/// cardinalities property rather than a per-point one; the benchmark quantifies both.)
+#[cfg(feature = "mle")]
+#[test]
+fn test_mle_cardinality_reasonable() {
+    type Counter =
+        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut hll: Counter = Default::default();
+    for element in 0..100_000_u64 {
+        hll.insert(&element);
+    }
+    assert!(!hll.is_hash_list());
+
+    let exact = 100_000.0_f64;
+    let mle = hll.estimate_cardinality_mle();
+    let mle_error = (mle - exact).abs() / exact;
+
+    assert!(
+        mle_error <= Precision12::error_rate(),
+        "MLE cardinality estimate {mle} differs from exact {exact} by {mle_error}, exceeding the error rate {}.",
+        Precision12::error_rate(),
+    );
+}
