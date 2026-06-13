@@ -60,7 +60,8 @@ fn bench_hyperloglog_union(c: &mut Criterion) {
     group.finish();
 }
 
-type HLL14 = HyperLogLog<Precision14, Bits6, <Precision14 as PackedRegister<Bits6>>::Array, XxHash64>;
+type HLL14 =
+    HyperLogLog<Precision14, Bits6, <Precision14 as PackedRegister<Bits6>>::Array, XxHash64>;
 
 /// Builds the largest counter that is still in hash-list mode (stops just before the
 /// insertion that would convert it to a fully-fledged HyperLogLog).
