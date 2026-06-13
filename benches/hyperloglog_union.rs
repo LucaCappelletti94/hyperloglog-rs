@@ -60,6 +60,47 @@ fn bench_hyperloglog_union(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_hyperloglog_union);
+type HLL14 = HyperLogLog<Precision14, Bits6, <Precision14 as PackedRegister<Bits6>>::Array, XxHash64>;
+
+/// Builds the largest counter that is still in hash-list mode (stops just before the
+/// insertion that would convert it to a fully-fledged HyperLogLog).
+fn build_full_hash_list(seed: u64) -> HLL14 {
+    let mut hll = HLL14::default();
+    for value in iter_random_values::<u64>(1_000_000, None, Some(seed)) {
+        let mut candidate = hll.clone();
+        candidate.insert(&value);
+        if !candidate.is_hash_list() {
+            break;
+        }
+        hll = candidate;
+    }
+    assert!(hll.is_hash_list());
+    hll
+}
+
+/// Compares the two ways of estimating a union cardinality when both operands are large
+/// hash lists (the regime where inclusion-exclusion is biased): the current
+/// inclusion-exclusion path versus the merger-based estimate.
+fn bench_union_estimate(c: &mut Criterion) {
+    let mut group = c.benchmark_group("union_estimate_hash_list_p14");
+
+    let left = build_full_hash_list(0x00A1_1CE0);
+    let right = build_full_hash_list(0x0000_B0B0);
+    assert!(left.is_hash_list() && right.is_hash_list());
+
+    // Current: inclusion-exclusion (fast, biased low in this regime).
+    group.bench_function("inclusion_exclusion", |b| {
+        b.iter(|| black_box(black_box(&left).estimate_union_cardinality(black_box(&right))));
+    });
+
+    // Proposed: build the merged counter and estimate its cardinality (accurate).
+    group.bench_function("merger", |b| {
+        b.iter(|| black_box((black_box(&left) | black_box(&right)).estimate_cardinality()));
+    });
+
+    group.finish();
+}
+
+criterion_group!(benches, bench_hyperloglog_union, bench_union_estimate);
 
 criterion_main!(benches);

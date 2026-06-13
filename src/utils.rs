@@ -9,7 +9,6 @@
 
 mod constants;
 mod hasher_type;
-mod intersection_from_sorted_iterators;
 mod matrix;
 mod number;
 mod random;
@@ -17,7 +16,6 @@ mod variable_word;
 
 pub use constants::*;
 pub use hasher_type::HasherType;
-pub(crate) use intersection_from_sorted_iterators::intersection_from_sorted_iterators;
 pub use matrix::Matrix;
 pub(crate) use number::{FloatOps, Number, PositiveInteger};
 pub use random::*;

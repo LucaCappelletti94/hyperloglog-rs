@@ -475,48 +475,19 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     ) -> f64 {
         match (self.is_hash_list(), other.is_hash_list()) {
             (true, true) => {
-                let left_hash_bits = self.get_hash_bits().unwrap();
-                let right_hash_bits = other.get_hash_bits().unwrap();
-                assert!(left_hash_bits >= GapHash::<P, B>::SMALLEST_VIABLE_HASH_BITS);
-                assert!(right_hash_bits >= GapHash::<P, B>::SMALLEST_VIABLE_HASH_BITS);
-
-                let left_shift = if left_hash_bits <= right_hash_bits {
-                    0
-                } else {
-                    left_hash_bits - right_hash_bits
-                };
-                let right_shift = if right_hash_bits <= left_hash_bits {
-                    0
-                } else {
-                    right_hash_bits - left_hash_bits
-                };
-
-                let left_hashes = self.registers.as_ref();
-                let right_hashes = other.registers.as_ref();
-                let left_bit_index = self.get_writer_tell();
-                let right_bit_index = other.get_writer_tell();
-
-                let intersection_cardinality = f64::from(intersection_from_sorted_iterators(
-                    GapHash::<P, B>::downgraded(
-                        left_hashes,
-                        self.get_number_of_hashes().unwrap(),
-                        left_hash_bits,
-                        left_bit_index,
-                        left_shift,
-                    ),
-                    GapHash::<P, B>::downgraded(
-                        right_hashes,
-                        other.get_number_of_hashes().unwrap(),
-                        right_hash_bits,
-                        right_bit_index,
-                        right_shift,
-                    ),
-                ));
-
-                let union_cardinality =
-                    self_cardinality + other_cardinality - intersection_cardinality;
-
-                correct_union_estimate(self_cardinality, other_cardinality, union_cardinality)
+                // Build the union as a hash list and estimate its cardinality directly, so the
+                // birthday-paradox correction is applied to the union the same way it is to a
+                // single counter. Inclusion-exclusion (A + B - intersection) would subtract a
+                // raw, uncorrected count of coinciding downgraded hashes; for sets with little
+                // real overlap those coincidences are dominated by spurious birthday collisions,
+                // which biases the union estimate low and increasingly so at higher precisions.
+                let mut union = self.clone();
+                union.merge(other);
+                correct_union_estimate(
+                    self_cardinality,
+                    other_cardinality,
+                    union.estimate_cardinality(),
+                )
             }
             (true, false) => {
                 let hash_bits = self.get_hash_bits().unwrap();
