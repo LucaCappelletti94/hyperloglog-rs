@@ -67,6 +67,44 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         )
     }
 
+    /// Generalized joint Maximum Likelihood Estimation of the disjoint-cell cardinalities of the
+    /// hypersphere sketch for `M` nested left counters and `N` nested right counters.
+    ///
+    /// Given `lefts = [A_0 subset ... subset A_{M-1}]` and `rights = [B_0 subset ... subset
+    /// B_{N-1}]`, this jointly estimates, in a single optimization over the disjoint-region model,
+    /// all `M*N + M + N` non-negative cell cardinalities:
+    /// * `overlap[i][j] = |L_i intersect R_j|`, the exclusive overlap grid, where `L_i = A_i \
+    ///   A_{i-1}` and `R_j = B_j \ B_{j-1}` are the left/right shells.
+    /// * `left_diff[i] = |L_i \ B_{N-1}|` and `right_diff[j] = |R_j \ A_{M-1}|`, the margins.
+    ///
+    /// Because the parameters are the disjoint regions themselves (optimized in log-space), the
+    /// returned cells are non-negative and globally consistent by construction. At `M = N = 1`
+    /// this reduces to the three-region model of [`HyperLogLog::estimate_union_cardinality_mle`].
+    ///
+    /// # Implementative details
+    /// Any hash-list operand is materialized into registers first. The optimization is warm-started
+    /// from the pairwise sketch and refined with an Adam optimizer driven by the exact forward-mode
+    /// gradient of the joint per-register log-likelihood. See `docs/joint_mle_math.md`.
+    #[inline]
+    pub fn joint_sketch_mle<const M: usize, const N: usize>(
+        lefts: &[Self; M],
+        rights: &[Self; N],
+    ) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+        let materialize = |counter: &Self| -> Self {
+            if counter.is_hash_list() {
+                let mut counter = counter.clone();
+                counter.convert_hash_list_to_hyperloglog().unwrap();
+                counter
+            } else {
+                counter.clone()
+            }
+        };
+        let lefts: [Self; M] = core::array::from_fn(|i| materialize(&lefts[i]));
+        let rights: [Self; N] = core::array::from_fn(|j| materialize(&rights[j]));
+
+        joint_sketch_mle_from_registers::<P, B, R, H, M, N>(&lefts, &rights)
+    }
+
     /// Joint MLE union estimate assuming both counters are in HyperLogLog (register) mode.
     fn mle_union_from_registers(&self, other: &Self) -> f64 {
         // Maps a union harmonic sum to the HyperLogLog++ corrected cardinality, exactly as the
@@ -390,6 +428,375 @@ fn mle_cardinality<P: Precision, B: Bits>(
     number_of_registers * x
 }
 
+/// One distinct observed joint register pattern and everything needed to evaluate its
+/// per-register log-likelihood contribution under the inclusion-exclusion model.
+///
+/// See `docs/joint_mle_math.md`. Each pattern contributes `count * ln(P_reg)` to the joint
+/// log-likelihood, where `P_reg = sum over terms of sign * exp(-sum over (region, c) of
+/// e^{phi_region} * c)` and `c = 2^-(P + level)` is the level constant baked in here.
+struct JointPattern {
+    /// How many registers exhibit this exact `(left values, right values)` pattern.
+    count: f64,
+    /// The surviving inclusion-exclusion terms. Each is `(sign, [(region index, 2^-(P+level))])`.
+    /// A term with a region at the saturation cap drops that region (survival 1, constant 0), and
+    /// a term that would knock a zero-valued counter below zero is dropped entirely.
+    terms: Vec<(f64, Vec<(usize, f64)>)>,
+}
+
+/// Tabulates the distinct joint register patterns and precomputes their inclusion-exclusion terms.
+///
+/// `K = M*N + M + N` is the number of disjoint regions, indexed as: overlap `O_ij` at `i*N + j`,
+/// left margin `D^A_i` at `M*N + i`, right margin `D^B_j` at `M*N + M + j`.
+fn tabulate_joint_patterns<
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B>,
+    H: HasherType,
+    const M: usize,
+    const N: usize,
+>(
+    lefts: &[HyperLogLog<P, B, R, H>; M],
+    rights: &[HyperLogLog<P, B, R, H>; N],
+) -> Vec<JointPattern> {
+    use std::collections::HashMap;
+
+    let left_regs: [Vec<u8>; M] =
+        core::array::from_fn(|i| lefts[i].registers.iter_registers().collect());
+    let right_regs: [Vec<u8>; N] =
+        core::array::from_fn(|j| rights[j].registers.iter_registers().collect());
+
+    // q_plus_one is the saturation value; levels above q contribute survival 1 (constant 0).
+    let q_plus_one: u8 = (1 << B::NUMBER_OF_BITS) - 1;
+
+    let m_registers = 1_usize << P::EXPONENT;
+    let mut counts: HashMap<([u8; M], [u8; N]), f64> = HashMap::new();
+    for r in 0..m_registers {
+        // Enforce the nesting prior by taking the cumulative max along each chain, so the observed
+        // values are monotone even if the inputs are imperfectly nested.
+        let mut a_pat = [0u8; M];
+        let mut acc = 0u8;
+        for i in 0..M {
+            acc = acc.max(left_regs[i][r]);
+            a_pat[i] = acc;
+        }
+        let mut b_pat = [0u8; N];
+        acc = 0u8;
+        for j in 0..N {
+            acc = acc.max(right_regs[j][r]);
+            b_pat[j] = acc;
+        }
+        *counts.entry((a_pat, b_pat)).or_insert(0.0) += 1.0;
+    }
+
+    let n_overlap = M * N;
+    counts
+        .into_iter()
+        .map(|((a_pat, b_pat), count)| {
+            let mut terms = Vec::new();
+            // Inclusion-exclusion over per-counter unit knockdowns: u over the M lefts, v over the
+            // N rights. Bit set means that counter is pushed one level down.
+            for u in 0u32..(1u32 << M) {
+                for v in 0u32..(1u32 << N) {
+                    // Adjusted (knocked-down) observed values; a knockdown below zero kills the term.
+                    let mut al = [0i16; M];
+                    let mut killed = false;
+                    for i in 0..M {
+                        let adjusted = i16::from(a_pat[i]) - i16::from((u >> i) & 1 == 1);
+                        if adjusted < 0 {
+                            killed = true;
+                        }
+                        al[i] = adjusted;
+                    }
+                    let mut ar = [0i16; N];
+                    for j in 0..N {
+                        let adjusted = i16::from(b_pat[j]) - i16::from((v >> j) & 1 == 1);
+                        if adjusted < 0 {
+                            killed = true;
+                        }
+                        ar[j] = adjusted;
+                    }
+                    if killed {
+                        continue;
+                    }
+
+                    let sign = if (u.count_ones() + v.count_ones()) % 2 == 0 {
+                        1.0
+                    } else {
+                        -1.0
+                    };
+
+                    // A region's level is the minimum adjusted value over ALL counters that contain
+                    // it. The overlap cell `O_ij` is contained in the left counters `i..M-1` and the
+                    // right counters `j..N-1`, the left margin `D^A_i` in the left counters
+                    // `i..M-1`, and the right margin `D^B_j` in the right counters `j..N-1`. After a
+                    // knockdown the adjusted values are not necessarily monotone, so we take the
+                    // suffix minima explicitly rather than assuming the lowest index binds.
+                    let mut suffix_min_al = [0i16; M];
+                    let mut running = i16::MAX;
+                    for i in (0..M).rev() {
+                        running = running.min(al[i]);
+                        suffix_min_al[i] = running;
+                    }
+                    let mut suffix_min_ar = [0i16; N];
+                    running = i16::MAX;
+                    for j in (0..N).rev() {
+                        running = running.min(ar[j]);
+                        suffix_min_ar[j] = running;
+                    }
+
+                    // A region at the saturation cap contributes survival 1 (skipped).
+                    let mut regions: Vec<(usize, f64)> = Vec::new();
+                    let mut push_region = |idx: usize, level: i16| {
+                        if level < i16::from(q_plus_one) {
+                            let c = f64::integer_exp2_minus(P::EXPONENT + level as u8);
+                            regions.push((idx, c));
+                        }
+                    };
+                    for i in 0..M {
+                        for j in 0..N {
+                            push_region(i * N + j, suffix_min_al[i].min(suffix_min_ar[j]));
+                        }
+                    }
+                    for i in 0..M {
+                        push_region(n_overlap + i, suffix_min_al[i]);
+                    }
+                    for j in 0..N {
+                        push_region(n_overlap + M + j, suffix_min_ar[j]);
+                    }
+
+                    terms.push((sign, regions));
+                }
+            }
+            JointPattern { count, terms }
+        })
+        .collect()
+}
+
+/// Generalized joint MLE over the disjoint-region model, assuming all counters are in register
+/// mode. Returns `(overlap[M][N], left_diff[M], right_diff[N])`.
+#[allow(clippy::needless_range_loop)]
+fn joint_sketch_mle_from_registers<
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B>,
+    H: HasherType,
+    const M: usize,
+    const N: usize,
+>(
+    lefts: &[HyperLogLog<P, B, R, H>; M],
+    rights: &[HyperLogLog<P, B, R, H>; N],
+) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+    let n_overlap = M * N;
+    let k = n_overlap + M + N;
+
+    // Warm start from the pairwise hypersphere sketch: its differential overlaps and margin
+    // differences are exactly the disjoint regions we optimize.
+    let (overlap0, left0, right0) =
+        <HyperLogLog<P, B, R, H> as HyperSpheresSketch<f64>>::overlap_and_differences_cardinality_matrices(
+            lefts, rights,
+        );
+
+    let mut phis = vec![f64::ZERO; k];
+    for i in 0..M {
+        for j in 0..N {
+            phis[i * N + j] = overlap0[i][j].max(f64::EPSILON).ln();
+        }
+    }
+    for i in 0..M {
+        phis[n_overlap + i] = left0[i].max(f64::EPSILON).ln();
+    }
+    for j in 0..N {
+        phis[n_overlap + M + j] = right0[j].max(f64::EPSILON).ln();
+    }
+
+    let patterns = tabulate_joint_patterns::<P, B, R, H, M, N>(lefts, rights);
+
+    // Marginal anchors. The deep overlap cells (contained only in the largest counters) are weakly
+    // identified at high load: `x = n * 2^-(P + level)` is negligible at the high register levels
+    // those counters reach, so the register likelihood barely constrains them and the free MLE
+    // inflates them. We anchor each counter's cumulative cardinality to its HyperLogLog++ estimate
+    // (the most reliable single-counter estimate) with a Gaussian log-space prior, which pins the
+    // cell sums at every nesting level while the register likelihood still distributes mass among
+    // the cells. See docs/joint_mle_math.md.
+    let mut anchors: Vec<(Vec<usize>, f64, f64)> = Vec::with_capacity(M + N);
+    // A HyperLogLog++ relative error of ~1.04/sqrt(m) corresponds, in log-space, to a Gaussian of
+    // that standard deviation, hence a precision (weight) of m / 1.04^2.
+    let m_registers = f64::integer_exp2(P::EXPONENT);
+    let anchor_weight = m_registers / 1.04_f64.powi(2);
+    for i in 0..M {
+        let mut regions = Vec::new();
+        for ii in 0..=i {
+            for j in 0..N {
+                regions.push(ii * N + j);
+            }
+            regions.push(n_overlap + ii);
+        }
+        anchors.push((
+            regions,
+            lefts[i].estimate_cardinality().max(f64::EPSILON).ln(),
+            anchor_weight,
+        ));
+    }
+    for j in 0..N {
+        let mut regions = Vec::new();
+        for jj in 0..=j {
+            for i in 0..M {
+                regions.push(i * N + jj);
+            }
+            regions.push(n_overlap + M + jj);
+        }
+        anchors.push((
+            regions,
+            rights[j].estimate_cardinality().max(f64::EPSILON).ln(),
+            anchor_weight,
+        ));
+    }
+
+    let relative_error_limit = 10.0_f64.powi(-2) / f64::integer_exp2(P::EXPONENT).sqrt();
+
+    let mut optimizer = JointAdam::new(k);
+
+    for _ in 0_u16..10_000_u16 {
+        let (_ll, mut gradients) = joint_ll_and_gradient(&patterns, &phis, k);
+        add_marginal_anchor_gradient(&anchors, &phis, &mut gradients);
+
+        optimizer.apply(&mut gradients, &mut phis);
+
+        if gradients.iter().all(|g| g.abs() <= relative_error_limit) {
+            break;
+        }
+    }
+
+    let mut overlap = [[f64::ZERO; N]; M];
+    for i in 0..M {
+        for j in 0..N {
+            overlap[i][j] = phis[i * N + j].exp();
+        }
+    }
+    let mut left_diff = [f64::ZERO; M];
+    for i in 0..M {
+        left_diff[i] = phis[n_overlap + i].exp();
+    }
+    let mut right_diff = [f64::ZERO; N];
+    for j in 0..N {
+        right_diff[j] = phis[n_overlap + M + j].exp();
+    }
+
+    (overlap, left_diff, right_diff)
+}
+
+/// Evaluates the joint log-likelihood and its exact gradient at `phis` (log-space region
+/// cardinalities) over the tabulated register patterns. `k = M*N + M + N` is the region count.
+///
+/// Forward-mode differentiation: each per-register inclusion-exclusion term is log-linear in the
+/// `phis`, so `d/dphi_rho` of `sign * exp(-sum_x)` is `-x_rho * sign * exp(-sum_x)`. The
+/// log-likelihood gradient follows by the quotient `d ln P_reg = dP_reg / P_reg`. See
+/// `docs/joint_mle_math.md`, section 5.
+fn joint_ll_and_gradient(patterns: &[JointPattern], phis: &[f64], k: usize) -> (f64, Vec<f64>) {
+    let ephi: Vec<f64> = phis.iter().map(|phi| phi.exp()).collect();
+    let mut gradient = vec![f64::ZERO; k];
+    let mut log_likelihood = f64::ZERO;
+
+    for pattern in patterns {
+        let mut p_value = f64::ZERO;
+        let mut p_gradient = vec![f64::ZERO; k];
+        for (sign, regions) in &pattern.terms {
+            let mut sum_x = f64::ZERO;
+            for &(rho, c) in regions {
+                sum_x += ephi[rho] * c;
+            }
+            let signed_exp = sign * (-sum_x).exp();
+            p_value += signed_exp;
+            for &(rho, c) in regions {
+                p_gradient[rho] -= signed_exp * ephi[rho] * c;
+            }
+        }
+        let p_value = p_value.max(f64::EPSILON);
+        let inverse = 1.0 / p_value;
+        log_likelihood += pattern.count * p_value.ln();
+        for rho in 0..k {
+            gradient[rho] += pattern.count * p_gradient[rho] * inverse;
+        }
+    }
+
+    (log_likelihood, gradient)
+}
+
+/// Adds the gradient of the marginal-anchor log-prior to `gradient` (which already holds the
+/// log-likelihood gradient), forming the gradient of the MAP objective being maximized.
+///
+/// Each anchor is `(region indices summing to a counter, ln of that counter's HLL++ estimate,
+/// weight)`. The prior is `-(weight/2) * (ln(sum n_rho) - ln(estimate))^2`, whose derivative with
+/// respect to `phi_rho` (for `rho` in the counter) is `-weight * (ln S - ln estimate) * n_rho / S`,
+/// with `S = sum over the counter of n_rho` and `n_rho = e^{phi_rho}`.
+fn add_marginal_anchor_gradient(
+    anchors: &[(Vec<usize>, f64, f64)],
+    phis: &[f64],
+    gradient: &mut [f64],
+) {
+    for (regions, log_estimate, weight) in anchors {
+        let sum: f64 = regions.iter().map(|&rho| phis[rho].exp()).sum();
+        let residual = sum.max(f64::EPSILON).ln() - log_estimate;
+        let factor = -weight * residual / sum.max(f64::EPSILON);
+        for &rho in regions {
+            gradient[rho] += factor * phis[rho].exp();
+        }
+    }
+}
+
+/// Adam optimizer over a dynamically sized parameter vector, used by the generalized joint MLE
+/// where the parameter count `M*N + M + N` is not a compile-time constant. Mirrors [`Adam`].
+struct JointAdam {
+    first_moments: Vec<f64>,
+    second_moments: Vec<f64>,
+    time: i32,
+    learning_rate: f64,
+    first_order_decay_factor: f64,
+    second_order_decay_factor: f64,
+}
+
+impl JointAdam {
+    fn new(dimension: usize) -> Self {
+        JointAdam {
+            first_moments: vec![0.0; dimension],
+            second_moments: vec![0.0; dimension],
+            time: 0,
+            learning_rate: 0.1,
+            first_order_decay_factor: 0.9,
+            second_order_decay_factor: 0.999,
+        }
+    }
+
+    /// Applies one Adam ascent step, overwriting `gradients` with the applied update and adding it
+    /// to `phis`.
+    fn apply(&mut self, gradients: &mut [f64], phis: &mut [f64]) {
+        self.time += 1_i32;
+        for (((first_moment, second_moment), gradient), phi) in self
+            .first_moments
+            .iter_mut()
+            .zip(self.second_moments.iter_mut())
+            .zip(gradients.iter_mut())
+            .zip(phis.iter_mut())
+        {
+            *first_moment = self.first_order_decay_factor * *first_moment
+                + (1.0 - self.first_order_decay_factor) * *gradient;
+            *second_moment = self.second_order_decay_factor * *second_moment
+                + (1.0 - self.second_order_decay_factor) * (*gradient).powi(2);
+            let adaptative_learning_rate = self.learning_rate
+                * (1.0 - self.second_order_decay_factor.powi(self.time)).sqrt()
+                / (1.0 - self.first_order_decay_factor.powi(self.time));
+            let second_moment_root = (*second_moment).sqrt();
+            *gradient = adaptative_learning_rate * (*first_moment)
+                / if second_moment_root > f64::EPSILON {
+                    second_moment_root
+                } else {
+                    f64::EPSILON
+                };
+            *phi += *gradient;
+        }
+    }
+}
+
 /// Trait for element-wise multiplication.
 trait ElementWiseMultiplication<Rhs = Self> {
     /// Element-wise multiplication.
@@ -535,5 +942,70 @@ mod tests {
 
         assert!((phis[0] - 1.0).abs() < 1e-4);
         assert!((phis[1] + 2.0).abs() < 1e-4);
+    }
+
+    /// The analytic forward-mode gradient of the joint log-likelihood must match a central
+    /// finite-difference estimate at every coordinate, on real tabulated register patterns.
+    #[cfg(feature = "mle")]
+    #[test]
+    fn test_joint_ll_gradient_matches_finite_differences() {
+        type Counter =
+            HyperLogLog<
+                crate::prelude::Precision8,
+                crate::prelude::Bits6,
+                <crate::prelude::Precision8 as crate::prelude::PackedRegister<
+                    crate::prelude::Bits6,
+                >>::Array,
+                twox_hash::XxHash64,
+            >;
+
+        let insert = |hll: &mut Counter, start: u64, count: u64| {
+            for v in start..start + count {
+                hll.insert(&v);
+            }
+        };
+        let mut a0 = Counter::default();
+        insert(&mut a0, 0, 4_000);
+        insert(&mut a0, 4_000, 2_500);
+        insert(&mut a0, 10_000, 2_200);
+        let mut a1 = a0.clone();
+        insert(&mut a1, 12_000, 1_800);
+        insert(&mut a1, 14_000, 3_000);
+        insert(&mut a1, 20_000, 1_500);
+        let mut b0 = Counter::default();
+        insert(&mut b0, 0, 4_000);
+        insert(&mut b0, 12_000, 1_800);
+        insert(&mut b0, 30_000, 2_000);
+        let mut b1 = b0.clone();
+        insert(&mut b1, 4_000, 2_500);
+        insert(&mut b1, 14_000, 3_000);
+        insert(&mut b1, 40_000, 2_800);
+
+        let patterns = tabulate_joint_patterns::<_, _, _, _, 2, 2>(&[a0, a1], &[b0, b1]);
+        let k = 2 * 2 + 2 + 2;
+
+        // A non-trivial, non-degenerate evaluation point.
+        let phis: Vec<f64> = (0..k)
+            .map(|i| 8.0 + 0.3 * (i as f64) - 0.05 * (i * i) as f64)
+            .collect();
+
+        let (_ll, grad) = joint_ll_and_gradient(&patterns, &phis, k);
+
+        let h = 1e-5;
+        for rho in 0..k {
+            let mut plus = phis.clone();
+            let mut minus = phis.clone();
+            plus[rho] += h;
+            minus[rho] -= h;
+            let (ll_plus, _) = joint_ll_and_gradient(&patterns, &plus, k);
+            let (ll_minus, _) = joint_ll_and_gradient(&patterns, &minus, k);
+            let fd = (ll_plus - ll_minus) / (2.0 * h);
+            let scale = grad[rho].abs().max(fd.abs()).max(1.0);
+            assert!(
+                (grad[rho] - fd).abs() / scale < 1e-3,
+                "gradient[{rho}] = {} but finite difference = {fd}",
+                grad[rho],
+            );
+        }
     }
 }

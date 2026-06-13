@@ -378,3 +378,145 @@ fn test_hyper_spheres_sketch_overlap_and_differences() {
         right_differences[0]
     );
 }
+
+/// Inserts every integer in the half-open range `[start, start + count)` into `hll`.
+#[cfg(feature = "mle")]
+fn insert_range<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>(
+    hll: &mut HyperLogLog<P, B, R, H>,
+    start: u64,
+    count: u64,
+) {
+    for element in start..start + count {
+        hll.insert(&element);
+    }
+}
+
+/// At `M = N = 1` the generalized joint sketch MLE must reduce to the 2-set joint union MLE:
+/// the sum of its three disjoint regions (overlap, left difference, right difference) is the
+/// union, and must match both the exact union and `estimate_union_cardinality_mle` within the
+/// precision's error rate. A = [0, 50_000), B = [25_000, 75_000), true union 75_000.
+#[cfg(feature = "mle")]
+#[test]
+fn test_joint_sketch_mle_reduces_to_union_mle() {
+    type Counter =
+        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut left: Counter = Default::default();
+    let mut right: Counter = Default::default();
+    insert_range(&mut left, 0, 50_000);
+    insert_range(&mut right, 25_000, 50_000);
+    assert!(!left.is_hash_list() && !right.is_hash_list());
+
+    let (overlap, left_diff, right_diff) =
+        Counter::joint_sketch_mle(&[left.clone()], &[right.clone()]);
+
+    let joint_union = overlap[0][0] + left_diff[0] + right_diff[0];
+    let exact_union = 75_000.0_f64;
+    let union_mle = left.estimate_union_cardinality_mle(&right);
+
+    let error_rate = Precision10::error_rate();
+    let joint_err = (joint_union - exact_union).abs() / exact_union;
+    assert!(
+        joint_err <= error_rate,
+        "joint union {joint_union} differs from exact {exact_union} by {joint_err}, exceeding {error_rate}."
+    );
+
+    // The two estimators fit the same 3-region likelihood, so their union estimates must agree
+    // closely.
+    let agreement = (joint_union - union_mle).abs() / union_mle;
+    assert!(
+        agreement <= 0.05,
+        "joint union {joint_union} disagrees with 2-set union MLE {union_mle} by {agreement}."
+    );
+}
+
+/// For small `M, N` (here `M = N = 2`) built from disjoint integer ranges with known cell
+/// cardinalities, every estimated disjoint cell (the `M*N` overlaps and the `M + N` margins)
+/// must match its exact cardinality within the precision's error rate, measured relative to the
+/// total union. The exact partition is constructed by assigning each of the 8 disjoint regions
+/// its own range, then composing the nested counters A_0 subset A_1 and B_0 subset B_1.
+#[cfg(feature = "mle")]
+#[test]
+fn test_joint_sketch_mle_matches_exact_cells() {
+    type Counter =
+        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    // Exact disjoint-region cardinalities.
+    // Overlap grid O_ij = L_i intersect R_j.
+    let o = [[40_000_u64, 25_000], [18_000, 30_000]];
+    // Left margins D^A_i and right margins D^B_j.
+    let da = [22_000_u64, 15_000];
+    let db = [20_000_u64, 28_000];
+
+    // Lay every region out on its own contiguous integer range.
+    let mut cursor = 0_u64;
+    let mut alloc = |count: u64| {
+        let start = cursor;
+        cursor += count;
+        (start, count)
+    };
+    let ro = [
+        [alloc(o[0][0]), alloc(o[0][1])],
+        [alloc(o[1][0]), alloc(o[1][1])],
+    ];
+    let rda = [alloc(da[0]), alloc(da[1])];
+    let rdb = [alloc(db[0]), alloc(db[1])];
+
+    // Left shell L_i = union over j of O_ij, plus the left margin D^A_i.
+    // A_0 = L_0, A_1 = A_0 union L_1.
+    let mut a0: Counter = Default::default();
+    insert_range(&mut a0, ro[0][0].0, ro[0][0].1);
+    insert_range(&mut a0, ro[0][1].0, ro[0][1].1);
+    insert_range(&mut a0, rda[0].0, rda[0].1);
+    let mut a1 = a0.clone();
+    insert_range(&mut a1, ro[1][0].0, ro[1][0].1);
+    insert_range(&mut a1, ro[1][1].0, ro[1][1].1);
+    insert_range(&mut a1, rda[1].0, rda[1].1);
+
+    // Right shell R_j = union over i of O_ij, plus the right margin D^B_j.
+    // B_0 = R_0, B_1 = B_0 union R_1.
+    let mut b0: Counter = Default::default();
+    insert_range(&mut b0, ro[0][0].0, ro[0][0].1);
+    insert_range(&mut b0, ro[1][0].0, ro[1][0].1);
+    insert_range(&mut b0, rdb[0].0, rdb[0].1);
+    let mut b1 = b0.clone();
+    insert_range(&mut b1, ro[0][1].0, ro[0][1].1);
+    insert_range(&mut b1, ro[1][1].0, ro[1][1].1);
+    insert_range(&mut b1, rdb[1].0, rdb[1].1);
+
+    let total_union: f64 =
+        (o[0][0] + o[0][1] + o[1][0] + o[1][1] + da[0] + da[1] + db[0] + db[1]) as f64;
+
+    let (overlap, left_diff, right_diff) = Counter::joint_sketch_mle(&[a0, a1], &[b0, b1]);
+
+    let error_rate = Precision12::error_rate();
+    for i in 0..2 {
+        for j in 0..2 {
+            let err = (overlap[i][j] - o[i][j] as f64).abs() / total_union;
+            assert!(
+                err <= error_rate,
+                "overlap[{i}][{j}] = {} differs from exact {} by {err} of the union, exceeding {error_rate}.",
+                overlap[i][j],
+                o[i][j],
+            );
+        }
+    }
+    for i in 0..2 {
+        let err = (left_diff[i] - da[i] as f64).abs() / total_union;
+        assert!(
+            err <= error_rate,
+            "left_diff[{i}] = {} differs from exact {} by {err} of the union, exceeding {error_rate}.",
+            left_diff[i],
+            da[i],
+        );
+    }
+    for j in 0..2 {
+        let err = (right_diff[j] - db[j] as f64).abs() / total_union;
+        assert!(
+            err <= error_rate,
+            "right_diff[{j}] = {} differs from exact {} by {err} of the union, exceeding {error_rate}.",
+            right_diff[j],
+            db[j],
+        );
+    }
+}
