@@ -102,6 +102,43 @@ fn bench_union_estimate(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_hyperloglog_union, bench_union_estimate);
+/// Builds a fully-fledged HyperLogLog counter (well past the hash-list conversion threshold)
+/// holding `count` distinct elements.
+fn build_hyperloglog(count: u64, seed: u64) -> HLL14 {
+    let mut hll = HLL14::default();
+    for value in iter_random_values::<u64>(count, None, Some(seed)) {
+        hll.insert(&value);
+    }
+    assert!(!hll.is_hash_list());
+    hll
+}
+
+/// Compares the default register-based union estimator against the joint Maximum Likelihood
+/// Estimation union estimator (only available under the `mle` feature) on two fully-fledged
+/// HyperLogLog counters.
+fn bench_union_estimate_hyperloglog(c: &mut Criterion) {
+    let mut group = c.benchmark_group("union_estimate_hyperloglog_p14");
+
+    let left = build_hyperloglog(200_000, 0x00A1_1CE0);
+    let right = build_hyperloglog(200_000, 0x0000_B0B0);
+
+    group.bench_function("default", |b| {
+        b.iter(|| black_box(black_box(&left).estimate_union_cardinality(black_box(&right))));
+    });
+
+    #[cfg(feature = "mle")]
+    group.bench_function("mle", |b| {
+        b.iter(|| black_box(black_box(&left).estimate_union_cardinality_mle(black_box(&right))));
+    });
+
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_hyperloglog_union,
+    bench_union_estimate,
+    bench_union_estimate_hyperloglog
+);
 
 criterion_main!(benches);
