@@ -1,117 +1,87 @@
-//! Struct marker MLE.
+//! Maximum Likelihood Estimation of the union cardinality (Ertl's joint estimator).
+//!
+//! This provides [`HyperLogLog::estimate_union_cardinality_mle`], an alternative to the default
+//! union estimator that maximizes the joint likelihood of the two counters' register
+//! multiplicities via an Adam optimizer. It operates on the HyperLogLog register
+//! representation; hash-list operands are materialized into registers first.
+//!
+//! Only the joint (union) estimator is implemented. A single-counter Maximum Likelihood
+//! cardinality estimator is not provided; `estimate_cardinality` continues to use the
+//! HyperLogLog++ corrected estimate.
 
-use crate::basicloglog::BasicLogLog;
+use crate::correction_coefficients::{
+    HYPERLOGLOG_CORRECTION_BIAS, HYPERLOGLOG_CORRECTION_CARDINALITIES,
+};
+use crate::hyperloglog::correct_cardinality;
 use crate::prelude::*;
+use crate::utils::{FloatOps, Zero};
 use core::cmp::Ordering;
-use core::hash::Hash;
 use core::ops::{Add, Mul, Sub};
 
-#[derive(Debug, Clone, Copy, Hash, Default, Eq, PartialEq)]
-#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
-/// A struct representing the Maximum Likelihood Estimation.
-pub struct MLE<H, const ERROR: i32 = 2> {
-    /// The underlying counter.
-    counter: H,
-}
-
-impl<X, H: AsMut<X>, const ERROR: i32> AsMut<X> for MLE<H, ERROR> {
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
+    /// Returns the union cardinality estimated with the joint Maximum Likelihood Estimation.
+    ///
+    /// # Implementative details
+    /// The estimator operates on the HyperLogLog register multiplicities, so if either operand
+    /// is still a hash list it is materialized into a fully-fledged HyperLogLog first. The
+    /// likelihood of the left difference, right difference and intersection is maximized jointly
+    /// with an Adam optimizer; the union estimate is their sum.
     #[inline]
-    fn as_mut(&mut self) -> &mut X {
-        self.counter.as_mut()
-    }
-}
-
-impl<X, H: AsRef<X>, const ERROR: i32> AsRef<X> for MLE<H, ERROR> {
-    #[inline]
-    fn as_ref(&self) -> &X {
-        self.counter.as_ref()
-    }
-}
-
-impl<H: BitOr<Output = H>, const ERROR: i32> BitOr for MLE<H, ERROR> {
-    type Output = Self;
-
-    #[inline]
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Self {
-            counter: self.counter | rhs.counter,
+    pub fn estimate_union_cardinality_mle(&self, other: &Self) -> f64 {
+        if self.is_hash_list() || other.is_hash_list() {
+            let mut left = self.clone();
+            let mut right = other.clone();
+            if left.is_hash_list() {
+                left.convert_hash_list_to_hyperloglog().unwrap();
+            }
+            if right.is_hash_list() {
+                right.convert_hash_list_to_hyperloglog().unwrap();
+            }
+            return left.mle_union_from_registers(&right);
         }
+
+        self.mle_union_from_registers(other)
+    }
+
+    /// Joint MLE union estimate assuming both counters are in HyperLogLog (register) mode.
+    fn mle_union_from_registers(&self, other: &Self) -> f64 {
+        // Maps a union harmonic sum to the HyperLogLog++ corrected cardinality, exactly as the
+        // default register-based union estimator does.
+        let estimate = |harmonic_sum: f64, _zeros: u32| {
+            correct_cardinality::<P, B>(
+                P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / harmonic_sum,
+                &HYPERLOGLOG_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
+                    [B::NUMBER_OF_BITS as usize - 4],
+                &HYPERLOGLOG_CORRECTION_BIAS[P::EXPONENT as usize - 4]
+                    [B::NUMBER_OF_BITS as usize - 4],
+            )
+        };
+
+        mle_union_cardinality::<P, B, _>(
+            self.registers.iter_registers_zipped(&other.registers),
+            self.estimate_cardinality(),
+            other.estimate_cardinality(),
+            estimate,
+            2,
+        )
     }
 }
 
-impl<H: BitOrAssign, const ERROR: i32> BitOrAssign for MLE<H, ERROR> {
-    #[inline]
-    fn bitor_assign(&mut self, rhs: Self) {
-        self.counter |= rhs.counter;
-    }
-}
-
-impl<
-        H: HyperLogLog + AsMut<BasicLogLog<H::Precision, H::Bits, H::Registers, H::Hasher>>,
-        const ERROR: i32,
-    > HyperLogLog for MLE<H, ERROR>
-{
-    type Registers = H::Registers;
-    type Precision = H::Precision;
-    type Bits = H::Bits;
-    type Hasher = H::Hasher;
-
-    #[inline]
-    fn registers(&self) -> &Self::Registers {
-        self.counter.registers()
-    }
-
-    #[inline]
-    fn get_number_of_zero_registers(&self) -> u32 {
-        self.counter.get_number_of_zero_registers()
-    }
-
-    #[inline]
-    fn get_register(&self, index: usize) -> u8 {
-        self.counter.get_register(index)
-    }
-
-    #[inline]
-    fn harmonic_sum(&self) -> f64 {
-        self.counter.harmonic_sum()
-    }
-
-    #[inline]
-    fn insert_register_value_and_index(&mut self, new_register_value: u8, index: usize) -> bool {
-        self.counter
-            .insert_register_value_and_index(new_register_value, index)
-    }
-
-    #[inline]
-    fn from_registers(registers: H::Registers) -> Self {
-        Self {
-            counter: HyperLogLog::from_registers(registers),
-        }
-    }
-}
-
-impl<H, const ERROR: i32> From<H> for MLE<H, ERROR> {
-    #[inline]
-    fn from(counter: H) -> Self {
-        Self { counter }
-    }
-}
-
-#[expect(
-    clippy::too_many_lines,
-    reason = "I don't want to split the function in smaller parts."
-)]
-/// Compute the union cardinality using the Maximum Likelihood Estimation.
-fn mle_union_cardinality<
-    P: Precision,
-    B: Bits,
-    I: ExactSizeIterator<Item = [u8; 2]>,
-    const ERROR: i32,
->(
+#[allow(clippy::too_many_lines)]
+/// Computes the union cardinality using the Maximum Likelihood Estimation.
+///
+/// # Arguments
+/// * `registers` - Iterator over the `[left, right]` register pairs of the two counters.
+/// * `left_cardinality` / `right_cardinality` - Cardinality estimates of the two counters.
+/// * `estimate` - Maps a union harmonic sum (and zero-register count) to a union cardinality.
+/// * `error_exponent` - The optimizer stops once every gradient is below `10^-error_exponent`
+///   scaled by the precision.
+fn mle_union_cardinality<P: Precision, B: Bits, I: ExactSizeIterator<Item = [u8; 2]>>(
     registers: I,
     left_cardinality: f64,
     right_cardinality: f64,
-    estimate: fn(f64, u32) -> f64,
+    estimate: impl Fn(f64, u32) -> f64,
+    error_exponent: i32,
 ) -> f64 {
     let mut left_multiplicities_larger = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
     let mut left_multiplicities_smaller = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
@@ -144,10 +114,8 @@ fn mle_union_cardinality<
     // We get the best estimates from HyperLogLog++
     let union_cardinality = estimate(union_harmonic_sum, union_zeros);
 
-    // If the sum of the number of registers equal to zero, i.e.
-    // the first value in the multiplicities vectors, is equal
-    // to the number of registers, it means that the intersection
-    // is empty.
+    // If the number of registers equal to zero in the union is equal to the number of
+    // registers, the union is empty.
     if union_zeros == 1 << B::NUMBER_OF_BITS {
         return f64::ZERO;
     }
@@ -159,9 +127,10 @@ fn mle_union_cardinality<
 
     let right_difference: f64 = (union_cardinality - left_cardinality).max(f64::EPSILON);
 
-    let relative_error_limit = 10.0_f64.powi(-ERROR) / f64::integer_exp2(P::EXPONENT).sqrt();
+    let relative_error_limit =
+        10.0_f64.powi(-error_exponent) / f64::integer_exp2(P::EXPONENT).sqrt();
 
-    // we introdce the following expressions to simplify the computation
+    // we introduce the following expressions to simplify the computation
     // of the gradient.
     let x = |phi: [f64; 3], two_to_minus_register: f64| -> [f64; 3] {
         [
@@ -274,7 +243,7 @@ fn mle_union_cardinality<
         // We execute the update of the Adam first and second moments.
         optimizer.apply(&mut gradients, &mut phis);
 
-        // If any of the gradient update, in absolute value, is higher
+        // If every gradient update is, in absolute value, below the error limit, we stop.
         if gradients
             .iter()
             .all(|gradient| gradient.abs() <= relative_error_limit)
@@ -347,52 +316,6 @@ impl<const N: usize, T: Default + Copy + Add<T, Output = T>> ElementWiseAddition
             result[i] = self[i] + other[i];
         }
         result
-    }
-}
-
-impl<const ERROR: i32, H: Correction> Correction for MLE<H, ERROR> {
-    fn correction(harmonic_sum: f64, number_of_zero_registers: u32) -> f64 {
-        H::correction(harmonic_sum, number_of_zero_registers)
-    }
-}
-
-impl<const ERROR: i32, H> Estimator<f64> for MLE<H, ERROR>
-where
-    H: Estimator<f64> + Correction + HyperLogLog,
-{
-    #[inline]
-    fn estimate_cardinality(&self) -> f64 {
-        self.counter.estimate_cardinality()
-    }
-
-    #[inline]
-    fn is_union_estimate_non_deterministic(&self, _other: &Self) -> bool {
-        true
-    }
-
-    #[inline]
-    fn estimate_union_cardinality_with_cardinalities(
-        &self,
-        other: &Self,
-        self_cardinality: f64,
-        other_cardinality: f64,
-    ) -> f64 {
-        mle_union_cardinality::<
-            <H as HyperLogLog>::Precision,
-            <H as HyperLogLog>::Bits,
-            <<H as HyperLogLog>::Registers as Registers<
-                <H as HyperLogLog>::Precision,
-                <H as HyperLogLog>::Bits,
-            >>::IterZipped<'_>,
-            ERROR,
-        >(
-            self.counter
-                .registers()
-                .iter_registers_zipped(other.counter.registers()),
-            self_cardinality,
-            other_cardinality,
-            <H as Correction>::correction,
-        )
     }
 }
 
@@ -471,11 +394,7 @@ mod tests {
         let mut adam = Adam::<2>::default();
 
         for _ in 0..10_000 {
-            let (value, gradients) = quadratic_function(&phis);
-            println!(
-                "Current value: {:.6}, phis: [{:.6}, {:.6}]",
-                value, phis[0], phis[1]
-            );
+            let (_value, gradients) = quadratic_function(&phis);
             adam.apply(&mut gradients.clone(), &mut phis);
         }
 

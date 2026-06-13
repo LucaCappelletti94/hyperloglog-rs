@@ -275,3 +275,36 @@ fn test_union_small_cardinality_stays_accurate() {
         );
     }
 }
+
+/// The Maximum Likelihood Estimation of the union cardinality (Ertl's joint estimator) must
+/// estimate the union of two fully-fledged HyperLogLog counters within the precision's error
+/// rate. Two partially overlapping sets are used: [0, 50_000) and [25_000, 75_000), whose true
+/// union is 75_000 distinct elements.
+#[cfg(feature = "mle")]
+#[test]
+fn test_mle_union_matches_exact() {
+    type Counter =
+        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut left: Counter = Default::default();
+    let mut right: Counter = Default::default();
+
+    for element in 0..50_000_u64 {
+        left.insert(&element);
+    }
+    for element in 25_000..75_000_u64 {
+        right.insert(&element);
+    }
+
+    assert!(!left.is_hash_list() && !right.is_hash_list());
+
+    let exact_union = 75_000.0_f64;
+    let mle_union = left.estimate_union_cardinality_mle(&right);
+
+    let error = (mle_union - exact_union).abs() / exact_union;
+    assert!(
+        error <= Precision10::error_rate(),
+        "MLE union estimate {mle_union} differs from exact {exact_union} by {error}, exceeding the error rate {}.",
+        Precision10::error_rate(),
+    );
+}

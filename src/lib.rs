@@ -11,11 +11,11 @@
 
 mod bits;
 pub mod composite_hash;
-pub mod hyperloglog;
-// #[cfg(feature = "mle")]
-// mod mle;
 mod correction_coefficients;
 mod hash_list;
+pub mod hyperloglog;
+#[cfg(feature = "mle")]
+mod mle;
 mod precisions;
 mod registers;
 pub mod sketches;
@@ -25,8 +25,6 @@ pub mod utils;
 pub mod prelude {
     pub use crate::bits::*;
     pub use crate::hyperloglog::*;
-    // #[cfg(feature = "mle")]
-    // pub use crate::mle::*;
     pub use crate::precisions::*;
     pub use crate::registers::*;
     pub use crate::sketches::*;

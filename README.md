@@ -54,40 +54,30 @@ assert!(
 ```
 
 ### Using MLE estimation
-The [MLE estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github.io/hyperloglog-sketch-estimation-paper/paper/paper.pdf) provides a more accurate estimation of the cardinality of a set, but it is slower than the standard `HyperLogLog` algorithm. Here is an example of how to use it:
+With the optional `mle` feature, the [joint Maximum Likelihood Estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github.io/hyperloglog-sketch-estimation-paper/paper/paper.pdf) is available for estimating the cardinality of the union of two counters. It maximizes the joint likelihood of the two counters' register multiplicities and can be more accurate than the default union estimator at the cost of being slower. It is exposed as `estimate_union_cardinality_mle` and operates on the HyperLogLog register representation (hash-list operands are materialized into registers first). Only the joint (union) estimator is provided; single-counter cardinality continues to use the HyperLogLog++ corrected estimate.
 
 ```rust
 #[cfg(feature = "mle")]
 {
         use hyperloglog_rs::prelude::*;
 
-        let mut hll1: MLE<PlusPlus::<Precision6, Bits5, <Precision6 as PackedRegister<Bits5>>::Array, twox_hash::XxHash>> = MLE::default();
-        
-        hll1.insert(&1);
-        hll1.insert(&2);
-        hll1.insert(&3);
+        let mut hll1 = HyperLogLog::<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, twox_hash::XxHash>::default();
+        let mut hll2 = HyperLogLog::<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, twox_hash::XxHash>::default();
 
-        let mut hll2: MLE<PlusPlus::<Precision6, Bits5, <Precision6 as PackedRegister<Bits5>>::Array, twox_hash::XxHash>> = MLE::default();
+        for value in 0..10_000_u64 {
+                hll1.insert(&value);
+        }
+        for value in 5_000..15_000_u64 {
+                hll2.insert(&value);
+        }
 
-        hll2.insert(&2);
-        hll2.insert(&3);
-        hll2.insert(&4);
-
-        let estimated_cardinality: f64 = hll1.estimate_cardinality();
+        // The true union cardinality of [0, 10000) and [5000, 15000) is 15000.
+        let mle_union: f64 = hll1.estimate_union_cardinality_mle(&hll2);
         assert!(
-                estimated_cardinality >= 3.0_f64 * 0.9 &&
-                estimated_cardinality <= 3.0_f64 * 1.1,
-                "MLE: Expected cardinality to be around 3, got {}",
-                estimated_cardinality
-        );
-
-        let estimate_intersection_cardinality: f64 = hll1.estimate_intersection_cardinality(&hll2);
-
-        assert!(
-                estimate_intersection_cardinality >= 2.0_f64 * 0.9 &&
-                estimate_intersection_cardinality <= 2.0_f64 * 1.1,
-                "MLE: Expected intersection cardinality to be around 2, got {}",
-                estimate_intersection_cardinality
+                mle_union >= 15_000.0_f64 * 0.9 &&
+                mle_union <= 15_000.0_f64 * 1.1,
+                "MLE: Expected union cardinality to be around 15000, got {}",
+                mle_union
         );
 }
 ```
