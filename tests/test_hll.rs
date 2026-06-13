@@ -430,6 +430,46 @@ fn test_joint_sketch_mle_reduces_to_union_mle() {
     );
 }
 
+/// The public generic-composition API (`joint_sketch_mle_with`) must accept a caller-chosen
+/// optimizer, including composed ones, and recover the union within the precision's error rate.
+#[cfg(feature = "mle")]
+#[test]
+fn test_joint_sketch_mle_with_custom_optimizer() {
+    type Counter =
+        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut left: Counter = Default::default();
+    let mut right: Counter = Default::default();
+    insert_range(&mut left, 0, 50_000);
+    insert_range(&mut right, 25_000, 50_000);
+
+    let exact_union = 75_000.0_f64;
+    let error_rate = Precision10::error_rate();
+
+    // A user composes a custom optimizer: an Adam warmup followed by L-BFGS polishing.
+    let optimizer = Chain {
+        first: Adam {
+            learning_rate: 0.1,
+            iterations: 300,
+        },
+        second: Lbfgs::default(),
+    };
+    let (overlap, left_diff, right_diff) =
+        Counter::joint_sketch_mle_with(&[left.clone()], &[right.clone()], &optimizer);
+    let union = overlap[0][0] + left_diff[0] + right_diff[0];
+    let error = (union - exact_union).abs() / exact_union;
+    assert!(
+        error <= error_rate,
+        "custom-optimizer joint union {union} differs from exact {exact_union} by {error}."
+    );
+
+    // A plain L-BFGS optimizer must also work.
+    let (overlap, left_diff, right_diff) =
+        Counter::joint_sketch_mle_with(&[left], &[right], &Lbfgs::default());
+    let union = overlap[0][0] + left_diff[0] + right_diff[0];
+    assert!((union - exact_union).abs() / exact_union <= error_rate);
+}
+
 /// For small `M, N` (here `M = N = 2`) built from disjoint integer ranges with known cell
 /// cardinalities, every estimated disjoint cell (the `M*N` overlaps and the `M + N` margins)
 /// must match its exact cardinality within the precision's error rate, measured relative to the

@@ -105,6 +105,31 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         joint_sketch_mle_from_registers::<P, B, R, H, M, N>(&lefts, &rights)
     }
 
+    /// Same as [`HyperLogLog::joint_sketch_mle`] but with a caller-chosen `optimizer` driving the
+    /// refinement (generic composition). Compose optimizers with [`Chain`], for example
+    /// `Chain { first: Adam::default(), second: Lbfgs::default() }`, or implement [`JointOptimizer`]
+    /// for a custom strategy. The default method uses an Adam-then-L-BFGS chain.
+    #[inline]
+    pub fn joint_sketch_mle_with<O: JointOptimizer, const M: usize, const N: usize>(
+        lefts: &[Self; M],
+        rights: &[Self; N],
+        optimizer: &O,
+    ) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+        let materialize = |counter: &Self| -> Self {
+            if counter.is_hash_list() {
+                let mut counter = counter.clone();
+                counter.convert_hash_list_to_hyperloglog().unwrap();
+                counter
+            } else {
+                counter.clone()
+            }
+        };
+        let lefts: [Self; M] = core::array::from_fn(|i| materialize(&lefts[i]));
+        let rights: [Self; N] = core::array::from_fn(|j| materialize(&rights[j]));
+
+        joint_sketch_mle_from_registers_with::<P, B, R, H, O, M, N>(&lefts, &rights, optimizer)
+    }
+
     /// Joint MLE union estimate assuming both counters are in HyperLogLog (register) mode.
     fn mle_union_from_registers(&self, other: &Self) -> f64 {
         // Maps a union harmonic sum to the HyperLogLog++ corrected cardinality, exactly as the
@@ -227,7 +252,7 @@ fn mle_union_cardinality<P: Precision, B: Bits, I: ExactSizeIterator<Item = [u8;
     ];
     let mut gradients: [f64; 3] = [f64::ZERO, f64::ZERO, f64::ZERO];
 
-    let mut optimizer: Adam<3> = Adam::default();
+    let mut optimizer: ArrayAdam<3> = ArrayAdam::default();
 
     let zeros_0: [f64; 3] = [
         left_multiplicities_smaller[0] + left_multiplicities_larger[0] + joint_multiplicities[0],
@@ -608,9 +633,23 @@ fn tabulate_joint_patterns<
         .collect()
 }
 
+/// The default optimizer for the joint MLE refinement: an Adam warmup (whose momentum escapes the
+/// poor local optima a greedy method settles into) followed by L-BFGS for fast final convergence.
+/// In the `experiment_optimizers` comparison this matches the accuracy of a long Adam run while
+/// being several times faster, and beats plain L-BFGS on accuracy.
+fn default_joint_optimizer() -> impl JointOptimizer {
+    Chain {
+        first: Adam {
+            learning_rate: 0.1,
+            iterations: 500,
+        },
+        second: Lbfgs::default(),
+    }
+}
+
 /// Generalized joint MLE over the disjoint-region model, assuming all counters are in register
 /// mode. Returns `(overlap[M][N], left_diff[M], right_diff[N])`. Uses the polynomial per-pattern
-/// log-likelihood gradient.
+/// log-likelihood gradient and the default optimizer.
 fn joint_sketch_mle_from_registers<
     P: Precision,
     B: Bits,
@@ -622,37 +661,61 @@ fn joint_sketch_mle_from_registers<
     lefts: &[HyperLogLog<P, B, R, H>; M],
     rights: &[HyperLogLog<P, B, R, H>; N],
 ) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+    joint_sketch_mle_from_registers_with(lefts, rights, &default_joint_optimizer())
+}
+
+/// Generalized joint MLE with a caller-chosen optimizer (generic composition). The default path
+/// [`joint_sketch_mle_from_registers`] uses [`default_joint_optimizer`].
+fn joint_sketch_mle_from_registers_with<
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B>,
+    H: HasherType,
+    O: JointOptimizer,
+    const M: usize,
+    const N: usize,
+>(
+    lefts: &[HyperLogLog<P, B, R, H>; M],
+    rights: &[HyperLogLog<P, B, R, H>; N],
+    optimizer: &O,
+) -> ([[f64; N]; M], [f64; M], [f64; N]) {
     let value_patterns = tabulate_joint_value_patterns::<P, B, R, H, M, N>(lefts, rights);
     let p_exponent = P::EXPONENT;
     let q_plus_one: u8 = (1 << B::NUMBER_OF_BITS) - 1;
 
-    joint_sketch_mle_core(lefts, rights, |phis, gradient| {
+    joint_sketch_mle_core(lefts, rights, optimizer, |phis, gradient| {
         let ephi: Vec<f64> = phis.iter().map(|phi| phi.exp()).collect();
+        let mut log_likelihood = f64::ZERO;
         for (a_pat, b_pat, count) in &value_patterns {
-            joint_pattern_ll_and_gradient_poly::<M, N>(
+            log_likelihood += joint_pattern_ll_and_gradient_poly::<M, N>(
                 a_pat, b_pat, &ephi, p_exponent, q_plus_one, *count, gradient,
             );
         }
+        log_likelihood
     })
 }
 
-/// Runs the warm-started, marginal-anchored Adam optimization of the disjoint-region model and
-/// returns the cell matrices. The per-iteration log-likelihood gradient is supplied by
-/// `ll_gradient`, which receives the current `phis` and a pre-zeroed gradient buffer to accumulate
-/// into. Production passes the polynomial evaluation; tests pass the exponential `2^(M+N)` oracle
-/// for cross-validation.
+/// Runs the warm-started, marginal-anchored optimization of the disjoint-region model with the
+/// chosen `optimizer` and returns the cell matrices. The log-likelihood term is supplied by
+/// `log_likelihood_gradient`, which receives the current `phis` and a pre-zeroed gradient buffer,
+/// returns the log-likelihood value, and accumulates its ascent gradient into the buffer. Production
+/// passes the polynomial evaluation; tests pass the exponential `2^(M+N)` oracle for cross-validation.
+/// The objective being maximized is the MAP log-posterior (log-likelihood plus the marginal-anchor
+/// log-prior).
 #[allow(clippy::needless_range_loop)]
 fn joint_sketch_mle_core<
     P: Precision,
     B: Bits,
     R: Registers<P, B>,
     H: HasherType,
+    O: JointOptimizer,
     const M: usize,
     const N: usize,
 >(
     lefts: &[HyperLogLog<P, B, R, H>; M],
     rights: &[HyperLogLog<P, B, R, H>; N],
-    mut ll_gradient: impl FnMut(&[f64], &mut [f64]),
+    optimizer: &O,
+    mut log_likelihood_gradient: impl FnMut(&[f64], &mut [f64]) -> f64,
 ) -> ([[f64; N]; M], [f64; M], [f64; N]) {
     let n_overlap = M * N;
     let k = n_overlap + M + N;
@@ -718,24 +781,24 @@ fn joint_sketch_mle_core<
         ));
     }
 
-    let relative_error_limit = 10.0_f64.powi(-2) / f64::integer_exp2(P::EXPONENT).sqrt();
+    // The expected statistical error scales like 1/sqrt(m), so the optimizer stops once the
+    // parameter step falls below that scale (the convergence threshold Ertl uses for the 2-set
+    // joint MLE).
+    let step_tolerance = 10.0_f64.powi(-2) / f64::integer_exp2(P::EXPONENT).sqrt();
 
-    let mut optimizer = JointAdam::new(k);
-    let mut gradients = vec![f64::ZERO; k];
-
-    for _ in 0_u16..10_000_u16 {
-        for gradient in &mut gradients {
-            *gradient = f64::ZERO;
+    // The MAP objective: log-likelihood plus the marginal-anchor log-prior, with its ascent gradient.
+    let mut objective = |phis: &[f64], gradient: &mut [f64]| {
+        let log_likelihood = log_likelihood_gradient(phis, gradient);
+        add_marginal_anchor_gradient(&anchors, phis, gradient);
+        let mut log_prior = f64::ZERO;
+        for (regions, log_estimate, weight) in &anchors {
+            let sum: f64 = regions.iter().map(|&rho| phis[rho].exp()).sum();
+            let residual = sum.max(f64::EPSILON).ln() - log_estimate;
+            log_prior -= 0.5 * weight * residual * residual;
         }
-        ll_gradient(&phis, &mut gradients);
-        add_marginal_anchor_gradient(&anchors, &phis, &mut gradients);
-
-        optimizer.apply(&mut gradients, &mut phis);
-
-        if gradients.iter().all(|g| g.abs() <= relative_error_limit) {
-            break;
-        }
-    }
+        log_likelihood + log_prior
+    };
+    let phis = optimizer.maximize(phis, &mut objective, step_tolerance);
 
     let mut overlap = [[f64::ZERO; N]; M];
     for i in 0..M {
@@ -1037,56 +1100,284 @@ fn add_marginal_anchor_gradient(
     }
 }
 
-/// Adam optimizer over a dynamically sized parameter vector, used by the generalized joint MLE
-/// where the parameter count `M*N + M + N` is not a compile-time constant. Mirrors [`Adam`].
-struct JointAdam {
-    first_moments: Vec<f64>,
-    second_moments: Vec<f64>,
-    time: i32,
-    learning_rate: f64,
-    first_order_decay_factor: f64,
-    second_order_decay_factor: f64,
+/// A maximizer of a smooth objective, used to refine the joint-MLE warm start. The closure passed
+/// to [`JointOptimizer::maximize`] returns the objective value to MAXIMIZE and fills its ascent
+/// gradient into a pre-zeroed buffer. `step_tolerance` is the convergence scale (the expected
+/// statistical error, `~1/sqrt(m)`). The trait is object-safe so optimizers can be selected either
+/// by generic composition or behind `dyn` for side-by-side comparison.
+pub trait JointOptimizer {
+    /// Maximizes `objective` starting from `init`, returning the best point found.
+    fn maximize(
+        &self,
+        init: Vec<f64>,
+        objective: &mut dyn FnMut(&[f64], &mut [f64]) -> f64,
+        step_tolerance: f64,
+    ) -> Vec<f64>;
 }
 
-impl JointAdam {
-    fn new(dimension: usize) -> Self {
-        JointAdam {
-            first_moments: vec![0.0; dimension],
-            second_moments: vec![0.0; dimension],
-            time: 0,
-            learning_rate: 0.1,
-            first_order_decay_factor: 0.9,
-            second_order_decay_factor: 0.999,
+/// Limited-memory BFGS (the quasi-Newton method Ertl uses for the 2-set joint MLE). Converges in
+/// tens of iterations from a good warm start and self-terminates on the step size, but as a greedy
+/// descent method it converges to the nearest local optimum, which on multi-modal instances can be
+/// worse than the optimum a momentum method reaches. Cheap, so it pairs well as the polishing stage
+/// of a [`Chain`].
+pub struct Lbfgs {
+    /// Number of `(s, y)` correction pairs retained.
+    pub memory: usize,
+    /// Hard iteration cap (a backstop; convergence is normally by step size).
+    pub max_iterations: usize,
+}
+
+impl Default for Lbfgs {
+    fn default() -> Self {
+        Lbfgs {
+            memory: 8,
+            max_iterations: 1000,
         }
     }
+}
 
-    /// Applies one Adam ascent step, overwriting `gradients` with the applied update and adding it
-    /// to `phis`.
-    fn apply(&mut self, gradients: &mut [f64], phis: &mut [f64]) {
-        self.time += 1_i32;
-        for (((first_moment, second_moment), gradient), phi) in self
-            .first_moments
-            .iter_mut()
-            .zip(self.second_moments.iter_mut())
-            .zip(gradients.iter_mut())
-            .zip(phis.iter_mut())
-        {
-            *first_moment = self.first_order_decay_factor * *first_moment
-                + (1.0 - self.first_order_decay_factor) * *gradient;
-            *second_moment = self.second_order_decay_factor * *second_moment
-                + (1.0 - self.second_order_decay_factor) * (*gradient).powi(2);
-            let adaptative_learning_rate = self.learning_rate
-                * (1.0 - self.second_order_decay_factor.powi(self.time)).sqrt()
-                / (1.0 - self.first_order_decay_factor.powi(self.time));
-            let second_moment_root = (*second_moment).sqrt();
-            *gradient = adaptative_learning_rate * (*first_moment)
-                / if second_moment_root > f64::EPSILON {
-                    second_moment_root
-                } else {
-                    f64::EPSILON
-                };
-            *phi += *gradient;
+impl JointOptimizer for Lbfgs {
+    fn maximize(
+        &self,
+        mut x: Vec<f64>,
+        objective: &mut dyn FnMut(&[f64], &mut [f64]) -> f64,
+        step_tolerance: f64,
+    ) -> Vec<f64> {
+        let n = x.len();
+        let memory = self.memory;
+        let max_iterations = self.max_iterations;
+        let dot = |a: &[f64], b: &[f64]| -> f64 { a.iter().zip(b).map(|(u, v)| u * v).sum() };
+
+        // `objective` accumulates into a pre-zeroed buffer, so we clear before every evaluation.
+        // We minimize `f = -objective`, so `gradient` below is the gradient of `f`.
+        let mut gradient = vec![f64::ZERO; n];
+        let mut f_value = -objective(&x, &mut gradient);
+        for g in &mut gradient {
+            *g = -*g;
         }
+
+        let mut s_history: Vec<Vec<f64>> = Vec::new();
+        let mut y_history: Vec<Vec<f64>> = Vec::new();
+        let mut rho_history: Vec<f64> = Vec::new();
+
+        let mut ascent_gradient = vec![f64::ZERO; n];
+
+        for _ in 0..max_iterations {
+            // Two-loop recursion: direction = -H * gradient, with H the implicit inverse Hessian.
+            let mut q = gradient.clone();
+            let mut alphas = vec![f64::ZERO; s_history.len()];
+            for i in (0..s_history.len()).rev() {
+                let alpha = rho_history[i] * dot(&s_history[i], &q);
+                alphas[i] = alpha;
+                for j in 0..n {
+                    q[j] -= alpha * y_history[i][j];
+                }
+            }
+            let gamma = if let Some(last) = s_history.len().checked_sub(1) {
+                let yy = dot(&y_history[last], &y_history[last]).max(f64::EPSILON);
+                dot(&s_history[last], &y_history[last]) / yy
+            } else {
+                1.0
+            };
+            for q_value in &mut q {
+                *q_value *= gamma;
+            }
+            for i in 0..s_history.len() {
+                let beta = rho_history[i] * dot(&y_history[i], &q);
+                for j in 0..n {
+                    q[j] += (alphas[i] - beta) * s_history[i][j];
+                }
+            }
+            let mut direction: Vec<f64> = q.iter().map(|v| -v).collect();
+
+            // Fall back to steepest descent if the quasi-Newton direction is not a descent direction.
+            let mut slope = dot(&gradient, &direction);
+            if slope >= 0.0 {
+                direction = gradient.iter().map(|g| -g).collect();
+                slope = dot(&gradient, &direction);
+            }
+
+            // Backtracking Armijo line search on `f`.
+            let c1 = 1e-4;
+            let mut step = 1.0;
+            let mut x_new = x.clone();
+            let mut f_new = f_value;
+            let mut succeeded = false;
+            for _ in 0..40 {
+                for j in 0..n {
+                    x_new[j] = x[j] + step * direction[j];
+                }
+                for g in &mut ascent_gradient {
+                    *g = f64::ZERO;
+                }
+                f_new = -objective(&x_new, &mut ascent_gradient);
+                if f_new.is_finite() && f_new <= f_value + c1 * step * slope {
+                    succeeded = true;
+                    break;
+                }
+                step *= 0.5;
+            }
+            if !succeeded {
+                break;
+            }
+
+            let mut step_inf_norm = f64::ZERO;
+            let mut s = vec![f64::ZERO; n];
+            let mut y = vec![f64::ZERO; n];
+            for j in 0..n {
+                s[j] = x_new[j] - x[j];
+                // ascent_gradient holds the ascent gradient at x_new; negate for f.
+                y[j] = -ascent_gradient[j] - gradient[j];
+                step_inf_norm = step_inf_norm.max(s[j].abs());
+                x[j] = x_new[j];
+                gradient[j] = -ascent_gradient[j];
+            }
+            f_value = f_new;
+
+            let curvature = dot(&s, &y);
+            if curvature > 1e-10 {
+                s_history.push(s);
+                y_history.push(y);
+                rho_history.push(1.0 / curvature);
+                if s_history.len() > memory {
+                    s_history.remove(0);
+                    y_history.remove(0);
+                    rho_history.remove(0);
+                }
+            }
+
+            if step_inf_norm <= step_tolerance {
+                break;
+            }
+        }
+
+        x
+    }
+}
+
+/// Adam (adaptive first-order). Its momentum lets it escape poor local optima that a greedy
+/// descent method settles into, at the cost of many small steps that never shrink near a flat
+/// optimum. Used here for a fixed budget (returning the best point seen), typically as the
+/// basin-escaping warmup stage of a [`Chain`].
+pub struct Adam {
+    /// Step size.
+    pub learning_rate: f64,
+    /// Fixed number of iterations to run.
+    pub iterations: usize,
+}
+
+impl Default for Adam {
+    fn default() -> Self {
+        Adam {
+            learning_rate: 0.1,
+            iterations: 2000,
+        }
+    }
+}
+
+impl JointOptimizer for Adam {
+    fn maximize(
+        &self,
+        mut x: Vec<f64>,
+        objective: &mut dyn FnMut(&[f64], &mut [f64]) -> f64,
+        _step_tolerance: f64,
+    ) -> Vec<f64> {
+        let n = x.len();
+        let (mut first_moment, mut second_moment) = (vec![0.0; n], vec![0.0; n]);
+        let mut gradient = vec![0.0; n];
+        let (beta1, beta2) = (0.9_f64, 0.999_f64);
+        let mut best_value = f64::NEG_INFINITY;
+        let mut best_x = x.clone();
+        for t in 1..=self.iterations as i32 {
+            for g in &mut gradient {
+                *g = 0.0;
+            }
+            let value = objective(&x, &mut gradient);
+            if value > best_value {
+                best_value = value;
+                best_x.copy_from_slice(&x);
+            }
+            let bias = (1.0 - beta2.powi(t)).sqrt() / (1.0 - beta1.powi(t));
+            for i in 0..n {
+                first_moment[i] = beta1 * first_moment[i] + (1.0 - beta1) * gradient[i];
+                second_moment[i] =
+                    beta2 * second_moment[i] + (1.0 - beta2) * gradient[i] * gradient[i];
+                x[i] += self.learning_rate * bias * first_moment[i]
+                    / second_moment[i].sqrt().max(f64::EPSILON);
+            }
+        }
+        best_x
+    }
+}
+
+/// RMSProp (adaptive first-order, no momentum). Cheaper per step than Adam, also basin-escaping
+/// in practice. Runs a fixed budget and returns the best point seen.
+pub struct RmsProp {
+    /// Step size.
+    pub learning_rate: f64,
+    /// Fixed number of iterations to run.
+    pub iterations: usize,
+}
+
+impl Default for RmsProp {
+    fn default() -> Self {
+        RmsProp {
+            learning_rate: 0.1,
+            iterations: 2000,
+        }
+    }
+}
+
+impl JointOptimizer for RmsProp {
+    fn maximize(
+        &self,
+        mut x: Vec<f64>,
+        objective: &mut dyn FnMut(&[f64], &mut [f64]) -> f64,
+        _step_tolerance: f64,
+    ) -> Vec<f64> {
+        let n = x.len();
+        let mut mean_square = vec![0.0; n];
+        let mut gradient = vec![0.0; n];
+        let mut best_value = f64::NEG_INFINITY;
+        let mut best_x = x.clone();
+        for _ in 0..self.iterations {
+            for g in &mut gradient {
+                *g = 0.0;
+            }
+            let value = objective(&x, &mut gradient);
+            if value > best_value {
+                best_value = value;
+                best_x.copy_from_slice(&x);
+            }
+            for i in 0..n {
+                mean_square[i] = 0.9 * mean_square[i] + 0.1 * gradient[i] * gradient[i];
+                x[i] += self.learning_rate * gradient[i] / (mean_square[i].sqrt() + 1e-8);
+            }
+        }
+        best_x
+    }
+}
+
+/// Sequential composition of two optimizers: run `first` from the initial point, then `second`
+/// from where it stopped. `Chain<Adam, Lbfgs>` is the recommended estimator path: an Adam warmup
+/// escapes poor basins, then L-BFGS converges quickly to the optimum within the good basin.
+pub struct Chain<A, B> {
+    /// Optimizer run first, from the initial point.
+    pub first: A,
+    /// Optimizer run second, from where `first` stopped.
+    pub second: B,
+}
+
+impl<A: JointOptimizer, B: JointOptimizer> JointOptimizer for Chain<A, B> {
+    fn maximize(
+        &self,
+        init: Vec<f64>,
+        objective: &mut dyn FnMut(&[f64], &mut [f64]) -> f64,
+        step_tolerance: f64,
+    ) -> Vec<f64> {
+        let intermediate = self.first.maximize(init, objective, step_tolerance);
+        self.second
+            .maximize(intermediate, objective, step_tolerance)
     }
 }
 
@@ -1154,8 +1445,8 @@ impl<const N: usize, T: Default + Copy + Add<T, Output = T>> ElementWiseAddition
     }
 }
 
-/// Adam optimizer for the Maximum Likelihood Estimation.
-struct Adam<const N: usize> {
+/// Fixed-size Adam optimizer used by the 2-set union MLE (`mle_union_cardinality`).
+struct ArrayAdam<const N: usize> {
     /// First moments.
     first_moments: [f64; N],
     /// Second moments.
@@ -1170,9 +1461,9 @@ struct Adam<const N: usize> {
     second_order_decay_factor: f64,
 }
 
-impl<const N: usize> Default for Adam<N> {
+impl<const N: usize> Default for ArrayAdam<N> {
     fn default() -> Self {
-        Adam {
+        ArrayAdam {
             first_moments: [0.0; N],
             second_moments: [0.0; N],
             time: 0,
@@ -1183,7 +1474,7 @@ impl<const N: usize> Default for Adam<N> {
     }
 }
 
-impl<const N: usize> Adam<N> {
+impl<const N: usize> ArrayAdam<N> {
     /// Apply the Adam optimizer to the gradients and weights.
     fn apply(&mut self, gradients: &mut [f64; N], phis: &mut [f64; N]) {
         self.time += 1_i32;
@@ -1226,7 +1517,7 @@ mod tests {
     #[test]
     fn test_adam_optimizer() {
         let mut phis = [0.0, 0.0]; // Initial guess
-        let mut adam = Adam::<2>::default();
+        let mut adam = ArrayAdam::<2>::default();
 
         for _ in 0..10_000 {
             let (_value, gradients) = quadratic_function(&phis);
@@ -1235,6 +1526,39 @@ mod tests {
 
         assert!((phis[0] - 1.0).abs() < 1e-4);
         assert!((phis[1] + 2.0).abs() < 1e-4);
+    }
+
+    /// Every `JointOptimizer` must maximize a smooth concave objective (here a negated quadratic)
+    /// to its optimum, mirroring how the joint MLE refines the warm start.
+    #[cfg(feature = "mle")]
+    #[test]
+    fn test_optimizers_maximize_quadratic() {
+        // Maximize -((x0-1)^2 + (x1+2)^2 + (x2-3)^2), with maximum at (1, -2, 3).
+        fn check(optimizer: &dyn JointOptimizer, tolerance: f64) {
+            let mut eval = |x: &[f64], grad: &mut [f64]| -> f64 {
+                grad[0] = -2.0 * (x[0] - 1.0);
+                grad[1] = -2.0 * (x[1] + 2.0);
+                grad[2] = -2.0 * (x[2] - 3.0);
+                -((x[0] - 1.0).powi(2) + (x[1] + 2.0).powi(2) + (x[2] - 3.0).powi(2))
+            };
+            let result = optimizer.maximize(vec![0.0, 0.0, 0.0], &mut eval, 1e-12);
+            assert!((result[0] - 1.0).abs() < tolerance, "{result:?}");
+            assert!((result[1] + 2.0).abs() < tolerance, "{result:?}");
+            assert!((result[2] - 3.0).abs() < tolerance, "{result:?}");
+        }
+        check(&Lbfgs::default(), 1e-5);
+        check(&Adam::default(), 1e-2);
+        check(&RmsProp::default(), 1e-2);
+        check(
+            &Chain {
+                first: Adam {
+                    learning_rate: 0.1,
+                    iterations: 200,
+                },
+                second: Lbfgs::default(),
+            },
+            1e-5,
+        );
     }
 
     /// The analytic forward-mode gradient of the joint log-likelihood must match a central
@@ -1586,30 +1910,35 @@ mod tests {
 
         // Production path (polynomial gradient).
         let value_patterns = tabulate_joint_value_patterns::<_, _, _, _, M, N>(&lefts, &rights);
-        let (ov_poly, l_poly, r_poly) = joint_sketch_mle_core(&lefts, &rights, |phis, gradient| {
-            let ephi: Vec<f64> = phis.iter().map(|phi| phi.exp()).collect();
-            for (a_pat, b_pat, count) in &value_patterns {
-                joint_pattern_ll_and_gradient_poly::<M, N>(
-                    a_pat, b_pat, &ephi, p_exponent, q_plus_one, *count, gradient,
-                );
-            }
-        });
+        let optimizer = Lbfgs::default();
+        let (ov_poly, l_poly, r_poly) =
+            joint_sketch_mle_core(&lefts, &rights, &optimizer, |phis, gradient| {
+                let ephi: Vec<f64> = phis.iter().map(|phi| phi.exp()).collect();
+                let mut log_likelihood = 0.0;
+                for (a_pat, b_pat, count) in &value_patterns {
+                    log_likelihood += joint_pattern_ll_and_gradient_poly::<M, N>(
+                        a_pat, b_pat, &ephi, p_exponent, q_plus_one, *count, gradient,
+                    );
+                }
+                log_likelihood
+            });
 
         // Oracle path (exponential gradient).
         let oracle_patterns = tabulate_joint_patterns::<_, _, _, _, M, N>(&lefts, &rights);
         let (ov_oracle, l_oracle, r_oracle) =
-            joint_sketch_mle_core(&lefts, &rights, |phis, gradient| {
-                let (_ll, g) = joint_ll_and_gradient(&oracle_patterns, phis, k);
+            joint_sketch_mle_core(&lefts, &rights, &optimizer, |phis, gradient| {
+                let (ll, g) = joint_ll_and_gradient(&oracle_patterns, phis, k);
                 for (slot, value) in gradient.iter_mut().zip(g) {
                     *slot += value;
                 }
+                ll
             });
 
         // The per-pattern gradients agree to ~1e-7, but the two paths sum patterns in different
         // (HashMap) orders and the oracle carries ~1e-7 cancellation error, which compound over the
-        // 10_000 Adam iterations along weakly-identified directions. A 0.1% end-to-end agreement
-        // still confirms the rewrite is faithful; a real bug would diverge grossly (as the
-        // tight per-pattern gradient test would already catch).
+        // optimization along weakly-identified directions. A 0.1% end-to-end agreement still
+        // confirms the rewrite is faithful; a real bug would diverge grossly (as the tight
+        // per-pattern gradient test would already catch).
         let close = |a: f64, b: f64| (a - b).abs() <= 1e-3 * a.abs().max(b.abs()) + 1.0;
         for i in 0..M {
             for j in 0..N {
@@ -1635,5 +1964,233 @@ mod tests {
         check_full_estimator_poly_vs_oracle::<1, 1>(20_000);
         check_full_estimator_poly_vs_oracle::<2, 2>(8_000);
         check_full_estimator_poly_vs_oracle::<3, 2>(5_000);
+    }
+
+    /// Experiment (ignored by default): compares how fast different optimizers drive the per-cell
+    /// error down from the warm start, to see whether the Adam iteration budget can be cut.
+    /// Run with: `cargo test --release --features mle --lib experiment_optimizers -- --ignored --nocapture`.
+    #[cfg(feature = "mle")]
+    fn experiment_optimizers<const M: usize, const N: usize>(unit: u64) {
+        type Counter =
+            HyperLogLog<
+                crate::prelude::Precision8,
+                crate::prelude::Bits6,
+                <crate::prelude::Precision8 as crate::prelude::PackedRegister<
+                    crate::prelude::Bits6,
+                >>::Array,
+                twox_hash::XxHash64,
+            >;
+        let n_overlap = M * N;
+        let k = n_overlap + M + N;
+
+        // Varied-cell partition (matching joint_matrix_bench), register mode. `exact[rho]` holds
+        // each region's true cardinality for the per-cell error.
+        let mut exact = vec![0.0_f64; k];
+        let mut cursor = 0u64;
+        let mut ro = [[(0u64, 0u64); N]; M];
+        for i in 0..M {
+            for j in 0..N {
+                let count = unit * (2 + ((i * 7 + j * 3) % 5) as u64);
+                ro[i][j] = (cursor, count);
+                cursor += count;
+                exact[i * N + j] = count as f64;
+            }
+        }
+        let mut rda = [(0u64, 0u64); M];
+        for i in 0..M {
+            let count = unit * (1 + (i % 3) as u64);
+            rda[i] = (cursor, count);
+            cursor += count;
+            exact[n_overlap + i] = count as f64;
+        }
+        let mut rdb = [(0u64, 0u64); N];
+        for j in 0..N {
+            let count = unit * (1 + (j % 4) as u64);
+            rdb[j] = (cursor, count);
+            cursor += count;
+            exact[n_overlap + M + j] = count as f64;
+        }
+        let total_union: f64 = exact.iter().sum();
+        let build = |ranges: &[(u64, u64)]| -> Counter {
+            let mut hll = Counter::default();
+            for &(start, count) in ranges {
+                for v in start..start + count {
+                    hll.insert(&v);
+                }
+            }
+            hll
+        };
+        let lefts: [Counter; M] = core::array::from_fn(|i| {
+            let mut ranges = Vec::new();
+            for ii in 0..=i {
+                for j in 0..N {
+                    ranges.push(ro[ii][j]);
+                }
+                ranges.push(rda[ii]);
+            }
+            build(&ranges)
+        });
+        let rights: [Counter; N] = core::array::from_fn(|j| {
+            let mut ranges = Vec::new();
+            for jj in 0..=j {
+                for i in 0..M {
+                    ranges.push(ro[i][jj]);
+                }
+                ranges.push(rdb[jj]);
+            }
+            build(&ranges)
+        });
+
+        // Warm start and anchors (mirroring joint_sketch_mle_core).
+        let (overlap0, left0, right0) =
+            <Counter as HyperSpheresSketch<f64>>::overlap_and_differences_cardinality_matrices(
+                &lefts, &rights,
+            );
+        let mut init = vec![0.0; k];
+        for i in 0..M {
+            for j in 0..N {
+                init[i * N + j] = overlap0[i][j].max(f64::EPSILON).ln();
+            }
+        }
+        for i in 0..M {
+            init[n_overlap + i] = left0[i].max(f64::EPSILON).ln();
+        }
+        for j in 0..N {
+            init[n_overlap + M + j] = right0[j].max(f64::EPSILON).ln();
+        }
+        let anchor_weight =
+            f64::integer_exp2(crate::prelude::Precision8::EXPONENT) / 1.04_f64.powi(2);
+        let mut anchors: Vec<(Vec<usize>, f64, f64)> = Vec::new();
+        for i in 0..M {
+            let mut regions = Vec::new();
+            for ii in 0..=i {
+                for j in 0..N {
+                    regions.push(ii * N + j);
+                }
+                regions.push(n_overlap + ii);
+            }
+            anchors.push((
+                regions,
+                lefts[i].estimate_cardinality().max(f64::EPSILON).ln(),
+                anchor_weight,
+            ));
+        }
+        for j in 0..N {
+            let mut regions = Vec::new();
+            for jj in 0..=j {
+                for i in 0..M {
+                    regions.push(i * N + jj);
+                }
+                regions.push(n_overlap + M + jj);
+            }
+            anchors.push((
+                regions,
+                rights[j].estimate_cardinality().max(f64::EPSILON).ln(),
+                anchor_weight,
+            ));
+        }
+
+        let value_patterns = tabulate_joint_value_patterns::<_, _, _, _, M, N>(&lefts, &rights);
+        let p_exponent = crate::prelude::Precision8::EXPONENT;
+        let q_plus_one: u8 = (1 << crate::prelude::Bits6::NUMBER_OF_BITS) - 1;
+
+        let cell_err = |phis: &[f64]| -> f64 {
+            let mut e = 0.0;
+            for rho in 0..k {
+                e += (phis[rho].exp() - exact[rho]).abs() / total_union;
+            }
+            e / k as f64
+        };
+        // The MAP objective being maximized (log-likelihood plus marginal-anchor log-prior), value
+        // only (for reporting).
+        let objective = |phis: &[f64]| -> f64 {
+            let ephi: Vec<f64> = phis.iter().map(|p| p.exp()).collect();
+            let mut scratch = vec![0.0; k];
+            let mut value = 0.0;
+            for (a_pat, b_pat, count) in &value_patterns {
+                value += joint_pattern_ll_and_gradient_poly::<M, N>(
+                    a_pat,
+                    b_pat,
+                    &ephi,
+                    p_exponent,
+                    q_plus_one,
+                    *count,
+                    &mut scratch,
+                );
+            }
+            for (regions, log_estimate, weight) in &anchors {
+                let sum: f64 = regions.iter().map(|&r| ephi[r]).sum();
+                let residual = sum.max(f64::EPSILON).ln() - log_estimate;
+                value -= 0.5 * weight * residual * residual;
+            }
+            value
+        };
+        // The same objective with its ascent gradient (the closure each optimizer drives).
+        let mut map_objective = |phis: &[f64], gradient: &mut [f64]| -> f64 {
+            let ephi: Vec<f64> = phis.iter().map(|p| p.exp()).collect();
+            let mut value = 0.0;
+            for (a_pat, b_pat, count) in &value_patterns {
+                value += joint_pattern_ll_and_gradient_poly::<M, N>(
+                    a_pat, b_pat, &ephi, p_exponent, q_plus_one, *count, gradient,
+                );
+            }
+            add_marginal_anchor_gradient(&anchors, phis, gradient);
+            for (regions, log_estimate, weight) in &anchors {
+                let sum: f64 = regions.iter().map(|&r| ephi[r]).sum();
+                let residual = sum.max(f64::EPSILON).ln() - log_estimate;
+                value -= 0.5 * weight * residual * residual;
+            }
+            value
+        };
+
+        let step_tolerance = 1e-2 / (1u64 << 8) as f64;
+        let optimizers: Vec<(&str, Box<dyn JointOptimizer>)> = vec![
+            ("lbfgs", Box::new(Lbfgs::default())),
+            ("adam(2000)", Box::new(Adam::default())),
+            ("rmsprop(2000)", Box::new(RmsProp::default())),
+            (
+                "adam(500)+lbfgs",
+                Box::new(Chain {
+                    first: Adam {
+                        learning_rate: 0.1,
+                        iterations: 500,
+                    },
+                    second: Lbfgs::default(),
+                }),
+            ),
+            (
+                "rmsprop(500)+lbfgs",
+                Box::new(Chain {
+                    first: RmsProp {
+                        learning_rate: 0.1,
+                        iterations: 500,
+                    },
+                    second: Lbfgs::default(),
+                }),
+            ),
+        ];
+
+        println!(
+            "\n=== M={M} N={N} P8 unit={unit} (higher obj = better fit; lower cell_err = more accurate) ==="
+        );
+        for (name, optimizer) in &optimizers {
+            let start = std::time::Instant::now();
+            let result = optimizer.maximize(init.clone(), &mut map_objective, step_tolerance);
+            let elapsed_ms = start.elapsed().as_secs_f64() * 1e3;
+            println!(
+                "{name:<20} cell_err={:>6.3}%  obj={:>10.2}  time={:>8.2}ms",
+                100.0 * cell_err(&result),
+                objective(&result),
+                elapsed_ms
+            );
+        }
+    }
+
+    #[cfg(feature = "mle")]
+    #[test]
+    #[ignore]
+    fn experiment_optimizers_run() {
+        experiment_optimizers::<4, 4>(256);
+        experiment_optimizers::<5, 5>(256);
     }
 }

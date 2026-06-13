@@ -224,3 +224,15 @@ Gradient: `ln P_reg = base + sum_w ln Q_w`. The base contributes `-x_rho(ceil_rh
 This polynomial form reproduces the section-4 formula to machine precision (validated against both the `2^(M+N)` oracle and a Monte-Carlo simulation for `M = N = 1`, `M = 2, N = 1`, `M = 2, N = 2`, `M = 3, N = 2`, including ties, zeros, and saturation). For `M = N = 1` each region is contained in at most one counter per side, so the blocks are trivial and the achievement factors reduce exactly to the three cases of section 6.
 
 Reference for the open problem this resolves: Otmar Ertl notes (arXiv 1702.01284) that joint estimation across more than two sketches "would scale at least exponentially with the number of involved HyperLogLog sketches" for arbitrary sets. The nested-chain structure here (only `M*N + M + N` disjoint regions, not a `2^k`-region Venn diagram) is what makes a polynomial likelihood possible.
+
+## 10. Optimizers (pluggable, generic composition)
+
+The warm-started MAP objective (log-likelihood plus the marginal-anchor log-prior) is maximized by a pluggable optimizer behind the `JointOptimizer` trait. `joint_sketch_mle` uses a sensible default, and `joint_sketch_mle_with` accepts any optimizer so the caller can choose by generic composition (the trait and the `Lbfgs`, `Adam`, `RmsProp`, and `Chain` types are public behind the `mle` feature).
+
+Empirically (see the `experiment_optimizers` harness in `src/mle.rs`, which reports per-cell accuracy, the attained MAP objective, and wall-clock for each optimizer):
+
+- The objective is mildly multi-modal on non-symmetric instances. A greedy descent method (L-BFGS) converges quickly to the nearest local optimum, which can be worse (lower objective, less accurate) than the optimum a momentum method reaches.
+- Adam's momentum escapes those poor basins and reaches the better optimum, but takes many small steps whose size never shrinks near a flat optimum (so a step-size or objective-plateau stop is unreliable: the escape happens only after a plateau).
+- The default `Chain { first: Adam, second: Lbfgs }` runs a fixed short Adam warmup (escaping poor basins via momentum) and then L-BFGS (fast, precise final convergence). It matches the accuracy and attained objective of a long Adam run while being several times faster, and is more accurate than plain L-BFGS.
+
+This mirrors Ertl's 2-set joint MLE, which uses BFGS warm-started from the inclusion-exclusion estimate and reports convergence in roughly 13-42 iterations (arXiv 1702.01284, Table 1). The first-order warmup is the only addition, motivated by the multi-modality that appears once the disjoint-region model has more than three cells.
