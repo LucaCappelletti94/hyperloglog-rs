@@ -133,14 +133,6 @@ pub fn test_union_merge_at_precision_and_bits<
     R: Registers<P, B>,
     H: HasherType,
 >() {
-    // The hash-list cardinality correction tables only cover precisions 4..=15, so
-    // `estimate_cardinality` in hash-list mode panics at precisions 16..=18 (a pre-existing
-    // gap in the generated correction coefficients, unrelated to the merger). We restrict
-    // this test to the supported range.
-    if P::EXPONENT > 15 {
-        return;
-    }
-
     let mut left: HyperLogLog<P, B, R, H> = Default::default();
     let mut right: HyperLogLog<P, B, R, H> = Default::default();
     let mut exact_left = std::collections::HashSet::new();
