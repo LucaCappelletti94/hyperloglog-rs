@@ -63,7 +63,8 @@ impl Point for CardinalitySample {
 
     #[inline]
     fn y(&self) -> f64 {
-        (self.exact_cardinality_mean - self.estimated_cardinality_mean).abs() / self.exact_cardinality_mean.max(1.0)
+        (self.exact_cardinality_mean - self.estimated_cardinality_mean).abs()
+            / self.exact_cardinality_mean.max(1.0)
     }
 }
 
@@ -76,17 +77,16 @@ impl ExtendedCardinalitySampleBuilder {
         memory_requirements: usize,
         time_requirements: u128,
     ) {
-        self.cardinality_sample_builder.update(
-            exact_cardinality,
-            estimated_cardinality,
-        );
+        self.cardinality_sample_builder
+            .update(exact_cardinality, estimated_cardinality);
         self.memory_requirements_sum += memory_requirements;
         self.time_requirements_sum += time_requirements;
     }
 
     #[inline]
     pub fn increase_measuremenet_count(&mut self) {
-        self.cardinality_sample_builder.increase_measuremenet_count();
+        self.cardinality_sample_builder
+            .increase_measuremenet_count();
     }
 }
 

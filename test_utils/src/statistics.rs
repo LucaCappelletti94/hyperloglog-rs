@@ -8,7 +8,12 @@ use stattest::test::WilcoxonWTest;
 pub fn standard_deviation(values: &[f64], mean: f64, occurrences: &[usize]) -> f64 {
     // The values are always less than `u32::MAX`, so we can safely convert them.
     let number_of_values = occurrences.iter().sum::<usize>() as f64;
-    let variance = values.iter().zip(occurrences.iter().copied()).map(|(v, o)| (v - mean).powi(2)*o as f64).sum::<f64>() / number_of_values;
+    let variance = values
+        .iter()
+        .zip(occurrences.iter().copied())
+        .map(|(v, o)| (v - mean).powi(2) * o as f64)
+        .sum::<f64>()
+        / number_of_values;
     variance.sqrt()
 }
 
@@ -26,7 +31,12 @@ where
 /// Returns a tuple with the mean and standard deviation of the values.
 pub fn mean_and_std(values: &[f64], occurrences: &[usize]) -> (f64, f64) {
     let total_occurrences = occurrences.iter().sum::<usize>();
-    let mean = values.iter().zip(occurrences.iter()).map(|(v, o)| v * *o as f64).sum::<f64>() / total_occurrences as f64;
+    let mean = values
+        .iter()
+        .zip(occurrences.iter())
+        .map(|(v, o)| v * *o as f64)
+        .sum::<f64>()
+        / total_occurrences as f64;
     let std = standard_deviation(values, mean, occurrences);
     (mean, std)
 }
@@ -77,7 +87,14 @@ impl<'a> BenchmarkResults<'a> {
         unimplemented!("Feature target not found for '{}'", self.feature);
     }
 
-    pub fn new(feature: &'a str, new_stats: Stats, old_stats: Stats, new_model: &'a str, old_model: &'a str, p_value: TestResult) -> Self {
+    pub fn new(
+        feature: &'a str,
+        new_stats: Stats,
+        old_stats: Stats,
+        new_model: &'a str,
+        old_model: &'a str,
+        p_value: TestResult,
+    ) -> Self {
         Self {
             feature,
             new_stats,
@@ -107,8 +124,7 @@ impl<'a> BenchmarkResults<'a> {
             "{}",
             format!(
                 "{} Mean: {:.4} ± {:.4}",
-                self.new_model,
-                self.new_stats.mean, self.new_stats.std
+                self.new_model, self.new_stats.mean, self.new_stats.std
             )
             .blue()
         );
@@ -118,8 +134,7 @@ impl<'a> BenchmarkResults<'a> {
             "{}",
             format!(
                 "{} Mean: {:.4} ± {:.4}",
-                self.old_model,
-                self.old_stats.mean, self.old_stats.std
+                self.old_model, self.old_stats.mean, self.old_stats.std
             )
             .yellow()
         );

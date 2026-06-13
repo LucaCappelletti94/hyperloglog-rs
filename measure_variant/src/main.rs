@@ -17,7 +17,7 @@ struct Measurement {
     measures: Vec<ExtendedCardinalitySample>,
     precision: Option<u8>,
     bits: Option<u8>,
-    model_name: String
+    model_name: String,
 }
 
 fn measure<S: Set + Default + MemSize>(reference: Option<&Measurement>) -> Measurement {
@@ -60,9 +60,11 @@ fn measure<S: Set + Default + MemSize>(reference: Option<&Measurement>) -> Measu
             .collect();
 
         debug_assert!(
-            stored_reports.measures.iter().zip(reference.measures.iter()).all(|(new, old)| {
-                new.count() == old.count()
-            }),
+            stored_reports
+                .measures
+                .iter()
+                .zip(reference.measures.iter())
+                .all(|(new, old)| { new.count() == old.count() }),
             "The occurrences in both reports should be the same, or the buckets have changed!"
         );
 

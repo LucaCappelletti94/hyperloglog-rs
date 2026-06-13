@@ -132,12 +132,7 @@ impl<'a> BitWriter<'a> {
     }
 
     #[inline(always)]
-    pub fn write_rice(
-        &mut self,
-        uniform_delta: u32,
-        geometric_minus_one: u8,
-        b1: u8,
-    ) -> usize {
+    pub fn write_rice(&mut self, uniform_delta: u32, geometric_minus_one: u8, b1: u8) -> usize {
         usize::from(self.write_unary(uniform_delta >> b1))
             + usize::from(self.write_bits(uniform_delta, b1))
             + usize::from(self.write_unary(geometric_minus_one))

@@ -3,27 +3,13 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use hyperloglog_rs::prelude::*;
 use twox_hash::XxHash64;
 
-type HLLW = HyperLogLog<
-    Precision9,
-    Bits6,
-    <Precision9 as PackedRegister<Bits6>>::Array,
-    wyhash::WyHash,
->;
+type HLLW =
+    HyperLogLog<Precision9, Bits6, <Precision9 as PackedRegister<Bits6>>::Array, wyhash::WyHash>;
 
-type HLLX = HyperLogLog<
-    Precision9,
-    Bits6,
-    <Precision9 as PackedRegister<Bits6>>::Array,
-    XxHash64
->;
+type HLLX = HyperLogLog<Precision9, Bits6, <Precision9 as PackedRegister<Bits6>>::Array, XxHash64>;
 
-type HLLA = HyperLogLog<
-    Precision9,
-    Bits6,
-    <Precision9 as PackedRegister<Bits6>>::Array,
-    ahash::AHasher,
->;
-
+type HLLA =
+    HyperLogLog<Precision9, Bits6, <Precision9 as PackedRegister<Bits6>>::Array, ahash::AHasher>;
 
 fn bench_hyperloglog_insert(c: &mut Criterion) {
     let mut group = c.benchmark_group("hyperloglog_insert");

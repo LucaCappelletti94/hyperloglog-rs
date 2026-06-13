@@ -1,4 +1,3 @@
-
 #[inline]
 /// Returns the bucketed index for the given cardinality estimate.
 ///
@@ -104,18 +103,27 @@ mod tests {
         }
 
         for i in 768..1024 {
-            assert_eq!(1024 + (i - 768) as u64 * 4, index_to_cardinality_estimate(i));
+            assert_eq!(
+                1024 + (i - 768) as u64 * 4,
+                index_to_cardinality_estimate(i)
+            );
         }
 
         for i in 1024..1280 {
-            assert_eq!(2048 + (i - 1024) as u64 * 8, index_to_cardinality_estimate(i));
+            assert_eq!(
+                2048 + (i - 1024) as u64 * 8,
+                index_to_cardinality_estimate(i)
+            );
         }
     }
 
     #[test]
     fn test_cardinality_estimate_to_index_to_cardinality_estimate() {
         for i in 0..1000 {
-            assert_eq!(i, cardinality_estimate_to_index(index_to_cardinality_estimate(i)));
+            assert_eq!(
+                i,
+                cardinality_estimate_to_index(index_to_cardinality_estimate(i))
+            );
         }
     }
 }

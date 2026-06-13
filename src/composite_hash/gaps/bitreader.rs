@@ -117,10 +117,7 @@ impl<'a> BitReader<'a> {
 /// * `b1` - The rice coefficient to use for the uniform value.
 /// * `geometric` - The geometric value to encode.
 pub const fn len_rice(uniform_delta: u32, b1: u8, geometric_minus_one: u8) -> u32 {
-    (uniform_delta >> b1)
-        + 2
-        + b1 as u32
-        + geometric_minus_one as u32
+    (uniform_delta >> b1) + 2 + b1 as u32 + geometric_minus_one as u32
 }
 
 #[cfg(test)]

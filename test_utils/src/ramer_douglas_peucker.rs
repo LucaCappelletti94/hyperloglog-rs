@@ -18,10 +18,10 @@ pub trait Point {
             - (line_end.x() - line_start.x()) * self.y()
             + line_end.x() * line_start.y()
             - line_end.y() * line_start.x())
-            .abs();
+        .abs();
         let denominator = line_start.distance_to(line_end);
         numerator / denominator
-    }   
+    }
 }
 
 /// Recursive function for the Ramer-Douglas-Peucker algorithm

@@ -17,7 +17,9 @@ pub mod prelude {
     pub use crate::parallel::*;
     pub use crate::ramer_douglas_peucker::{rdp, Point};
     pub use crate::readable_number::ReadableNumber;
-    pub use crate::sample_builder::{CardinalitySample, ExtendedCardinalitySample, CardinalitySampleBuilder};
+    pub use crate::sample_builder::{
+        CardinalitySample, CardinalitySampleBuilder, ExtendedCardinalitySample,
+    };
     pub use crate::sample_collector::{
         cardinality_samples, uncorrected_cardinality_samples_by_model, CardinalitySamplesByModel,
     };

@@ -34,7 +34,7 @@ pub trait Registers<P: Precision, B: Bits>:
         let index = xorshift64(random_state) as usize % (1 << P::EXPONENT);
         (index, self.get_register(index))
     }
-    
+
     /// Returns the minimum register, including zero.
     fn min(&self) -> (usize, u8) {
         let mut min_register = u8::MAX;

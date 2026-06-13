@@ -54,7 +54,9 @@ pub fn cardinality_samples<S: MemSize + Set + Default>(
             let reports = reports[rayon::current_thread_index().unwrap()].get_mut();
 
             // We iterate over the reports and increase the measurements.
-            reports.iter_mut().for_each(|report| report.increase_measuremenet_count());
+            reports
+                .iter_mut()
+                .for_each(|report| report.increase_measuremenet_count());
 
             let mut starting_value = bias;
 
@@ -71,7 +73,6 @@ pub fn cardinality_samples<S: MemSize + Set + Default>(
                 hll.insert_element(starting_value);
                 hll.insert_element(starting_value);
                 hll.insert_element(starting_value);
-
 
                 let index: usize = cardinality_estimate_to_index(exact_cardinality);
                 reports[index].update(
@@ -251,8 +252,12 @@ pub fn uncorrected_cardinality_samples_by_model<P: Precision + PackedRegister<B>
             let hyperloglog_reports = hyperloglog_reports.get_mut();
 
             // We iterate over the reports and increase the measurements.
-            hash_list_reports.iter_mut().for_each(|report| report.increase_measuremenet_count());
-            hyperloglog_reports.iter_mut().for_each(|report| report.increase_measuremenet_count());
+            hash_list_reports
+                .iter_mut()
+                .for_each(|report| report.increase_measuremenet_count());
+            hyperloglog_reports
+                .iter_mut()
+                .for_each(|report| report.increase_measuremenet_count());
 
             let mut starting_value = bias;
 
@@ -262,15 +267,11 @@ pub fn uncorrected_cardinality_samples_by_model<P: Precision + PackedRegister<B>
                 let index: usize = cardinality_estimate_to_index(exact_cardinality);
 
                 if model_not_imprinted.is_hash_list() {
-                    hash_list_reports[index].update(
-                        exact_cardinality,
-                        cardinality_estimate_not_imprinted,
-                    );
+                    hash_list_reports[index]
+                        .update(exact_cardinality, cardinality_estimate_not_imprinted);
                 } else {
-                    hyperloglog_reports[index].update(
-                        exact_cardinality,
-                        cardinality_estimate_not_imprinted,
-                    );
+                    hyperloglog_reports[index]
+                        .update(exact_cardinality, cardinality_estimate_not_imprinted);
                 }
 
                 let was_hash_list = model_not_imprinted.is_hash_list();

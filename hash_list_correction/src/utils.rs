@@ -130,7 +130,7 @@ where
     } else {
         let iterations: u64 = 12_800_000 * 64 / (1 << (P::EXPONENT as u64 - 4));
         let maximum_cardinality = 200 * (1 << P::EXPONENT);
-            let cardinality_sample_by_model: CardinalitySamplesByModel =
+        let cardinality_sample_by_model: CardinalitySamplesByModel =
             uncorrected_cardinality_samples_by_model::<P, B>(
                 iterations,
                 maximum_cardinality,
@@ -159,7 +159,8 @@ where
         .cloned()
         .collect();
 
-    let (hyperloglog_cardinalities, hyperloglog_relative_bias) = correction::<P>(&filtered_hyperloglog, 0.000005);
+    let (hyperloglog_cardinalities, hyperloglog_relative_bias) =
+        correction::<P>(&filtered_hyperloglog, 0.000005);
 
     // We create the correction.
     let correction = HashCorrection {

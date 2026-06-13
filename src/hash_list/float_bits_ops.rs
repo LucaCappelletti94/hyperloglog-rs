@@ -11,7 +11,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
     #[inline]
     /// Returns the number of bits used to store the hash.
-    /// 
+    ///
     /// # Errors
     /// If the counter is not in hash list mode, an error is returned.
     pub fn get_hash_bits(&self) -> Result<u8, &'static str> {
@@ -54,7 +54,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
     #[inline]
     /// Returns the number of hashes stored in the harmonic sum.
-    /// 
+    ///
     /// # Errors
     /// If the counter is not in hash list mode, an error is returned.
     pub fn get_number_of_hashes(&self) -> Result<u32, &'static str> {

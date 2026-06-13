@@ -562,10 +562,14 @@ where
     Self: Default,
     B: VariableWord<Word = u8>,
 {
-    type Iter<'words> = PackedIter<&'words Self, 1> where Self: 'words;
-    type IterZipped<'words> = PackedIter<&'words Self, 2>
-        where
-            Self: 'words;
+    type Iter<'words>
+        = PackedIter<&'words Self, 1>
+    where
+        Self: 'words;
+    type IterZipped<'words>
+        = PackedIter<&'words Self, 2>
+    where
+        Self: 'words;
 
     #[inline]
     fn increase_capacity(&mut self) {
@@ -637,7 +641,12 @@ where
             let (low, high) = unsafe { self.words.as_mut().split_at_mut_unchecked(word_index + 1) };
             let low = unsafe { low.get_unchecked_mut(word_index) };
             let high = unsafe { high.get_unchecked_mut(0) };
-            insert_bridge_value_into_word::<B>(low, high, relative_value_offset, new_register.into());
+            insert_bridge_value_into_word::<B>(
+                low,
+                high,
+                relative_value_offset,
+                new_register.into(),
+            );
 
             debug_assert_eq!(self.get(index), new_register);
         } else {

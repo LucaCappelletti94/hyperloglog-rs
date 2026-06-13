@@ -5,7 +5,7 @@ use super::PositiveInteger;
 use core::fmt::Debug;
 
 /// Trait marker for the variable word.
-pub trait VariableWord: Send + Sync + Clone + Copy + Debug + Default + Eq{
+pub trait VariableWord: Send + Sync + Clone + Copy + Debug + Default + Eq {
     /// The number of bits in the word.
     const NUMBER_OF_BITS: u8;
     /// The number of bits in the word as a usize.
