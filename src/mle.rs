@@ -21,6 +21,24 @@ use core::ops::{Add, Mul, Sub};
 impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
     /// Returns the union cardinality estimated with the joint Maximum Likelihood Estimation.
     ///
+    /// # Examples
+    /// ```
+    /// use hyperloglog_rs::prelude::*;
+    /// type Hll = HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array>;
+    ///
+    /// let mut a = Hll::default();
+    /// let mut b = Hll::default();
+    /// for x in 0u64..30_000 {
+    ///     a.insert(&x); // A = [0, 30000)
+    /// }
+    /// for x in 20_000u64..50_000 {
+    ///     b.insert(&x); // B = [20000, 50000), so the true union is 50000
+    /// }
+    ///
+    /// let union = a.estimate_union_cardinality_mle(&b);
+    /// assert!((union - 50_000.0).abs() / 50_000.0 < 0.1);
+    /// ```
+    ///
     /// # Implementative details
     /// The estimator operates on the HyperLogLog register multiplicities, so if either operand
     /// is still a hash list it is materialized into a fully-fledged HyperLogLog first. The
@@ -44,6 +62,20 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     /// Returns the cardinality estimated with the single-counter Maximum Likelihood Estimation.
+    ///
+    /// # Examples
+    /// ```
+    /// use hyperloglog_rs::prelude::*;
+    /// type Hll = HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array>;
+    ///
+    /// let mut counter = Hll::default();
+    /// for x in 0u64..40_000 {
+    ///     counter.insert(&x); // true cardinality is 40000
+    /// }
+    ///
+    /// let estimate = counter.estimate_cardinality_mle();
+    /// assert!((estimate - 40_000.0).abs() / 40_000.0 < 0.1);
+    /// ```
     ///
     /// # Implementative details
     /// This is Ertl's secant-method maximum-likelihood estimator over the register
@@ -81,10 +113,36 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// returned cells are non-negative and globally consistent by construction. At `M = N = 1`
     /// this reduces to the three-region model of [`HyperLogLog::estimate_union_cardinality_mle`].
     ///
+    /// # Examples
+    /// The `M = N = 1` case decomposes two sets into intersection and the two differences. With
+    /// `A = [0, 4000)` and `B = [2000, 6000)`, the intersection `[2000, 4000)` is about 2000 and the
+    /// union is about 6000.
+    /// ```
+    /// use hyperloglog_rs::prelude::*;
+    /// type Hll = HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array>;
+    ///
+    /// let mut a = Hll::default();
+    /// let mut b = Hll::default();
+    /// for x in 0u64..4_000 {
+    ///     a.insert(&x);
+    /// }
+    /// for x in 2_000u64..6_000 {
+    ///     b.insert(&x);
+    /// }
+    ///
+    /// let (overlap, left_diff, right_diff) = Hll::joint_sketch_mle(&[a], &[b]);
+    /// // overlap[i][j] = |L_i intersect R_j|; here the single intersection cell.
+    /// assert!((overlap[0][0] - 2_000.0).abs() / 2_000.0 < 0.25);
+    /// let union = overlap[0][0] + left_diff[0] + right_diff[0];
+    /// assert!((union - 6_000.0).abs() / 6_000.0 < 0.2);
+    /// ```
+    ///
     /// # Implementative details
     /// Any hash-list operand is materialized into registers first. The optimization is warm-started
-    /// from the pairwise sketch and refined with an Adam optimizer driven by the exact forward-mode
-    /// gradient of the joint per-register log-likelihood. See `docs/joint_mle_math.md`.
+    /// from the pairwise sketch and refined with the default `Chain<Adam, Lbfgs>` optimizer, driven
+    /// by the exact forward-mode gradient of the joint per-register log-likelihood. Use
+    /// [`HyperLogLog::joint_sketch_mle_with`] to pick a different optimizer. See
+    /// `docs/joint_mle_math.md`.
     #[inline]
     pub fn joint_sketch_mle<const M: usize, const N: usize>(
         lefts: &[Self; M],
@@ -105,11 +163,36 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         joint_sketch_mle_from_registers::<P, B, R, H, M, N>(&lefts, &rights)
     }
 
-    /// Same as [`HyperLogLog::joint_sketch_mle`] but with a caller-chosen `optimizer` driving the
-    /// refinement (generic composition). Compose optimizers with [`Chain`], for example
-    /// `Chain<Adam, Lbfgs>`, or implement [`JointOptimizer`] for a custom strategy. The default
-    /// method uses `Chain<Adam, Lbfgs>`. Example:
-    /// `Counter::joint_sketch_mle_with::<Lbfgs>(&lefts, &rights)` (`M`/`N` inferred from the arrays).
+    /// Same as [`HyperLogLog::joint_sketch_mle`] but with a caller-chosen optimizer type driving the
+    /// refinement, selected at compile time by turbofish. Compose optimizers with [`Chain`], for
+    /// example `Chain<Adam, Lbfgs>`, or implement [`JointOptimizer`] for a custom strategy. The
+    /// default method uses `Chain<Adam, Lbfgs>`; `Lbfgs` alone is fastest where the objective is
+    /// unimodal.
+    ///
+    /// # Examples
+    /// ```
+    /// use hyperloglog_rs::prelude::*;
+    /// type Hll = HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array>;
+    ///
+    /// let mut a = Hll::default();
+    /// let mut b = Hll::default();
+    /// for x in 0u64..4_000 {
+    ///     a.insert(&x);
+    /// }
+    /// for x in 2_000u64..6_000 {
+    ///     b.insert(&x);
+    /// }
+    ///
+    /// // Fastest: plain L-BFGS (M and N are inferred from the arrays).
+    /// let (overlap, left_diff, right_diff) =
+    ///     Hll::joint_sketch_mle_with::<Lbfgs, 1, 1>(&[a.clone()], &[b.clone()]);
+    /// let union = overlap[0][0] + left_diff[0] + right_diff[0];
+    /// assert!((union - 6_000.0).abs() / 6_000.0 < 0.2);
+    ///
+    /// // Robust: an Adam warmup composed with L-BFGS (this is also the default).
+    /// let (overlap, ..) = Hll::joint_sketch_mle_with::<Chain<Adam, Lbfgs>, 1, 1>(&[a], &[b]);
+    /// assert!(overlap[0][0] > 0.0);
+    /// ```
     #[inline]
     pub fn joint_sketch_mle_with<O: JointOptimizer, const M: usize, const N: usize>(
         lefts: &[Self; M],
@@ -774,7 +857,7 @@ fn joint_sketch_mle_core<
     let step_tolerance = 10.0_f64.powi(-2) / f64::integer_exp2(P::EXPONENT).sqrt();
 
     // The MAP objective: log-likelihood plus the marginal-anchor log-prior, with its ascent gradient.
-    let mut objective = |phis: &[f64], gradient: &mut [f64]| {
+    let objective = |phis: &[f64], gradient: &mut [f64]| {
         let log_likelihood = log_likelihood_gradient(phis, gradient);
         add_marginal_anchor_gradient(&anchors, phis, gradient);
         let mut log_prior = f64::ZERO;
@@ -1093,7 +1176,25 @@ fn add_marginal_anchor_gradient(
 /// value to MAXIMIZE and fills its ascent gradient into a pre-zeroed buffer; `step_tolerance` is the
 /// convergence scale (the expected statistical error, `~1/sqrt(m)`).
 pub trait JointOptimizer {
-    /// Maximizes `objective` starting from `init`, returning the best point found.
+    /// Maximizes `objective` starting from `init`, returning the best point found. `objective(x,
+    /// grad)` returns the value to maximize and writes its ascent gradient into the pre-zeroed
+    /// `grad` buffer.
+    ///
+    /// # Examples
+    /// Maximize `f(x) = -(x - 3)^2`, whose maximum is at `x = 3`.
+    /// ```
+    /// use hyperloglog_rs::prelude::*;
+    ///
+    /// let result = Lbfgs::maximize(
+    ///     vec![0.0],
+    ///     |x: &[f64], grad: &mut [f64]| {
+    ///         grad[0] = -2.0 * (x[0] - 3.0);
+    ///         -(x[0] - 3.0).powi(2)
+    ///     },
+    ///     1e-9,
+    /// );
+    /// assert!((result[0] - 3.0).abs() < 1e-4);
+    /// ```
     fn maximize<F: FnMut(&[f64], &mut [f64]) -> f64>(
         init: Vec<f64>,
         objective: F,
@@ -1106,6 +1207,22 @@ pub trait JointOptimizer {
 /// descent method it converges to the nearest local optimum, which on multi-modal instances can be
 /// worse than the optimum a momentum method reaches. Cheap, so it pairs well as the polishing stage
 /// of a [`Chain`].
+///
+/// # Examples
+/// ```
+/// use hyperloglog_rs::prelude::*;
+/// // Maximize -((x0 - 1)^2 + (x1 + 2)^2); optimum at (1, -2).
+/// let max = Lbfgs::maximize(
+///     vec![0.0, 0.0],
+///     |x: &[f64], g: &mut [f64]| {
+///         g[0] = -2.0 * (x[0] - 1.0);
+///         g[1] = -2.0 * (x[1] + 2.0);
+///         -((x[0] - 1.0).powi(2) + (x[1] + 2.0).powi(2))
+///     },
+///     1e-9,
+/// );
+/// assert!((max[0] - 1.0).abs() < 1e-4 && (max[1] + 2.0).abs() < 1e-4);
+/// ```
 pub struct Lbfgs;
 
 impl Lbfgs {
@@ -1237,6 +1354,21 @@ impl JointOptimizer for Lbfgs {
 /// descent method settles into, at the cost of many small steps that never shrink near a flat
 /// optimum. Used here for a fixed budget (returning the best point seen), typically as the
 /// basin-escaping warmup stage of a [`Chain`].
+///
+/// # Examples
+/// ```
+/// use hyperloglog_rs::prelude::*;
+/// // Adam runs a fixed budget and returns the best point seen, so it converges loosely.
+/// let max = Adam::maximize(
+///     vec![0.0],
+///     |x: &[f64], g: &mut [f64]| {
+///         g[0] = -2.0 * (x[0] - 5.0);
+///         -(x[0] - 5.0).powi(2)
+///     },
+///     1e-9,
+/// );
+/// assert!((max[0] - 5.0).abs() < 1e-2);
+/// ```
 pub struct Adam;
 
 impl Adam {
@@ -1283,6 +1415,20 @@ impl JointOptimizer for Adam {
 /// RMSProp (adaptive first-order, no momentum). Cheaper per step than Adam, also basin-escaping
 /// in practice. Runs a fixed budget and returns the best point seen. (Dominated by [`Adam`] in the
 /// comparison harness; kept for completeness.)
+///
+/// # Examples
+/// ```
+/// use hyperloglog_rs::prelude::*;
+/// let max = RmsProp::maximize(
+///     vec![0.0],
+///     |x: &[f64], g: &mut [f64]| {
+///         g[0] = -2.0 * (x[0] + 4.0);
+///         -(x[0] + 4.0).powi(2)
+///     },
+///     1e-9,
+/// );
+/// assert!((max[0] + 4.0).abs() < 1e-2);
+/// ```
 pub struct RmsProp;
 
 impl RmsProp {
@@ -1325,6 +1471,21 @@ impl JointOptimizer for RmsProp {
 /// stopped. `Chain<Adam, Lbfgs>` is the recommended (and default) estimator path: an Adam warmup
 /// escapes poor basins, then L-BFGS converges quickly to the optimum within the good basin. A
 /// zero-sized type selected purely at compile time, e.g. `joint_sketch_mle_with::<Chain<Adam, Lbfgs>>`.
+///
+/// # Examples
+/// ```
+/// use hyperloglog_rs::prelude::*;
+/// // The Adam warmup escapes poor basins, then L-BFGS polishes to full precision.
+/// let max = <Chain<Adam, Lbfgs>>::maximize(
+///     vec![0.0],
+///     |x: &[f64], g: &mut [f64]| {
+///         g[0] = -2.0 * (x[0] - 7.0);
+///         -(x[0] - 7.0).powi(2)
+///     },
+///     1e-9,
+/// );
+/// assert!((max[0] - 7.0).abs() < 1e-4);
+/// ```
 pub struct Chain<A, B>(core::marker::PhantomData<(A, B)>);
 
 impl<A: JointOptimizer, B: JointOptimizer> JointOptimizer for Chain<A, B> {
