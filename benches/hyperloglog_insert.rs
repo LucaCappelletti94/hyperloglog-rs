@@ -1,5 +1,5 @@
 //! Bench to compare and optimize time performance of inserting a prefix-free encoded list of hashes.
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use hyperloglog_rs::prelude::*;
 use twox_hash::XxHash64;
 
@@ -72,6 +72,73 @@ fn bench_hyperloglog_insert(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_hyperloglog_insert);
+type HLL14 =
+    HyperLogLog<Precision14, Bits6, <Precision14 as PackedRegister<Bits6>>::Array, XxHash64>;
+
+/// Builds a counter holding `count` distinct elements, asserting it is still in hash-list
+/// mode (`count` must stay below the conversion threshold, ~34k at Precision14/Bits6).
+fn hash_list_of(count: u64, seed: u64) -> HLL14 {
+    let mut hll = HLL14::default();
+    for value in iter_random_values::<u64>(count, None, Some(seed)) {
+        hll.insert(&value);
+    }
+    assert!(
+        hll.is_hash_list(),
+        "a counter of {count} elements must still be a hash list"
+    );
+    hll
+}
+
+/// Compares the per-insert cost of the hash-list mode (sorted, gap-encoded, O(n) per insert)
+/// against the fully-fledged HyperLogLog mode (O(1) register update), inserting the same batch
+/// of new elements into bases of increasing size. The HyperLogLog base is obtained by flipping
+/// a hash-list counter with `convert_hash_list_to_hyperloglog`, so both modes hold the same
+/// elements. The clone in the setup closure is not timed (`iter_batched`).
+fn bench_insert_modes(c: &mut Criterion) {
+    let mut group = c.benchmark_group("insert_mode_p14_bits6");
+
+    // 256 fresh elements, disjoint from the bases, inserted on each measured iteration.
+    let batch: Vec<u64> = iter_random_values::<u64>(256, None, Some(0x00BA_7C00)).collect();
+
+    for &base_size in &[256_u64, 4_096, 16_384] {
+        let hash_list_base = hash_list_of(base_size, 0x00BA_5E00);
+        let mut hll_base = hash_list_base.clone();
+        hll_base.convert_hash_list_to_hyperloglog().unwrap();
+        assert!(!hll_base.is_hash_list());
+
+        group.bench_with_input(
+            BenchmarkId::new("hash_list", base_size),
+            &base_size,
+            |b, _| {
+                b.iter_batched(
+                    || hash_list_base.clone(),
+                    |mut hll| {
+                        for value in &batch {
+                            hll.insert(black_box(value));
+                        }
+                        black_box(hll.is_hash_list())
+                    },
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+
+        group.bench_with_input(BenchmarkId::new("hll", base_size), &base_size, |b, _| {
+            b.iter_batched(
+                || hll_base.clone(),
+                |mut hll| {
+                    for value in &batch {
+                        hll.insert(black_box(value));
+                    }
+                },
+                BatchSize::SmallInput,
+            );
+        });
+    }
+
+    group.finish();
+}
+
+criterion_group!(benches, bench_hyperloglog_insert, bench_insert_modes);
 
 criterion_main!(benches);
