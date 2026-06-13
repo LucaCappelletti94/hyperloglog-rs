@@ -13,7 +13,29 @@
 //! sometimes it is necessary, such as in test cases, to have the exact version of the
 //! algorithm. The approximated version is faster and uses less memory, but it is not,
 //! of course, guaranteed to be exact.
-use crate::prelude::{FloatOps, Number, Zero};
+use crate::prelude::{Bits, FloatOps, HasherType, HyperLogLog, Number, Precision, Registers, Zero};
+
+/// Wires `HyperLogLog` to the approximate sketching algorithms, using its cardinality and union
+/// cardinality estimators. The `self.estimate_*` calls resolve to the inherent methods (inherent
+/// methods take precedence over trait methods), so this delegates rather than recursing.
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketch<f64>
+    for HyperLogLog<P, B, R, H>
+{
+    #[inline]
+    fn estimate_cardinality(&self) -> f64 {
+        self.estimate_cardinality()
+    }
+
+    #[inline]
+    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+        self.estimate_union_cardinality(other)
+    }
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> NormalizedHyperSpheresSketch
+    for HyperLogLog<P, B, R, H>
+{
+}
 
 /// Trait for sketching algorithms that provide the overlap and differences cardinality matrices.
 pub trait HyperSpheresSketch<N: Number>: Sized {

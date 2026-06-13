@@ -336,3 +336,45 @@ fn test_mle_cardinality_reasonable() {
         Precision12::error_rate(),
     );
 }
+
+/// `HyperLogLog` must implement `HyperSpheresSketch`, so the overlap and difference cardinality
+/// matrices can be computed. For the simplest 1x1 case the overlap is the intersection
+/// cardinality and the difference vectors are the set differences. With A = [0, 10_000) and
+/// B = [5_000, 15_000): overlap ~ 5_000, left difference ~ 5_000, right difference ~ 5_000.
+#[test]
+fn test_hyper_spheres_sketch_overlap_and_differences() {
+    type Counter =
+        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut a: Counter = Default::default();
+    let mut b: Counter = Default::default();
+    for element in 0..10_000_u64 {
+        a.insert(&element);
+    }
+    for element in 5_000..15_000_u64 {
+        b.insert(&element);
+    }
+
+    let (overlaps, left_differences, right_differences) =
+        <Counter as HyperSpheresSketch<f64>>::overlap_and_differences_cardinality_matrices(
+            &[a],
+            &[b],
+        );
+
+    let close = |got: f64, want: f64| (got - want).abs() <= want * 0.15;
+    assert!(
+        close(overlaps[0][0], 5_000.0),
+        "overlap (intersection) {} should be ~5000",
+        overlaps[0][0]
+    );
+    assert!(
+        close(left_differences[0], 5_000.0),
+        "left difference {} should be ~5000",
+        left_differences[0]
+    );
+    assert!(
+        close(right_differences[0], 5_000.0),
+        "right difference {} should be ~5000",
+        right_differences[0]
+    );
+}
