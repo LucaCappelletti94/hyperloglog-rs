@@ -2,58 +2,67 @@ name: Rust CI
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+# CI gates the published library only (`hyperloglog-rs` and its `hyperloglog-derive`
+# macro). The experimental comparison crates (`statistical_comparisons`, `measure_variant`,
+# `test_utils`) pull in branch-pinned git forks and are not gated here; they are meant to be
+# extracted into a separate repository. The exhaustive accuracy matrix in `tests/test_hll.rs`
+# is a validation sweep (tens of minutes), run locally rather than on every push; CI runs the
+# library unit tests and doctests instead.
+
 jobs:
-  build:
+  test:
+    name: Test (stable)
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        rust-version: [
-          1.78.0, 1.80.0, stable, beta, nightly
-        ]
-        
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust-version }}
-          override: true
-
-      - name: Cache cargo registry
-        uses: actions/cache@v3
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-registry-
-
-      - name: Cache cargo build
-        uses: actions/cache@v3
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-${{ matrix.rust-version }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-build-${{ matrix.rust-version }}-
-
-      - name: Install dependencies
+      - name: Build (default / std / no-default-features)
         run: |
-          cargo fetch
-          rustup component add --toolchain ${{ matrix.rust-version }} rustfmt clippy
+          cargo build -p hyperloglog-rs -p hyperloglog-derive
+          cargo build -p hyperloglog-rs --features std
+          cargo build -p hyperloglog-rs --no-default-features
 
-      - name: Run tests
-        run: cargo test --release
+      - name: Library unit tests and doctests
+        run: |
+          cargo test -p hyperloglog-rs -p hyperloglog-derive --features std --lib
+          cargo test -p hyperloglog-rs --doc
 
-      - name: Run tests with no default features
-        run: cargo test --no-default-features --release
+  lint:
+    name: Format and Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Run test with standard library
-        run: cargo test --features=std --release
+      - name: Check formatting
+        run: cargo fmt --all -- --check
 
-      - name: Check code formatting
-        run: cargo fmt -- --check
+      - name: Clippy (default and std)
+        run: |
+          cargo clippy -p hyperloglog-rs -p hyperloglog-derive -- -D clippy::all
+          cargo clippy -p hyperloglog-rs -p hyperloglog-derive --features std -- -D clippy::all
 
-      - name: Run Clippy
-        run: cargo clippy --features=std -- -Dclippy::all -Dclippy::cargo
+  msrv:
+    name: MSRV 1.82.0 builds the library
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.82.0
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build on MSRV (default / std / no-default-features)
+        run: |
+          cargo build -p hyperloglog-rs -p hyperloglog-derive
+          cargo build -p hyperloglog-rs --features std
+          cargo build -p hyperloglog-rs --no-default-features

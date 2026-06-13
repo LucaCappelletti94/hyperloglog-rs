@@ -60,10 +60,9 @@ pub fn test_precisions_and_bits(attr: TokenStream, item: TokenStream) -> TokenSt
     let exclude: Vec<(u8, u8)> = if string_attr.is_empty() {
         vec![]
     } else {
-        serde_json::from_str(&string_attr).expect(&format!(
-            "Invalid format for the exclude attribute: '{}'",
-            &string_attr
-        ))
+        serde_json::from_str(&string_attr).unwrap_or_else(|error| {
+            panic!("Invalid format for the exclude attribute: '{string_attr}': {error}")
+        })
     };
 
     let exclude_ref = exclude.as_slice();

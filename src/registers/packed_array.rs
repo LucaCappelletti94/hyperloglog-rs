@@ -504,7 +504,7 @@ impl<V: VariableWord> Default for Packed<Vec<u64>, V> {
 ///
 /// Meant to be associated with a specific Precision.
 pub trait PackedRegister<B: Bits>: Precision {
-    #[cfg(all(feature = "mem_dbg"))]
+    #[cfg(feature = "mem_dbg")]
     /// The type of the packed array register.
     type Array: Registers<Self, B> + MemDbg + MemSize;
     #[cfg(not(feature = "mem_dbg"))]
