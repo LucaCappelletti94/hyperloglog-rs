@@ -139,6 +139,45 @@ fn bench_insert_modes(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_hyperloglog_insert, bench_insert_modes);
+/// Compares the cost of the cardinality estimators on a fully-fledged HyperLogLog counter: the
+/// default HyperLogLog++ corrected estimate, the raw uncorrected estimate, and (under the `mle`
+/// feature) the secant-method Maximum Likelihood Estimation.
+fn bench_cardinality_estimate(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cardinality_estimate_p14_bits6");
+
+    let hll = build_hyperloglog(200_000, 0x0000_CA4D);
+
+    group.bench_function("hyperloglog_pp", |b| {
+        b.iter(|| black_box(black_box(&hll).estimate_cardinality()));
+    });
+
+    group.bench_function("uncorrected", |b| {
+        b.iter(|| black_box(black_box(&hll).uncorrected_estimate_cardinality()));
+    });
+
+    #[cfg(feature = "mle")]
+    group.bench_function("mle", |b| {
+        b.iter(|| black_box(black_box(&hll).estimate_cardinality_mle()));
+    });
+
+    group.finish();
+}
+
+/// Builds a fully-fledged HyperLogLog counter holding `count` distinct elements.
+fn build_hyperloglog(count: u64, seed: u64) -> HLL14 {
+    let mut hll = HLL14::default();
+    for value in iter_random_values::<u64>(count, None, Some(seed)) {
+        hll.insert(&value);
+    }
+    assert!(!hll.is_hash_list());
+    hll
+}
+
+criterion_group!(
+    benches,
+    bench_hyperloglog_insert,
+    bench_insert_modes,
+    bench_cardinality_estimate
+);
 
 criterion_main!(benches);
