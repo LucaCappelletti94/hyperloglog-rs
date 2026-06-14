@@ -97,7 +97,7 @@ where
         });
 
         let (pov, pl, pr) =
-            <Hll<P, B> as HyperSpheresSketch<f64>>::overlap_and_differences_cardinality_matrices(
+            <Hll<P, B> as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(
                 &lefts, &rights,
             );
         let (mov, ml, mr) = Hll::<P, B>::joint_sketch_mle(&lefts, &rights);

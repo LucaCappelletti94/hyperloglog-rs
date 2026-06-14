@@ -86,7 +86,7 @@ pub(crate) fn joint_sketch_mle_core<
     // Warm start from the pairwise hypersphere sketch: its differential overlaps and margin
     // differences are exactly the disjoint regions we optimize.
     let (overlap0, left0, right0) =
-        <HyperLogLog<P, B, R, H> as HyperSpheresSketch<f64>>::overlap_and_differences_cardinality_matrices(
+        <HyperLogLog<P, B, R, H> as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(
             lefts, rights,
         );
 

@@ -35,7 +35,9 @@ impl<H> Mle<H> {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> Mle<&HyperLogLog<P, B, R, H>> {
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+    for Mle<&HyperLogLog<P, B, R, H>>
+{
     /// Estimates the cardinality via the single-counter maximum-likelihood estimator.
     ///
     /// # Warning
@@ -43,45 +45,20 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> Mle<&HyperLogLog<
     /// slower and less accurate. It exists for completeness and comparison. Prefer the default
     /// (i.e. `self.into_inner().estimate_cardinality()`) unless you specifically want the MLE value.
     #[inline]
-    pub fn estimate_cardinality(&self) -> f64 {
+    fn estimate_cardinality(&self) -> f64 {
         self.0.estimate_cardinality_mle()
     }
 
-    /// Estimates the union cardinality via the joint maximum-likelihood estimator.
     #[inline]
-    pub fn estimate_union_cardinality(&self, other: &Self) -> f64 {
+    /// Estimates the union cardinality via the joint maximum-likelihood estimator.
+    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         self.0.estimate_union_cardinality_mle(other.0)
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketch
     for Mle<&HyperLogLog<P, B, R, H>>
 {
-    #[inline]
-    fn estimate_cardinality(&self) -> f64 {
-        // Resolves to the inherent method (precedence), so the trait and the direct call agree.
-        self.estimate_cardinality()
-    }
-
-    #[inline]
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
-        self.estimate_union_cardinality(other)
-    }
-}
-
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketch<f64>
-    for Mle<&HyperLogLog<P, B, R, H>>
-{
-    #[inline]
-    fn estimate_cardinality(&self) -> f64 {
-        self.estimate_cardinality()
-    }
-
-    #[inline]
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
-        self.estimate_union_cardinality(other)
-    }
-
     #[inline]
     /// Overridden to use the joint MLE optimization (rather than the pairwise inclusion-exclusion
     /// default), unwrapping the views and delegating to [`HyperLogLog::joint_sketch_mle`].

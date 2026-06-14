@@ -356,10 +356,7 @@ fn test_hyper_spheres_sketch_overlap_and_differences() {
     }
 
     let (overlaps, left_differences, right_differences) =
-        <Counter as HyperSpheresSketch<f64>>::overlap_and_differences_cardinality_matrices(
-            &[a],
-            &[b],
-        );
+        <Counter as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(&[a], &[b]);
 
     let close = |got: f64, want: f64| (got - want).abs() <= want * 0.15;
     assert!(
@@ -1050,7 +1047,7 @@ fn test_mle_wrapper() {
 
     // The overlap matrices via the Mle view equal the direct joint MLE.
     let via_mle =
-        <Mle<&Counter> as HyperSpheresSketch<f64>>::overlap_and_differences_cardinality_matrices(
+        <Mle<&Counter> as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(
             &[a.mle()],
             &[b.mle()],
         );

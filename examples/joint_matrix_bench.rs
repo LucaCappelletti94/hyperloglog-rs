@@ -131,7 +131,7 @@ where
     // Pairwise hypersphere sketch (the current production estimator).
     let t = Instant::now();
     let (pov, pl, pr) =
-        <Hll<P, B> as HyperSpheresSketch<f64>>::overlap_and_differences_cardinality_matrices(
+        <Hll<P, B> as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(
             &lefts, &rights,
         );
     let pair_ms = t.elapsed().as_secs_f64() * 1e3;
