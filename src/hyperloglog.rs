@@ -30,6 +30,19 @@ pub struct HyperLogLog<
     _phantom: PhantomData<(P, B, Hasher)>,
 }
 
+/// A [`HyperLogLog`] backed by a heap-allocated, growable register vector
+/// ([`PackedRegister::Vec`]) rather than the default fixed-size register array
+/// ([`PackedRegister::Array`]).
+///
+/// The default [`HyperLogLog<P, B>`] stores its registers inline as a fixed array, whose size is
+/// part of the type and lives wherever the counter lives (on the stack for a local). `VecHll` moves
+/// that storage to the heap, which is preferable when the register array would be large (high
+/// precision) or when many counters are created dynamically. The estimation behavior is identical;
+/// only the register backing differs. Requires the `alloc` feature.
+#[cfg(feature = "alloc")]
+pub type VecHll<P, B, H = twox_hash::XxHash64> =
+    HyperLogLog<P, B, <P as PackedRegister<B>>::Vec, H>;
+
 impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> Default for HyperLogLog<P, B, R, H> {
     #[inline]
     fn default() -> Self {

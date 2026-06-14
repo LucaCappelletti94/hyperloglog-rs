@@ -1059,3 +1059,22 @@ fn test_mle_wrapper() {
         a.estimate_cardinality()
     );
 }
+
+/// The growable, heap-backed `VecHll` alias is interchangeable with the default array-backed
+/// `HyperLogLog`: feeding both the same elements yields bit-identical estimates, since only the
+/// register storage differs, not the estimation logic.
+#[cfg(feature = "alloc")]
+#[test]
+fn test_vec_hll_matches_array_backed() {
+    let mut array_backed = HyperLogLog::<Precision10, Bits6>::default();
+    let mut vec_backed = VecHll::<Precision10, Bits6>::default();
+    for value in 0u64..50_000 {
+        array_backed.insert(&value);
+        vec_backed.insert(&value);
+    }
+    assert!(array_backed.is_dense() && vec_backed.is_dense());
+    assert_eq!(
+        array_backed.estimate_cardinality(),
+        vec_backed.estimate_cardinality()
+    );
+}
