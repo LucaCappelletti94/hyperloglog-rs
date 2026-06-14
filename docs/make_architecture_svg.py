@@ -66,19 +66,25 @@ regimes_data = {}
 for name, rlist in [("exact", exact_rows), ("hash_list", hash_rows), ("dense", dense_rows)]:
     if not rlist:
         continue
+    # MLE fields are null outside the dense regime (no MLE runs there), so aggregate only the
+    # present values and leave the field None when there is nothing to show.
+    def med_opt(key):
+        vals = [r[key] for r in rlist if r.get(key) is not None]
+        return median(vals) if vals else None
+
     regimes_data[name] = {
         "insert_ns":    median([r["insert_ns"] for r in rlist]),
         "card_ns":      median([r["est_card_ns"] for r in rlist]),
         "union_ns":     median([r["est_union_ns"] for r in rlist]),
         "merge_ns":     median([r["merge_ns"] for r in rlist]),
         "sketch_def_ns":median([r["sketch_def_ns"] for r in rlist]),
-        "mle_union_ns": median([r["mle_union_ns"] for r in rlist]),
-        "sketch_mle_ns":median([r["sketch_mle_ns"] for r in rlist]),
+        "mle_union_ns": med_opt("mle_union_ns"),
+        "sketch_mle_ns":med_opt("sketch_mle_ns"),
         "def_card_mre": median([r["default_card_mre"] for r in rlist]),
         "def_union_mre":median([r["default_union_mre"] for r in rlist]),
-        "mle_union_mre":median([r["mle_union_mre"] for r in rlist]),
+        "mle_union_mre":med_opt("mle_union_mre"),
         "def_inter_mre":median([r["default_inter_mre"] for r in rlist]),
-        "sketch_mle_inter_mre":median([r["sketch_mle_inter_mre"] for r in rlist]),
+        "sketch_mle_inter_mre":med_opt("sketch_mle_inter_mre"),
     }
 
 # ---------------------------------------------------------------------------
@@ -243,14 +249,14 @@ text(svg, W // 2, 60,
 # ---------------------------------------------------------------------------
 regime_info = [
     ("exact", "Exact-values mode",
-     ["Sorted, gap-coded, gamma-packed values", f"Active for cardinality 0 .. {exact_end}", "Zero estimation error; exact set ops",
+     ["Sorted, gap-coded, gamma-packed values", f"Active for cardinality 0 .. {exact_end}", "Zero estimation error, exact set ops",
       "(requires 'exact' feature + alloc)"],
      BOX_Y[0]),
     ("hash_list", "Hash-list mode",
-     ["Sorted gap-coded composite hashes", f"Active for cardinality ~{exact_end} .. {dense_start}", "Near-exact: MRE < 0.65%  (union < 1.3%)"],
+     ["Sorted gap-coded composite hashes", f"Active for cardinality ~{exact_end} .. {dense_start}", "Near-exact, no MLE (set algebra)"],
      BOX_Y[1]),
     ("dense", "Dense registers (HyperLogLog)",
-     [f"Classic HLL register array (4096 x 6 bits)", f"Active for cardinality {dense_start}+", "Default MRE ~1-1.5%;  MLE union MRE ~1%"],
+     [f"Classic HLL register array (4096 x 6 bits)", f"Active for cardinality {dense_start}+", "Default MRE ~1-1.5%, MLE only runs here"],
      BOX_Y[2]),
 ]
 
@@ -310,31 +316,40 @@ for i, key in enumerate(["exact", "hash_list", "dense"]):
     rd = regimes_data[key]
     cy = chart_y_positions[i]
 
-    # Speed chart (log scale, so the 1 ns to 200 ms range is all visible). The joint sketch is shown
-    # both ways: the default pairwise sketch and the MLE-mode sketch.
+    # Speed chart (log scale, so the 1 ns to 200 ms range is all visible). The default operations are
+    # shown in every regime; the MLE operations are added only in the dense regime, since MLE does not
+    # run in the exact or hash-list modes.
     speed_vals = [
         ("insert",      rd["insert_ns"],     "#5B8DB8"),
         ("card",        rd["card_ns"],       BAR_COLOR_DEF),
         ("union(def)",  rd["union_ns"],      BAR_COLOR_DEF),
         ("merge",       rd["merge_ns"],      BAR_COLOR_MERGE),
         ("sketch(def)", rd["sketch_def_ns"], BAR_COLOR_DEF),
-        ("union(MLE)",  rd["mle_union_ns"],  BAR_COLOR_MLE),
-        ("sketch(MLE)", rd["sketch_mle_ns"], "#D62246"),
     ]
+    if key == "dense":
+        speed_vals += [
+            ("union(MLE)",  rd["mle_union_ns"],  BAR_COLOR_MLE),
+            ("sketch(MLE)", rd["sketch_mle_ns"], "#D62246"),
+        ]
 
     speed_bar_chart(svg, CHART_X, cy, HALF_W, CHART_H,
                     speed_vals, f"{key}: speed per call (log scale)")
 
-    # Quality chart: the default and MLE estimators side by side for union and for the sketch's
-    # intersection cell. In exact / hash-list mode the MLE bars are the exact-dispatch result (see the
-    # note), so the default-vs-MLE difference only appears in the dense regime.
+    # Quality chart. The default estimators are shown in every regime; the MLE estimators are added
+    # only in the dense regime (where MLE actually runs). The default pairwise sketch's intersection
+    # is `inter(def)`, the MLE joint sketch's is `inter(MLE)`.
     if key == "exact":
         qual_vals = [("card", 0.0, BAR_COLOR_DEF),
                      ("union(def)", 0.0, BAR_COLOR_DEF),
-                     ("union(MLE)", 0.0, BAR_COLOR_MLE),
-                     ("inter(def)", 0.0, BAR_COLOR_DEF),
-                     ("inter(MLE)", 0.0, "#D62246")]
-        qual_note = "(exact: all errors = 0.0%)"
+                     ("inter(def)", 0.0, BAR_COLOR_DEF)]
+        qual_note = "(exact: all errors = 0.0%, MLE does not run)"
+    elif key == "hash_list":
+        qual_vals = [
+            ("card",       rd["def_card_mre"],  BAR_COLOR_DEF),
+            ("union(def)", rd["def_union_mre"], BAR_COLOR_DEF),
+            ("inter(def)", rd["def_inter_mre"], BAR_COLOR_DEF),
+        ]
+        qual_note = "(MLE does not run here)"
     else:
         qual_vals = [
             ("card",       rd["def_card_mre"],         BAR_COLOR_DEF),
@@ -343,7 +358,7 @@ for i, key in enumerate(["exact", "hash_list", "dense"]):
             ("inter(def)", rd["def_inter_mre"],        BAR_COLOR_DEF),
             ("inter(MLE)", rd["sketch_mle_inter_mre"], "#D62246"),
         ]
-        qual_note = "(MLE = exact dispatch here)" if key == "hash_list" else ""
+        qual_note = ""
 
     quality_bar_chart(svg, CHART_X + HALF_W + 10, cy, HALF_W, CHART_H,
                       qual_vals, f"{key}: quality (MRE)")

@@ -137,24 +137,28 @@ fn build_vals(card: u64, seed: u64) -> (Vec<u64>, Vec<u64>) {
     (vals_a, vals_b)
 }
 
-/// Mean relative error of each estimator over `n_trials` independent runs.
-#[derive(Default, Clone, Copy)]
+/// Mean relative error of each estimator over `n_trials` independent runs. The MLE fields are
+/// `None` outside the dense regime, where no MLE actually runs (the `.mle()` paths dispatch to the
+/// exact or near-exact set algebra), so they are not measured or reported there.
 struct Quality {
+    /// Default `estimate_cardinality` MRE.
     def_card: f64,
+    /// Default `estimate_union_cardinality` MRE.
     def_union: f64,
+    /// Default pairwise sketch intersection MRE (`JointSketch::estimate` over plain counters).
     def_inter: f64,
-    mle_card: f64,
-    mle_union: f64,
-    mle_inter: f64,
-    /// The joint sketch's own union (`JointSketch::estimate(..).union()`).
-    jmle_union: f64,
-    /// The joint sketch's overlap cell (`JointSketch::estimate(..).overlap[0][0]`), i.e. the
-    /// intersection it recovers, which is what the joint MLE provides beyond the scalar union.
-    jmle_inter: f64,
+    /// MLE `estimate_union_cardinality` MRE (dense only).
+    mle_union: Option<f64>,
+    /// MLE joint sketch intersection MRE (`JointSketch::estimate` over `.mle()` views, dense only).
+    mle_inter: Option<f64>,
 }
 
-fn measure_quality(target_card: u64, n_trials: usize) -> Quality {
-    let mut q = Quality::default();
+fn measure_quality(target_card: u64, n_trials: usize, measure_mle: bool) -> Quality {
+    let mut def_card = 0.0f64;
+    let mut def_union = 0.0f64;
+    let mut def_inter = 0.0f64;
+    let mut mle_union = 0.0f64;
+    let mut mle_inter = 0.0f64;
     let mut inter_count = 0usize;
 
     for trial in 0..n_trials {
@@ -171,40 +175,31 @@ fn measure_quality(target_card: u64, n_trials: usize) -> Quality {
 
         let est_card = hll_a.estimate_cardinality();
         let est_union = hll_a.estimate_union_cardinality(&hll_b);
-        let est_inter = hll_a.estimate_intersection_cardinality(&hll_b);
+        // The default (non-MLE) joint sketch's intersection cell.
+        let sketch_def_inter = JointSketch::estimate(&[hll_a], &[hll_b]).overlap[0][0];
 
         if true_card_a > 0.0 {
-            q.def_card += (est_card - true_card_a).abs() / true_card_a;
+            def_card += (est_card - true_card_a).abs() / true_card_a;
         }
         if true_union > 0.0 {
-            q.def_union += (est_union - true_union).abs() / true_union;
+            def_union += (est_union - true_union).abs() / true_union;
         }
         if true_inter > 0.0 {
-            q.def_inter += (est_inter - true_inter).abs() / true_inter;
+            def_inter += (sketch_def_inter - true_inter).abs() / true_inter;
             inter_count += 1;
         }
 
-        let mle_card = hll_a.mle().estimate_cardinality();
-        let mle_union = hll_a.mle().estimate_union_cardinality(&hll_b.mle());
-        let mle_inter = hll_a.mle().estimate_intersection_cardinality(&hll_b.mle());
-
-        if true_card_a > 0.0 {
-            q.mle_card += (mle_card - true_card_a).abs() / true_card_a;
-        }
-        if true_union > 0.0 {
-            q.mle_union += (mle_union - true_union).abs() / true_union;
-        }
-        if true_inter > 0.0 {
-            q.mle_inter += (mle_inter - true_inter).abs() / true_inter;
-        }
-
-        // The joint MLE sketch over the single pair: its union and its recovered intersection.
-        let sketch = JointSketch::estimate(&[hll_a.mle()], &[hll_b.mle()]);
-        if true_union > 0.0 {
-            q.jmle_union += (sketch.union() - true_union).abs() / true_union;
-        }
-        if true_inter > 0.0 {
-            q.jmle_inter += (sketch.overlap[0][0] - true_inter).abs() / true_inter;
+        // MLE only runs on dense operands; skip it entirely elsewhere.
+        if measure_mle {
+            let mle_u = hll_a.mle().estimate_union_cardinality(&hll_b.mle());
+            let sketch_mle_inter =
+                JointSketch::estimate(&[hll_a.mle()], &[hll_b.mle()]).overlap[0][0];
+            if true_union > 0.0 {
+                mle_union += (mle_u - true_union).abs() / true_union;
+            }
+            if true_inter > 0.0 {
+                mle_inter += (sketch_mle_inter - true_inter).abs() / true_inter;
+            }
         }
     }
 
@@ -215,14 +210,11 @@ fn measure_quality(target_card: u64, n_trials: usize) -> Quality {
         1.0
     };
     Quality {
-        def_card: q.def_card / n,
-        def_union: q.def_union / n,
-        def_inter: q.def_inter / inter_n,
-        mle_card: q.mle_card / n,
-        mle_union: q.mle_union / n,
-        mle_inter: q.mle_inter / inter_n,
-        jmle_union: q.jmle_union / n,
-        jmle_inter: q.jmle_inter / inter_n,
+        def_card: def_card / n,
+        def_union: def_union / n,
+        def_inter: def_inter / inter_n,
+        mle_union: measure_mle.then_some(mle_union / n),
+        mle_inter: measure_mle.then_some(mle_inter / inter_n),
     }
 }
 
@@ -301,7 +293,7 @@ fn main() {
     println!("\n=== Benchmarks (Precision12 = 4096 registers, Bits6) ===");
     println!("(MRE = mean relative error, ns = nanoseconds per call, median of {REPS} runs)\n");
     println!("(each operand has the row's cardinality, built at 50 percent overlap)");
-    println!("(MLE only runs on dense operands; in exact/hash-list the .mle() and sketch paths dispatch to exact set algebra)\n");
+    println!("(MLE only runs on dense operands; it never runs in exact/hash-list, so the MLE columns are n/a there)\n");
     println!(
         "| {:>10} | {:>9} | {:>9} | {:>9} | {:>9} | {:>9} | {:>10} | {:>11} | {:>11} | {:>11} | {:>11} | {:>14} | {:>14} |",
         "card",
@@ -365,21 +357,6 @@ fn main() {
             })
         };
 
-        let mle_card_ns = {
-            let h = hll_a.clone();
-            autobench(target_slow, REPS, || {
-                black_box_f64(h.mle().estimate_cardinality());
-            })
-        };
-
-        let mle_union_ns = {
-            let ha = hll_a.clone();
-            let hb = hll_b.clone();
-            autobench(target_slow, REPS, || {
-                black_box_f64(ha.mle().estimate_union_cardinality(&hb.mle()));
-            })
-        };
-
         // The non-MLE joint sketch: pairwise inclusion-exclusion over plain counters.
         let sketch_def_ns = {
             let ha = hll_a.clone();
@@ -389,20 +366,31 @@ fn main() {
             })
         };
 
-        // The MLE-mode joint sketch. In exact / hash-list mode this dispatches to the exact set
-        // algebra (no MLE runs); genuine MLE optimization happens only for dense operands.
-        let sketch_mle_ns = {
+        // MLE only runs on dense operands, so the MLE speeds are measured only there (in the exact
+        // and hash-list regimes the `.mle()` paths dispatch to the exact set algebra, not MLE).
+        let is_dense = reg == "dense";
+        let mle_union_ns = is_dense.then(|| {
+            let ha = hll_a.clone();
+            let hb = hll_b.clone();
+            autobench(target_slow, REPS, || {
+                black_box_f64(ha.mle().estimate_union_cardinality(&hb.mle()));
+            })
+        });
+        let sketch_mle_ns = is_dense.then(|| {
             let ha = hll_a.clone();
             let hb = hll_b.clone();
             autobench(target_slow, REPS, || {
                 black_box_f64(JointSketch::estimate(&[ha.mle()], &[hb.mle()]).union());
             })
-        };
+        });
 
-        let q = measure_quality(card, QUALITY_TRIALS);
+        let q = measure_quality(card, QUALITY_TRIALS, is_dense);
 
+        let opt_ns = |v: Option<f64>| v.map_or_else(|| "n/a".to_string(), |x| format!("{x:.1}"));
+        let opt_pct =
+            |v: Option<f64>| v.map_or_else(|| "n/a".to_string(), |x| format!("{:.3}%", x * 100.0));
         println!(
-            "| {:>10} | {:>9} | {:>9.1} | {:>9.1} | {:>9.1} | {:>9.1} | {:>10.1} | {:>11.1} | {:>11.1} | {:>10.3}% | {:>10.3}% | {:>13.3}% | {:>13.3}% |",
+            "| {:>10} | {:>9} | {:>9.1} | {:>9.1} | {:>9.1} | {:>9.1} | {:>10.1} | {:>11} | {:>11} | {:>10.3}% | {:>10.3}% | {:>13.3}% | {:>14} |",
             card,
             reg,
             insert_ns,
@@ -410,12 +398,12 @@ fn main() {
             est_union_ns,
             merge_ns,
             sketch_def_ns,
-            mle_union_ns,
-            sketch_mle_ns,
+            opt_ns(mle_union_ns),
+            opt_ns(sketch_mle_ns),
             q.def_card * 100.0,
             q.def_union * 100.0,
             q.def_inter * 100.0,
-            q.jmle_inter * 100.0
+            opt_pct(q.mle_inter)
         );
 
         json_rows.push(serde_json::json!({
@@ -426,17 +414,13 @@ fn main() {
             "est_union_ns": est_union_ns,
             "merge_ns": merge_ns,
             "sketch_def_ns": sketch_def_ns,
-            "mle_card_ns": mle_card_ns,
             "mle_union_ns": mle_union_ns,
             "sketch_mle_ns": sketch_mle_ns,
             "default_card_mre": q.def_card,
             "default_union_mre": q.def_union,
             "default_inter_mre": q.def_inter,
-            "mle_card_mre": q.mle_card,
             "mle_union_mre": q.mle_union,
-            "mle_inter_mre": q.mle_inter,
-            "sketch_mle_union_mre": q.jmle_union,
-            "sketch_mle_inter_mre": q.jmle_inter,
+            "sketch_mle_inter_mre": q.mle_inter,
         }));
     }
 
