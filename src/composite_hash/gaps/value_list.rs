@@ -1,144 +1,151 @@
 //! Exact-values list: a sorted (descending) delta-coded list of literal `u64` values stored in the
 //! same byte buffer as the hash list, for the exact-values representation mode.
 //!
-//! This reuses the generic bit-level primitives ([`BitWriter`], [`BitReader`]) and only adds a thin
-//! Elias-gamma-style code over full `u64` gaps. The composite-hash index/register/remainder
-//! decomposition does not apply to arbitrary user values, so the codec here is deliberately simple:
-//! the first (largest) value is stored absolutely and each subsequent value as the positive gap to
-//! its predecessor. Because the exact mode is the smallest-cardinality regime, each insert decodes
-//! the list, splices the new value in sorted order, and re-encodes; this avoids in-place bitstream
-//! surgery at the cost of an O(n) rewrite per insert (n is small here).
+//! The codec is deliberately simple and fully allocation-free: each value is written as an
+//! Elias-gamma-style code (a unary length prefix followed by its significant bits), the first
+//! (largest) value absolutely and each subsequent value as the positive gap to its predecessor.
+//! Reading is a lazy iterator ([`ValueIter`]); insertion splices the new value into the bitstream in
+//! place (shifting the tail), so neither path allocates. The composite-hash index/register/remainder
+//! decomposition does not apply to arbitrary user values, so this does not reuse the hash-list
+//! `GapHash` codec, only the same big-endian, MSB-first bit layout.
 
-use super::bitreader::BitReader;
-use super::bitwriter::BitWriter;
-use core::mem::size_of;
-
-/// Number of bits one value occupies under [`write_value`]: a unary length prefix (`nbits + 1`
-/// bits) followed by the value's `nbits` significant bits.
+/// Number of significant bits of `value` (`0` for the value `0`).
 #[inline]
-fn value_bit_len(value: u64) -> u32 {
-    let nbits = 64 - value.leading_zeros();
-    2 * nbits + 1
+fn significant_bits(value: u64) -> u32 {
+    64 - value.leading_zeros()
 }
 
-/// Total encoded bit length of a sorted-ascending value list (encoded descending: first value
-/// absolute, then positive gaps).
+/// Encoded bit length of one value: a unary length prefix (`nbits + 1` bits) and `nbits` value bits.
 #[inline]
-fn total_bit_len(values_asc: &[u64]) -> u32 {
-    let mut iter = values_asc.iter().rev();
-    let Some(&first) = iter.next() else {
-        return 0;
-    };
-    let mut bits = value_bit_len(first);
-    let mut prev = first;
-    for &value in iter {
-        bits += value_bit_len(prev - value);
-        prev = value;
+fn code_len(value: u64) -> u32 {
+    2 * significant_bits(value) + 1
+}
+
+/// Reads the bit at index `bit` from the buffer, interpreted as big-endian `u64` words with the most
+/// significant bit first (the layout used by the hash-list bitstream).
+#[inline]
+fn get_bit(buffer: &[u8], bit: u32) -> u64 {
+    let word = (bit / 64) as usize * 8;
+    let offset = bit % 64;
+    let value = u64::from_be_bytes(buffer[word..word + 8].try_into().unwrap());
+    (value >> (63 - offset)) & 1
+}
+
+/// Sets the bit at index `bit` in the buffer to `bit_value` (the low bit of `bit_value`).
+#[inline]
+fn set_bit(buffer: &mut [u8], bit: u32, bit_value: u64) {
+    let word = (bit / 64) as usize * 8;
+    let offset = bit % 64;
+    let mut value = u64::from_be_bytes(buffer[word..word + 8].try_into().unwrap());
+    let mask = 1u64 << (63 - offset);
+    if bit_value & 1 == 1 {
+        value |= mask;
+    } else {
+        value &= !mask;
     }
-    bits
+    buffer[word..word + 8].copy_from_slice(&value.to_be_bytes());
 }
 
-/// Writes one value as `unary(nbits)` followed by its `nbits` significant bits, where `nbits` is the
-/// number of significant bits (`0` for the value `0`). `nbits <= 64`, so the unary run is bounded.
+/// Writes one value's code starting at bit position `pos`, returning the position past it.
 #[inline]
-fn write_value(writer: &mut BitWriter, value: u64) {
-    let nbits = (64 - value.leading_zeros()) as u8;
-    writer.write_unary(nbits);
-    writer.write_bits(value, nbits);
-}
-
-/// Inverse of [`write_value`].
-#[inline]
-fn read_value(reader: &mut BitReader) -> u64 {
-    let nbits = reader.read_unary();
-    reader.read_bits(nbits)
-}
-
-/// Reinterprets the byte buffer as `u64` words for the writer (matches the hash-list convention).
-#[allow(unsafe_code)]
-#[inline]
-fn as_words_mut(buffer: &mut [u8]) -> &mut [u64] {
-    unsafe {
-        core::slice::from_raw_parts_mut(
-            buffer.as_mut_ptr().cast::<u64>(),
-            buffer.len() / size_of::<u64>(),
-        )
+fn write_value_at(buffer: &mut [u8], mut pos: u32, value: u64) -> u32 {
+    let nbits = significant_bits(value);
+    for _ in 0..nbits {
+        set_bit(buffer, pos, 0);
+        pos += 1;
     }
+    set_bit(buffer, pos, 1);
+    pos += 1;
+    for shift in (0..nbits).rev() {
+        set_bit(buffer, pos, value >> shift);
+        pos += 1;
+    }
+    pos
 }
 
-/// Reinterprets the byte buffer as `u32` words for the reader (matches the hash-list convention).
-#[allow(unsafe_code)]
+/// Reads one value's code starting at bit position `pos`, returning the decoded value (an absolute
+/// value or a gap, depending on position) and the position past it.
 #[inline]
-fn as_half_words(buffer: &[u8]) -> &[u32] {
-    unsafe {
-        core::slice::from_raw_parts(
-            buffer.as_ptr().cast::<u32>(),
-            buffer.len() / size_of::<u32>(),
-        )
+fn read_value_at(buffer: &[u8], mut pos: u32) -> (u64, u32) {
+    let mut nbits = 0u32;
+    while get_bit(buffer, pos) == 0 {
+        nbits += 1;
+        pos += 1;
     }
+    pos += 1;
+    let mut value = 0u64;
+    for _ in 0..nbits {
+        value = (value << 1) | get_bit(buffer, pos);
+        pos += 1;
+    }
+    (value, pos)
 }
 
-/// Encodes a sorted-ascending value list into the buffer (stored descending). Returns the bit
-/// length written, or `None` if the list does not fit the buffer.
-#[must_use]
-fn encode(buffer: &mut [u8], values_asc: &[u64]) -> Option<u32> {
-    let total_bits = total_bit_len(values_asc);
-    if total_bits as usize > buffer.len() * 8 {
-        return None;
-    }
-    let words = as_words_mut(buffer);
-    let mut iter = values_asc.iter().rev();
-    let mut writer = BitWriter::new(words);
-    if let Some(&first) = iter.next() {
-        write_value(&mut writer, first);
-        let mut prev = first;
-        for &value in iter {
-            write_value(&mut writer, prev - value);
-            prev = value;
+/// Lazy iterator over the stored values, yielded in descending order, without allocating.
+pub(crate) struct ValueIter<'a> {
+    buffer: &'a [u8],
+    pos: u32,
+    remaining: u32,
+    previous: u64,
+    first: bool,
+}
+
+impl<'a> ValueIter<'a> {
+    #[inline]
+    pub(crate) fn new(buffer: &'a [u8], count: u32) -> Self {
+        Self {
+            buffer,
+            pos: 0,
+            remaining: count,
+            previous: 0,
+            first: true,
         }
     }
-    let tell = writer.tell();
-    drop(writer);
-    Some(tell)
 }
 
-/// Decodes the stored values into a sorted-ascending vector.
-#[must_use]
-pub(crate) fn decode_values(buffer: &[u8], count: u32) -> Vec<u64> {
-    let mut values = Vec::with_capacity(count as usize);
-    if count == 0 {
-        return values;
+impl Iterator for ValueIter<'_> {
+    type Item = u64;
+
+    #[inline]
+    fn next(&mut self) -> Option<u64> {
+        if self.remaining == 0 {
+            return None;
+        }
+        let (code, next_pos) = read_value_at(self.buffer, self.pos);
+        self.pos = next_pos;
+        // The first code is the absolute largest value; the rest are positive gaps.
+        self.previous = if self.first {
+            self.first = false;
+            code
+        } else {
+            self.previous - code
+        };
+        self.remaining -= 1;
+        Some(self.previous)
     }
-    let mut reader = BitReader::new(as_half_words(buffer));
-    let mut prev = read_value(&mut reader);
-    values.push(prev);
-    for _ in 1..count {
-        prev -= read_value(&mut reader);
-        values.push(prev);
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.remaining as usize, Some(self.remaining as usize))
     }
-    // Stored descending; reverse to ascending.
-    values.reverse();
-    values
 }
 
-/// Returns whether `value` is stored, without allocating. The stream is descending, so the scan
-/// stops as soon as it passes `value`.
+impl ExactSizeIterator for ValueIter<'_> {}
+
+/// Returns whether `value` is stored, without allocating, stopping early once the descending scan
+/// passes `value`.
 #[must_use]
 pub(crate) fn contains_value(buffer: &[u8], count: u32, value: u64) -> bool {
-    if count == 0 {
-        return false;
-    }
-    let mut reader = BitReader::new(as_half_words(buffer));
-    let mut prev = read_value(&mut reader);
-    if prev == value {
-        return true;
-    }
-    for _ in 1..count {
-        prev -= read_value(&mut reader);
-        if prev == value {
+    let mut pos = 0u32;
+    let mut previous = 0u64;
+    for index in 0..count {
+        let (code, next_pos) = read_value_at(buffer, pos);
+        pos = next_pos;
+        previous = if index == 0 { code } else { previous - code };
+        if previous == value {
             return true;
         }
-        if prev < value {
+        if previous < value {
             return false;
         }
     }
@@ -156,20 +163,88 @@ pub(crate) enum ValueInsertion {
     DoesNotFit,
 }
 
-/// Inserts `value` into the sorted exact list stored in `buffer` holding `count` values. The buffer
-/// is rewritten in place when the value is inserted.
+/// Shifts the bit range `[from, end)` by `delta` bits (positive = towards higher indices), in place.
+#[inline]
+fn shift_bits(buffer: &mut [u8], from: u32, end: u32, delta: i64) {
+    if delta > 0 {
+        for bit in (from..end).rev() {
+            let value = get_bit(buffer, bit);
+            set_bit(buffer, (i64::from(bit) + delta) as u32, value);
+        }
+    } else if delta < 0 {
+        for bit in from..end {
+            let value = get_bit(buffer, bit);
+            set_bit(buffer, (i64::from(bit) + delta) as u32, value);
+        }
+    }
+}
+
+/// Inserts `value` into the sorted (descending) exact list of `count` values stored in `buffer`,
+/// splicing it in place. Allocation-free.
 #[must_use]
 pub(crate) fn insert_value(buffer: &mut [u8], count: u32, value: u64) -> ValueInsertion {
-    let mut values = decode_values(buffer, count);
-    match values.binary_search(&value) {
-        Ok(_) => ValueInsertion::Duplicate,
-        Err(position) => {
-            values.insert(position, value);
-            if encode(buffer, &values).is_some() {
-                ValueInsertion::Inserted
-            } else {
-                ValueInsertion::DoesNotFit
+    let capacity_bits = (buffer.len() * 8) as u32;
+
+    if count == 0 {
+        if code_len(value) > capacity_bits {
+            return ValueInsertion::DoesNotFit;
+        }
+        write_value_at(buffer, 0, value);
+        return ValueInsertion::Inserted;
+    }
+
+    // Single descending pass: locate the insertion point, detect duplicates, and find the total
+    // length. `before` is the predecessor (the smallest stored value still greater than `value`).
+    let mut pos = 0u32;
+    let mut previous = 0u64;
+    let mut before: Option<u64> = None;
+    let mut next: Option<(u64, u32, u32)> = None; // (value, code_start, code_end)
+    for index in 0..count {
+        let start = pos;
+        let (code, end) = read_value_at(buffer, pos);
+        let current = if index == 0 { code } else { previous - code };
+        pos = end;
+        previous = current;
+        if next.is_none() {
+            if current == value {
+                return ValueInsertion::Duplicate;
             }
+            if current < value {
+                next = Some((current, start, end));
+            } else {
+                before = Some(current);
+            }
+        }
+    }
+    let total_bits = pos;
+
+    match next {
+        // `value` is the new minimum: append its gap to the smallest stored value at the end.
+        None => {
+            let gap = before.expect("a non-empty list has a predecessor") - value;
+            if total_bits + code_len(gap) > capacity_bits {
+                return ValueInsertion::DoesNotFit;
+            }
+            write_value_at(buffer, total_bits, gap);
+            ValueInsertion::Inserted
+        }
+        // `value` is spliced before `next`: write its code, then rewrite `next` relative to `value`.
+        Some((next_value, split_bit, next_end)) => {
+            let code_a = match before {
+                None => value,              // new maximum: stored absolutely
+                Some(prev) => prev - value, // gap from the predecessor
+            };
+            let new_next_gap = value - next_value;
+            let old_next_len = next_end - split_bit;
+            let new_len = code_len(code_a) + code_len(new_next_gap);
+            let delta = i64::from(new_len) - i64::from(old_next_len);
+            if i64::from(total_bits) + delta > i64::from(capacity_bits) {
+                return ValueInsertion::DoesNotFit;
+            }
+            shift_bits(buffer, next_end, total_bits, delta);
+            let after_a = write_value_at(buffer, split_bit, code_a);
+            write_value_at(buffer, after_a, new_next_gap);
+            ValueInsertion::Inserted
         }
     }
 }
@@ -179,73 +254,77 @@ mod tests {
     use super::*;
     use crate::prelude::iter_random_values;
 
-    /// Encodes an ascending value list into a buffer of `words` u64 words and checks the round-trip
-    /// and the predicted bit length.
-    fn check_roundtrip(values_asc: &[u64], words: usize) {
+    /// Inserts an ascending value set and checks lazy recovery (descending), membership, and the
+    /// reported insert outcomes.
+    fn check_inserts(values: &[u64], words: usize) {
         let mut buffer = vec![0u8; words * 8];
-        let tell = encode(&mut buffer, values_asc).expect("the value list should fit");
-        assert_eq!(
-            tell,
-            total_bit_len(values_asc),
-            "predicted bit length mismatch"
-        );
-        let decoded = decode_values(&buffer, values_asc.len() as u32);
-        assert_eq!(decoded, values_asc, "round-trip mismatch");
-        for &value in values_asc {
-            assert!(contains_value(&buffer, values_asc.len() as u32, value));
-        }
-        // A value not in the set (one above the maximum) must not be reported as present.
-        if let Some(&max) = values_asc.last() {
-            if max < u64::MAX {
-                assert!(!contains_value(&buffer, values_asc.len() as u32, max + 1));
-            }
-        }
-    }
-
-    #[test]
-    fn test_roundtrip_edge_cases() {
-        check_roundtrip(&[], 1);
-        check_roundtrip(&[0], 1);
-        check_roundtrip(&[u64::MAX], 4);
-        check_roundtrip(&[0, u64::MAX], 8);
-        check_roundtrip(&[0, 1, 2, 3], 2);
-        check_roundtrip(&[10, 11, 12, 1_000_000], 4);
-    }
-
-    #[test]
-    fn test_roundtrip_random() {
-        for seed in 0..32u64 {
-            let mut values: Vec<u64> =
-                iter_random_values::<u64>(200, Some(1 << 40), Some(seed)).collect();
-            values.sort_unstable();
-            values.dedup();
-            check_roundtrip(&values, 256);
-        }
-    }
-
-    #[test]
-    fn test_insert_dedup_and_order() {
-        let mut buffer = vec![0u8; 64 * 8];
         let mut count = 0u32;
-        let inserts = [50u64, 10, 30, 10, 20, 50, 40];
         let mut expected: Vec<u64> = Vec::new();
-        for value in inserts {
+        for &value in values {
             let outcome = insert_value(&mut buffer, count, value);
             if expected.contains(&value) {
-                assert_eq!(outcome, ValueInsertion::Duplicate);
+                assert_eq!(outcome, ValueInsertion::Duplicate, "value {value}");
             } else {
-                assert_eq!(outcome, ValueInsertion::Inserted);
-                count += 1;
+                assert_eq!(outcome, ValueInsertion::Inserted, "value {value}");
                 expected.push(value);
+                count += 1;
             }
         }
         expected.sort_unstable();
-        assert_eq!(decode_values(&buffer, count), expected);
+
+        let mut recovered: Vec<u64> = ValueIter::new(&buffer, count).collect();
+        assert_eq!(recovered.len(), count as usize);
+        // ValueIter yields descending.
+        let mut descending = expected.clone();
+        descending.reverse();
+        assert_eq!(recovered, descending, "recovery mismatch");
+
+        recovered.sort_unstable();
+        assert_eq!(recovered, expected);
+
+        for &value in &expected {
+            assert!(contains_value(&buffer, count, value), "missing {value}");
+        }
+    }
+
+    #[test]
+    fn test_insert_edge_cases() {
+        check_inserts(&[], 1);
+        check_inserts(&[0], 1);
+        check_inserts(&[u64::MAX], 4);
+        check_inserts(&[0, u64::MAX], 8);
+        check_inserts(&[u64::MAX, 0], 8);
+        check_inserts(&[3, 2, 1, 0], 2);
+        check_inserts(&[0, 1, 2, 3], 2);
+        check_inserts(&[5, 1, 9, 1, 3], 4);
+        check_inserts(&[1_000_000, 12, 11, 10], 4);
+    }
+
+    #[test]
+    fn test_insert_random_order() {
+        for seed in 0..32u64 {
+            let values: Vec<u64> =
+                iter_random_values::<u64>(150, Some(1 << 40), Some(seed)).collect();
+            check_inserts(&values, 512);
+        }
+    }
+
+    #[test]
+    fn test_contains_absent() {
+        let mut buffer = vec![0u8; 8 * 8];
+        let mut count = 0u32;
+        for value in [10u64, 20, 30, 40] {
+            if insert_value(&mut buffer, count, value) == ValueInsertion::Inserted {
+                count += 1;
+            }
+        }
+        assert!(!contains_value(&buffer, count, 25));
+        assert!(!contains_value(&buffer, count, 5));
+        assert!(!contains_value(&buffer, count, 50));
     }
 
     #[test]
     fn test_saturation_reported_not_panic() {
-        // A one-word buffer cannot hold many wide values; insertion must report DoesNotFit.
         let mut buffer = vec![0u8; 8];
         let mut count = 0u32;
         let mut saturated = false;

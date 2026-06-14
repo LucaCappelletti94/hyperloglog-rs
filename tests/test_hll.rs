@@ -743,3 +743,37 @@ fn test_generic_insert_promotes_exact_mode() {
         "estimate {estimate} should be about 31"
     );
 }
+
+/// While in exact mode the counter recovers the exact set of inserted values (lazily, descending)
+/// and answers exact membership; once it leaves exact mode recovery returns `None` and membership
+/// falls back to the hashed test.
+#[cfg(feature = "exact")]
+#[test]
+fn test_recover_values_and_membership() {
+    type Counter =
+        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut counter: Counter = Default::default();
+    for value in [5u64, 1, 9, 1, 3] {
+        counter.insert_value(value);
+    }
+    assert!(counter.is_exact());
+    let recovered: Vec<u64> = counter.recover_values().unwrap().collect();
+    assert_eq!(
+        recovered,
+        vec![9, 5, 3, 1],
+        "lazy recovery yields the set in descending order"
+    );
+    assert!(counter.may_contain_value(9));
+    assert!(!counter.may_contain_value(7));
+
+    // After saturating out of exact mode, the literal values are no longer recoverable.
+    let mut big: Counter = Default::default();
+    for value in 0u64..5_000 {
+        big.insert_value(value);
+    }
+    assert!(!big.is_exact());
+    assert!(big.recover_values().is_none());
+    // Membership falls back to the hashed test; an inserted value must still be reported present.
+    assert!(big.may_contain_value(1_234));
+}

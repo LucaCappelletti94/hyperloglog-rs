@@ -374,18 +374,52 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         if !self.is_exact() {
             return Err("The counter is not in exact-values mode.");
         }
-        // Decode the literal values out first (into an owned buffer) before clearing, since the
-        // values and the destination hash list share the same register buffer.
+        // The values and the destination hash list share the same register buffer, so move the
+        // value bytes aside (a single buffer clone, as the hash-list to dense transition also does)
+        // and stream them lazily into the cleared hash list.
         let count = self.get_number_of_values();
-        let values =
-            crate::composite_hash::gaps::value_list::decode_values(self.registers.as_ref(), count);
+        let source = self.registers.clone();
         self.clear();
         debug_assert!(self.is_proper_hash_list());
-        for value in values {
+        for value in crate::composite_hash::gaps::value_list::ValueIter::new(source.as_ref(), count)
+        {
             let (index, register, original_hash) = Self::index_and_register_and_hash(&value);
             self.insert_index_register_hash(index, register, original_hash);
         }
         Ok(())
+    }
+
+    #[cfg(feature = "exact")]
+    #[inline]
+    /// Recovers the exact set of literal values inserted via [`HyperLogLog::insert_value`] as a lazy
+    /// iterator yielding them in descending order, if the counter is still in the exact-values mode.
+    /// Returns `None` once the counter has left exact mode (the literal values are no longer retained
+    /// past that transition).
+    pub fn recover_values(&self) -> Option<impl Iterator<Item = u64> + '_> {
+        if self.is_exact() {
+            Some(crate::composite_hash::gaps::value_list::ValueIter::new(
+                self.registers.as_ref(),
+                self.get_number_of_values(),
+            ))
+        } else {
+            None
+        }
+    }
+
+    #[cfg(feature = "exact")]
+    #[inline]
+    /// Returns whether the given literal value is present, exactly, while the counter is in the
+    /// exact-values mode. Falls back to the probabilistic hashed membership otherwise.
+    pub fn may_contain_value(&self, value: u64) -> bool {
+        if self.is_exact() {
+            crate::composite_hash::gaps::value_list::contains_value(
+                self.registers.as_ref(),
+                self.get_number_of_values(),
+                value,
+            )
+        } else {
+            self.may_contain(&value)
+        }
     }
 
     #[inline]
