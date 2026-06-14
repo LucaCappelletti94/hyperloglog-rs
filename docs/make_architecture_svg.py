@@ -202,7 +202,7 @@ def quality_bar_chart(parent, x, y, w, h, values, title):
         max_val = 0.01
     max_val = max(max_val, 0.005)  # ensure visible bars
 
-    margin_left = 90
+    margin_left = 108
     bar_area_w = w - margin_left - 60
     bar_h = 16
     gap = 5
@@ -243,6 +243,9 @@ text(svg, W // 2, 40, "HyperLogLog-rs: Three-Representation Ladder (Precision12,
 text(svg, W // 2, 60,
      f"2^12 = 4096 registers  |  exact-values -> hash-list at cardinality ~{exact_end}  |  hash-list -> dense at ~{dense_start}",
      font_size=12, family="sans-serif", fill="#555")
+text(svg, W // 2, 78,
+     "Joint sketch measured at M = N = 1 (one left set vs one right set): 'sketch' is its full compute time, 'intersect' is the error of its single overlap cell",
+     font_size=11, family="sans-serif", fill="#777")
 
 # ---------------------------------------------------------------------------
 # Regime boxes
@@ -341,22 +344,22 @@ for i, key in enumerate(["exact", "hash_list", "dense"]):
     if key == "exact":
         qual_vals = [("card", 0.0, BAR_COLOR_DEF),
                      ("union(def)", 0.0, BAR_COLOR_DEF),
-                     ("inter(def)", 0.0, BAR_COLOR_DEF)]
+                     ("intersect(def)", 0.0, BAR_COLOR_DEF)]
         qual_note = "(exact: all errors = 0.0%, MLE does not run)"
     elif key == "hash_list":
         qual_vals = [
-            ("card",       rd["def_card_mre"],  BAR_COLOR_DEF),
-            ("union(def)", rd["def_union_mre"], BAR_COLOR_DEF),
-            ("inter(def)", rd["def_inter_mre"], BAR_COLOR_DEF),
+            ("card",            rd["def_card_mre"],  BAR_COLOR_DEF),
+            ("union(def)",      rd["def_union_mre"], BAR_COLOR_DEF),
+            ("intersect(def)",  rd["def_inter_mre"], BAR_COLOR_DEF),
         ]
         qual_note = "(MLE does not run here)"
     else:
         qual_vals = [
-            ("card",       rd["def_card_mre"],         BAR_COLOR_DEF),
-            ("union(def)", rd["def_union_mre"],        BAR_COLOR_DEF),
-            ("union(MLE)", rd["mle_union_mre"],        BAR_COLOR_MLE),
-            ("inter(def)", rd["def_inter_mre"],        BAR_COLOR_DEF),
-            ("inter(MLE)", rd["sketch_mle_inter_mre"], "#D62246"),
+            ("card",            rd["def_card_mre"],         BAR_COLOR_DEF),
+            ("union(def)",      rd["def_union_mre"],        BAR_COLOR_DEF),
+            ("union(MLE)",      rd["mle_union_mre"],        BAR_COLOR_MLE),
+            ("intersect(def)",  rd["def_inter_mre"],        BAR_COLOR_DEF),
+            ("intersect(MLE)",  rd["sketch_mle_inter_mre"], "#D62246"),
         ]
         qual_note = ""
 
