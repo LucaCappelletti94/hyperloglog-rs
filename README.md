@@ -153,27 +153,27 @@ The diagram below shows the three-layer ladder and the measured thresholds for `
 
 ![Architecture and benchmarks](docs/architecture.svg)
 
-All measurements were taken on an AMD Ryzen Threadripper PRO 5975WX (release build, `--features "std mle exact"`). Each speed number is the median of 5 calibrated runs in nanoseconds per call, and `insert` is measured amortized (a batch of fresh values into one counter, divided by the batch size) so it excludes the cost of cloning the counter. Quality columns are mean relative error (MRE) over 100 independent trials at 50 percent set overlap, against an exact `HashSet` ground truth. Run `cargo run --release --example regime_benchmarks --features "std mle exact"` to reproduce, and find the raw numbers in `docs/regime_benchmarks.json`.
+All measurements were taken on an AMD Ryzen Threadripper PRO 5975WX (release build, `--features "std mle exact"`). Each speed number is the median of 5 calibrated runs in nanoseconds per call, and `insert` is measured amortized (a batch of fresh values into one counter, divided by the batch size) so it excludes the cost of cloning the counter. Quality columns are mean relative error (MRE) over 100 independent trials at 50 percent set overlap, against an exact `HashSet` ground truth. The `jMLE inter MRE` column is the intersection that the joint sketch recovers (`JointSketch::estimate(..).overlap[0][0]`), the quantity the joint MLE provides beyond the scalar union. Run `cargo run --release --example regime_benchmarks --features "std mle exact"` to reproduce, and find the raw numbers in `docs/regime_benchmarks.json`.
 
 **Switch points.** For this counter the `exact` to `hash_list` transition happens around cardinality 8150, when the growable exact-values buffer reaches the register-array footprint and the stored values are hashed into a proper hash list. The `hash_list` to `dense` transition happens around cardinality 8367, when the hash list saturates and the crate materializes the classic register array. The exact thresholds shift slightly with the hashed values, so with the `exact` feature on the hash-list stage is a brief transitional band rather than a wide regime.
 
-| cardinality | regime | insert | est card | est union | merge | MLE card | MLE union | joint MLE | def card MRE | def union MRE | MLE union MRE |
-|---:|:---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | exact | 1.4 us | 1 ns | 209 ns | 584 ns | 1 ns | 215 ns | 309 ns | 0.00% | 0.00% | 0.00% |
-| 2716 | exact | 9.7 us | 1 ns | 16.7 us | 55.2 ms | 1 ns | 17.2 us | 144.3 us | 0.00% | 0.00% | 0.00% |
-| 5383 | exact | 17.9 us | 1 ns | 34.0 us | 215.8 ms | 1 ns | 34.0 us | 327.2 us | 0.00% | 0.00% | 0.00% |
-| 8204 | hash_list | 156 ns | 12 ns | 609.1 us | 647.5 us | 11 ns | 600.1 us | 619.5 us | 0.56% | 0.94% | 0.94% |
-| 8313 | hash_list | 77 ns | 11 ns | 235.1 us | 231.6 us | 11 ns | 231.3 us | 618.0 us | 0.58% | 1.60% | 0.97% |
-| 8567 | dense | 15 ns | 11 ns | 9.6 us | 15.9 us | 6.6 us | 153.0 us | 11.3 ms | 1.12% | 10.26% | 0.81% |
-| 16384 | dense | 15 ns | 11 ns | 9.6 us | 15.9 us | 6.5 us | 130.5 us | 11.3 ms | 1.04% | 1.09% | 0.98% |
-| 65536 | dense | 21 ns | 3 ns | 10.1 us | 15.9 us | 6.5 us | 128.8 us | 13.8 ms | 1.19% | 1.21% | 0.98% |
-| 262144 | dense | 15 ns | 2 ns | 9.6 us | 15.9 us | 6.9 us | 165.6 us | 14.4 ms | 1.45% | 1.30% | 1.07% |
+| cardinality | regime | insert | est card | est union | merge | MLE card | MLE union | joint MLE | def card MRE | def union MRE | MLE union MRE | jMLE inter MRE |
+|---:|:---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | exact | 1.3 us | 1 ns | 213 ns | 847 ns | 1 ns | 216 ns | 315 ns | 0.00% | 0.00% | 0.00% | 0.00% |
+| 2716 | exact | 9.3 us | 1 ns | 17.3 us | 62.6 us | 1 ns | 17.5 us | 147.3 us | 0.00% | 0.00% | 0.00% | 0.00% |
+| 5383 | exact | 17.9 us | 1 ns | 35.1 us | 120.2 us | 1 ns | 35.6 us | 342.1 us | 0.00% | 0.00% | 0.00% | 0.00% |
+| 8204 | hash_list | 144 ns | 11 ns | 580.9 us | 569.7 us | 11 ns | 592.3 us | 616.6 us | 0.56% | 0.94% | 0.94% | 0.67% |
+| 8313 | hash_list | 76 ns | 11 ns | 215.5 us | 219.3 us | 11 ns | 221.3 us | 602.7 us | 0.58% | 1.60% | 0.97% | 0.63% |
+| 8567 | dense | 15 ns | 11 ns | 9.6 us | 15.2 us | 6.2 us | 145.5 us | 10.7 ms | 1.12% | 10.26% | 0.81% | 1.56% |
+| 16384 | dense | 15 ns | 11 ns | 9.3 us | 15.2 us | 6.4 us | 127.5 us | 11.1 ms | 1.04% | 1.09% | 0.98% | 1.76% |
+| 65536 | dense | 15 ns | 2 ns | 9.1 us | 15.1 us | 6.2 us | 122.2 us | 13.0 ms | 1.19% | 1.21% | 0.98% | 2.16% |
+| 262144 | dense | 15 ns | 2 ns | 9.1 us | 15.0 us | 6.2 us | 145.3 us | 12.7 ms | 1.45% | 1.30% | 1.07% | 2.03% |
 
-A few observations. In `exact` mode every cardinality and union estimate is exact (0 percent error) because the inserted values are stored exactly (sorted, gap-coded and gamma-packed), and `estimate_cardinality` is essentially free (about 1 ns, it reads the stored count). The cost in `exact` mode is in mutation: each `insert` splices the gap-coded value buffer in place, so it grows with the stored cardinality (1.4 us to 18 us here), and `merge` is the expensive outlier at 55 to 216 ms because it re-inserts every value of one operand into the other. If you expect to merge large counters, let them reach `dense` mode first.
+A few observations. In `exact` mode every cardinality, union and intersection is exact (0 percent error) because the inserted values are stored exactly (sorted, gap-coded and gamma-packed), and `estimate_cardinality` is essentially free (about 1 ns, it reads the stored count). The cost in `exact` mode is in mutation: each `insert` splices the gap-coded value buffer in place, so it grows with the stored cardinality (1.3 us to 18 us here). The `merge` is a two-pointer union of the two sorted value streams written once (62 to 120 us at a few thousand values), not a re-insertion of each value, so it stays linear in the combined cardinality.
 
-In `hash_list` mode the accuracy is already near-exact (card MRE under 0.6 percent, union MRE under 1.6 percent). This is a narrow transitional band, and its two-operand costs (around 230 to 650 us) fall as the cardinality grows and the hash list downsamples to fewer bits per stored hash.
+In `hash_list` mode the accuracy is already near-exact (card MRE under 0.6 percent, union MRE under 1.6 percent). This is a narrow transitional band, and its two-operand costs (around 220 to 600 us) fall as the cardinality grows and the hash list downsamples to fewer bits per stored hash.
 
-In `dense` mode the common operations are cheap and flat regardless of cardinality: `insert` about 15 ns, `estimate_cardinality` a few ns, `estimate_union_cardinality` about 9.6 us, and `merge` about 16 us (an element-wise register maximum). The default union MRE settles around 1.1 to 1.3 percent. The single elevated value (10.26 percent at cardinality 8567) is the point right after the dense transition, where the two operands straddle the boundary and the inclusion-exclusion estimate is briefly unreliable. The MLE union (`hll.mle().estimate_union_cardinality(..)`) costs about 130 to 165 us and holds union MRE near 1 percent across the range, including at that transition point. The joint MLE (`JointSketch::estimate`) costs about 11 to 14 ms per call, since it runs the full Adam plus L-BFGS optimization, and it buys the same accuracy as the scalar MLE union while also returning the complete overlap and margin decomposition.
+In `dense` mode the common operations are cheap and flat regardless of cardinality: `insert` about 15 ns, `estimate_cardinality` a few ns, `estimate_union_cardinality` about 9 us, and `merge` about 15 us (an element-wise register maximum). The default union MRE settles around 1.1 to 1.3 percent. The single elevated value (10.26 percent at cardinality 8567) is the point right after the dense transition, where the two operands straddle the boundary and the inclusion-exclusion estimate is briefly unreliable. The MLE union (`hll.mle().estimate_union_cardinality(..)`) costs about 120 to 150 us and holds union MRE near 1 percent across the range, including at that transition point. The joint MLE (`JointSketch::estimate`) costs about 11 to 13 ms per call, since it runs the full Adam plus L-BFGS optimization. For a single pair its union matches the scalar MLE union, so its distinctive output is the recovered intersection and margins: the `jMLE inter MRE` column shows that intersection landing within about 0.7 percent in the pre-dense modes and 1.5 to 2.2 percent in dense mode.
 
 ## No STD
 

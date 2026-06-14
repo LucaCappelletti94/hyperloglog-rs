@@ -127,14 +127,24 @@ fn build_vals(card: u64, seed: u64) -> (Vec<u64>, Vec<u64>) {
     (vals_a, vals_b)
 }
 
-/// Mean relative error over `n_trials` independent runs.
-fn measure_quality(target_card: u64, n_trials: usize) -> (f64, f64, f64, f64, f64, f64) {
-    let mut def_card_err = 0.0f64;
-    let mut def_union_err = 0.0f64;
-    let mut def_inter_err = 0.0f64;
-    let mut mle_card_err = 0.0f64;
-    let mut mle_union_err = 0.0f64;
-    let mut mle_inter_err = 0.0f64;
+/// Mean relative error of each estimator over `n_trials` independent runs.
+#[derive(Default, Clone, Copy)]
+struct Quality {
+    def_card: f64,
+    def_union: f64,
+    def_inter: f64,
+    mle_card: f64,
+    mle_union: f64,
+    mle_inter: f64,
+    /// The joint sketch's own union (`JointSketch::estimate(..).union()`).
+    jmle_union: f64,
+    /// The joint sketch's overlap cell (`JointSketch::estimate(..).overlap[0][0]`), i.e. the
+    /// intersection it recovers, which is what the joint MLE provides beyond the scalar union.
+    jmle_inter: f64,
+}
+
+fn measure_quality(target_card: u64, n_trials: usize) -> Quality {
+    let mut q = Quality::default();
     let mut inter_count = 0usize;
 
     for trial in 0..n_trials {
@@ -154,13 +164,13 @@ fn measure_quality(target_card: u64, n_trials: usize) -> (f64, f64, f64, f64, f6
         let est_inter = hll_a.estimate_intersection_cardinality(&hll_b);
 
         if true_card_a > 0.0 {
-            def_card_err += (est_card - true_card_a).abs() / true_card_a;
+            q.def_card += (est_card - true_card_a).abs() / true_card_a;
         }
         if true_union > 0.0 {
-            def_union_err += (est_union - true_union).abs() / true_union;
+            q.def_union += (est_union - true_union).abs() / true_union;
         }
         if true_inter > 0.0 {
-            def_inter_err += (est_inter - true_inter).abs() / true_inter;
+            q.def_inter += (est_inter - true_inter).abs() / true_inter;
             inter_count += 1;
         }
 
@@ -169,13 +179,22 @@ fn measure_quality(target_card: u64, n_trials: usize) -> (f64, f64, f64, f64, f6
         let mle_inter = hll_a.mle().estimate_intersection_cardinality(&hll_b.mle());
 
         if true_card_a > 0.0 {
-            mle_card_err += (mle_card - true_card_a).abs() / true_card_a;
+            q.mle_card += (mle_card - true_card_a).abs() / true_card_a;
         }
         if true_union > 0.0 {
-            mle_union_err += (mle_union - true_union).abs() / true_union;
+            q.mle_union += (mle_union - true_union).abs() / true_union;
         }
         if true_inter > 0.0 {
-            mle_inter_err += (mle_inter - true_inter).abs() / true_inter;
+            q.mle_inter += (mle_inter - true_inter).abs() / true_inter;
+        }
+
+        // The joint MLE sketch over the single pair: its union and its recovered intersection.
+        let sketch = JointSketch::estimate(&[hll_a.mle()], &[hll_b.mle()]);
+        if true_union > 0.0 {
+            q.jmle_union += (sketch.union() - true_union).abs() / true_union;
+        }
+        if true_inter > 0.0 {
+            q.jmle_inter += (sketch.overlap[0][0] - true_inter).abs() / true_inter;
         }
     }
 
@@ -185,14 +204,16 @@ fn measure_quality(target_card: u64, n_trials: usize) -> (f64, f64, f64, f64, f6
     } else {
         1.0
     };
-    (
-        def_card_err / n,
-        def_union_err / n,
-        def_inter_err / inter_n,
-        mle_card_err / n,
-        mle_union_err / n,
-        mle_inter_err / inter_n,
-    )
+    Quality {
+        def_card: q.def_card / n,
+        def_union: q.def_union / n,
+        def_inter: q.def_inter / inter_n,
+        mle_card: q.mle_card / n,
+        mle_union: q.mle_union / n,
+        mle_inter: q.mle_inter / inter_n,
+        jmle_union: q.jmle_union / n,
+        jmle_inter: q.jmle_inter / inter_n,
+    }
 }
 
 fn main() {
@@ -282,8 +303,8 @@ fn main() {
         "jMLE(ns)",
         "defCardMRE",
         "defUnionMRE",
-        "mleCardMRE",
-        "mleUnionMRE"
+        "mleUnionMRE",
+        "jMLEinterMRE"
     );
     println!(
         "|{:-<12}|{:-<11}|{:-<11}|{:-<11}|{:-<11}|{:-<11}|{:-<13}|{:-<14}|{:-<12}|{:-<12}|{:-<13}|{:-<13}|{:-<13}|",
@@ -355,17 +376,10 @@ fn main() {
             })
         };
 
-        let (
-            def_card_mre,
-            def_union_mre,
-            def_inter_mre,
-            mle_card_mre,
-            mle_union_mre,
-            mle_inter_mre,
-        ) = measure_quality(card, QUALITY_TRIALS);
+        let q = measure_quality(card, QUALITY_TRIALS);
 
         println!(
-            "| {:>10} | {:>9} | {:>9.1} | {:>9.1} | {:>9.1} | {:>9.1} | {:>11.1} | {:>12.1} | {:>10.1} | {:>9.3}% | {:>10.3}% | {:>10.3}% | {:>10.3}% |",
+            "| {:>10} | {:>9} | {:>9.1} | {:>9.1} | {:>9.1} | {:>9.1} | {:>11.1} | {:>12.1} | {:>10.1} | {:>9.3}% | {:>10.3}% | {:>10.3}% | {:>11.3}% |",
             card,
             reg,
             insert_ns,
@@ -375,10 +389,10 @@ fn main() {
             mle_card_ns,
             mle_union_ns,
             joint_mle_ns,
-            def_card_mre * 100.0,
-            def_union_mre * 100.0,
-            mle_card_mre * 100.0,
-            mle_union_mre * 100.0
+            q.def_card * 100.0,
+            q.def_union * 100.0,
+            q.mle_union * 100.0,
+            q.jmle_inter * 100.0
         );
 
         json_rows.push(serde_json::json!({
@@ -391,12 +405,14 @@ fn main() {
             "mle_card_ns": mle_card_ns,
             "mle_union_ns": mle_union_ns,
             "joint_mle_ns": joint_mle_ns,
-            "default_card_mre": def_card_mre,
-            "default_union_mre": def_union_mre,
-            "default_inter_mre": def_inter_mre,
-            "mle_card_mre": mle_card_mre,
-            "mle_union_mre": mle_union_mre,
-            "mle_inter_mre": mle_inter_mre,
+            "default_card_mre": q.def_card,
+            "default_union_mre": q.def_union,
+            "default_inter_mre": q.def_inter,
+            "mle_card_mre": q.mle_card,
+            "mle_union_mre": q.mle_union,
+            "mle_inter_mre": q.mle_inter,
+            "jmle_union_mre": q.jmle_union,
+            "jmle_inter_mre": q.jmle_inter,
         }));
     }
 

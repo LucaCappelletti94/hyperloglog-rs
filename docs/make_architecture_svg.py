@@ -77,6 +77,7 @@ for name, rlist in [("exact", exact_rows), ("hash_list", hash_rows), ("dense", d
         "def_card_mre": median([r["default_card_mre"] for r in rlist]),
         "def_union_mre":median([r["default_union_mre"] for r in rlist]),
         "mle_union_mre":median([r["mle_union_mre"] for r in rlist]),
+        "jmle_inter_mre":median([r["jmle_inter_mre"] for r in rlist]),
     }
 
 # ---------------------------------------------------------------------------
@@ -322,17 +323,20 @@ for i, key in enumerate(["exact", "hash_list", "dense"]):
     speed_bar_chart(svg, CHART_X, cy, HALF_W, CHART_H,
                     speed_vals, f"{key}: speed per call (log scale)")
 
-    # Quality chart.
+    # Quality chart. "jMLE inter" is the intersection the joint sketch recovers, the metric unique to
+    # the joint MLE (its union matches the scalar MLE union for a single pair).
     if key == "exact":
         qual_vals = [("def card", 0.0, BAR_COLOR_DEF),
                      ("def union", 0.0, BAR_COLOR_DEF),
-                     ("MLE union", 0.0, BAR_COLOR_MLE)]
+                     ("MLE union", 0.0, BAR_COLOR_MLE),
+                     ("jMLE inter", 0.0, "#D62246")]
         qual_note = "(exact: all errors = 0.0%)"
     else:
         qual_vals = [
             ("def card",  rd["def_card_mre"],  BAR_COLOR_DEF),
             ("def union", rd["def_union_mre"],  BAR_COLOR_DEF),
             ("MLE union", rd["mle_union_mre"],  BAR_COLOR_MLE),
+            ("jMLE inter", rd["jmle_inter_mre"], "#D62246"),
         ]
         qual_note = ""
 
