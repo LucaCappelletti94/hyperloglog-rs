@@ -71,13 +71,14 @@ for name, rlist in [("exact", exact_rows), ("hash_list", hash_rows), ("dense", d
         "card_ns":      median([r["est_card_ns"] for r in rlist]),
         "union_ns":     median([r["est_union_ns"] for r in rlist]),
         "merge_ns":     median([r["merge_ns"] for r in rlist]),
-        "mle_card_ns":  median([r["mle_card_ns"] for r in rlist]),
+        "sketch_def_ns":median([r["sketch_def_ns"] for r in rlist]),
         "mle_union_ns": median([r["mle_union_ns"] for r in rlist]),
-        "jmle_ns":      median([r["joint_mle_ns"] for r in rlist]),
+        "sketch_mle_ns":median([r["sketch_mle_ns"] for r in rlist]),
         "def_card_mre": median([r["default_card_mre"] for r in rlist]),
         "def_union_mre":median([r["default_union_mre"] for r in rlist]),
         "mle_union_mre":median([r["mle_union_mre"] for r in rlist]),
-        "jmle_inter_mre":median([r["jmle_inter_mre"] for r in rlist]),
+        "def_inter_mre":median([r["default_inter_mre"] for r in rlist]),
+        "sketch_mle_inter_mre":median([r["sketch_mle_inter_mre"] for r in rlist]),
     }
 
 # ---------------------------------------------------------------------------
@@ -309,36 +310,40 @@ for i, key in enumerate(["exact", "hash_list", "dense"]):
     rd = regimes_data[key]
     cy = chart_y_positions[i]
 
-    # Speed chart (log scale, so the 1 ns to 200 ms range is all visible).
+    # Speed chart (log scale, so the 1 ns to 200 ms range is all visible). The joint sketch is shown
+    # both ways: the default pairwise sketch and the MLE-mode sketch.
     speed_vals = [
-        ("insert",    rd["insert_ns"],    "#5B8DB8"),
-        ("card(def)", rd["card_ns"],      BAR_COLOR_DEF),
-        ("union(def)",rd["union_ns"],     BAR_COLOR_DEF),
-        ("merge",     rd["merge_ns"],     BAR_COLOR_MERGE),
-        ("card(MLE)", rd["mle_card_ns"],  BAR_COLOR_MLE),
-        ("union(MLE)",rd["mle_union_ns"], BAR_COLOR_MLE),
-        ("jMLE",      rd["jmle_ns"],      "#D62246"),
+        ("insert",      rd["insert_ns"],     "#5B8DB8"),
+        ("card",        rd["card_ns"],       BAR_COLOR_DEF),
+        ("union(def)",  rd["union_ns"],      BAR_COLOR_DEF),
+        ("merge",       rd["merge_ns"],      BAR_COLOR_MERGE),
+        ("sketch(def)", rd["sketch_def_ns"], BAR_COLOR_DEF),
+        ("union(MLE)",  rd["mle_union_ns"],  BAR_COLOR_MLE),
+        ("sketch(MLE)", rd["sketch_mle_ns"], "#D62246"),
     ]
 
     speed_bar_chart(svg, CHART_X, cy, HALF_W, CHART_H,
                     speed_vals, f"{key}: speed per call (log scale)")
 
-    # Quality chart. "jMLE inter" is the intersection the joint sketch recovers, the metric unique to
-    # the joint MLE (its union matches the scalar MLE union for a single pair).
+    # Quality chart: the default and MLE estimators side by side for union and for the sketch's
+    # intersection cell. In exact / hash-list mode the MLE bars are the exact-dispatch result (see the
+    # note), so the default-vs-MLE difference only appears in the dense regime.
     if key == "exact":
-        qual_vals = [("def card", 0.0, BAR_COLOR_DEF),
-                     ("def union", 0.0, BAR_COLOR_DEF),
-                     ("MLE union", 0.0, BAR_COLOR_MLE),
-                     ("jMLE inter", 0.0, "#D62246")]
+        qual_vals = [("card", 0.0, BAR_COLOR_DEF),
+                     ("union(def)", 0.0, BAR_COLOR_DEF),
+                     ("union(MLE)", 0.0, BAR_COLOR_MLE),
+                     ("inter(def)", 0.0, BAR_COLOR_DEF),
+                     ("inter(MLE)", 0.0, "#D62246")]
         qual_note = "(exact: all errors = 0.0%)"
     else:
         qual_vals = [
-            ("def card",  rd["def_card_mre"],  BAR_COLOR_DEF),
-            ("def union", rd["def_union_mre"],  BAR_COLOR_DEF),
-            ("MLE union", rd["mle_union_mre"],  BAR_COLOR_MLE),
-            ("jMLE inter", rd["jmle_inter_mre"], "#D62246"),
+            ("card",       rd["def_card_mre"],         BAR_COLOR_DEF),
+            ("union(def)", rd["def_union_mre"],        BAR_COLOR_DEF),
+            ("union(MLE)", rd["mle_union_mre"],        BAR_COLOR_MLE),
+            ("inter(def)", rd["def_inter_mre"],        BAR_COLOR_DEF),
+            ("inter(MLE)", rd["sketch_mle_inter_mre"], "#D62246"),
         ]
-        qual_note = ""
+        qual_note = "(MLE = exact dispatch here)" if key == "hash_list" else ""
 
     quality_bar_chart(svg, CHART_X + HALF_W + 10, cy, HALF_W, CHART_H,
                       qual_vals, f"{key}: quality (MRE)")
@@ -353,10 +358,10 @@ lx = BOX_X
 ly = H - 64
 text(svg, lx, ly, "Legend:", font_size=12, weight="bold", anchor="start", family="sans-serif")
 legend_items = [
-    (BAR_COLOR_DEF, "Default estimator (HLL++)"),
-    (BAR_COLOR_MLE, "MLE estimator (Ertl)"),
+    (BAR_COLOR_DEF, "Default (HLL++ and pairwise sketch)"),
+    (BAR_COLOR_MLE, "MLE union (Ertl)"),
     (BAR_COLOR_MERGE, "Merge (|)"),
-    ("#D62246",     "Joint MLE (JointSketch::estimate)"),
+    ("#D62246",     "MLE joint sketch"),
 ]
 lxi = lx
 for color, label in legend_items:

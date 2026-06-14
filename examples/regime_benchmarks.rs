@@ -8,6 +8,16 @@
 //! - Every speed measurement is the median of several calibrated runs, to reject outliers.
 //! - `insert` is measured amortized (a batch of fresh unique values into one counter, divided by
 //!   the batch size), so it excludes the cost of cloning the counter.
+//! - Every two-operand measurement (union, merge, the sketch) uses two counters EACH of the row's
+//!   cardinality, built at 50 percent overlap, so the true union is about 1.5x that cardinality.
+//! - The joint sketch is measured both ways: `sketch` is the default pairwise inclusion-exclusion
+//!   (`JointSketch::estimate` over plain counters) and `skMLE` is the MLE-mode sketch
+//!   (`JointSketch::estimate` over `.mle()` views).
+//! - MLE is a register-multiplicity estimator, so it only runs when operands are dense. In the
+//!   `exact` and `hash_list` regimes the `.mle()` scalar calls and the MLE-mode sketch dispatch to
+//!   the exact (or near-exact hash-list) set algebra instead, so those columns coincide with the
+//!   exact result there and are not really MLE. The genuine default-vs-MLE comparison is the dense
+//!   regime.
 //! - In the `exact` regime the two-operand sample sizes are kept small enough that the union stays
 //!   within the exact capacity, so the reported `merge` cost is a like-for-like exact merge.
 //!
@@ -290,24 +300,26 @@ fn main() {
 
     println!("\n=== Benchmarks (Precision12 = 4096 registers, Bits6) ===");
     println!("(MRE = mean relative error, ns = nanoseconds per call, median of {REPS} runs)\n");
+    println!("(each operand has the row's cardinality, built at 50 percent overlap)");
+    println!("(MLE only runs on dense operands; in exact/hash-list the .mle() and sketch paths dispatch to exact set algebra)\n");
     println!(
-        "| {:>10} | {:>9} | {:>9} | {:>9} | {:>9} | {:>9} | {:>11} | {:>12} | {:>10} | {:>10} | {:>11} | {:>11} | {:>11} |",
+        "| {:>10} | {:>9} | {:>9} | {:>9} | {:>9} | {:>9} | {:>10} | {:>11} | {:>11} | {:>11} | {:>11} | {:>14} | {:>14} |",
         "card",
         "regime",
         "ins(ns)",
         "card(ns)",
         "union(ns)",
         "merge(ns)",
-        "mleCard(ns)",
+        "sketch(ns)",
         "mleUnion(ns)",
-        "jMLE(ns)",
+        "skMLE(ns)",
         "defCardMRE",
         "defUnionMRE",
-        "mleUnionMRE",
-        "jMLEinterMRE"
+        "sketchInterMRE",
+        "skMLEinterMRE"
     );
     println!(
-        "|{:-<12}|{:-<11}|{:-<11}|{:-<11}|{:-<11}|{:-<11}|{:-<13}|{:-<14}|{:-<12}|{:-<12}|{:-<13}|{:-<13}|{:-<13}|",
+        "|{:-<12}|{:-<11}|{:-<11}|{:-<11}|{:-<11}|{:-<11}|{:-<12}|{:-<13}|{:-<13}|{:-<13}|{:-<13}|{:-<16}|{:-<16}|",
         "", "", "", "", "", "", "", "", "", "", "", "", ""
     );
 
@@ -368,7 +380,18 @@ fn main() {
             })
         };
 
-        let joint_mle_ns = {
+        // The non-MLE joint sketch: pairwise inclusion-exclusion over plain counters.
+        let sketch_def_ns = {
+            let ha = hll_a.clone();
+            let hb = hll_b.clone();
+            autobench(target_fast, REPS, || {
+                black_box_f64(JointSketch::estimate(&[ha], &[hb]).union());
+            })
+        };
+
+        // The MLE-mode joint sketch. In exact / hash-list mode this dispatches to the exact set
+        // algebra (no MLE runs); genuine MLE optimization happens only for dense operands.
+        let sketch_mle_ns = {
             let ha = hll_a.clone();
             let hb = hll_b.clone();
             autobench(target_slow, REPS, || {
@@ -379,19 +402,19 @@ fn main() {
         let q = measure_quality(card, QUALITY_TRIALS);
 
         println!(
-            "| {:>10} | {:>9} | {:>9.1} | {:>9.1} | {:>9.1} | {:>9.1} | {:>11.1} | {:>12.1} | {:>10.1} | {:>9.3}% | {:>10.3}% | {:>10.3}% | {:>11.3}% |",
+            "| {:>10} | {:>9} | {:>9.1} | {:>9.1} | {:>9.1} | {:>9.1} | {:>10.1} | {:>11.1} | {:>11.1} | {:>10.3}% | {:>10.3}% | {:>13.3}% | {:>13.3}% |",
             card,
             reg,
             insert_ns,
             est_card_ns,
             est_union_ns,
             merge_ns,
-            mle_card_ns,
+            sketch_def_ns,
             mle_union_ns,
-            joint_mle_ns,
+            sketch_mle_ns,
             q.def_card * 100.0,
             q.def_union * 100.0,
-            q.mle_union * 100.0,
+            q.def_inter * 100.0,
             q.jmle_inter * 100.0
         );
 
@@ -402,17 +425,18 @@ fn main() {
             "est_card_ns": est_card_ns,
             "est_union_ns": est_union_ns,
             "merge_ns": merge_ns,
+            "sketch_def_ns": sketch_def_ns,
             "mle_card_ns": mle_card_ns,
             "mle_union_ns": mle_union_ns,
-            "joint_mle_ns": joint_mle_ns,
+            "sketch_mle_ns": sketch_mle_ns,
             "default_card_mre": q.def_card,
             "default_union_mre": q.def_union,
             "default_inter_mre": q.def_inter,
             "mle_card_mre": q.mle_card,
             "mle_union_mre": q.mle_union,
             "mle_inter_mre": q.mle_inter,
-            "jmle_union_mre": q.jmle_union,
-            "jmle_inter_mre": q.jmle_inter,
+            "sketch_mle_union_mre": q.jmle_union,
+            "sketch_mle_inter_mre": q.jmle_inter,
         }));
     }
 

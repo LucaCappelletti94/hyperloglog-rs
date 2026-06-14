@@ -31,124 +31,134 @@
   <text x="156" y="463" font-family="sans-serif" font-size="10" fill="#8E44AD" text-anchor="start" font-weight="normal">register array</text>
   <rect x="290" y="100" width="382" height="185" fill="#F8F9FA" stroke="#CCC" stroke-width="1" rx="4" />
   <text x="481" y="116" font-family="sans-serif" font-size="12" fill="#333" text-anchor="middle" font-weight="bold">exact: speed per call (log scale)</text>
-  <rect x="382" y="128" width="185" height="16" fill="#5B8DB8" rx="2" />
+  <rect x="382" y="128" width="187" height="16" fill="#5B8DB8" rx="2" />
   <text x="378" y="140" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">insert</text>
-  <text x="571" y="140" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">9.3 us</text>
-  <rect x="382" y="149" width="5" height="16" fill="#2E86AB" rx="2" />
-  <text x="378" y="161" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">card(def)</text>
-  <text x="391" y="161" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">1 ns</text>
-  <rect x="382" y="170" width="198" height="16" fill="#2E86AB" rx="2" />
+  <text x="573" y="140" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">9.7 us</text>
+  <rect x="382" y="149" width="6" height="16" fill="#2E86AB" rx="2" />
+  <text x="378" y="161" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">card</text>
+  <text x="392" y="161" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">1 ns</text>
+  <rect x="382" y="170" width="199" height="16" fill="#2E86AB" rx="2" />
   <text x="378" y="182" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">union(def)</text>
-  <text x="584" y="182" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">17.3 us</text>
+  <text x="585" y="182" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">17.7 us</text>
   <rect x="382" y="191" width="224" height="16" fill="#F18F01" rx="2" />
   <text x="378" y="203" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">merge</text>
-  <text x="610" y="203" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">62.6 us</text>
-  <rect x="382" y="212" width="7" height="16" fill="#A23B72" rx="2" />
-  <text x="378" y="224" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">card(MLE)</text>
-  <text x="393" y="224" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">1 ns</text>
-  <rect x="382" y="233" width="198" height="16" fill="#A23B72" rx="2" />
+  <text x="610" y="203" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">60.3 us</text>
+  <rect x="382" y="212" width="199" height="16" fill="#2E86AB" rx="2" />
+  <text x="378" y="224" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">sketch(def)</text>
+  <text x="585" y="224" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">18.0 us</text>
+  <rect x="382" y="233" width="199" height="16" fill="#A23B72" rx="2" />
   <text x="378" y="245" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">union(MLE)</text>
-  <text x="584" y="245" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">17.5 us</text>
-  <rect x="382" y="254" width="242" height="16" fill="#D62246" rx="2" />
-  <text x="378" y="266" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">jMLE</text>
-  <text x="628" y="266" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">147.3 us</text>
+  <text x="585" y="245" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">17.7 us</text>
+  <rect x="382" y="254" width="241" height="16" fill="#D62246" rx="2" />
+  <text x="378" y="266" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">sketch(MLE)</text>
+  <text x="627" y="266" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">142.9 us</text>
   <rect x="682" y="100" width="382" height="185" fill="#F8F9FA" stroke="#CCC" stroke-width="1" rx="4" />
   <text x="873" y="116" font-family="sans-serif" font-size="12" fill="#333" text-anchor="middle" font-weight="bold">exact: quality (MRE)</text>
   <rect x="772" y="126" width="2" height="16" fill="#2E86AB" rx="2" />
-  <text x="768" y="138" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">def card</text>
+  <text x="768" y="138" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">card</text>
   <text x="778" y="138" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">0.00%</text>
   <rect x="772" y="147" width="2" height="16" fill="#2E86AB" rx="2" />
-  <text x="768" y="159" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">def union</text>
+  <text x="768" y="159" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">union(def)</text>
   <text x="778" y="159" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">0.00%</text>
   <rect x="772" y="168" width="2" height="16" fill="#A23B72" rx="2" />
-  <text x="768" y="180" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">MLE union</text>
+  <text x="768" y="180" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">union(MLE)</text>
   <text x="778" y="180" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">0.00%</text>
-  <rect x="772" y="189" width="2" height="16" fill="#D62246" rx="2" />
-  <text x="768" y="201" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">jMLE inter</text>
+  <rect x="772" y="189" width="2" height="16" fill="#2E86AB" rx="2" />
+  <text x="768" y="201" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">inter(def)</text>
   <text x="778" y="201" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">0.00%</text>
+  <rect x="772" y="210" width="2" height="16" fill="#D62246" rx="2" />
+  <text x="768" y="222" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">inter(MLE)</text>
+  <text x="778" y="222" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">0.00%</text>
   <text x="873" y="277" font-family="sans-serif" font-size="10" fill="#555" text-anchor="middle" font-weight="normal">(exact: all errors = 0.0%)</text>
   <rect x="290" y="300" width="382" height="185" fill="#F8F9FA" stroke="#CCC" stroke-width="1" rx="4" />
   <text x="481" y="316" font-family="sans-serif" font-size="12" fill="#333" text-anchor="middle" font-weight="bold">hash_list: speed per call (log scale)</text>
-  <rect x="382" y="328" width="85" height="16" fill="#5B8DB8" rx="2" />
+  <rect x="382" y="328" width="86" height="16" fill="#5B8DB8" rx="2" />
   <text x="378" y="340" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">insert</text>
-  <text x="471" y="340" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">110 ns</text>
-  <rect x="382" y="349" width="43" height="16" fill="#2E86AB" rx="2" />
-  <text x="378" y="361" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">card(def)</text>
-  <text x="429" y="361" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">11 ns</text>
-  <rect x="382" y="370" width="234" height="16" fill="#2E86AB" rx="2" />
+  <text x="472" y="340" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">118 ns</text>
+  <rect x="382" y="349" width="44" height="16" fill="#2E86AB" rx="2" />
+  <text x="378" y="361" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">card</text>
+  <text x="430" y="361" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">12 ns</text>
+  <rect x="382" y="370" width="235" height="16" fill="#2E86AB" rx="2" />
   <text x="378" y="382" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">union(def)</text>
-  <text x="620" y="382" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">398.2 us</text>
+  <text x="621" y="382" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">432.8 us</text>
   <rect x="382" y="391" width="234" height="16" fill="#F18F01" rx="2" />
   <text x="378" y="403" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">merge</text>
-  <text x="620" y="403" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">394.5 us</text>
-  <rect x="382" y="412" width="43" height="16" fill="#A23B72" rx="2" />
-  <text x="378" y="424" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">card(MLE)</text>
-  <text x="429" y="424" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">11 ns</text>
+  <text x="620" y="403" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">418.9 us</text>
+  <rect x="382" y="412" width="234" height="16" fill="#2E86AB" rx="2" />
+  <text x="378" y="424" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">sketch(def)</text>
+  <text x="620" y="424" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">418.7 us</text>
   <rect x="382" y="433" width="234" height="16" fill="#A23B72" rx="2" />
   <text x="378" y="445" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">union(MLE)</text>
-  <text x="620" y="445" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">406.8 us</text>
+  <text x="620" y="445" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">415.8 us</text>
   <rect x="382" y="454" width="242" height="16" fill="#D62246" rx="2" />
-  <text x="378" y="466" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">jMLE</text>
-  <text x="628" y="466" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">609.6 us</text>
+  <text x="378" y="466" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">sketch(MLE)</text>
+  <text x="628" y="466" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">618.5 us</text>
   <rect x="682" y="300" width="382" height="185" fill="#F8F9FA" stroke="#CCC" stroke-width="1" rx="4" />
   <text x="873" y="316" font-family="sans-serif" font-size="12" fill="#333" text-anchor="middle" font-weight="bold">hash_list: quality (MRE)</text>
-  <rect x="772" y="326" width="104" height="16" fill="#2E86AB" rx="2" />
-  <text x="768" y="338" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">def card</text>
-  <text x="880" y="338" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">0.57%</text>
-  <rect x="772" y="347" width="232" height="16" fill="#2E86AB" rx="2" />
-  <text x="768" y="359" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">def union</text>
-  <text x="1008" y="359" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">1.27%</text>
-  <rect x="772" y="368" width="174" height="16" fill="#A23B72" rx="2" />
-  <text x="768" y="380" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">MLE union</text>
-  <text x="950" y="380" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">0.95%</text>
-  <rect x="772" y="389" width="118" height="16" fill="#D62246" rx="2" />
-  <text x="768" y="401" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">jMLE inter</text>
-  <text x="894" y="401" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">0.65%</text>
+  <rect x="772" y="326" width="33" height="16" fill="#2E86AB" rx="2" />
+  <text x="768" y="338" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">card</text>
+  <text x="809" y="338" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">0.57%</text>
+  <rect x="772" y="347" width="74" height="16" fill="#2E86AB" rx="2" />
+  <text x="768" y="359" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">union(def)</text>
+  <text x="850" y="359" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">1.27%</text>
+  <rect x="772" y="368" width="55" height="16" fill="#A23B72" rx="2" />
+  <text x="768" y="380" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">union(MLE)</text>
+  <text x="831" y="380" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">0.95%</text>
+  <rect x="772" y="389" width="232" height="16" fill="#2E86AB" rx="2" />
+  <text x="768" y="401" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">inter(def)</text>
+  <text x="1008" y="401" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">3.96%</text>
+  <rect x="772" y="410" width="38" height="16" fill="#D62246" rx="2" />
+  <text x="768" y="422" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">inter(MLE)</text>
+  <text x="814" y="422" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">0.65%</text>
+  <text x="873" y="477" font-family="sans-serif" font-size="10" fill="#555" text-anchor="middle" font-weight="normal">(MLE = exact dispatch here)</text>
   <rect x="290" y="500" width="382" height="185" fill="#F8F9FA" stroke="#CCC" stroke-width="1" rx="4" />
   <text x="481" y="516" font-family="sans-serif" font-size="12" fill="#333" text-anchor="middle" font-weight="bold">dense: speed per call (log scale)</text>
   <rect x="382" y="528" width="40" height="16" fill="#5B8DB8" rx="2" />
   <text x="378" y="540" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">insert</text>
   <text x="426" y="540" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">15 ns</text>
   <rect x="382" y="549" width="28" height="16" fill="#2E86AB" rx="2" />
-  <text x="378" y="561" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">card(def)</text>
+  <text x="378" y="561" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">card</text>
   <text x="414" y="561" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">7 ns</text>
-  <rect x="382" y="570" width="135" height="16" fill="#2E86AB" rx="2" />
+  <rect x="382" y="570" width="136" height="16" fill="#2E86AB" rx="2" />
   <text x="378" y="582" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">union(def)</text>
-  <text x="521" y="582" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">9.2 us</text>
-  <rect x="382" y="591" width="142" height="16" fill="#F18F01" rx="2" />
+  <text x="522" y="582" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">9.6 us</text>
+  <rect x="382" y="591" width="143" height="16" fill="#F18F01" rx="2" />
   <text x="378" y="603" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">merge</text>
-  <text x="528" y="603" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">15.1 us</text>
-  <rect x="382" y="612" width="129" height="16" fill="#A23B72" rx="2" />
-  <text x="378" y="624" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">card(MLE)</text>
-  <text x="515" y="624" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">6.2 us</text>
-  <rect x="382" y="633" width="175" height="16" fill="#A23B72" rx="2" />
+  <text x="529" y="603" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">16.0 us</text>
+  <rect x="382" y="612" width="136" height="16" fill="#2E86AB" rx="2" />
+  <text x="378" y="624" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">sketch(def)</text>
+  <text x="522" y="624" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">9.8 us</text>
+  <rect x="382" y="633" width="176" height="16" fill="#A23B72" rx="2" />
   <text x="378" y="645" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">union(MLE)</text>
-  <text x="561" y="645" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">136.4 us</text>
+  <text x="562" y="645" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">146.2 us</text>
   <rect x="382" y="654" width="242" height="16" fill="#D62246" rx="2" />
-  <text x="378" y="666" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">jMLE</text>
-  <text x="628" y="666" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">11.9 ms</text>
+  <text x="378" y="666" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">sketch(MLE)</text>
+  <text x="628" y="666" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">12.0 ms</text>
   <rect x="682" y="500" width="382" height="185" fill="#F8F9FA" stroke="#CCC" stroke-width="1" rx="4" />
   <text x="873" y="516" font-family="sans-serif" font-size="12" fill="#333" text-anchor="middle" font-weight="bold">dense: quality (MRE)</text>
-  <rect x="772" y="526" width="141" height="16" fill="#2E86AB" rx="2" />
-  <text x="768" y="538" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">def card</text>
-  <text x="917" y="538" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">1.15%</text>
-  <rect x="772" y="547" width="153" height="16" fill="#2E86AB" rx="2" />
-  <text x="768" y="559" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">def union</text>
-  <text x="929" y="559" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">1.26%</text>
-  <rect x="772" y="568" width="120" height="16" fill="#A23B72" rx="2" />
-  <text x="768" y="580" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">MLE union</text>
-  <text x="896" y="580" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">0.98%</text>
-  <rect x="772" y="589" width="232" height="16" fill="#D62246" rx="2" />
-  <text x="768" y="601" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">jMLE inter</text>
-  <text x="1008" y="601" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">1.89%</text>
+  <rect x="772" y="526" width="102" height="16" fill="#2E86AB" rx="2" />
+  <text x="768" y="538" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">card</text>
+  <text x="878" y="538" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">1.15%</text>
+  <rect x="772" y="547" width="111" height="16" fill="#2E86AB" rx="2" />
+  <text x="768" y="559" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">union(def)</text>
+  <text x="887" y="559" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">1.26%</text>
+  <rect x="772" y="568" width="87" height="16" fill="#A23B72" rx="2" />
+  <text x="768" y="580" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">union(MLE)</text>
+  <text x="863" y="580" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">0.98%</text>
+  <rect x="772" y="589" width="232" height="16" fill="#2E86AB" rx="2" />
+  <text x="768" y="601" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">inter(def)</text>
+  <text x="1008" y="601" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">2.60%</text>
+  <rect x="772" y="610" width="168" height="16" fill="#D62246" rx="2" />
+  <text x="768" y="622" font-family="sans-serif" font-size="10" fill="#333" text-anchor="end" font-weight="normal">inter(MLE)</text>
+  <text x="944" y="622" font-family="sans-serif" font-size="10" fill="#444" text-anchor="start" font-weight="normal">1.89%</text>
   <text x="40" y="716" font-family="sans-serif" font-size="12" fill="#1A1A2E" text-anchor="start" font-weight="bold">Legend:</text>
   <rect x="40" y="726" width="14" height="14" fill="#2E86AB" rx="2" />
-  <text x="58" y="738" font-family="sans-serif" font-size="11" fill="#1A1A2E" text-anchor="start" font-weight="normal">Default estimator (HLL++)</text>
-  <rect x="245" y="726" width="14" height="14" fill="#A23B72" rx="2" />
-  <text x="263" y="738" font-family="sans-serif" font-size="11" fill="#1A1A2E" text-anchor="start" font-weight="normal">MLE estimator (Ertl)</text>
-  <rect x="415" y="726" width="14" height="14" fill="#F18F01" rx="2" />
-  <text x="433" y="738" font-family="sans-serif" font-size="11" fill="#1A1A2E" text-anchor="start" font-weight="normal">Merge (|)</text>
-  <rect x="508" y="726" width="14" height="14" fill="#D62246" rx="2" />
-  <text x="526" y="738" font-family="sans-serif" font-size="11" fill="#1A1A2E" text-anchor="start" font-weight="normal">Joint MLE (JointSketch::estimate)</text>
+  <text x="58" y="738" font-family="sans-serif" font-size="11" fill="#1A1A2E" text-anchor="start" font-weight="normal">Default (HLL++ and pairwise sketch)</text>
+  <rect x="315" y="726" width="14" height="14" fill="#A23B72" rx="2" />
+  <text x="333" y="738" font-family="sans-serif" font-size="11" fill="#1A1A2E" text-anchor="start" font-weight="normal">MLE union (Ertl)</text>
+  <rect x="457" y="726" width="14" height="14" fill="#F18F01" rx="2" />
+  <text x="475" y="738" font-family="sans-serif" font-size="11" fill="#1A1A2E" text-anchor="start" font-weight="normal">Merge (|)</text>
+  <rect x="550" y="726" width="14" height="14" fill="#D62246" rx="2" />
+  <text x="568" y="738" font-family="sans-serif" font-size="11" fill="#1A1A2E" text-anchor="start" font-weight="normal">MLE joint sketch</text>
   <text x="550" y="770" font-family="sans-serif" font-size="10" fill="#999" text-anchor="middle" font-weight="normal">Measured on AMD Ryzen Threadripper PRO 5975WX | Release build | 100 quality trials per cardinality</text>
 </svg>
