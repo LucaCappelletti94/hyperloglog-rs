@@ -15,7 +15,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// # Errors
     /// If the counter is not in hash list mode, an error is returned.
     pub fn get_hash_bits(&self) -> Result<u8, &'static str> {
-        if self.is_proper_hash_list() {
+        if self.is_hash_list() {
             Ok(decode_hash_bits(self.harmonic_sum))
         } else {
             Err("The counter is not in hash list mode.")

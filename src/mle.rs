@@ -36,6 +36,8 @@ pub use optimizers::{Adam, Chain, JointOptimizer, Lbfgs, RmsProp};
 
 use cardinality::mle_cardinality;
 use exact::joint_sketch_exact_from_hash_lists;
+#[cfg(feature = "exact")]
+use exact::joint_sketch_exact_from_values;
 use sketch::{joint_sketch_mle_from_registers, joint_sketch_mle_from_registers_with};
 use union::mle_union_cardinality;
 
@@ -69,6 +71,25 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// mixed case the hash-list operand is materialized into registers first and the MLE is run.
     #[inline]
     pub fn estimate_union_cardinality_mle(&self, other: &Self) -> f64 {
+        // Exact-values operands are resolved first: two exact operands give the exact union, and a
+        // mixed pair promotes the exact one to a hash list (a clone) before falling through.
+        #[cfg(feature = "exact")]
+        {
+            if self.is_exact() && other.is_exact() {
+                return self.estimate_union_cardinality(other);
+            }
+            if self.is_exact() {
+                let mut promoted = self.clone();
+                promoted.convert_exact_to_hash_list().unwrap();
+                return promoted.estimate_union_cardinality_mle(other);
+            }
+            if other.is_exact() {
+                let mut promoted = other.clone();
+                promoted.convert_exact_to_hash_list().unwrap();
+                return self.estimate_union_cardinality_mle(&promoted);
+            }
+        }
+
         if self.is_hash_list() && other.is_hash_list() {
             return self.estimate_union_cardinality(other);
         }
@@ -76,19 +97,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         if self.is_hash_list() || other.is_hash_list() {
             let mut left = self.clone();
             let mut right = other.clone();
-            #[cfg(feature = "exact")]
-            {
-                if left.is_exact() {
-                    left.convert_exact_to_hash_list().unwrap();
-                }
-                if right.is_exact() {
-                    right.convert_exact_to_hash_list().unwrap();
-                }
-            }
-            if left.is_proper_hash_list() {
+            if left.is_hash_list() {
                 left.convert_hash_list_to_hyperloglog().unwrap();
             }
-            if right.is_proper_hash_list() {
+            if right.is_hash_list() {
                 right.convert_hash_list_to_hyperloglog().unwrap();
             }
             return left.mle_union_from_registers(&right);
@@ -186,21 +198,17 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         lefts: &[Self; M],
         rights: &[Self; N],
     ) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+        #[cfg(feature = "exact")]
+        if lefts.iter().all(Self::is_exact) && rights.iter().all(Self::is_exact) {
+            return joint_sketch_exact_from_values::<P, B, R, H, M, N>(lefts, rights);
+        }
         if lefts.iter().all(Self::is_hash_list) && rights.iter().all(Self::is_hash_list) {
             return joint_sketch_exact_from_hash_lists::<P, B, R, H, M, N>(lefts, rights);
         }
 
-        let materialize = |counter: &Self| -> Self {
-            if counter.is_hash_list() {
-                let mut counter = counter.clone();
-                counter.convert_hash_list_to_hyperloglog().unwrap();
-                counter
-            } else {
-                counter.clone()
-            }
-        };
-        let lefts: [Self; M] = core::array::from_fn(|i| materialize(&lefts[i]));
-        let rights: [Self; N] = core::array::from_fn(|j| materialize(&rights[j]));
+        let lefts: [Self; M] = core::array::from_fn(|i| Self::materialize_to_registers(&lefts[i]));
+        let rights: [Self; N] =
+            core::array::from_fn(|j| Self::materialize_to_registers(&rights[j]));
 
         joint_sketch_mle_from_registers::<P, B, R, H, M, N>(&lefts, &rights)
     }
@@ -240,25 +248,37 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         lefts: &[Self; M],
         rights: &[Self; N],
     ) -> ([[f64; N]; M], [f64; M], [f64; N]) {
-        // When every operand is a hash list, the exact set-algebra path is used and the optimizer
-        // type O is irrelevant: the result is exact and optimizer-independent.
+        // When every operand is in a recoverable pre-dense representation, the exact set-algebra
+        // paths are used and the optimizer type O is irrelevant: the result is exact and
+        // optimizer-independent.
+        #[cfg(feature = "exact")]
+        if lefts.iter().all(Self::is_exact) && rights.iter().all(Self::is_exact) {
+            return joint_sketch_exact_from_values::<P, B, R, H, M, N>(lefts, rights);
+        }
         if lefts.iter().all(Self::is_hash_list) && rights.iter().all(Self::is_hash_list) {
             return joint_sketch_exact_from_hash_lists::<P, B, R, H, M, N>(lefts, rights);
         }
 
-        let materialize = |counter: &Self| -> Self {
-            if counter.is_hash_list() {
-                let mut counter = counter.clone();
-                counter.convert_hash_list_to_hyperloglog().unwrap();
-                counter
-            } else {
-                counter.clone()
-            }
-        };
-        let lefts: [Self; M] = core::array::from_fn(|i| materialize(&lefts[i]));
-        let rights: [Self; N] = core::array::from_fn(|j| materialize(&rights[j]));
+        let lefts: [Self; M] = core::array::from_fn(|i| Self::materialize_to_registers(&lefts[i]));
+        let rights: [Self; N] =
+            core::array::from_fn(|j| Self::materialize_to_registers(&rights[j]));
 
         joint_sketch_mle_from_registers_with::<P, B, R, H, O, M, N>(&lefts, &rights)
+    }
+
+    /// Clones `counter` and materializes it into dense register mode, stepping an exact-values
+    /// operand through the hash list first.
+    #[inline]
+    fn materialize_to_registers(counter: &Self) -> Self {
+        let mut counter = counter.clone();
+        #[cfg(feature = "exact")]
+        if counter.is_exact() {
+            counter.convert_exact_to_hash_list().unwrap();
+        }
+        if counter.is_hash_list() {
+            counter.convert_hash_list_to_hyperloglog().unwrap();
+        }
+        counter
     }
 
     /// Joint MLE union estimate assuming both counters are in HyperLogLog (register) mode.

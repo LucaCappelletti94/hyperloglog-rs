@@ -101,3 +101,60 @@ pub(crate) fn joint_sketch_exact_from_hash_lists<
 
     (overlap, left_diff, right_diff)
 }
+
+/// Exact joint sketch when every operand is in the exact-values mode: classify each distinct literal
+/// value directly (no hashing, no collisions), giving truly exact disjoint cells. Same cell layout
+/// and contract as [`joint_sketch_exact_from_hash_lists`].
+#[cfg(feature = "exact")]
+pub(crate) fn joint_sketch_exact_from_values<
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B>,
+    H: HasherType,
+    const M: usize,
+    const N: usize,
+>(
+    lefts: &[HyperLogLog<P, B, R, H>; M],
+    rights: &[HyperLogLog<P, B, R, H>; N],
+) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+    use crate::composite_hash::gaps::value_list::ValueIter;
+
+    debug_assert!(
+        lefts.iter().all(HyperLogLog::is_exact) && rights.iter().all(HyperLogLog::is_exact),
+        "joint_sketch_exact_from_values requires every operand to be in exact-values mode",
+    );
+
+    let mut membership: HashMap<u64, (u8, u8)> = HashMap::new();
+    for (i, left) in lefts.iter().enumerate() {
+        let shell = (i + 1) as u8;
+        for value in ValueIter::new(left.registers.as_ref(), left.get_number_of_values()) {
+            let entry = membership.entry(value).or_insert((0, 0));
+            if entry.0 == 0 {
+                entry.0 = shell;
+            }
+        }
+    }
+    for (j, right) in rights.iter().enumerate() {
+        let shell = (j + 1) as u8;
+        for value in ValueIter::new(right.registers.as_ref(), right.get_number_of_values()) {
+            let entry = membership.entry(value).or_insert((0, 0));
+            if entry.1 == 0 {
+                entry.1 = shell;
+            }
+        }
+    }
+
+    let mut overlap = [[f64::ZERO; N]; M];
+    let mut left_diff = [f64::ZERO; M];
+    let mut right_diff = [f64::ZERO; N];
+    for &(left_shell, right_shell) in membership.values() {
+        match (left_shell, right_shell) {
+            (0, 0) => unreachable!("every recorded value belongs to at least one side"),
+            (li, 0) => left_diff[usize::from(li) - 1] += 1.0,
+            (0, rj) => right_diff[usize::from(rj) - 1] += 1.0,
+            (li, rj) => overlap[usize::from(li) - 1][usize::from(rj) - 1] += 1.0,
+        }
+    }
+
+    (overlap, left_diff, right_diff)
+}

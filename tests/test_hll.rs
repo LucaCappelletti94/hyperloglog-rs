@@ -837,3 +837,68 @@ fn test_exact_dense_union() {
         "mixed union estimate {estimate} differs from 20000 by {error}"
     );
 }
+
+/// When every operand of the joint sketch is in exact-values mode, the disjoint cells are exact
+/// (classified directly from the literal values, no hashing, no collisions).
+#[cfg(all(feature = "exact", feature = "mle"))]
+#[test]
+fn test_joint_sketch_exact_values() {
+    type Counter =
+        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let o = [[12u64, 8], [6, 9]];
+    let da = [7u64, 5];
+    let db = [6u64, 10];
+
+    let mut cursor = 0u64;
+    let mut alloc = |count: u64| {
+        let start = cursor;
+        cursor += count;
+        (start, count)
+    };
+    let ro = [
+        [alloc(o[0][0]), alloc(o[0][1])],
+        [alloc(o[1][0]), alloc(o[1][1])],
+    ];
+    let rda = [alloc(da[0]), alloc(da[1])];
+    let rdb = [alloc(db[0]), alloc(db[1])];
+
+    let insert_vals = |counter: &mut Counter, (start, count): (u64, u64)| {
+        for value in start..start + count {
+            counter.insert_value(value);
+        }
+    };
+
+    let mut a0: Counter = Default::default();
+    insert_vals(&mut a0, ro[0][0]);
+    insert_vals(&mut a0, ro[0][1]);
+    insert_vals(&mut a0, rda[0]);
+    let mut a1 = a0.clone();
+    insert_vals(&mut a1, ro[1][0]);
+    insert_vals(&mut a1, ro[1][1]);
+    insert_vals(&mut a1, rda[1]);
+
+    let mut b0: Counter = Default::default();
+    insert_vals(&mut b0, ro[0][0]);
+    insert_vals(&mut b0, ro[1][0]);
+    insert_vals(&mut b0, rdb[0]);
+    let mut b1 = b0.clone();
+    insert_vals(&mut b1, ro[0][1]);
+    insert_vals(&mut b1, ro[1][1]);
+    insert_vals(&mut b1, rdb[1]);
+
+    assert!([&a0, &a1, &b0, &b1].iter().all(|c| c.is_exact()));
+
+    let (overlap, left_diff, right_diff) = Counter::joint_sketch_mle(&[a0, a1], &[b0, b1]);
+    for i in 0..2 {
+        for j in 0..2 {
+            assert_eq!(overlap[i][j], o[i][j] as f64, "overlap[{i}][{j}]");
+        }
+    }
+    for i in 0..2 {
+        assert_eq!(left_diff[i], da[i] as f64, "left_diff[{i}]");
+    }
+    for j in 0..2 {
+        assert_eq!(right_diff[j], db[j] as f64, "right_diff[{j}]");
+    }
+}
