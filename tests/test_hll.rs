@@ -299,7 +299,7 @@ fn test_mle_union_matches_exact() {
     assert!(!left.is_hash_list() && !right.is_hash_list());
 
     let exact_union = 75_000.0_f64;
-    let mle_union = left.estimate_union_cardinality_mle(&right);
+    let mle_union = left.mle().estimate_union_cardinality(&right.mle());
 
     let error = (mle_union - exact_union).abs() / exact_union;
     assert!(
@@ -327,7 +327,7 @@ fn test_mle_cardinality_reasonable() {
     assert!(!hll.is_hash_list());
 
     let exact = 100_000.0_f64;
-    let mle = hll.estimate_cardinality_mle();
+    let mle = hll.mle().estimate_cardinality();
     let mle_error = (mle - exact).abs() / exact;
 
     assert!(
@@ -410,7 +410,7 @@ fn test_joint_sketch_mle_reduces_to_union_mle() {
 
     let joint_union = overlap[0][0] + left_diff[0] + right_diff[0];
     let exact_union = 75_000.0_f64;
-    let union_mle = left.estimate_union_cardinality_mle(&right);
+    let union_mle = left.mle().estimate_union_cardinality(&right.mle());
 
     let error_rate = Precision10::error_rate();
     let joint_err = (joint_union - exact_union).abs() / exact_union;
@@ -573,7 +573,7 @@ fn test_mle_union_matches_exact_hash_list() {
     assert!(left.is_hash_list() && right.is_hash_list());
 
     let exact_union = 450.0_f64;
-    let mle_union = left.estimate_union_cardinality_mle(&right);
+    let mle_union = left.mle().estimate_union_cardinality(&right.mle());
     let error = (mle_union - exact_union).abs() / exact_union;
     assert!(
         error <= Precision12::error_rate(),
@@ -964,14 +964,14 @@ fn test_estimate_union_cardinality_mle_exact() {
         b.insert_value(value);
     }
     assert!(a.is_exact() && b.is_exact());
-    assert_eq!(a.estimate_union_cardinality_mle(&b), 70.0);
+    assert_eq!(a.mle().estimate_union_cardinality(&b.mle()), 70.0);
 
     let mut big: Counter = Default::default();
     for value in 20u64..20_000 {
         big.insert(&value);
     }
     assert!(big.is_dense());
-    let estimate = a.estimate_union_cardinality_mle(&big);
+    let estimate = a.mle().estimate_union_cardinality(&big.mle());
     let error = (estimate - 20_000.0).abs() / 20_000.0;
     assert!(
         error <= Precision10::error_rate() + 0.05,
@@ -1027,13 +1027,6 @@ fn test_mle_wrapper() {
         b.insert(&v);
     }
     assert!(a.is_dense() && b.is_dense());
-
-    // Scalar routing equals the inherent _mle methods.
-    assert_eq!(a.mle().estimate_cardinality(), a.estimate_cardinality_mle());
-    assert_eq!(
-        a.mle().estimate_union_cardinality(&b.mle()),
-        a.estimate_union_cardinality_mle(&b)
-    );
 
     // Derived ops come from the MLE primitives, via the trait default.
     let ca = a.mle().estimate_cardinality();

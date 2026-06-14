@@ -68,7 +68,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     ///     b.insert(&x); // B = [20000, 50000), so the true union is 50000
     /// }
     ///
-    /// let union = a.estimate_union_cardinality_mle(&b);
+    /// let union = a.mle().estimate_union_cardinality(&b.mle());
     /// assert!((union - 50_000.0).abs() / 50_000.0 < 0.1);
     /// ```
     ///
@@ -80,7 +80,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// and intersection likelihood is maximized jointly and the union estimate is their sum. In the
     /// mixed case the hash-list operand is materialized into registers first and the MLE is run.
     #[inline]
-    pub fn estimate_union_cardinality_mle(&self, other: &Self) -> f64 {
+    pub(crate) fn estimate_union_cardinality_mle(&self, other: &Self) -> f64 {
         // Exact-values operands are resolved first: two exact operands give the exact union, and a
         // mixed pair promotes the exact one to a hash list (a clone) before falling through.
         #[cfg(feature = "exact")]
@@ -131,7 +131,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     ///     counter.insert(&x); // true cardinality is 40000
     /// }
     ///
-    /// let estimate = counter.estimate_cardinality_mle();
+    /// let estimate = counter.mle().estimate_cardinality();
     /// assert!((estimate - 40_000.0).abs() / 40_000.0 < 0.1);
     /// ```
     ///
@@ -144,7 +144,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// comparison: it is less accurate, and substantially slower, than the default corrected
     /// estimate.
     #[inline]
-    pub fn estimate_cardinality_mle(&self) -> f64 {
+    pub(crate) fn estimate_cardinality_mle(&self) -> f64 {
         if self.is_hash_list() {
             return self.estimate_cardinality();
         }

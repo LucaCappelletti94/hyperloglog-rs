@@ -47,7 +47,7 @@ where
     // register layouts while keeping all elements distinct.
     let base = splitmix64(seed).wrapping_mul(4) & 0x0000_FFFF_FFFF_0000;
 
-    let mut left = build::<P, B>(base, shared + left_only);
+    let left = build::<P, B>(base, shared + left_only);
     // Right shares the first `shared` integers, then takes its own disjoint tail.
     let mut right = build::<P, B>(base, shared);
     for value in (base + shared + left_only)..(base + shared + left_only + right_only) {
@@ -57,7 +57,7 @@ where
     let exact_union = (shared + left_only + right_only) as f64;
 
     let default_est = left.estimate_union_cardinality(&right);
-    let mle_est = left.estimate_union_cardinality_mle(&right);
+    let mle_est = left.mle().estimate_union_cardinality(&right.mle());
 
     CaseResult {
         default_rel_err: (default_est - exact_union).abs() / exact_union,

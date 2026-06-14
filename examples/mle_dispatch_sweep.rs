@@ -164,7 +164,7 @@ where
             let def = left.estimate_union_cardinality(right);
             let def_ms = t.elapsed().as_secs_f64() * 1e3;
             let t = Instant::now();
-            let disp = left.estimate_union_cardinality_mle(right);
+            let disp = left.mle().estimate_union_cardinality(&right.mle());
             let disp_ms = t.elapsed().as_secs_f64() * 1e3;
 
             let def_err = (def - union).abs() / union;

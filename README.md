@@ -54,15 +54,15 @@ assert!(
 ```
 
 ### Using MLE estimation
-With the optional `mle` feature, the [joint Maximum Likelihood Estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github.io/hyperloglog-sketch-estimation-paper/paper/paper.pdf) is available for estimating the cardinality of the union of two counters. It maximizes the joint likelihood of the two counters' register multiplicities and can be more accurate than the default union estimator at the cost of being slower. It is exposed as `estimate_union_cardinality_mle` and operates on the HyperLogLog register representation (hash-list operands are materialized into registers first). Only the joint (union) estimator is provided; single-counter cardinality continues to use the HyperLogLog++ corrected estimate.
+With the optional `mle` feature, the [joint Maximum Likelihood Estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github.io/hyperloglog-sketch-estimation-paper/paper/paper.pdf) is available for estimating the cardinality of the union of two counters. It maximizes the joint likelihood of the two counters' register multiplicities and can be more accurate than the default union estimator at the cost of being slower. It is exposed as a mode: call `.mle()` on a counter to obtain a view whose `CardinalityEstimator` methods (here `estimate_union_cardinality`) route through the MLE instead of the default HyperLogLog++ estimators (hash-list operands are materialized into registers first). The joint (union) estimator is the one worth using; the single-counter MLE cardinality is provided for completeness but is dominated by the default HyperLogLog++ corrected estimate.
 
 ```rust
 #[cfg(feature = "mle")]
 {
         use hyperloglog_rs::prelude::*;
 
-        let mut hll1 = HyperLogLog::<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, twox_hash::XxHash>::default();
-        let mut hll2 = HyperLogLog::<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, twox_hash::XxHash>::default();
+        let mut hll1 = HyperLogLog::<Precision10, Bits6>::default();
+        let mut hll2 = HyperLogLog::<Precision10, Bits6>::default();
 
         for value in 0..10_000_u64 {
                 hll1.insert(&value);
@@ -72,7 +72,7 @@ With the optional `mle` feature, the [joint Maximum Likelihood Estimation for Hy
         }
 
         // The true union cardinality of [0, 10000) and [5000, 15000) is 15000.
-        let mle_union: f64 = hll1.estimate_union_cardinality_mle(&hll2);
+        let mle_union: f64 = hll1.mle().estimate_union_cardinality(&hll2.mle());
         assert!(
                 mle_union >= 15_000.0_f64 * 0.9 &&
                 mle_union <= 15_000.0_f64 * 1.1,

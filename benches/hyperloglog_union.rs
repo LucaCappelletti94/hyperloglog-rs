@@ -128,7 +128,13 @@ fn bench_union_estimate_hyperloglog(c: &mut Criterion) {
 
     #[cfg(feature = "mle")]
     group.bench_function("mle", |b| {
-        b.iter(|| black_box(black_box(&left).estimate_union_cardinality_mle(black_box(&right))));
+        b.iter(|| {
+            black_box(
+                black_box(&left)
+                    .mle()
+                    .estimate_union_cardinality(&black_box(&right).mle()),
+            )
+        });
     });
 
     group.finish();
