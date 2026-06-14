@@ -138,15 +138,17 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     ///
     /// # Implementative details
     /// This is Ertl's secant-method maximum-likelihood estimator over the register multiplicities.
-    /// A hash-list operand returns the corrected hash-list estimate directly
-    /// ([`HyperLogLog::estimate_cardinality`]) rather than being materialized into registers: the
-    /// register multiplicities are a function of the stored hashes, so the MLE cannot beat the
-    /// near-exact hash-list count. In register mode the MLE is provided for completeness and
-    /// comparison: it is less accurate, and substantially slower, than the default corrected
-    /// estimate.
+    /// A pre-dense operand (exact values or a hash list) returns the default estimate directly
+    /// ([`HyperLogLog::estimate_cardinality`]) rather than being run through the register MLE: those
+    /// representations already carry a more accurate direct count, and their backing buffer is not a
+    /// register multiset. In register mode the MLE is provided for completeness and comparison: it is
+    /// less accurate, and substantially slower, than the default corrected estimate.
     #[inline]
     pub(crate) fn estimate_cardinality_mle(&self) -> f64 {
-        if self.is_hash_list() {
+        // Both pre-dense representations (exact values and the hash list) carry a more accurate
+        // direct count than the register MLE could recover, and their `registers` buffer is not a
+        // register multiset, so fall back to the default estimate rather than running the MLE.
+        if !self.is_dense() {
             return self.estimate_cardinality();
         }
 
