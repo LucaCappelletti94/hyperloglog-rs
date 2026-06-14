@@ -50,7 +50,7 @@ use exact::joint_sketch_exact_from_hash_lists;
 #[cfg(feature = "exact")]
 use exact::joint_sketch_exact_from_values;
 use sketch::{joint_sketch_mle_from_registers, joint_sketch_mle_from_registers_with};
-use union::mle_union_cardinality;
+use union::mle_union_regions;
 
 impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
     /// Returns the union cardinality estimated with the joint Maximum Likelihood Estimation.
@@ -247,8 +247,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         counter
     }
 
-    /// Joint MLE union estimate assuming both counters are in HyperLogLog (register) mode.
-    fn mle_union_from_registers(&self, other: &Self) -> f64 {
+    /// The three disjoint regions `[left_difference, right_difference, intersection]` of the 2-set
+    /// joint MLE, assuming both counters are in HyperLogLog (register) mode. This is the fast analytic
+    /// estimator the `M = N = 1` joint sketch uses.
+    pub(crate) fn mle_union_regions_from_registers(&self, other: &Self) -> [f64; 3] {
         // Maps a union harmonic sum to the HyperLogLog++ corrected cardinality, exactly as the
         // default register-based union estimator does.
         let estimate = |harmonic_sum: f64, _zeros: u32| {
@@ -261,12 +263,19 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             )
         };
 
-        mle_union_cardinality::<P, B, _>(
+        mle_union_regions::<P, B, _>(
             self.registers.iter_registers_zipped(&other.registers),
             self.estimate_cardinality(),
             other.estimate_cardinality(),
             estimate,
             2,
         )
+    }
+
+    /// Joint MLE union estimate assuming both counters are in HyperLogLog (register) mode.
+    fn mle_union_from_registers(&self, other: &Self) -> f64 {
+        let [left_difference, right_difference, intersection] =
+            self.mle_union_regions_from_registers(other);
+        left_difference + right_difference + intersection
     }
 }

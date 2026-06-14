@@ -9,7 +9,11 @@ use core::ops::{Add, Mul, Sub};
 use num_traits::Float;
 
 #[allow(clippy::too_many_lines)]
-/// Computes the union cardinality using the Maximum Likelihood Estimation.
+/// Computes the three disjoint regions of the 2-set joint MLE: `[left_difference, right_difference,
+/// intersection]`, i.e. `[|A \ B|, |B \ A|, |A intersect B|]`. The union cardinality is their sum.
+/// This is the analytic Ertl estimator over the register multiplicity arrays (each Adam iteration is
+/// O(2^B), not O(number of registers)), so it is much cheaper than the generalized pattern-based
+/// joint sketch optimizer, which the `M = N = 1` joint sketch dispatches here to avoid.
 ///
 /// # Arguments
 /// * `registers` - Iterator over the `[left, right]` register pairs of the two counters.
@@ -17,13 +21,13 @@ use num_traits::Float;
 /// * `estimate` - Maps a union harmonic sum (and zero-register count) to a union cardinality.
 /// * `error_exponent` - The optimizer stops once every gradient is below `10^-error_exponent`
 ///   scaled by the precision.
-pub(crate) fn mle_union_cardinality<P: Precision, B: Bits, I: ExactSizeIterator<Item = [u8; 2]>>(
+pub(crate) fn mle_union_regions<P: Precision, B: Bits, I: ExactSizeIterator<Item = [u8; 2]>>(
     registers: I,
     left_cardinality: f64,
     right_cardinality: f64,
     estimate: impl Fn(f64, u32) -> f64,
     error_exponent: i32,
-) -> f64 {
+) -> [f64; 3] {
     let mut left_multiplicities_larger = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
     let mut left_multiplicities_smaller = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
     let mut right_multiplicities_larger = vec![f64::ZERO; 1 << B::NUMBER_OF_BITS];
@@ -58,7 +62,7 @@ pub(crate) fn mle_union_cardinality<P: Precision, B: Bits, I: ExactSizeIterator<
     // If the number of registers equal to zero in the union is equal to the number of
     // registers, the union is empty.
     if union_zeros == 1 << B::NUMBER_OF_BITS {
-        return f64::ZERO;
+        return [f64::ZERO; 3];
     }
 
     let intersection: f64 =
@@ -193,7 +197,8 @@ pub(crate) fn mle_union_cardinality<P: Precision, B: Bits, I: ExactSizeIterator<
         }
     }
 
-    phis[0].exp() + phis[1].exp() + phis[2].exp()
+    // phis are [ln(left_difference), ln(right_difference), ln(intersection)].
+    [phis[0].exp(), phis[1].exp(), phis[2].exp()]
 }
 
 /// Trait for element-wise multiplication.

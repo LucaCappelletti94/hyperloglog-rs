@@ -26,6 +26,26 @@ pub(crate) fn joint_sketch_mle_from_registers<
     lefts: &[HyperLogLog<P, B, R, H>; M],
     rights: &[HyperLogLog<P, B, R, H>; N],
 ) -> JointSketch<M, N> {
+    // The single-pair case is exactly Ertl's 2-set joint MLE, which has a fast analytic solver over
+    // the register multiplicity arrays. Use it instead of the generalized pattern-based optimizer,
+    // which is orders of magnitude slower for the same three-region problem. (`estimate_with`, which
+    // goes straight to `..._with`, still honors a caller-chosen optimizer.)
+    if M == 1 && N == 1 {
+        let [left_difference, right_difference, intersection] =
+            lefts[0].mle_union_regions_from_registers(&rights[0]);
+        let mut overlap = [[f64::ZERO; N]; M];
+        overlap[0][0] = intersection;
+        let mut left_diff = [f64::ZERO; M];
+        left_diff[0] = left_difference;
+        let mut right_diff = [f64::ZERO; N];
+        right_diff[0] = right_difference;
+        return JointSketch {
+            overlap,
+            left_diff,
+            right_diff,
+        };
+    }
+
     joint_sketch_mle_from_registers_with::<P, B, R, H, Chain<Adam, Lbfgs>, M, N>(lefts, rights)
 }
 
