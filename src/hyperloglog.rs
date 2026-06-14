@@ -19,7 +19,7 @@ use core::marker::PhantomData;
 pub struct HyperLogLog<
     P: Precision,
     B: Bits,
-    R: Registers<P, B>,
+    R: Registers<P, B> = <P as PackedRegister<B>>::Array,
     Hasher: HasherType = twox_hash::XxHash64,
 > {
     /// The registers of the counter.

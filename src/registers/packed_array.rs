@@ -9,6 +9,9 @@
 //! it will also make it slower, as we need to perform more operations to extract the registers from the
 //! packed array, expecially in the case of bridge registers, i.e. registers that span two words.
 
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+
 use super::Registers;
 use super::{Bits, Bits4, Bits5, Bits6, Matrix, Precision, Zero};
 use super::{

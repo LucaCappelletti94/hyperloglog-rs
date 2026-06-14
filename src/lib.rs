@@ -9,6 +9,11 @@
 #![warn(clippy::pedantic)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+// The `alloc` crate is not auto-injected in no_std builds; bring it in so the allocation-backed
+// register (the growable `Packed<Vec<u64>, _>`) compiles with `alloc` but without `std`.
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 mod bits;
 pub mod composite_hash;
 mod correction_coefficients;
