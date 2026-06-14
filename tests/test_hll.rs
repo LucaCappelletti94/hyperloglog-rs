@@ -780,3 +780,60 @@ fn test_recover_values_and_membership() {
     // Membership falls back to the hashed test; an inserted value must still be reported present.
     assert!(big.may_contain_value(1_234));
 }
+
+/// Two exact-mode operands give a bit-exact union, and merging them (via `BitOr`) yields a counter
+/// that stays exact (when small) and recovers the exact union set.
+#[cfg(feature = "exact")]
+#[test]
+fn test_exact_exact_union_and_merge() {
+    type Counter =
+        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut a: Counter = Default::default();
+    let mut b: Counter = Default::default();
+    for value in 0u64..40 {
+        a.insert_value(value);
+    }
+    for value in 25u64..70 {
+        b.insert_value(value);
+    }
+    assert!(a.is_exact() && b.is_exact());
+
+    // The exact union of {0..40} and {25..70} is {0..70}, exactly 70.
+    assert_eq!(a.estimate_union_cardinality(&b), 70.0);
+
+    let merged = &a | &b;
+    assert!(merged.is_exact(), "the merged small union must stay exact");
+    assert_eq!(merged.estimate_cardinality(), 70.0);
+    let mut recovered: Vec<u64> = merged.recover_values().unwrap().collect();
+    recovered.sort_unstable();
+    assert_eq!(recovered, (0u64..70).collect::<Vec<u64>>());
+}
+
+/// A mixed exact / dense union promotes the exact operand and estimates the union within the
+/// precision's error rate.
+#[cfg(feature = "exact")]
+#[test]
+fn test_exact_dense_union() {
+    type Counter =
+        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut small: Counter = Default::default();
+    for value in 0u64..30 {
+        small.insert_value(value);
+    }
+    assert!(small.is_exact());
+
+    let mut big: Counter = Default::default();
+    for value in 20u64..20_000 {
+        big.insert(&value);
+    }
+    assert!(big.is_dense());
+
+    let estimate = small.estimate_union_cardinality(&big);
+    let error = (estimate - 20_000.0).abs() / 20_000.0;
+    assert!(
+        error <= Precision10::error_rate() + 0.01,
+        "mixed union estimate {estimate} differs from 20000 by {error}"
+    );
+}

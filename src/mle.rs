@@ -76,10 +76,19 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         if self.is_hash_list() || other.is_hash_list() {
             let mut left = self.clone();
             let mut right = other.clone();
-            if left.is_hash_list() {
+            #[cfg(feature = "exact")]
+            {
+                if left.is_exact() {
+                    left.convert_exact_to_hash_list().unwrap();
+                }
+                if right.is_exact() {
+                    right.convert_exact_to_hash_list().unwrap();
+                }
+            }
+            if left.is_proper_hash_list() {
                 left.convert_hash_list_to_hyperloglog().unwrap();
             }
-            if right.is_hash_list() {
+            if right.is_proper_hash_list() {
                 right.convert_hash_list_to_hyperloglog().unwrap();
             }
             return left.mle_union_from_registers(&right);

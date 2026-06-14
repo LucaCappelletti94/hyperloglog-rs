@@ -649,6 +649,39 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         self_cardinality: f64,
         other_cardinality: f64,
     ) -> f64 {
+        // Exact-values operands are handled before the hash-list/dense matrix: two exact operands
+        // give the exact union directly, and a mixed pair promotes the exact one to a proper hash
+        // list (a clone) and reuses the existing logic.
+        #[cfg(feature = "exact")]
+        {
+            if self.is_exact() && other.is_exact() {
+                let union = crate::composite_hash::gaps::value_list::union_count(
+                    self.registers.as_ref(),
+                    self.get_number_of_values(),
+                    other.registers.as_ref(),
+                    other.get_number_of_values(),
+                );
+                return f64::from(union);
+            }
+            if self.is_exact() {
+                let mut promoted = self.clone();
+                promoted.convert_exact_to_hash_list().unwrap();
+                return promoted.estimate_union_cardinality_with_cardinalities(
+                    other,
+                    self_cardinality,
+                    other_cardinality,
+                );
+            }
+            if other.is_exact() {
+                let mut promoted = other.clone();
+                promoted.convert_exact_to_hash_list().unwrap();
+                return self.estimate_union_cardinality_with_cardinalities(
+                    &promoted,
+                    self_cardinality,
+                    other_cardinality,
+                );
+            }
+        }
         match (self.is_hash_list(), other.is_hash_list()) {
             (true, true) => {
                 // Build the union as a hash list and estimate its cardinality directly, so the
@@ -705,6 +738,25 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// is a fully-fledged [`HyperLogLog`], the result is a [`HyperLogLog`] whose registers
     /// are the element-wise maximum of the two operands.
     fn merge(&mut self, rhs: &Self) {
+        // Exact-values operands are folded in before the hash-list/dense matrix. When `rhs` is
+        // exact, each of its literal values is inserted into `self` (whatever its mode), which keeps
+        // the result exact when both are exact and small. When only `self` is exact and `rhs` is
+        // hashed, `self` is first promoted to a proper hash list, then merged normally.
+        #[cfg(feature = "exact")]
+        {
+            if rhs.is_exact() {
+                for value in crate::composite_hash::gaps::value_list::ValueIter::new(
+                    rhs.registers.as_ref(),
+                    rhs.get_number_of_values(),
+                ) {
+                    self.insert_value(value);
+                }
+                return;
+            }
+            if self.is_exact() {
+                self.convert_exact_to_hash_list().unwrap();
+            }
+        }
         match (self.is_hash_list(), rhs.is_hash_list()) {
             (false, false) => {
                 // Both counters are fully-fledged HyperLogLogs: element-wise register maximum.

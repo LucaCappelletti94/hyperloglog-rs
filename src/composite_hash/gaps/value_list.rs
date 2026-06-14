@@ -152,6 +152,40 @@ pub(crate) fn contains_value(buffer: &[u8], count: u32, value: u64) -> bool {
     false
 }
 
+/// Returns the exact number of distinct values in the union of two exact lists, by a two-pointer
+/// merge over the descending streams. Allocation-free.
+#[must_use]
+pub(crate) fn union_count(buffer_a: &[u8], count_a: u32, buffer_b: &[u8], count_b: u32) -> u32 {
+    let mut a = ValueIter::new(buffer_a, count_a).peekable();
+    let mut b = ValueIter::new(buffer_b, count_b).peekable();
+    let mut count = 0u32;
+    loop {
+        match (a.peek().copied(), b.peek().copied()) {
+            (Some(x), Some(y)) => {
+                count += 1;
+                // Descending streams: advance whichever is larger, both on a tie.
+                if x == y {
+                    a.next();
+                    b.next();
+                } else if x > y {
+                    a.next();
+                } else {
+                    b.next();
+                }
+            }
+            (Some(_), None) => {
+                a.next();
+                count += 1;
+            }
+            (None, Some(_)) => {
+                b.next();
+                count += 1;
+            }
+            (None, None) => return count,
+        }
+    }
+}
+
 /// Result of inserting a value into the exact list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ValueInsertion {
