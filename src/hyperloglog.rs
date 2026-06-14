@@ -126,7 +126,17 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// Returns whether the provided element may be contained in the counter.
     pub fn may_contain<T: Hash>(&self, element: &T) -> bool {
         let (index, register, original_hash) = Self::index_and_register_and_hash(element);
-        if self.is_hash_list() {
+        // In exact mode the stored items are literal values, not hashes, so test membership by
+        // hashing each stored value and matching the full original hash (exact, no false negatives).
+        #[cfg(feature = "exact")]
+        if self.is_exact() {
+            return crate::composite_hash::gaps::value_list::ValueIter::new(
+                self.registers.as_ref(),
+                self.get_number_of_values(),
+            )
+            .any(|value| Self::index_and_register_and_hash(&value).2 == original_hash);
+        }
+        if self.is_proper_hash_list() {
             GapHash::<P, B>::find(
                 self.registers.as_ref(),
                 self.get_number_of_hashes().unwrap(),

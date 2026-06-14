@@ -766,6 +766,9 @@ fn test_recover_values_and_membership() {
     );
     assert!(counter.may_contain_value(9));
     assert!(!counter.may_contain_value(7));
+    // The generic hashed membership must also work in exact mode.
+    assert!(counter.may_contain(&9_u64));
+    assert!(!counter.may_contain(&7_u64));
 
     // After saturating out of exact mode, the literal values are no longer recoverable.
     let mut big: Counter = Default::default();
