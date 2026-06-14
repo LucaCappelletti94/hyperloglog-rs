@@ -793,6 +793,99 @@ fn test_exact_exact_union_and_merge() {
     assert_eq!(recovered, (0u64..70).collect::<Vec<u64>>());
 }
 
+/// The linear two-pointer exact merge must recover exactly the set union for arbitrary (unsorted,
+/// overlapping) inputs that still fit the exact buffer, and stay in exact mode.
+#[cfg(feature = "exact")]
+#[test]
+fn test_exact_merge_recovers_set_union() {
+    type Counter = HyperLogLog<Precision12, Bits6>;
+
+    let mut state = 0x1234_5678_9abc_def0_u64;
+    let mut next = || {
+        state = splitmix64(state);
+        state & 0xFFFF // keep values small so many collisions and a recoverable union
+    };
+
+    let mut a: Counter = Default::default();
+    let mut b: Counter = Default::default();
+    let mut exact_a = std::collections::HashSet::new();
+    let mut exact_b = std::collections::HashSet::new();
+    for _ in 0..200 {
+        let va = next();
+        let vb = next();
+        a.insert_value(va);
+        exact_a.insert(va);
+        b.insert_value(vb);
+        exact_b.insert(vb);
+    }
+    assert!(a.is_exact() && b.is_exact());
+
+    let merged = &a | &b;
+    assert!(
+        merged.is_exact(),
+        "the union still fits, so it must stay exact"
+    );
+
+    let mut expected: Vec<u64> = exact_a.union(&exact_b).copied().collect();
+    expected.sort_unstable();
+    let mut recovered: Vec<u64> = merged.recover_values().unwrap().collect();
+    recovered.sort_unstable();
+    assert_eq!(recovered, expected);
+    assert_eq!(merged.estimate_cardinality(), expected.len() as f64);
+
+    // Merging the other way round yields the same exact union.
+    let merged_swapped = &b | &a;
+    let mut recovered_swapped: Vec<u64> = merged_swapped.recover_values().unwrap().collect();
+    recovered_swapped.sort_unstable();
+    assert_eq!(recovered_swapped, expected);
+}
+
+/// When the exact union overflows the exact buffer, the merge must leave exact mode but still
+/// estimate the union cardinality within the precision's error rate (no values are lost).
+#[cfg(feature = "exact")]
+#[test]
+fn test_exact_merge_overflow_transitions() {
+    type Counter = HyperLogLog<Precision10, Bits6>;
+
+    // Fills a counter to its exact maximum (the last cardinality that still fits exact mode) using
+    // consecutive values starting at `start`.
+    fn fill_to_exact_max(start: u64) -> (Counter, u64) {
+        let mut counter: Counter = Default::default();
+        let mut count = 0u64;
+        let mut value = start;
+        loop {
+            let mut trial = counter;
+            trial.insert_value(value);
+            if !trial.is_exact() {
+                break;
+            }
+            counter = trial;
+            count += 1;
+            value += 1;
+        }
+        (counter, count)
+    }
+
+    // Two operands saturated to the exact limit over disjoint value ranges: their union is about
+    // twice the exact capacity and cannot stay exact.
+    let (a, count_a) = fill_to_exact_max(0);
+    let (b, count_b) = fill_to_exact_max(10_000_000);
+    assert!(a.is_exact() && b.is_exact());
+
+    let true_union = (count_a + count_b) as f64; // the ranges are disjoint
+    let merged = &a | &b;
+    assert!(
+        !merged.is_exact(),
+        "a union past the exact capacity must transition out of exact mode"
+    );
+    let estimate = merged.estimate_cardinality();
+    let error = (estimate - true_union).abs() / true_union;
+    assert!(
+        error <= Precision10::error_rate() + 0.02,
+        "overflowed exact merge cardinality {estimate} differs from {true_union} by {error}"
+    );
+}
+
 /// A mixed exact / dense union promotes the exact operand and estimates the union within the
 /// precision's error rate.
 #[cfg(feature = "exact")]

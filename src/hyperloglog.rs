@@ -379,6 +379,49 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     #[cfg(feature = "exact")]
+    /// Merges another exact-values counter into this one (both must be in exact mode) in linear time,
+    /// keeping the result exact. Returns `false` without modifying `self` if the union does not fit
+    /// the exact buffer, so the caller can transition out of exact mode instead.
+    ///
+    /// Both operands store their values sorted (descending) and gap-coded, so the union is produced by
+    /// a single two-pointer merge written once, rather than by splicing each value of the other
+    /// operand into this one (which is quadratic). The only allocation is one clone of this counter's
+    /// own value buffer, mirroring the mode-transition paths.
+    fn try_merge_exact_values(&mut self, rhs: &Self) -> bool {
+        use crate::composite_hash::gaps::value_list;
+
+        let count_self = self.get_number_of_values();
+        let count_rhs = rhs.get_number_of_values();
+        let (union_count, needed_bits) = value_list::merge_metrics(
+            self.registers.as_ref(),
+            count_self,
+            rhs.registers.as_ref(),
+            count_rhs,
+        );
+
+        let maximal_bits = (1usize << P::EXPONENT) * B::NUMBER_OF_BITS as usize;
+        if needed_bits as usize > maximal_bits {
+            return false;
+        }
+
+        // Move this counter's values aside, then grow (for a growable buffer) and rewrite in place.
+        let source = self.registers.clone();
+        while self.registers.as_ref().len() * 8 < needed_bits as usize {
+            self.registers.increase_capacity();
+        }
+        self.registers.clear_registers();
+        value_list::merge_write(
+            source.as_ref(),
+            count_self,
+            rhs.registers.as_ref(),
+            count_rhs,
+            self.registers.as_mut(),
+        );
+        self.set_number_of_values(union_count);
+        true
+    }
+
+    #[cfg(feature = "exact")]
     #[inline]
     /// Converts an exact-values counter into a proper hash list by hashing each stored value with
     /// the counter's hasher `H`. This is the one-way transition that the exact mode shares with the
@@ -694,13 +737,21 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// is a fully-fledged [`HyperLogLog`], the result is a [`HyperLogLog`] whose registers
     /// are the element-wise maximum of the two operands.
     fn merge(&mut self, rhs: &Self) {
-        // Exact-values operands are folded in before the hash-list/dense matrix. When `rhs` is
-        // exact, each of its literal values is inserted into `self` (whatever its mode), which keeps
-        // the result exact when both are exact and small. When only `self` is exact and `rhs` is
+        // Exact-values operands are folded in before the hash-list/dense matrix. When both counters
+        // are exact, a single linear two-pointer merge keeps the result exact (and falls back to a
+        // mode transition if the union no longer fits). When only `self` is exact and `rhs` is
         // hashed, `self` is first promoted to a proper hash list, then merged normally.
         #[cfg(feature = "exact")]
         {
             if rhs.is_exact() {
+                if self.is_exact() && self.try_merge_exact_values(rhs) {
+                    return;
+                }
+                if self.is_exact() {
+                    // The exact union overflows the buffer: leave exact mode, then fold `rhs`'s
+                    // values in (now hashed, so each insertion is cheap).
+                    self.convert_exact_to_hash_list().unwrap();
+                }
                 for value in crate::composite_hash::gaps::value_list::ValueIter::new(
                     rhs.registers.as_ref(),
                     rhs.get_number_of_values(),

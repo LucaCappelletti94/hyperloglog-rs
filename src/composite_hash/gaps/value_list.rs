@@ -186,6 +186,98 @@ pub(crate) fn union_count(buffer_a: &[u8], count_a: u32, buffer_b: &[u8], count_
     }
 }
 
+/// Calls `f(is_first, value)` for each distinct value of the union of two descending exact streams,
+/// in descending order, by a two-pointer merge. Allocation-free: both inputs are already sorted, so
+/// no intermediate set or vector is needed.
+#[inline]
+fn for_each_union_value<F: FnMut(bool, u64)>(
+    buffer_a: &[u8],
+    count_a: u32,
+    buffer_b: &[u8],
+    count_b: u32,
+    mut f: F,
+) {
+    let mut a = ValueIter::new(buffer_a, count_a).peekable();
+    let mut b = ValueIter::new(buffer_b, count_b).peekable();
+    let mut first = true;
+    loop {
+        let value = match (a.peek().copied(), b.peek().copied()) {
+            (Some(x), Some(y)) => {
+                // Descending streams: take the larger, advancing both on a tie to dedup.
+                if x == y {
+                    a.next();
+                    b.next();
+                    x
+                } else if x > y {
+                    a.next();
+                    x
+                } else {
+                    b.next();
+                    y
+                }
+            }
+            (Some(x), None) => {
+                a.next();
+                x
+            }
+            (None, Some(y)) => {
+                b.next();
+                y
+            }
+            (None, None) => return,
+        };
+        f(first, value);
+        first = false;
+    }
+}
+
+/// Returns `(distinct_count, encoded_bits)` of the union of two exact lists, without allocating or
+/// writing. Use this to size the destination buffer before [`merge_write`].
+#[must_use]
+pub(crate) fn merge_metrics(
+    buffer_a: &[u8],
+    count_a: u32,
+    buffer_b: &[u8],
+    count_b: u32,
+) -> (u32, u32) {
+    let mut count = 0u32;
+    let mut bits = 0u32;
+    let mut previous = 0u64;
+    for_each_union_value(buffer_a, count_a, buffer_b, count_b, |first, value| {
+        bits += if first {
+            code_len(value)
+        } else {
+            code_len(previous - value)
+        };
+        previous = value;
+        count += 1;
+    });
+    (count, bits)
+}
+
+/// Writes the union of two exact lists into `dest` as a fresh descending gap-coded stream, returning
+/// the number of distinct values written. `dest` must hold at least `merge_metrics(..).1` bits and be
+/// disjoint from both inputs. This is the linear-time exact merge: it reads each input once instead of
+/// splicing one value at a time.
+pub(crate) fn merge_write(
+    buffer_a: &[u8],
+    count_a: u32,
+    buffer_b: &[u8],
+    count_b: u32,
+    dest: &mut [u8],
+) -> u32 {
+    let mut count = 0u32;
+    let mut pos = 0u32;
+    let mut previous = 0u64;
+    for_each_union_value(buffer_a, count_a, buffer_b, count_b, |first, value| {
+        let code = if first { value } else { previous - value };
+        pos = write_value_at(dest, pos, code);
+        previous = value;
+        count += 1;
+    });
+    count
+}
+
 /// Result of inserting a value into the exact list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ValueInsertion {
@@ -414,5 +506,51 @@ mod tests {
         assert_eq!(union_count(&a, count_a, &b, count_b), 8);
         // The swapped order exercises the mirrored merge branches.
         assert_eq!(union_count(&b, count_b, &a, count_a), 8);
+    }
+
+    #[test]
+    fn test_merge_write_matches_union() {
+        let mut a = vec![0u8; 8 * 8];
+        let mut b = vec![0u8; 8 * 8];
+        let mut count_a = 0u32;
+        let mut count_b = 0u32;
+        for value in [10u64, 20, 30, 40] {
+            if insert_value(&mut a, count_a, value) == ValueInsertion::Inserted {
+                count_a += 1;
+            }
+        }
+        for value in [25u64, 35, 40, 50, 60] {
+            if insert_value(&mut b, count_b, value) == ValueInsertion::Inserted {
+                count_b += 1;
+            }
+        }
+
+        let (union_count_metric, needed_bits) = merge_metrics(&a, count_a, &b, count_b);
+        assert_eq!(union_count_metric, 8);
+
+        let mut dest = vec![0u8; 8 * 8];
+        let written = merge_write(&a, count_a, &b, count_b, &mut dest);
+        assert_eq!(written, 8);
+
+        // The destination decodes back to the sorted-descending union, and the metric matches the
+        // bits actually consumed by the writer.
+        let recovered: Vec<u64> = ValueIter::new(&dest, written).collect();
+        assert_eq!(recovered, vec![60, 50, 40, 35, 30, 25, 20, 10]);
+        let consumed: u32 = recovered
+            .iter()
+            .enumerate()
+            .scan(0u64, |prev, (i, &v)| {
+                let code = if i == 0 { v } else { *prev - v };
+                *prev = v;
+                Some(code_len(code))
+            })
+            .sum();
+        assert_eq!(consumed, needed_bits);
+
+        // Merging is symmetric.
+        let mut dest_swapped = vec![0u8; 8 * 8];
+        let written_swapped = merge_write(&b, count_b, &a, count_a, &mut dest_swapped);
+        let recovered_swapped: Vec<u64> = ValueIter::new(&dest_swapped, written_swapped).collect();
+        assert_eq!(recovered_swapped, recovered);
     }
 }
