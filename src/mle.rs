@@ -22,6 +22,7 @@ use crate::prelude::*;
 use crate::utils::FloatOps;
 
 mod cardinality;
+mod exact;
 mod likelihood;
 mod optimizers;
 #[cfg(test)]
@@ -34,6 +35,7 @@ mod union;
 pub use optimizers::{Adam, Chain, JointOptimizer, Lbfgs, RmsProp};
 
 use cardinality::mle_cardinality;
+use exact::joint_sketch_exact_from_hash_lists;
 use sketch::{joint_sketch_mle_from_registers, joint_sketch_mle_from_registers_with};
 use union::mle_union_cardinality;
 
@@ -59,12 +61,18 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// ```
     ///
     /// # Implementative details
-    /// The estimator operates on the HyperLogLog register multiplicities, so if either operand
-    /// is still a hash list it is materialized into a fully-fledged HyperLogLog first. The
-    /// likelihood of the left difference, right difference and intersection is maximized jointly
-    /// with an Adam optimizer; the union estimate is their sum.
+    /// The estimator dispatches on the representation of the two operands. When both are still hash
+    /// lists, the near-exact hash-list union ([`HyperLogLog::estimate_union_cardinality`]) is used
+    /// directly, since the stored hashes carry more information than the register multiplicities the
+    /// MLE consumes. When both are fully-fledged HyperLogLogs, the left difference, right difference
+    /// and intersection likelihood is maximized jointly and the union estimate is their sum. In the
+    /// mixed case the hash-list operand is materialized into registers first and the MLE is run.
     #[inline]
     pub fn estimate_union_cardinality_mle(&self, other: &Self) -> f64 {
+        if self.is_hash_list() && other.is_hash_list() {
+            return self.estimate_union_cardinality(other);
+        }
+
         if self.is_hash_list() || other.is_hash_list() {
             let mut left = self.clone();
             let mut right = other.clone();
@@ -97,17 +105,17 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// ```
     ///
     /// # Implementative details
-    /// This is Ertl's secant-method maximum-likelihood estimator over the register
-    /// multiplicities. It operates on the HyperLogLog register representation, so a hash-list
-    /// operand is materialized into registers first. It is provided for completeness and
-    /// comparison: it is less accurate, and substantially slower, than the default
-    /// [`HyperLogLog::estimate_cardinality`] (HyperLogLog++ corrected) estimate.
+    /// This is Ertl's secant-method maximum-likelihood estimator over the register multiplicities.
+    /// A hash-list operand returns the corrected hash-list estimate directly
+    /// ([`HyperLogLog::estimate_cardinality`]) rather than being materialized into registers: the
+    /// register multiplicities are a function of the stored hashes, so the MLE cannot beat the
+    /// near-exact hash-list count. In register mode the MLE is provided for completeness and
+    /// comparison: it is less accurate, and substantially slower, than the default corrected
+    /// estimate.
     #[inline]
     pub fn estimate_cardinality_mle(&self) -> f64 {
         if self.is_hash_list() {
-            let mut counter = self.clone();
-            counter.convert_hash_list_to_hyperloglog().unwrap();
-            return counter.estimate_cardinality_mle();
+            return self.estimate_cardinality();
         }
 
         mle_cardinality::<P, B>(
@@ -157,9 +165,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// ```
     ///
     /// # Implementative details
-    /// Any hash-list operand is materialized into registers first. The optimization is warm-started
-    /// from the pairwise sketch and refined with the default `Chain<Adam, Lbfgs>` optimizer, driven
-    /// by the exact forward-mode gradient of the joint per-register log-likelihood. Use
+    /// When every operand is still a hash list, the disjoint cells are counted exactly from the
+    /// stored composite hashes, with no optimization. Otherwise any hash-list operand is
+    /// materialized into registers first, and the optimization is warm-started from the pairwise
+    /// sketch and refined with the default `Chain<Adam, Lbfgs>` optimizer, driven by the exact
+    /// forward-mode gradient of the joint per-register log-likelihood. Use
     /// [`HyperLogLog::joint_sketch_mle_with`] to pick a different optimizer. See
     /// `docs/joint_mle_math.md`.
     #[inline]
@@ -167,6 +177,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         lefts: &[Self; M],
         rights: &[Self; N],
     ) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+        if lefts.iter().all(Self::is_hash_list) && rights.iter().all(Self::is_hash_list) {
+            return joint_sketch_exact_from_hash_lists::<P, B, R, H, M, N>(lefts, rights);
+        }
+
         let materialize = |counter: &Self| -> Self {
             if counter.is_hash_list() {
                 let mut counter = counter.clone();
@@ -217,6 +231,12 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         lefts: &[Self; M],
         rights: &[Self; N],
     ) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+        // When every operand is a hash list, the exact set-algebra path is used and the optimizer
+        // type O is irrelevant: the result is exact and optimizer-independent.
+        if lefts.iter().all(Self::is_hash_list) && rights.iter().all(Self::is_hash_list) {
+            return joint_sketch_exact_from_hash_lists::<P, B, R, H, M, N>(lefts, rights);
+        }
+
         let materialize = |counter: &Self| -> Self {
             if counter.is_hash_list() {
                 let mut counter = counter.clone();

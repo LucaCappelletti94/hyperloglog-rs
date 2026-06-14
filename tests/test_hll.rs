@@ -555,3 +555,111 @@ fn test_joint_sketch_mle_matches_exact_cells() {
         );
     }
 }
+
+/// Hash-list-regime counterpart of `test_mle_union_matches_exact`: with both operands small enough
+/// to stay in hash-list mode, `estimate_union_cardinality_mle` dispatches to the exact hash-list
+/// union, which must match the exact union within the precision's error rate.
+#[cfg(feature = "mle")]
+#[test]
+fn test_mle_union_matches_exact_hash_list() {
+    type Counter =
+        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut left: Counter = Default::default();
+    let mut right: Counter = Default::default();
+    insert_range(&mut left, 0, 300);
+    insert_range(&mut right, 150, 300);
+    assert!(left.is_hash_list() && right.is_hash_list());
+
+    let exact_union = 450.0_f64;
+    let mle_union = left.estimate_union_cardinality_mle(&right);
+    let error = (mle_union - exact_union).abs() / exact_union;
+    assert!(
+        error <= Precision12::error_rate(),
+        "hash-list MLE union {mle_union} differs from exact {exact_union} by {error}, exceeding {}.",
+        Precision12::error_rate(),
+    );
+}
+
+/// Hash-list-regime counterpart of `test_joint_sketch_mle_matches_exact_cells`: every operand stays
+/// in hash-list mode, so `joint_sketch_mle` dispatches to the exact set-algebra path and every
+/// disjoint cell must match its exact cardinality within the precision's error rate.
+#[cfg(feature = "mle")]
+#[test]
+fn test_joint_sketch_mle_matches_exact_cells_hash_list() {
+    type Counter =
+        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let o = [[120_u64, 80], [60, 90]];
+    let da = [70_u64, 50];
+    let db = [60_u64, 100];
+
+    let mut cursor = 0_u64;
+    let mut alloc = |count: u64| {
+        let start = cursor;
+        cursor += count;
+        (start, count)
+    };
+    let ro = [
+        [alloc(o[0][0]), alloc(o[0][1])],
+        [alloc(o[1][0]), alloc(o[1][1])],
+    ];
+    let rda = [alloc(da[0]), alloc(da[1])];
+    let rdb = [alloc(db[0]), alloc(db[1])];
+
+    let mut a0: Counter = Default::default();
+    insert_range(&mut a0, ro[0][0].0, ro[0][0].1);
+    insert_range(&mut a0, ro[0][1].0, ro[0][1].1);
+    insert_range(&mut a0, rda[0].0, rda[0].1);
+    let mut a1 = a0.clone();
+    insert_range(&mut a1, ro[1][0].0, ro[1][0].1);
+    insert_range(&mut a1, ro[1][1].0, ro[1][1].1);
+    insert_range(&mut a1, rda[1].0, rda[1].1);
+
+    let mut b0: Counter = Default::default();
+    insert_range(&mut b0, ro[0][0].0, ro[0][0].1);
+    insert_range(&mut b0, ro[1][0].0, ro[1][0].1);
+    insert_range(&mut b0, rdb[0].0, rdb[0].1);
+    let mut b1 = b0.clone();
+    insert_range(&mut b1, ro[0][1].0, ro[0][1].1);
+    insert_range(&mut b1, ro[1][1].0, ro[1][1].1);
+    insert_range(&mut b1, rdb[1].0, rdb[1].1);
+
+    assert!([&a0, &a1, &b0, &b1].iter().all(|c| c.is_hash_list()));
+
+    let total_union: f64 =
+        (o[0][0] + o[0][1] + o[1][0] + o[1][1] + da[0] + da[1] + db[0] + db[1]) as f64;
+
+    let (overlap, left_diff, right_diff) = Counter::joint_sketch_mle(&[a0, a1], &[b0, b1]);
+
+    let error_rate = Precision12::error_rate();
+    for i in 0..2 {
+        for j in 0..2 {
+            let err = (overlap[i][j] - o[i][j] as f64).abs() / total_union;
+            assert!(
+                err <= error_rate,
+                "overlap[{i}][{j}] = {} differs from exact {} by {err} of the union, exceeding {error_rate}.",
+                overlap[i][j],
+                o[i][j],
+            );
+        }
+    }
+    for i in 0..2 {
+        let err = (left_diff[i] - da[i] as f64).abs() / total_union;
+        assert!(
+            err <= error_rate,
+            "left_diff[{i}] = {} exact {}",
+            left_diff[i],
+            da[i]
+        );
+    }
+    for j in 0..2 {
+        let err = (right_diff[j] - db[j] as f64).abs() / total_union;
+        assert!(
+            err <= error_rate,
+            "right_diff[{j}] = {} exact {}",
+            right_diff[j],
+            db[j]
+        );
+    }
+}

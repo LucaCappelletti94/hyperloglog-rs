@@ -1,6 +1,6 @@
 //! Tests and the optimizer comparison harness for the MLE estimators.
 
-use super::cardinality::*;
+use super::exact::*;
 use super::likelihood::*;
 use super::optimizers::*;
 use super::oracle::*;
@@ -671,4 +671,190 @@ fn experiment_optimizers<const M: usize, const N: usize>(unit: u64) {
 fn experiment_optimizers_run() {
     experiment_optimizers::<4, 4>(256);
     experiment_optimizers::<5, 5>(256);
+}
+
+/// Builds nested left/right counters from disjoint integer ranges with known-exact cells, sized so
+/// every counter stays in hash-list mode. Returns the counters and the exact cell cardinalities.
+#[cfg(feature = "mle")]
+#[allow(clippy::type_complexity)]
+fn build_nested_hash_lists<P, B, const M: usize, const N: usize>(
+    unit: u64,
+) -> (
+    [HyperLogLog<P, B, <P as PackedRegister<B>>::Array, twox_hash::XxHash64>; M],
+    [HyperLogLog<P, B, <P as PackedRegister<B>>::Array, twox_hash::XxHash64>; N],
+    [[f64; N]; M],
+    [f64; M],
+    [f64; N],
+)
+where
+    P: Precision + PackedRegister<B>,
+    B: Bits,
+{
+    type Counter<P, B> = HyperLogLog<P, B, <P as PackedRegister<B>>::Array, twox_hash::XxHash64>;
+    let build = |ranges: &[(u64, u64)]| -> Counter<P, B> {
+        let mut hll = Counter::<P, B>::default();
+        for &(start, count) in ranges {
+            for v in start..start + count {
+                hll.insert(&v);
+            }
+        }
+        hll
+    };
+    let mut cursor = 0u64;
+    let mut overlap = [[0.0_f64; N]; M];
+    let mut left_diff = [0.0_f64; M];
+    let mut right_diff = [0.0_f64; N];
+    let mut ranges_o = [[(0u64, 0u64); N]; M];
+    for i in 0..M {
+        for j in 0..N {
+            let count = unit * (2 + ((i * 5 + j * 3) % 4) as u64);
+            ranges_o[i][j] = (cursor, count);
+            overlap[i][j] = count as f64;
+            cursor += count;
+        }
+    }
+    let mut ranges_da = [(0u64, 0u64); M];
+    for i in 0..M {
+        let count = unit * (1 + (i % 2) as u64);
+        ranges_da[i] = (cursor, count);
+        left_diff[i] = count as f64;
+        cursor += count;
+    }
+    let mut ranges_db = [(0u64, 0u64); N];
+    for j in 0..N {
+        let count = unit * (1 + (j % 3) as u64);
+        ranges_db[j] = (cursor, count);
+        right_diff[j] = count as f64;
+        cursor += count;
+    }
+    let lefts: [Counter<P, B>; M] = core::array::from_fn(|i| {
+        let mut ranges = Vec::new();
+        for ii in 0..=i {
+            for j in 0..N {
+                ranges.push(ranges_o[ii][j]);
+            }
+            ranges.push(ranges_da[ii]);
+        }
+        build(&ranges)
+    });
+    let rights: [Counter<P, B>; N] = core::array::from_fn(|j| {
+        let mut ranges = Vec::new();
+        for jj in 0..=j {
+            for i in 0..M {
+                ranges.push(ranges_o[i][jj]);
+            }
+            ranges.push(ranges_db[jj]);
+        }
+        build(&ranges)
+    });
+    (lefts, rights, overlap, left_diff, right_diff)
+}
+
+/// The exact path counts each disjoint integer range exactly (collisions are negligible at the high
+/// hash sizes of small counters), so every cell matches the known cardinality within one element.
+#[cfg(feature = "mle")]
+fn check_exact_cells_hash_list<P, B, const M: usize, const N: usize>(unit: u64)
+where
+    P: Precision + PackedRegister<B>,
+    B: Bits,
+{
+    let (lefts, rights, overlap, left_diff, right_diff) =
+        build_nested_hash_lists::<P, B, M, N>(unit);
+    assert!(
+        lefts.iter().all(HyperLogLog::is_hash_list) && rights.iter().all(HyperLogLog::is_hash_list),
+        "test inputs must stay in hash-list mode for M={M} N={N} unit={unit}"
+    );
+
+    let (ov, ld, rd) = joint_sketch_exact_from_hash_lists::<_, _, _, _, M, N>(&lefts, &rights);
+    let close = |a: f64, b: f64| (a - b).abs() <= (0.05 * b).max(1.0);
+    for i in 0..M {
+        for j in 0..N {
+            assert!(
+                close(ov[i][j], overlap[i][j]),
+                "M={M} N={N} overlap[{i}][{j}]: got {} exact {}",
+                ov[i][j],
+                overlap[i][j]
+            );
+        }
+    }
+    for i in 0..M {
+        assert!(
+            close(ld[i], left_diff[i]),
+            "M={M} N={N} left_diff[{i}]: got {} exact {}",
+            ld[i],
+            left_diff[i]
+        );
+    }
+    for j in 0..N {
+        assert!(
+            close(rd[j], right_diff[j]),
+            "M={M} N={N} right_diff[{j}]: got {} exact {}",
+            rd[j],
+            right_diff[j]
+        );
+    }
+}
+
+#[cfg(feature = "mle")]
+#[test]
+fn test_exact_joint_sketch_matches_true_cells_hash_list_regime() {
+    check_exact_cells_hash_list::<Precision10, Bits6, 1, 1>(5);
+    check_exact_cells_hash_list::<Precision10, Bits6, 2, 2>(5);
+    check_exact_cells_hash_list::<Precision12, Bits6, 3, 2>(8);
+}
+
+#[cfg(feature = "mle")]
+#[test]
+fn test_exact_joint_reduces_to_union_at_m_n_1() {
+    let (lefts, rights, overlap, left_diff, right_diff) =
+        build_nested_hash_lists::<Precision10, Bits6, 1, 1>(7);
+    let exact_union = overlap[0][0] + left_diff[0] + right_diff[0];
+    let (ov, ld, rd) = joint_sketch_exact_from_hash_lists::<_, _, _, _, 1, 1>(&lefts, &rights);
+    let union = ov[0][0] + ld[0] + rd[0];
+    assert!(
+        (union - exact_union).abs() <= (0.02 * exact_union).max(1.0),
+        "union {union} vs exact {exact_union}"
+    );
+    assert!(
+        (ov[0][0] - overlap[0][0]).abs() <= (0.05 * overlap[0][0]).max(1.0),
+        "intersection {} vs exact {}",
+        ov[0][0],
+        overlap[0][0]
+    );
+}
+
+#[cfg(feature = "mle")]
+#[test]
+fn test_dispatch_selects_exact_path() {
+    // All-hash-list inputs: the union MLE entry must return the exact hash-list union bit-for-bit,
+    // and the joint sketch must be optimizer-independent (proving the exact branch was taken).
+    let (lefts, rights, ..) = build_nested_hash_lists::<Precision10, Bits6, 2, 2>(6);
+    assert_eq!(
+        lefts[1].estimate_union_cardinality_mle(&rights[1]),
+        lefts[1].estimate_union_cardinality(&rights[1]),
+    );
+
+    let default = HyperLogLog::joint_sketch_mle(&lefts, &rights);
+    let lbfgs = HyperLogLog::joint_sketch_mle_with::<Lbfgs, 2, 2>(&lefts, &rights);
+    assert_eq!(default, lbfgs);
+}
+
+#[cfg(feature = "mle")]
+#[test]
+fn test_estimate_cardinality_mle_hash_list_equals_estimate_cardinality() {
+    let (lefts, ..) = build_nested_hash_lists::<Precision10, Bits6, 1, 1>(9);
+    assert!(lefts[0].is_hash_list());
+    assert_eq!(
+        lefts[0].estimate_cardinality_mle(),
+        lefts[0].estimate_cardinality()
+    );
+}
+
+#[cfg(feature = "mle")]
+#[test]
+fn test_exact_path_deterministic() {
+    let (lefts, rights, ..) = build_nested_hash_lists::<Precision10, Bits6, 2, 3>(5);
+    let first = joint_sketch_exact_from_hash_lists::<_, _, _, _, 2, 3>(&lefts, &rights);
+    let second = joint_sketch_exact_from_hash_lists::<_, _, _, _, 2, 3>(&lefts, &rights);
+    assert_eq!(first, second);
 }
