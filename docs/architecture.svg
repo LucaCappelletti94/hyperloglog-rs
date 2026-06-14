@@ -5,7 +5,7 @@
   <text x="550" y="60" font-family="sans-serif" font-size="12" fill="#555" text-anchor="middle" font-weight="normal">2^12 = 4096 registers  |  exact-values -&gt; hash-list at cardinality ~8150  |  hash-list -&gt; dense at ~8367</text>
   <rect x="40" y="100" width="220" height="100" fill="#4E8098" stroke="#2A5F7A" stroke-width="2" rx="6" />
   <text x="150" y="118" font-family="sans-serif" font-size="13" fill="#111" text-anchor="middle" font-weight="bold">Exact-values mode</text>
-  <text x="48" y="136" font-family="sans-serif" font-size="10" fill="#222" text-anchor="start" font-weight="normal">Stores literal u64 values verbatim</text>
+  <text x="48" y="136" font-family="sans-serif" font-size="10" fill="#222" text-anchor="start" font-weight="normal">Sorted, gap-coded, gamma-packed values</text>
   <text x="48" y="153" font-family="sans-serif" font-size="10" fill="#222" text-anchor="start" font-weight="normal">Active for cardinality 0 .. 8150</text>
   <text x="48" y="170" font-family="sans-serif" font-size="10" fill="#222" text-anchor="start" font-weight="normal">Zero estimation error; exact set ops</text>
   <text x="48" y="187" font-family="sans-serif" font-size="10" fill="#222" text-anchor="start" font-weight="normal">(requires 'exact' feature + alloc)</text>

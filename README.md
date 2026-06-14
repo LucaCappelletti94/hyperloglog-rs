@@ -133,7 +133,7 @@ All features are off by default, so the crate is `no_std` with no allocator out 
 
 - `alloc`: enable allocation-backed functionality. The default `HyperLogLog<P, B>` stores its registers inline as a fixed-size array; the `VecHll<P, B>` alias instead backs them with a heap-allocated, growable vector, which is preferable when the register array would be large (high precision) or when many counters are created dynamically.
 - `mle`: enable the Maximum Likelihood estimators. This works in `no_std + alloc` (it uses `alloc::collections::BTreeMap` and routes the float transcendentals to `libm` when `std` is unavailable, to the standard library otherwise), so it implies `alloc`.
-- `exact`: enable the exact-values representation, which stores the literal inserted integers for absolute accuracy and exact set operations at low cardinalities before the counter switches to the hash list. Implies `alloc`.
+- `exact`: enable the exact-values representation, which stores the inserted integers exactly (sorted, gap-coded and Elias-gamma packed, so they are recoverable) for absolute accuracy and exact set operations at low cardinalities before the counter switches to the hash list. Implies `alloc`.
 - `std`: use the Rust standard library (implies `alloc`).
 
 ```rust
@@ -169,7 +169,7 @@ All measurements were taken on an AMD Ryzen Threadripper PRO 5975WX (release bui
 | 65536 | dense | 21 ns | 3 ns | 10.1 us | 15.9 us | 6.5 us | 128.8 us | 13.8 ms | 1.19% | 1.21% | 0.98% |
 | 262144 | dense | 15 ns | 2 ns | 9.6 us | 15.9 us | 6.9 us | 165.6 us | 14.4 ms | 1.45% | 1.30% | 1.07% |
 
-A few observations. In `exact` mode every cardinality and union estimate is exact (0 percent error) because the literal values are stored, and `estimate_cardinality` is essentially free (about 1 ns, it reads the stored count). The cost in `exact` mode is in mutation: each `insert` splices the gap-coded value buffer in place, so it grows with the stored cardinality (1.4 us to 18 us here), and `merge` is the expensive outlier at 55 to 216 ms because it re-inserts every value of one operand into the other. If you expect to merge large counters, let them reach `dense` mode first.
+A few observations. In `exact` mode every cardinality and union estimate is exact (0 percent error) because the inserted values are stored exactly (sorted, gap-coded and gamma-packed), and `estimate_cardinality` is essentially free (about 1 ns, it reads the stored count). The cost in `exact` mode is in mutation: each `insert` splices the gap-coded value buffer in place, so it grows with the stored cardinality (1.4 us to 18 us here), and `merge` is the expensive outlier at 55 to 216 ms because it re-inserts every value of one operand into the other. If you expect to merge large counters, let them reach `dense` mode first.
 
 In `hash_list` mode the accuracy is already near-exact (card MRE under 0.6 percent, union MRE under 1.6 percent). This is a narrow transitional band, and its two-operand costs (around 230 to 650 us) fall as the cardinality grows and the hash list downsamples to fewer bits per stored hash.
 

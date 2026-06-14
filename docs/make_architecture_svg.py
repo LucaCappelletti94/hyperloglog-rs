@@ -241,7 +241,7 @@ text(svg, W // 2, 60,
 # ---------------------------------------------------------------------------
 regime_info = [
     ("exact", "Exact-values mode",
-     ["Stores literal u64 values verbatim", f"Active for cardinality 0 .. {exact_end}", "Zero estimation error; exact set ops",
+     ["Sorted, gap-coded, gamma-packed values", f"Active for cardinality 0 .. {exact_end}", "Zero estimation error; exact set ops",
       "(requires 'exact' feature + alloc)"],
      BOX_Y[0]),
     ("hash_list", "Hash-list mode",
