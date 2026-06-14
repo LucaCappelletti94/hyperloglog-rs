@@ -25,7 +25,7 @@ pub(crate) fn joint_sketch_mle_from_registers<
 >(
     lefts: &[HyperLogLog<P, B, R, H>; M],
     rights: &[HyperLogLog<P, B, R, H>; N],
-) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+) -> JointSketch<M, N> {
     joint_sketch_mle_from_registers_with::<P, B, R, H, Chain<Adam, Lbfgs>, M, N>(lefts, rights)
 }
 
@@ -42,7 +42,7 @@ pub(crate) fn joint_sketch_mle_from_registers_with<
 >(
     lefts: &[HyperLogLog<P, B, R, H>; M],
     rights: &[HyperLogLog<P, B, R, H>; N],
-) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+) -> JointSketch<M, N> {
     let value_patterns = tabulate_joint_value_patterns::<P, B, R, H, M, N>(lefts, rights);
     let p_exponent = P::EXPONENT;
     let q_plus_one: u8 = (1 << B::NUMBER_OF_BITS) - 1;
@@ -79,7 +79,7 @@ pub(crate) fn joint_sketch_mle_core<
     lefts: &[HyperLogLog<P, B, R, H>; M],
     rights: &[HyperLogLog<P, B, R, H>; N],
     mut log_likelihood_gradient: impl FnMut(&[f64], &mut [f64]) -> f64,
-) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+) -> JointSketch<M, N> {
     let n_overlap = M * N;
     let k = n_overlap + M + N;
 
@@ -88,7 +88,8 @@ pub(crate) fn joint_sketch_mle_core<
     let (overlap0, left0, right0) =
         <HyperLogLog<P, B, R, H> as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(
             lefts, rights,
-        );
+        )
+        .into_parts();
 
     let mut phis = vec![f64::ZERO; k];
     for i in 0..M {
@@ -178,7 +179,11 @@ pub(crate) fn joint_sketch_mle_core<
         right_diff[j] = phis[n_overlap + M + j].exp();
     }
 
-    (overlap, left_diff, right_diff)
+    JointSketch {
+        overlap,
+        left_diff,
+        right_diff,
+    }
 }
 
 /// Adds the gradient of the marginal-anchor log-prior to `gradient` (which already holds the

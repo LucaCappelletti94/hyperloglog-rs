@@ -356,7 +356,8 @@ fn test_hyper_spheres_sketch_overlap_and_differences() {
     }
 
     let (overlaps, left_differences, right_differences) =
-        <Counter as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(&[a], &[b]);
+        <Counter as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(&[a], &[b])
+            .into_parts();
 
     let close = |got: f64, want: f64| (got - want).abs() <= want * 0.15;
     assert!(
@@ -405,7 +406,7 @@ fn test_joint_sketch_mle_reduces_to_union_mle() {
     assert!(!left.is_hash_list() && !right.is_hash_list());
 
     let (overlap, left_diff, right_diff) =
-        Counter::joint_sketch_mle(&[left.clone()], &[right.clone()]);
+        Counter::joint_sketch_mle(&[left.clone()], &[right.clone()]).into_parts();
 
     let joint_union = overlap[0][0] + left_diff[0] + right_diff[0];
     let exact_union = 75_000.0_f64;
@@ -444,10 +445,12 @@ fn test_joint_sketch_mle_with_custom_optimizer() {
     let error_rate = Precision10::error_rate();
 
     // A user composes a custom optimizer by type: an Adam warmup followed by L-BFGS polishing.
-    let (overlap, left_diff, right_diff) = Counter::joint_sketch_mle_with::<Chain<Adam, Lbfgs>, _, _>(
-        &[left.clone()],
-        &[right.clone()],
-    );
+    let (overlap, left_diff, right_diff) =
+        Counter::joint_sketch_mle_with::<Chain<Adam, Lbfgs>, _, _>(
+            &[left.clone()],
+            &[right.clone()],
+        )
+        .into_parts();
     let union = overlap[0][0] + left_diff[0] + right_diff[0];
     let error = (union - exact_union).abs() / exact_union;
     assert!(
@@ -457,7 +460,7 @@ fn test_joint_sketch_mle_with_custom_optimizer() {
 
     // A plain L-BFGS optimizer must also work.
     let (overlap, left_diff, right_diff) =
-        Counter::joint_sketch_mle_with::<Lbfgs, _, _>(&[left], &[right]);
+        Counter::joint_sketch_mle_with::<Lbfgs, _, _>(&[left], &[right]).into_parts();
     let union = overlap[0][0] + left_diff[0] + right_diff[0];
     assert!((union - exact_union).abs() / exact_union <= error_rate);
 }
@@ -519,7 +522,8 @@ fn test_joint_sketch_mle_matches_exact_cells() {
     let total_union: f64 =
         (o[0][0] + o[0][1] + o[1][0] + o[1][1] + da[0] + da[1] + db[0] + db[1]) as f64;
 
-    let (overlap, left_diff, right_diff) = Counter::joint_sketch_mle(&[a0, a1], &[b0, b1]);
+    let (overlap, left_diff, right_diff) =
+        Counter::joint_sketch_mle(&[a0, a1], &[b0, b1]).into_parts();
 
     let error_rate = Precision12::error_rate();
     for i in 0..2 {
@@ -627,7 +631,8 @@ fn test_joint_sketch_mle_matches_exact_cells_hash_list() {
     let total_union: f64 =
         (o[0][0] + o[0][1] + o[1][0] + o[1][1] + da[0] + da[1] + db[0] + db[1]) as f64;
 
-    let (overlap, left_diff, right_diff) = Counter::joint_sketch_mle(&[a0, a1], &[b0, b1]);
+    let (overlap, left_diff, right_diff) =
+        Counter::joint_sketch_mle(&[a0, a1], &[b0, b1]).into_parts();
 
     let error_rate = Precision12::error_rate();
     for i in 0..2 {
@@ -886,7 +891,8 @@ fn test_joint_sketch_exact_values() {
 
     assert!([&a0, &a1, &b0, &b1].iter().all(|c| c.is_exact()));
 
-    let (overlap, left_diff, right_diff) = Counter::joint_sketch_mle(&[a0, a1], &[b0, b1]);
+    let (overlap, left_diff, right_diff) =
+        Counter::joint_sketch_mle(&[a0, a1], &[b0, b1]).into_parts();
     for i in 0..2 {
         for j in 0..2 {
             assert_eq!(overlap[i][j], o[i][j] as f64, "overlap[{i}][{j}]");

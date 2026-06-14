@@ -18,6 +18,36 @@ use crate::prelude::{
     Zero,
 };
 
+/// The disjoint-cell cardinalities of a hypersphere sketch over `M` nested left sets and `N` nested
+/// right sets: the `M*N` exclusive overlap grid plus the `M` left and `N` right margins. Returned by
+/// [`HyperSpheresSketch::overlap_and_differences_cardinality_matrices`] and by the joint MLE sketch.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct JointSketch<const M: usize, const N: usize> {
+    /// `overlap[i][j] = |L_i intersect R_j|`, the exclusive overlap grid.
+    pub overlap: [[f64; N]; M],
+    /// `left_diff[i] = |L_i \ B_{N-1}|`, the left margins.
+    pub left_diff: [f64; M],
+    /// `right_diff[j] = |R_j \ A_{M-1}|`, the right margins.
+    pub right_diff: [f64; N],
+}
+
+impl<const M: usize, const N: usize> JointSketch<M, N> {
+    /// The total union cardinality: the sum of every disjoint cell.
+    #[inline]
+    pub fn union(&self) -> f64 {
+        self.overlap.iter().flatten().copied().sum::<f64>()
+            + self.left_diff.iter().sum::<f64>()
+            + self.right_diff.iter().sum::<f64>()
+    }
+
+    /// Decomposes into the raw `(overlap, left_diff, right_diff)` arrays.
+    #[inline]
+    #[must_use]
+    pub fn into_parts(self) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+        (self.overlap, self.left_diff, self.right_diff)
+    }
+}
+
 /// Wires `HyperLogLog` to the approximate sketching algorithms. The required cardinality and union
 /// estimators come from its [`CardinalityEstimator`] implementation; only the overlap-matrix default
 /// is used here.
@@ -61,7 +91,7 @@ pub trait HyperSpheresSketch: CardinalityEstimator + Sized {
     fn overlap_and_differences_cardinality_matrices<const L: usize, const R: usize>(
         lefts: &[Self; L],
         rights: &[Self; R],
-    ) -> ([[f64; R]; L], [f64; L], [f64; R]) {
+    ) -> JointSketch<L, R> {
         // Initialize overlap and differences cardinality matrices/vectors.
         let mut last_row = [f64::ZERO; R];
         let mut differential_overlap_cardinality_matrix = [[f64::ZERO; R]; L];
@@ -125,11 +155,11 @@ pub trait HyperSpheresSketch: CardinalityEstimator + Sized {
             last_left_difference = euc.get_left_difference_cardinality();
         }
 
-        (
-            differential_overlap_cardinality_matrix,
-            left_difference_cardinality_vector,
-            right_difference_cardinality_vector,
-        )
+        JointSketch {
+            overlap: differential_overlap_cardinality_matrix,
+            left_diff: left_difference_cardinality_vector,
+            right_diff: right_difference_cardinality_vector,
+        }
     }
 }
 
@@ -149,7 +179,7 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch {
     fn normalized_overlap_and_differences_cardinality_matrices<const L: usize, const R: usize>(
         lefts: &[Self; L],
         rights: &[Self; R],
-    ) -> ([[f64; R]; L], [f64; L], [f64; R]) {
+    ) -> JointSketch<L, R> {
         // Initialize overlap and differences cardinality matrices/vectors.
         let mut last_row = [f64::ZERO; R];
         let mut differential_overlap_cardinality_matrix = [[f64::ZERO; R]; L];
@@ -257,11 +287,11 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch {
             last_left_difference = euc.get_left_difference_cardinality();
         }
 
-        (
-            differential_overlap_cardinality_matrix,
-            left_difference_cardinality_vector,
-            right_difference_cardinality_vector,
-        )
+        JointSketch {
+            overlap: differential_overlap_cardinality_matrix,
+            left_diff: left_difference_cardinality_vector,
+            right_diff: right_difference_cardinality_vector,
+        }
     }
 }
 

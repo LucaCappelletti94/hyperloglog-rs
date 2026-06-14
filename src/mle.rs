@@ -188,11 +188,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     ///     b.insert(&x);
     /// }
     ///
-    /// let (overlap, left_diff, right_diff) = Hll::joint_sketch_mle(&[a], &[b]);
-    /// // overlap[i][j] = |L_i intersect R_j|; here the single intersection cell.
-    /// assert!((overlap[0][0] - 2_000.0).abs() / 2_000.0 < 0.25);
-    /// let union = overlap[0][0] + left_diff[0] + right_diff[0];
-    /// assert!((union - 6_000.0).abs() / 6_000.0 < 0.2);
+    /// let sketch = Hll::joint_sketch_mle(&[a], &[b]);
+    /// // sketch.overlap[i][j] = |L_i intersect R_j|; here the single intersection cell.
+    /// assert!((sketch.overlap[0][0] - 2_000.0).abs() / 2_000.0 < 0.25);
+    /// assert!((sketch.union() - 6_000.0).abs() / 6_000.0 < 0.2);
     /// ```
     ///
     /// # Implementative details
@@ -207,7 +206,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     pub fn joint_sketch_mle<const M: usize, const N: usize>(
         lefts: &[Self; M],
         rights: &[Self; N],
-    ) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+    ) -> JointSketch<M, N> {
         #[cfg(feature = "exact")]
         if lefts.iter().all(Self::is_exact) && rights.iter().all(Self::is_exact) {
             return joint_sketch_exact_from_values::<P, B, R, H, M, N>(lefts, rights);
@@ -244,20 +243,18 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// }
     ///
     /// // Fastest: plain L-BFGS (M and N are inferred from the arrays).
-    /// let (overlap, left_diff, right_diff) =
-    ///     Hll::joint_sketch_mle_with::<Lbfgs, 1, 1>(&[a.clone()], &[b.clone()]);
-    /// let union = overlap[0][0] + left_diff[0] + right_diff[0];
-    /// assert!((union - 6_000.0).abs() / 6_000.0 < 0.2);
+    /// let sketch = Hll::joint_sketch_mle_with::<Lbfgs, 1, 1>(&[a.clone()], &[b.clone()]);
+    /// assert!((sketch.union() - 6_000.0).abs() / 6_000.0 < 0.2);
     ///
     /// // Robust: an Adam warmup composed with L-BFGS (this is also the default).
-    /// let (overlap, ..) = Hll::joint_sketch_mle_with::<Chain<Adam, Lbfgs>, 1, 1>(&[a], &[b]);
-    /// assert!(overlap[0][0] > 0.0);
+    /// let sketch = Hll::joint_sketch_mle_with::<Chain<Adam, Lbfgs>, 1, 1>(&[a], &[b]);
+    /// assert!(sketch.overlap[0][0] > 0.0);
     /// ```
     #[inline]
     pub fn joint_sketch_mle_with<O: JointOptimizer, const M: usize, const N: usize>(
         lefts: &[Self; M],
         rights: &[Self; N],
-    ) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+    ) -> JointSketch<M, N> {
         // When every operand is in a recoverable pre-dense representation, the exact set-algebra
         // paths are used and the optimizer type O is irrelevant: the result is exact and
         // optimizer-independent.

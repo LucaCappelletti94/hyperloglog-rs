@@ -415,7 +415,8 @@ fn check_full_estimator_poly_vs_oracle<const M: usize, const N: usize>(unit: u64
                 );
             }
             log_likelihood
-        });
+        })
+        .into_parts();
 
     // Oracle path (exponential gradient).
     let oracle_patterns = tabulate_joint_patterns::<_, _, _, _, M, N>(&lefts, &rights);
@@ -426,7 +427,8 @@ fn check_full_estimator_poly_vs_oracle<const M: usize, const N: usize>(unit: u64
                 *slot += value;
             }
             ll
-        });
+        })
+        .into_parts();
 
     // The per-pattern gradients agree to ~1e-7, but the two paths sum patterns in different
     // (HashMap) orders and the oracle carries ~1e-7 cancellation error, which compound over the
@@ -540,7 +542,8 @@ fn experiment_optimizers<const M: usize, const N: usize>(unit: u64) {
     let (overlap0, left0, right0) =
         <Counter as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(
             &lefts, &rights,
-        );
+        )
+        .into_parts();
     let mut init = vec![0.0; k];
     for i in 0..M {
         for j in 0..N {
@@ -768,7 +771,8 @@ where
         "test inputs must stay in hash-list mode for M={M} N={N} unit={unit}"
     );
 
-    let (ov, ld, rd) = joint_sketch_exact_from_hash_lists::<_, _, _, _, M, N>(&lefts, &rights);
+    let (ov, ld, rd) =
+        joint_sketch_exact_from_hash_lists::<_, _, _, _, M, N>(&lefts, &rights).into_parts();
     let close = |a: f64, b: f64| (a - b).abs() <= (0.05 * b).max(1.0);
     for i in 0..M {
         for j in 0..N {
@@ -812,7 +816,8 @@ fn test_exact_joint_reduces_to_union_at_m_n_1() {
     let (lefts, rights, overlap, left_diff, right_diff) =
         build_nested_hash_lists::<Precision10, Bits6, 1, 1>(7);
     let exact_union = overlap[0][0] + left_diff[0] + right_diff[0];
-    let (ov, ld, rd) = joint_sketch_exact_from_hash_lists::<_, _, _, _, 1, 1>(&lefts, &rights);
+    let (ov, ld, rd) =
+        joint_sketch_exact_from_hash_lists::<_, _, _, _, 1, 1>(&lefts, &rights).into_parts();
     let union = ov[0][0] + ld[0] + rd[0];
     assert!(
         (union - exact_union).abs() <= (0.02 * exact_union).max(1.0),

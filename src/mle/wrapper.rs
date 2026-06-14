@@ -9,7 +9,7 @@
 
 use crate::estimator::CardinalityEstimator;
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
-use crate::sketches::HyperSpheresSketch;
+use crate::sketches::{HyperSpheresSketch, JointSketch};
 
 /// A maximum-likelihood-estimation view over a [`HyperLogLog`] (here a borrowed one, produced by
 /// [`HyperLogLog::mle`]). See the module documentation.
@@ -65,7 +65,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketc
     fn overlap_and_differences_cardinality_matrices<const L: usize, const N: usize>(
         lefts: &[Self; L],
         rights: &[Self; N],
-    ) -> ([[f64; N]; L], [f64; L], [f64; N]) {
+    ) -> JointSketch<L, N> {
         let left_counters: [HyperLogLog<P, B, R, H>; L] =
             core::array::from_fn(|i| lefts[i].0.clone());
         let right_counters: [HyperLogLog<P, B, R, H>; N] =

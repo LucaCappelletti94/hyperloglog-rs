@@ -58,12 +58,13 @@ where
         <HyperLogLog<P, B, <P as PackedRegister<B>>::Array, XxHash64> as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(
             &[a0.clone(), a1.clone()],
             &[b0.clone(), b1.clone()],
-        );
+        ).into_parts();
     let (mov, ml, mr) =
         HyperLogLog::<P, B, <P as PackedRegister<B>>::Array, XxHash64>::joint_sketch_mle(
             &[a0, a1],
             &[b0, b1],
-        );
+        )
+        .into_parts();
 
     // Mean absolute cell error, normalized by the total union.
     let mut warm_err = 0.0;

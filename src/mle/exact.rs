@@ -35,7 +35,7 @@ pub(crate) fn joint_sketch_exact_from_hash_lists<
 >(
     lefts: &[HyperLogLog<P, B, R, H>; M],
     rights: &[HyperLogLog<P, B, R, H>; N],
-) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+) -> JointSketch<M, N> {
     debug_assert!(
         lefts.iter().all(HyperLogLog::is_hash_list) && rights.iter().all(HyperLogLog::is_hash_list),
         "joint_sketch_exact_from_hash_lists requires every operand to be a hash list",
@@ -99,7 +99,11 @@ pub(crate) fn joint_sketch_exact_from_hash_lists<
         }
     }
 
-    (overlap, left_diff, right_diff)
+    JointSketch {
+        overlap,
+        left_diff,
+        right_diff,
+    }
 }
 
 /// Exact joint sketch when every operand is in the exact-values mode: classify each distinct literal
@@ -116,7 +120,7 @@ pub(crate) fn joint_sketch_exact_from_values<
 >(
     lefts: &[HyperLogLog<P, B, R, H>; M],
     rights: &[HyperLogLog<P, B, R, H>; N],
-) -> ([[f64; N]; M], [f64; M], [f64; N]) {
+) -> JointSketch<M, N> {
     use crate::composite_hash::gaps::value_list::ValueIter;
 
     debug_assert!(
@@ -156,5 +160,9 @@ pub(crate) fn joint_sketch_exact_from_values<
         }
     }
 
-    (overlap, left_diff, right_diff)
+    JointSketch {
+        overlap,
+        left_diff,
+        right_diff,
+    }
 }

@@ -242,11 +242,12 @@ where
                 }
             }
             let t = Instant::now();
-            let (fo, fl, fr) = Hll::<P, B>::joint_sketch_mle::<M, N>(&forced_lefts, &forced_rights);
+            let (fo, fl, fr) =
+                Hll::<P, B>::joint_sketch_mle::<M, N>(&forced_lefts, &forced_rights).into_parts();
             let forced_ms = t.elapsed().as_secs_f64() * 1e3;
 
             let t = Instant::now();
-            let (o, l, r) = Hll::<P, B>::joint_sketch_mle::<M, N>(&lefts, &rights);
+            let (o, l, r) = Hll::<P, B>::joint_sketch_mle::<M, N>(&lefts, &rights).into_parts();
             let disp_ms = t.elapsed().as_secs_f64() * 1e3;
 
             let forced_err = cell_error::<M, N>(&fo, &fl, &fr, &exact, union);
