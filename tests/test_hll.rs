@@ -902,3 +902,44 @@ fn test_joint_sketch_exact_values() {
         assert_eq!(right_diff[j], db[j] as f64, "right_diff[{j}]");
     }
 }
+
+/// Power-law graph neighbourhoods: the many low-degree nodes stay in exact mode and recover their
+/// exact neighbour sets, while the rare high-degree hub degrades gracefully to the HLL estimate
+/// within the precision's error rate. This is the motivating workload for the exact-values mode.
+#[cfg(feature = "exact")]
+#[test]
+fn test_power_law_graph_neighbourhoods() {
+    type Counter =
+        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut base = 0u64;
+    // The bulk of the nodes are low-degree: they must remain exact and fully recoverable.
+    for degree in 1u64..=40 {
+        let neighbours: Vec<u64> = (base..base + degree).collect();
+        base += degree;
+        let mut node: Counter = Default::default();
+        for &neighbour in &neighbours {
+            node.insert_value(neighbour);
+        }
+        assert!(node.is_exact(), "a degree-{degree} node must stay exact");
+        assert_eq!(node.estimate_cardinality(), degree as f64);
+        let mut recovered: Vec<u64> = node.recover_values().unwrap().collect();
+        recovered.sort_unstable();
+        assert_eq!(recovered, neighbours, "degree-{degree} node recovery");
+    }
+
+    // A rare hub degrades out of exact mode but is still estimated within the error rate.
+    let hub_degree = 50_000u64;
+    let mut hub: Counter = Default::default();
+    for neighbour in base..base + hub_degree {
+        hub.insert_value(neighbour);
+    }
+    assert!(!hub.is_exact(), "a hub must leave exact mode");
+    assert!(hub.recover_values().is_none());
+    let estimate = hub.estimate_cardinality();
+    let error = (estimate - hub_degree as f64).abs() / hub_degree as f64;
+    assert!(
+        error <= Precision10::error_rate(),
+        "hub estimate {estimate} differs from {hub_degree} by {error}"
+    );
+}
