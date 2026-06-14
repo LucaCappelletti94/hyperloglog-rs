@@ -197,19 +197,15 @@ pub(crate) enum ValueInsertion {
     DoesNotFit,
 }
 
-/// Shifts the bit range `[from, end)` by `delta` bits (positive = towards higher indices), in place.
+/// Shifts the bit range `[from, end)` to higher indices by `delta` bits, in place, copying backward
+/// so the moved bits never overwrite bits not yet read. Splicing a value only ever grows the stream
+/// (one gamma code never splits into two shorter ones), so the shift is always towards higher
+/// indices.
 #[inline]
-fn shift_bits(buffer: &mut [u8], from: u32, end: u32, delta: i64) {
-    if delta > 0 {
-        for bit in (from..end).rev() {
-            let value = get_bit(buffer, bit);
-            set_bit(buffer, (i64::from(bit) + delta) as u32, value);
-        }
-    } else if delta < 0 {
-        for bit in from..end {
-            let value = get_bit(buffer, bit);
-            set_bit(buffer, (i64::from(bit) + delta) as u32, value);
-        }
+fn shift_bits_right(buffer: &mut [u8], from: u32, end: u32, delta: u32) {
+    for bit in (from..end).rev() {
+        let value = get_bit(buffer, bit);
+        set_bit(buffer, bit + delta, value);
     }
 }
 
@@ -271,11 +267,14 @@ pub(crate) fn insert_value(buffer: &mut [u8], count: u32, value: u64) -> ValueIn
             let new_next_gap = value - next_value;
             let old_next_len = next_end - split_bit;
             let new_len = code_len(code_a) + code_len(new_next_gap);
-            let delta = i64::from(new_len) - i64::from(old_next_len);
-            if i64::from(total_bits) + delta > i64::from(capacity_bits) {
+            // Replacing `next`'s code with `code_a` followed by `next`'s shorter gap always grows the
+            // stream, so `new_len > old_next_len`.
+            debug_assert!(new_len > old_next_len);
+            let delta = new_len - old_next_len;
+            if total_bits + delta > capacity_bits {
                 return ValueInsertion::DoesNotFit;
             }
-            shift_bits(buffer, next_end, total_bits, delta);
+            shift_bits_right(buffer, next_end, total_bits, delta);
             let after_a = write_value_at(buffer, split_bit, code_a);
             write_value_at(buffer, after_a, new_next_gap);
             ValueInsertion::Inserted
@@ -373,5 +372,47 @@ mod tests {
             }
         }
         assert!(saturated, "the tiny buffer must saturate");
+    }
+
+    #[test]
+    fn test_append_saturation_reported() {
+        // Strictly descending inserts make every value a new minimum, appended at the end, so this
+        // exercises the append branch's saturation path.
+        let mut buffer = vec![0u8; 8];
+        let mut count = 0u32;
+        let mut saturated = false;
+        for value in (0..64u64).rev().map(|k| k * 1000) {
+            match insert_value(&mut buffer, count, value) {
+                ValueInsertion::Inserted => count += 1,
+                ValueInsertion::Duplicate => {}
+                ValueInsertion::DoesNotFit => {
+                    saturated = true;
+                    break;
+                }
+            }
+        }
+        assert!(saturated, "appending past the tiny buffer must saturate");
+    }
+
+    #[test]
+    fn test_union_count_symmetric() {
+        let mut a = vec![0u8; 8 * 8];
+        let mut b = vec![0u8; 8 * 8];
+        let mut count_a = 0u32;
+        let mut count_b = 0u32;
+        for value in [10u64, 20, 30, 40] {
+            if insert_value(&mut a, count_a, value) == ValueInsertion::Inserted {
+                count_a += 1;
+            }
+        }
+        for value in [25u64, 35, 40, 50, 60] {
+            if insert_value(&mut b, count_b, value) == ValueInsertion::Inserted {
+                count_b += 1;
+            }
+        }
+        // {10,20,30,40} union {25,35,40,50,60} = {10,20,25,30,35,40,50,60}, 8 distinct.
+        assert_eq!(union_count(&a, count_a, &b, count_b), 8);
+        // The swapped order exercises the mirrored merge branches.
+        assert_eq!(union_count(&b, count_b, &a, count_a), 8);
     }
 }

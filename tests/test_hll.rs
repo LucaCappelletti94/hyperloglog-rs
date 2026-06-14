@@ -943,3 +943,35 @@ fn test_power_law_graph_neighbourhoods() {
         "hub estimate {estimate} differs from {hub_degree} by {error}"
     );
 }
+
+/// The MLE union estimator handles exact-values operands: two exact operands give the exact union,
+/// and a mixed exact / dense pair estimates within the precision's error rate.
+#[cfg(all(feature = "exact", feature = "mle"))]
+#[test]
+fn test_estimate_union_cardinality_mle_exact() {
+    type Counter =
+        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut a: Counter = Default::default();
+    let mut b: Counter = Default::default();
+    for value in 0u64..40 {
+        a.insert_value(value);
+    }
+    for value in 25u64..70 {
+        b.insert_value(value);
+    }
+    assert!(a.is_exact() && b.is_exact());
+    assert_eq!(a.estimate_union_cardinality_mle(&b), 70.0);
+
+    let mut big: Counter = Default::default();
+    for value in 20u64..20_000 {
+        big.insert(&value);
+    }
+    assert!(big.is_dense());
+    let estimate = a.estimate_union_cardinality_mle(&big);
+    let error = (estimate - 20_000.0).abs() / 20_000.0;
+    assert!(
+        error <= Precision10::error_rate() + 0.05,
+        "mixed exact/dense MLE union {estimate}"
+    );
+}
