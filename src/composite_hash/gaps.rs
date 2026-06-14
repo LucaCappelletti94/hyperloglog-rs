@@ -4,6 +4,10 @@ use core::u64;
 mod bitreader;
 mod bitwriter;
 mod optimal_codes;
+#[cfg(feature = "exact")]
+// The exact-values codec is consumed by the exact-mode insert path wired in a later stage.
+#[allow(dead_code)]
+pub(crate) mod value_list;
 use super::{
     switch::{DecodedIter, DowngradedIter},
     Debug, LastBufferedBit, Precision, SaturationError, SwitchHash,

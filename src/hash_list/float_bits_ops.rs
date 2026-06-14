@@ -34,6 +34,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
     #[cfg(feature = "exact")]
     #[inline]
+    // Called by the exact-mode insert path wired in a later stage.
+    #[allow(dead_code)]
     /// Marks the metadata word as exact-values mode by writing the sentinel into the hash-bits
     /// subfield. The top mode bit is left untouched (it must already be set).
     pub(crate) fn set_exact_mode(&mut self) {
@@ -97,6 +99,7 @@ fn decode_is_exact(float: f64) -> bool {
 }
 
 #[allow(unsafe_code)]
+#[allow(dead_code)]
 #[cfg(feature = "exact")]
 #[inline]
 fn encode_exact_sentinel(float: &mut f64) {
