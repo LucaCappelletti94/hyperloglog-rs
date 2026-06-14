@@ -129,10 +129,13 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let bits = (4..=6)
         .map(|bits| Ident::new(&format!("Bits{}", bits), fn_name.span()))
         .collect::<Vec<_>>();
-    let hashers = vec![
-        Ident::new("XxHash", fn_name.span()),
-        // Ident::new("WyHash", fn_name.span()),
-        // Ident::new("AHasher", fn_name.span()),
+    // Each hasher carries a short name (used to build the generated test function names) and a
+    // fully-qualified path (used as the type argument), so the test crate does not need to import
+    // the hasher type itself.
+    let hashers: Vec<(&str, proc_macro2::TokenStream)> = vec![
+        ("xxhash", quote! { twox_hash::XxHash }),
+        // ("wyhash", quote! { wyhash::WyHash }),
+        // ("ahasher", quote! { ahash::AHasher }),
     ];
 
     // Generate the test functions
@@ -140,7 +143,7 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
         let hashers = hashers.clone();
         (bits).iter().flat_map(move |bit| {
             let hashers = hashers.clone();
-            hashers.into_iter().flat_map(move |hasher| {
+            hashers.into_iter().flat_map(move |(hasher_name, hasher_path)| {
                     let mut feature_constraints =
                         vec![];
 
@@ -152,7 +155,7 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     let array_test_fn_name = Ident::new(
                         &format!(
                             "{}_{}_{}_{}_array",
-                            fn_name, precision, bit, hasher
+                            fn_name, precision, bit, hasher_name
                         )
                         .to_lowercase(),
                         fn_name.span(),
@@ -161,7 +164,7 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     let vec_test_fn_name = Ident::new(
                         &format!(
                             "{}_{}_{}_{}_vec",
-                            fn_name, precision, bit, hasher
+                            fn_name, precision, bit, hasher_name
                         )
                         .to_lowercase(),
                         fn_name.span(),
@@ -171,13 +174,13 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         #[test]
                         #(#feature_constraints)*
                         fn #array_test_fn_name() {
-                            #fn_name::<#precision, #bit, <#precision as PackedRegister<#bit>>::Array, #hasher>();
+                            #fn_name::<#precision, #bit, <#precision as PackedRegister<#bit>>::Array, #hasher_path>();
                         }
                         #[test]
                         #[cfg(feature = "alloc")]
                         #(#feature_constraints)*
                         fn #vec_test_fn_name() {
-                            #fn_name::<#precision, #bit, <#precision as PackedRegister<#bit>>::Vec, #hasher>();
+                            #fn_name::<#precision, #bit, <#precision as PackedRegister<#bit>>::Vec, #hasher_path>();
                         }
                     }
             })

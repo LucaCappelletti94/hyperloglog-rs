@@ -6,9 +6,8 @@
 //! mixed case.
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use hyperloglog_rs::prelude::*;
-use twox_hash::XxHash64;
 
-type HLL = HyperLogLog<Precision9, Bits6, <Precision9 as PackedRegister<Bits6>>::Array, XxHash64>;
+type HLL = HyperLogLog<Precision9, Bits6>;
 
 /// Builds a counter from `count` distinct values drawn from the given seed.
 fn build(count: u64, seed: u64) -> HLL {
@@ -60,8 +59,7 @@ fn bench_hyperloglog_union(c: &mut Criterion) {
     group.finish();
 }
 
-type HLL14 =
-    HyperLogLog<Precision14, Bits6, <Precision14 as PackedRegister<Bits6>>::Array, XxHash64>;
+type HLL14 = HyperLogLog<Precision14, Bits6>;
 
 /// Builds the largest counter that is still in hash-list mode (stops just before the
 /// insertion that would convert it to a fully-fledged HyperLogLog).

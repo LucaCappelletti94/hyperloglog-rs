@@ -1,6 +1,5 @@
 use hyperloglog_derive::test_estimator;
 use hyperloglog_rs::prelude::*;
-use twox_hash::XxHash;
 
 /// Test the HyperLogLog implementation with the provided precision and bits
 pub fn test_approximated_counter_at_precision_and_bits<
@@ -238,8 +237,7 @@ fn test_union_merge<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() 
 /// over-estimates here.
 #[test]
 fn test_union_small_cardinality_stays_accurate() {
-    type Counter =
-        HyperLogLog<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision8, Bits6>;
 
     let mut a: Counter = Default::default();
     let mut b: Counter = Default::default();
@@ -283,8 +281,7 @@ fn test_union_small_cardinality_stays_accurate() {
 #[cfg(feature = "mle")]
 #[test]
 fn test_mle_union_matches_exact() {
-    type Counter =
-        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision10, Bits6>;
 
     let mut left: Counter = Default::default();
     let mut right: Counter = Default::default();
@@ -317,8 +314,7 @@ fn test_mle_union_matches_exact() {
 #[cfg(feature = "mle")]
 #[test]
 fn test_mle_cardinality_reasonable() {
-    type Counter =
-        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision12, Bits6>;
 
     let mut hll: Counter = Default::default();
     for element in 0..100_000_u64 {
@@ -343,8 +339,7 @@ fn test_mle_cardinality_reasonable() {
 /// B = [5_000, 15_000): overlap ~ 5_000, left difference ~ 5_000, right difference ~ 5_000.
 #[test]
 fn test_hyper_spheres_sketch_overlap_and_differences() {
-    type Counter =
-        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision12, Bits6>;
 
     let mut a: Counter = Default::default();
     let mut b: Counter = Default::default();
@@ -396,8 +391,7 @@ fn insert_range<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>(
 #[cfg(feature = "mle")]
 #[test]
 fn test_joint_sketch_mle_reduces_to_union_mle() {
-    type Counter =
-        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision10, Bits6>;
 
     let mut left: Counter = Default::default();
     let mut right: Counter = Default::default();
@@ -433,8 +427,7 @@ fn test_joint_sketch_mle_reduces_to_union_mle() {
 #[cfg(feature = "mle")]
 #[test]
 fn test_joint_sketch_mle_with_custom_optimizer() {
-    type Counter =
-        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision10, Bits6>;
 
     let mut left: Counter = Default::default();
     let mut right: Counter = Default::default();
@@ -473,8 +466,7 @@ fn test_joint_sketch_mle_with_custom_optimizer() {
 #[cfg(feature = "mle")]
 #[test]
 fn test_joint_sketch_mle_matches_exact_cells() {
-    type Counter =
-        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision12, Bits6>;
 
     // Exact disjoint-region cardinalities.
     // Overlap grid O_ij = L_i intersect R_j.
@@ -563,8 +555,7 @@ fn test_joint_sketch_mle_matches_exact_cells() {
 #[cfg(feature = "mle")]
 #[test]
 fn test_mle_union_matches_exact_hash_list() {
-    type Counter =
-        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision12, Bits6>;
 
     let mut left: Counter = Default::default();
     let mut right: Counter = Default::default();
@@ -588,8 +579,7 @@ fn test_mle_union_matches_exact_hash_list() {
 #[cfg(feature = "mle")]
 #[test]
 fn test_joint_sketch_mle_matches_exact_cells_hash_list() {
-    type Counter =
-        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision12, Bits6>;
 
     let o = [[120_u64, 80], [60, 90]];
     let da = [70_u64, 50];
@@ -672,8 +662,7 @@ fn test_joint_sketch_mle_matches_exact_cells_hash_list() {
 #[cfg(feature = "exact")]
 #[test]
 fn test_insert_value_exact_mode() {
-    type Counter =
-        HyperLogLog<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision8, Bits6>;
 
     let mut counter: Counter = Default::default();
     for value in 0u64..50 {
@@ -700,8 +689,7 @@ fn test_insert_value_exact_mode() {
 #[cfg(feature = "exact")]
 #[test]
 fn test_insert_value_saturates_gracefully() {
-    type Counter =
-        HyperLogLog<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision8, Bits6>;
 
     let mut counter: Counter = Default::default();
     let n = 5_000u64;
@@ -724,8 +712,7 @@ fn test_insert_value_saturates_gracefully() {
 #[cfg(feature = "exact")]
 #[test]
 fn test_generic_insert_promotes_exact_mode() {
-    type Counter =
-        HyperLogLog<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision8, Bits6>;
 
     let mut counter: Counter = Default::default();
     for value in 0u64..30 {
@@ -752,8 +739,7 @@ fn test_generic_insert_promotes_exact_mode() {
 #[cfg(feature = "exact")]
 #[test]
 fn test_recover_values_and_membership() {
-    type Counter =
-        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision10, Bits6>;
 
     let mut counter: Counter = Default::default();
     for value in [5u64, 1, 9, 1, 3] {
@@ -788,8 +774,7 @@ fn test_recover_values_and_membership() {
 #[cfg(feature = "exact")]
 #[test]
 fn test_exact_exact_union_and_merge() {
-    type Counter =
-        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision10, Bits6>;
 
     let mut a: Counter = Default::default();
     let mut b: Counter = Default::default();
@@ -817,8 +802,7 @@ fn test_exact_exact_union_and_merge() {
 #[cfg(feature = "exact")]
 #[test]
 fn test_exact_dense_union() {
-    type Counter =
-        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision10, Bits6>;
 
     let mut small: Counter = Default::default();
     for value in 0u64..30 {
@@ -845,8 +829,7 @@ fn test_exact_dense_union() {
 #[cfg(all(feature = "exact", feature = "mle"))]
 #[test]
 fn test_joint_sketch_exact_values() {
-    type Counter =
-        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision12, Bits6>;
 
     let o = [[12u64, 8], [6, 9]];
     let da = [7u64, 5];
@@ -912,8 +895,7 @@ fn test_joint_sketch_exact_values() {
 #[cfg(feature = "exact")]
 #[test]
 fn test_power_law_graph_neighbourhoods() {
-    type Counter =
-        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision10, Bits6>;
 
     let mut base = 0u64;
     // The bulk of the nodes are low-degree: they must remain exact and fully recoverable.
@@ -952,8 +934,7 @@ fn test_power_law_graph_neighbourhoods() {
 #[cfg(all(feature = "exact", feature = "mle"))]
 #[test]
 fn test_estimate_union_cardinality_mle_exact() {
-    type Counter =
-        HyperLogLog<Precision10, Bits6, <Precision10 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision10, Bits6>;
 
     let mut a: Counter = Default::default();
     let mut b: Counter = Default::default();
@@ -983,8 +964,7 @@ fn test_estimate_union_cardinality_mle_exact() {
 /// (intersection = max(0, |A|+|B|-union), difference = max(0, union-|B|), jaccard = that/union).
 #[test]
 fn test_cardinality_estimator_derived_ops() {
-    type Counter =
-        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision12, Bits6>;
     let mut a: Counter = Default::default();
     let mut b: Counter = Default::default();
     for v in 0u64..40_000 {
@@ -1016,8 +996,7 @@ fn test_cardinality_estimator_derived_ops() {
 #[cfg(feature = "mle")]
 #[test]
 fn test_mle_wrapper() {
-    type Counter =
-        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+    type Counter = HyperLogLog<Precision12, Bits6>;
     let mut a: Counter = Default::default();
     let mut b: Counter = Default::default();
     for v in 0u64..40_000 {

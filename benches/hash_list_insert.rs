@@ -2,12 +2,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use hyperloglog_rs::prelude::*;
 
-type Gap = HyperLogLog<
-    Precision14,
-    Bits5,
-    <Precision14 as PackedRegister<Bits5>>::Array,
-    twox_hash::XxHash64,
->;
+type Gap = HyperLogLog<Precision14, Bits5>;
 
 fn bench_hash_list_insert(c: &mut Criterion) {
     let mut group = c.benchmark_group("hash_list_insert");

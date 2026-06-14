@@ -3,10 +3,11 @@
 //! This module is behind the `mle` feature, which works in no_std + alloc: it stores joint patterns
 //! in an `alloc::collections::BTreeMap` and routes the float transcendentals to `libm` (via
 //! `num-traits`) when `std` is unavailable, and to the standard library otherwise. It provides three
-//! estimators on
-//! [`HyperLogLog`], all maximizing a register-multiplicity likelihood:
-//! - [`HyperLogLog::estimate_union_cardinality_mle`]: Ertl's 2-set joint union MLE.
-//! - [`HyperLogLog::estimate_cardinality_mle`]: Ertl's single-counter cardinality MLE.
+//! estimators, all maximizing a register-multiplicity likelihood and reached through the [`Mle`]
+//! mode wrapper ([`HyperLogLog::mle`]):
+//! - `hll.mle().estimate_union_cardinality(&other.mle())`: Ertl's 2-set joint union MLE.
+//! - `hll.mle().estimate_cardinality()`: Ertl's single-counter cardinality MLE (provided for
+//!   completeness; it is dominated by the default HyperLogLog++ estimate).
 //! - [`HyperLogLog::joint_sketch_mle`] / [`HyperLogLog::joint_sketch_mle_with`]: the generalized
 //!   hypersphere-sketch MLE over `M` nested left and `N` nested right counters, jointly estimating
 //!   all `M*N + M + N` disjoint-cell cardinalities.
@@ -57,7 +58,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// # Examples
     /// ```
     /// use hyperloglog_rs::prelude::*;
-    /// type Hll = HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array>;
+    /// type Hll = HyperLogLog<Precision12, Bits6>;
     ///
     /// let mut a = Hll::default();
     /// let mut b = Hll::default();
@@ -124,7 +125,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// # Examples
     /// ```
     /// use hyperloglog_rs::prelude::*;
-    /// type Hll = HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array>;
+    /// type Hll = HyperLogLog<Precision12, Bits6>;
     ///
     /// let mut counter = Hll::default();
     /// for x in 0u64..40_000 {
@@ -169,7 +170,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     ///
     /// Because the parameters are the disjoint regions themselves (optimized in log-space), the
     /// returned cells are non-negative and globally consistent by construction. At `M = N = 1`
-    /// this reduces to the three-region model of [`HyperLogLog::estimate_union_cardinality_mle`].
+    /// this reduces to the three-region model of the 2-set joint union MLE
+    /// (`hll.mle().estimate_union_cardinality(&other.mle())`).
     ///
     /// # Examples
     /// The `M = N = 1` case decomposes two sets into intersection and the two differences. With
@@ -177,7 +179,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// union is about 6000.
     /// ```
     /// use hyperloglog_rs::prelude::*;
-    /// type Hll = HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array>;
+    /// type Hll = HyperLogLog<Precision12, Bits6>;
     ///
     /// let mut a = Hll::default();
     /// let mut b = Hll::default();
@@ -231,7 +233,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// # Examples
     /// ```
     /// use hyperloglog_rs::prelude::*;
-    /// type Hll = HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array>;
+    /// type Hll = HyperLogLog<Precision12, Bits6>;
     ///
     /// let mut a = Hll::default();
     /// let mut b = Hll::default();

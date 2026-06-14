@@ -34,7 +34,7 @@ pub struct HyperLogLog<
 /// ([`PackedRegister::Vec`]) rather than the default fixed-size register array
 /// ([`PackedRegister::Array`]).
 ///
-/// The default [`HyperLogLog<P, B>`] stores its registers inline as a fixed array, whose size is
+/// The default [`HyperLogLog`] stores its registers inline as a fixed array, whose size is
 /// part of the type and lives wherever the counter lives (on the stack for a local). `VecHll` moves
 /// that storage to the heap, which is preferable when the register array would be large (high
 /// precision) or when many counters are created dynamically. The estimation behavior is identical;
@@ -519,9 +519,9 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// ```rust
     /// # use hyperloglog_rs::prelude::*;
     ///
-    /// let mut hll1: HyperLogLog<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array> =
+    /// let mut hll1: HyperLogLog<Precision8, Bits6> =
     ///     Default::default();
-    /// let mut hll2: HyperLogLog<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array> =
+    /// let mut hll2: HyperLogLog<Precision8, Bits6> =
     ///     Default::default();
     ///
     /// hll1.insert(&42);
@@ -828,7 +828,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOr for &HyperL
 mod test_hybrid_propertis {
     use super::*;
     use hyperloglog_derive::test_estimator;
-    use twox_hash::XxHash;
 
     #[test_estimator]
     fn test_plusplus_properties<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
