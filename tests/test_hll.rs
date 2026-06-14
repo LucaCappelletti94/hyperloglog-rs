@@ -975,3 +975,91 @@ fn test_estimate_union_cardinality_mle_exact() {
         "mixed exact/dense MLE union {estimate}"
     );
 }
+
+/// The CardinalityEstimator trait's provided derived ops on HyperLogLog match their definitions
+/// (intersection = max(0, |A|+|B|-union), difference = max(0, union-|B|), jaccard = that/union).
+#[test]
+fn test_cardinality_estimator_derived_ops() {
+    type Counter =
+        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+    let mut a: Counter = Default::default();
+    let mut b: Counter = Default::default();
+    for v in 0u64..40_000 {
+        a.insert(&v);
+    }
+    for v in 25_000u64..75_000 {
+        b.insert(&v);
+    }
+
+    let ca = a.estimate_cardinality();
+    let cb = b.estimate_cardinality();
+    let u = a.estimate_union_cardinality(&b);
+
+    assert_eq!(
+        a.estimate_intersection_cardinality(&b),
+        (ca + cb - u).max(0.0)
+    );
+    assert_eq!(a.estimate_difference_cardinality(&b), (u - cb).max(0.0));
+    let expected_jaccard = if ca + cb < u || u == 0.0 {
+        0.0
+    } else {
+        (ca + cb - u) / u
+    };
+    assert_eq!(a.estimate_jaccard_index(&b), expected_jaccard);
+}
+
+/// The Mle wrapper routes the trait methods to the MLE estimators, derives intersection/jaccard/
+/// difference from them, and its overlap matrices use the joint MLE; into_inner returns the counter.
+#[cfg(feature = "mle")]
+#[test]
+fn test_mle_wrapper() {
+    type Counter =
+        HyperLogLog<Precision12, Bits6, <Precision12 as PackedRegister<Bits6>>::Array, XxHash>;
+    let mut a: Counter = Default::default();
+    let mut b: Counter = Default::default();
+    for v in 0u64..40_000 {
+        a.insert(&v);
+    }
+    for v in 25_000u64..75_000 {
+        b.insert(&v);
+    }
+    assert!(a.is_dense() && b.is_dense());
+
+    // Scalar routing equals the inherent _mle methods.
+    assert_eq!(a.mle().estimate_cardinality(), a.estimate_cardinality_mle());
+    assert_eq!(
+        a.mle().estimate_union_cardinality(&b.mle()),
+        a.estimate_union_cardinality_mle(&b)
+    );
+
+    // Derived ops come from the MLE primitives, via the trait default.
+    let ca = a.mle().estimate_cardinality();
+    let cb = b.mle().estimate_cardinality();
+    let u = a.mle().estimate_union_cardinality(&b.mle());
+    assert_eq!(
+        a.mle().estimate_intersection_cardinality(&b.mle()),
+        (ca + cb - u).max(0.0)
+    );
+
+    // Generic code over the trait accepts both the default counter and the MLE view.
+    fn jaccard<E: CardinalityEstimator>(x: &E, y: &E) -> f64 {
+        x.estimate_jaccard_index(y)
+    }
+    let _ = jaccard(&a, &b);
+    let _ = jaccard(&a.mle(), &b.mle());
+
+    // The overlap matrices via the Mle view equal the direct joint MLE.
+    let via_mle =
+        <Mle<&Counter> as HyperSpheresSketch<f64>>::overlap_and_differences_cardinality_matrices(
+            &[a.mle()],
+            &[b.mle()],
+        );
+    let direct = Counter::joint_sketch_mle(&[a.clone()], &[b.clone()]);
+    assert_eq!(via_mle, direct);
+
+    // The inverse of .mle() yields the counter and its default estimators.
+    assert_eq!(
+        a.mle().into_inner().estimate_cardinality(),
+        a.estimate_cardinality()
+    );
+}

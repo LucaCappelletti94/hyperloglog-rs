@@ -576,56 +576,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     #[inline]
-    /// Returns an estimate of the intersection cardinality between two counters.
-    pub fn estimate_intersection_cardinality(&self, other: &Self) -> f64 {
-        let self_cardinality = self.estimate_cardinality();
-        let other_cardinality = other.estimate_cardinality();
-        let union_cardinality = self.estimate_union_cardinality_with_cardinalities(
-            other,
-            self_cardinality,
-            other_cardinality,
-        );
-
-        // We apply correction to the union cardinality to get the intersection cardinality.
-        if self_cardinality + other_cardinality < union_cardinality {
-            0.0
-        } else {
-            self_cardinality + other_cardinality - union_cardinality
-        }
-    }
-
-    #[inline]
-    /// Returns an estimate of the Jaccard index between two counters.
-    pub fn estimate_jaccard_index(&self, other: &Self) -> f64 {
-        let self_cardinality = self.estimate_cardinality();
-        let other_cardinality = other.estimate_cardinality();
-        let union_cardinality = self.estimate_union_cardinality_with_cardinalities(
-            other,
-            self_cardinality,
-            other_cardinality,
-        );
-
-        // We apply correction to the union cardinality to get the intersection cardinality.
-        if self_cardinality + other_cardinality < union_cardinality || union_cardinality.is_zero() {
-            0.0
-        } else {
-            (self_cardinality + other_cardinality - union_cardinality) / union_cardinality
-        }
-    }
-
-    #[inline]
-    /// Returns an estimate of the cardinality of the current counter minus the cardinality of the other counter.
-    pub fn estimate_difference_cardinality(&self, other: &Self) -> f64 {
-        let union_cardinality = self.estimate_union_cardinality(other);
-        let other_cardinality = other.estimate_cardinality();
-        if union_cardinality < other_cardinality {
-            0.0
-        } else {
-            union_cardinality - other_cardinality
-        }
-    }
-
-    #[inline]
     /// Returns the estimate of the cardinality of the union of two [`HyperLogLog`] counters.
     pub fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         self.estimate_union_cardinality_with_cardinalities(

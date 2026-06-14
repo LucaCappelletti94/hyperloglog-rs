@@ -34,8 +34,10 @@ mod sketch;
 #[cfg(test)]
 mod tests;
 mod union;
+mod wrapper;
 
 pub use optimizers::{Adam, Chain, JointOptimizer, Lbfgs, RmsProp};
+pub use wrapper::Mle;
 
 // The associative map used to tabulate joint patterns and classify exact cells. It is the
 // no_std-friendly `alloc::collections::BTreeMap` (the keys are all `Ord`); benchmarks showed it

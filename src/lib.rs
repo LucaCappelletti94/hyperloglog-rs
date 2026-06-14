@@ -19,6 +19,7 @@ extern crate alloc;
 mod bits;
 pub mod composite_hash;
 mod correction_coefficients;
+pub mod estimator;
 mod hash_list;
 pub mod hyperloglog;
 #[cfg(feature = "mle")]
@@ -31,9 +32,10 @@ pub mod utils;
 /// Re-exports of the most important traits and structs.
 pub mod prelude {
     pub use crate::bits::*;
+    pub use crate::estimator::CardinalityEstimator;
     pub use crate::hyperloglog::*;
     #[cfg(feature = "mle")]
-    pub use crate::mle::{Adam, Chain, JointOptimizer, Lbfgs, RmsProp};
+    pub use crate::mle::{Adam, Chain, JointOptimizer, Lbfgs, Mle, RmsProp};
     pub use crate::precisions::*;
     pub use crate::registers::*;
     pub use crate::sketches::*;
