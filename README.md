@@ -1,4 +1,5 @@
 # 🧮 HyperLogLog-rs
+
 [![downloads](https://img.shields.io/crates/d/hyperloglog-rs)](https://crates.io/crates/hyperloglog-rs)
 [![dependents](https://img.shields.io/librariesio/dependents/cargo/hyperloglog-rs)](https://crates.io/crates/hyperloglog-rs/reverse_dependencies)
 [![CI](https://github.com/LucaCappelletti94/hyperloglog-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/LucaCappelletti94/hyperloglog-rs/actions)
@@ -127,6 +128,7 @@ assert!((sketch.union() - 6_000.0).abs() / 6_000.0 < 0.2);
 ```
 
 ## Feature flags
+
 All features are off by default, so the crate is `no_std` with no allocator out of the box.
 
 - `alloc`: enable allocation-backed functionality. The default `HyperLogLog<P, B>` stores its registers inline as a fixed-size array; the `VecHll<P, B>` alias instead backs them with a heap-allocated, growable vector, which is preferable when the register array would be large (high precision) or when many counters are created dynamically.
@@ -145,15 +147,46 @@ let _cardinality: f64 = hll.estimate_cardinality();
 # }
 ```
 
+## Benchmarks
+
+The diagram below shows the three-layer ladder and the measured thresholds for `HyperLogLog<Precision12, Bits6>` (4096 registers, 6 bits each). Switch points were detected empirically by inserting values one at a time and watching the `is_exact` / `is_hash_list` / `is_dense` predicates flip.
+
+![Architecture and benchmarks](docs/architecture.svg)
+
+All measurements were taken on an AMD Ryzen Threadripper PRO 5975WX (release build, `--features "std mle exact"`). Each speed number is the median of 5 calibrated runs in nanoseconds per call, and `insert` is measured amortized (a batch of fresh values into one counter, divided by the batch size) so it excludes the cost of cloning the counter. Quality columns are mean relative error (MRE) over 100 independent trials at 50 percent set overlap, against an exact `HashSet` ground truth. Run `cargo run --release --example regime_benchmarks --features "std mle exact"` to reproduce, and find the raw numbers in `docs/regime_benchmarks.json`.
+
+**Switch points.** For this counter the `exact` to `hash_list` transition happens around cardinality 8150, when the growable exact-values buffer reaches the register-array footprint and the stored values are hashed into a proper hash list. The `hash_list` to `dense` transition happens around cardinality 8367, when the hash list saturates and the crate materializes the classic register array. The exact thresholds shift slightly with the hashed values, so with the `exact` feature on the hash-list stage is a brief transitional band rather than a wide regime.
+
+| cardinality | regime | insert | est card | est union | merge | MLE card | MLE union | joint MLE | def card MRE | def union MRE | MLE union MRE |
+|---:|:---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | exact | 1.4 us | 1 ns | 209 ns | 584 ns | 1 ns | 215 ns | 309 ns | 0.00% | 0.00% | 0.00% |
+| 2716 | exact | 9.7 us | 1 ns | 16.7 us | 55.2 ms | 1 ns | 17.2 us | 144.3 us | 0.00% | 0.00% | 0.00% |
+| 5383 | exact | 17.9 us | 1 ns | 34.0 us | 215.8 ms | 1 ns | 34.0 us | 327.2 us | 0.00% | 0.00% | 0.00% |
+| 8204 | hash_list | 156 ns | 12 ns | 609.1 us | 647.5 us | 11 ns | 600.1 us | 619.5 us | 0.56% | 0.94% | 0.94% |
+| 8313 | hash_list | 77 ns | 11 ns | 235.1 us | 231.6 us | 11 ns | 231.3 us | 618.0 us | 0.58% | 1.60% | 0.97% |
+| 8567 | dense | 15 ns | 11 ns | 9.6 us | 15.9 us | 6.6 us | 153.0 us | 11.3 ms | 1.12% | 10.26% | 0.81% |
+| 16384 | dense | 15 ns | 11 ns | 9.6 us | 15.9 us | 6.5 us | 130.5 us | 11.3 ms | 1.04% | 1.09% | 0.98% |
+| 65536 | dense | 21 ns | 3 ns | 10.1 us | 15.9 us | 6.5 us | 128.8 us | 13.8 ms | 1.19% | 1.21% | 0.98% |
+| 262144 | dense | 15 ns | 2 ns | 9.6 us | 15.9 us | 6.9 us | 165.6 us | 14.4 ms | 1.45% | 1.30% | 1.07% |
+
+A few observations. In `exact` mode every cardinality and union estimate is exact (0 percent error) because the literal values are stored, and `estimate_cardinality` is essentially free (about 1 ns, it reads the stored count). The cost in `exact` mode is in mutation: each `insert` splices the gap-coded value buffer in place, so it grows with the stored cardinality (1.4 us to 18 us here), and `merge` is the expensive outlier at 55 to 216 ms because it re-inserts every value of one operand into the other. If you expect to merge large counters, let them reach `dense` mode first.
+
+In `hash_list` mode the accuracy is already near-exact (card MRE under 0.6 percent, union MRE under 1.6 percent). This is a narrow transitional band, and its two-operand costs (around 230 to 650 us) fall as the cardinality grows and the hash list downsamples to fewer bits per stored hash.
+
+In `dense` mode the common operations are cheap and flat regardless of cardinality: `insert` about 15 ns, `estimate_cardinality` a few ns, `estimate_union_cardinality` about 9.6 us, and `merge` about 16 us (an element-wise register maximum). The default union MRE settles around 1.1 to 1.3 percent. The single elevated value (10.26 percent at cardinality 8567) is the point right after the dense transition, where the two operands straddle the boundary and the inclusion-exclusion estimate is briefly unreliable. The MLE union (`hll.mle().estimate_union_cardinality(..)`) costs about 130 to 165 us and holds union MRE near 1 percent across the range, including at that transition point. The joint MLE (`JointSketch::estimate`) costs about 11 to 14 ms per call, since it runs the full Adam plus L-BFGS optimization, and it buys the same accuracy as the scalar MLE union while also returning the complete overlap and margin decomposition.
+
 ## No STD
+
 This crate is designed to be as lightweight as possible and does not require any dependencies from the Rust standard library (std). As a result, it can be used in a bare metal or embedded context, where std may not be available. With the `alloc` feature it can use an allocator without pulling in std, and even the optional MLE estimation runs in `no_std + alloc`.
 
 ## Fuzzing
+
 Fuzzing is a technique for finding security vulnerabilities and bugs in software by providing random input to the code. We make sure that our fuzz targets are continuously updated and run against the latest versions of the library to ensure that any vulnerabilities or bugs are quickly identified and addressed.
 
 [Learn more about how we fuzz here](https://github.com/LucaCappelletti94/hyperloglog-rs/tree/main/fuzz)
 
 ## Citations
+
 Some relevant citations to learn more:
 
-* Philippe Flajolet, Eric Fusy, Olivier Gandouet, Frédéric Meunier. "[HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm.](https://hal.science/file/index/docid/406166/filename/FlFuGaMe07.pdf)" In Proceedings of the 2007 conference on analysis of algorithms, pp. 127-146. 2007.
+- Philippe Flajolet, Eric Fusy, Olivier Gandouet, Frédéric Meunier. "[HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm.](https://hal.science/file/index/docid/406166/filename/FlFuGaMe07.pdf)" In Proceedings of the 2007 conference on analysis of algorithms, pp. 127-146. 2007.
