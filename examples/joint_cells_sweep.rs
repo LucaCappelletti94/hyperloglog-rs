@@ -55,16 +55,9 @@ where
     let total: f64 = (o[0][0] + o[0][1] + o[1][0] + o[1][1] + da[0] + da[1] + db[0] + db[1]) as f64;
 
     let (wov, wl, wr) =
-        <HyperLogLog<P, B, <P as PackedRegister<B>>::Array, XxHash64> as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(
-            &[a0.clone(), a1.clone()],
-            &[b0.clone(), b1.clone()],
-        ).into_parts();
+        JointSketch::estimate(&[a0.clone(), a1.clone()], &[b0.clone(), b1.clone()]).into_parts();
     let (mov, ml, mr) =
-        HyperLogLog::<P, B, <P as PackedRegister<B>>::Array, XxHash64>::joint_sketch_mle(
-            &[a0, a1],
-            &[b0, b1],
-        )
-        .into_parts();
+        JointSketch::estimate(&[a0.mle(), a1.mle()], &[b0.mle(), b1.mle()]).into_parts();
 
     // Mean absolute cell error, normalized by the total union.
     let mut warm_err = 0.0;

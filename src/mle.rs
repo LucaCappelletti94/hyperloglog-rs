@@ -8,7 +8,7 @@
 //! - `hll.mle().estimate_union_cardinality(&other.mle())`: Ertl's 2-set joint union MLE.
 //! - `hll.mle().estimate_cardinality()`: Ertl's single-counter cardinality MLE (provided for
 //!   completeness; it is dominated by the default HyperLogLog++ estimate).
-//! - [`HyperLogLog::joint_sketch_mle`] / [`HyperLogLog::joint_sketch_mle_with`]: the generalized
+//! - [`JointSketch::estimate`] / [`JointSketch::estimate_with`] over `.mle()` views: the generalized
 //!   hypersphere-sketch MLE over `M` nested left and `N` nested right counters, jointly estimating
 //!   all `M*N + M + N` disjoint-cell cardinalities.
 //!
@@ -170,42 +170,19 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     ///
     /// Because the parameters are the disjoint regions themselves (optimized in log-space), the
     /// returned cells are non-negative and globally consistent by construction. At `M = N = 1`
-    /// this reduces to the three-region model of the 2-set joint union MLE
-    /// (`hll.mle().estimate_union_cardinality(&other.mle())`).
+    /// this reduces to the three-region model of the 2-set joint union MLE.
     ///
-    /// # Examples
-    /// The `M = N = 1` case decomposes two sets into intersection and the two differences. With
-    /// `A = [0, 4000)` and `B = [2000, 6000)`, the intersection `[2000, 4000)` is about 2000 and the
-    /// union is about 6000.
-    /// ```
-    /// use hyperloglog_rs::prelude::*;
-    /// type Hll = HyperLogLog<Precision12, Bits6>;
-    ///
-    /// let mut a = Hll::default();
-    /// let mut b = Hll::default();
-    /// for x in 0u64..4_000 {
-    ///     a.insert(&x);
-    /// }
-    /// for x in 2_000u64..6_000 {
-    ///     b.insert(&x);
-    /// }
-    ///
-    /// let sketch = Hll::joint_sketch_mle(&[a], &[b]);
-    /// // sketch.overlap[i][j] = |L_i intersect R_j|; here the single intersection cell.
-    /// assert!((sketch.overlap[0][0] - 2_000.0).abs() / 2_000.0 < 0.25);
-    /// assert!((sketch.union() - 6_000.0).abs() / 6_000.0 < 0.2);
-    /// ```
+    /// This is the crate-internal engine behind the public [`JointSketch::estimate`] /
+    /// [`JointSketch::estimate_with`], reached by passing [`mle`](HyperLogLog::mle) views as operands.
     ///
     /// # Implementative details
     /// When every operand is still a hash list, the disjoint cells are counted exactly from the
     /// stored composite hashes, with no optimization. Otherwise any hash-list operand is
     /// materialized into registers first, and the optimization is warm-started from the pairwise
     /// sketch and refined with the default `Chain<Adam, Lbfgs>` optimizer, driven by the exact
-    /// forward-mode gradient of the joint per-register log-likelihood. Use
-    /// [`HyperLogLog::joint_sketch_mle_with`] to pick a different optimizer. See
-    /// `docs/joint_mle_math.md`.
+    /// forward-mode gradient of the joint per-register log-likelihood. See `docs/joint_mle_math.md`.
     #[inline]
-    pub fn joint_sketch_mle<const M: usize, const N: usize>(
+    pub(crate) fn joint_sketch_mle<const M: usize, const N: usize>(
         lefts: &[Self; M],
         rights: &[Self; N],
     ) -> JointSketch<M, N> {
@@ -227,33 +204,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// Same as [`HyperLogLog::joint_sketch_mle`] but with a caller-chosen optimizer type driving the
     /// refinement, selected at compile time by turbofish. Compose optimizers with [`Chain`], for
     /// example `Chain<Adam, Lbfgs>`, or implement [`JointOptimizer`] for a custom strategy. The
-    /// default method uses `Chain<Adam, Lbfgs>`; `Lbfgs` alone is fastest where the objective is
-    /// unimodal.
+    /// default uses `Chain<Adam, Lbfgs>`; `Lbfgs` alone is fastest where the objective is unimodal.
     ///
-    /// # Examples
-    /// ```
-    /// use hyperloglog_rs::prelude::*;
-    /// type Hll = HyperLogLog<Precision12, Bits6>;
-    ///
-    /// let mut a = Hll::default();
-    /// let mut b = Hll::default();
-    /// for x in 0u64..4_000 {
-    ///     a.insert(&x);
-    /// }
-    /// for x in 2_000u64..6_000 {
-    ///     b.insert(&x);
-    /// }
-    ///
-    /// // Fastest: plain L-BFGS (M and N are inferred from the arrays).
-    /// let sketch = Hll::joint_sketch_mle_with::<Lbfgs, 1, 1>(&[a.clone()], &[b.clone()]);
-    /// assert!((sketch.union() - 6_000.0).abs() / 6_000.0 < 0.2);
-    ///
-    /// // Robust: an Adam warmup composed with L-BFGS (this is also the default).
-    /// let sketch = Hll::joint_sketch_mle_with::<Chain<Adam, Lbfgs>, 1, 1>(&[a], &[b]);
-    /// assert!(sketch.overlap[0][0] > 0.0);
-    /// ```
+    /// This is the crate-internal engine behind the public [`JointSketch::estimate_with`].
     #[inline]
-    pub fn joint_sketch_mle_with<O: JointOptimizer, const M: usize, const N: usize>(
+    pub(crate) fn joint_sketch_mle_with<O: JointOptimizer, const M: usize, const N: usize>(
         lefts: &[Self; M],
         rights: &[Self; N],
     ) -> JointSketch<M, N> {

@@ -540,10 +540,7 @@ fn experiment_optimizers<const M: usize, const N: usize>(unit: u64) {
 
     // Warm start and anchors (mirroring joint_sketch_mle_core).
     let (overlap0, left0, right0) =
-        <Counter as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(
-            &lefts, &rights,
-        )
-        .into_parts();
+        <Counter as HyperSpheresSketch>::joint_sketch(&lefts, &rights).into_parts();
     let mut init = vec![0.0; k];
     for i in 0..M {
         for j in 0..N {

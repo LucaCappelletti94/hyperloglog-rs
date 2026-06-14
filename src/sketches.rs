@@ -19,8 +19,8 @@ use crate::prelude::{
 };
 
 /// The disjoint-cell cardinalities of a hypersphere sketch over `M` nested left sets and `N` nested
-/// right sets: the `M*N` exclusive overlap grid plus the `M` left and `N` right margins. Returned by
-/// [`HyperSpheresSketch::overlap_and_differences_cardinality_matrices`] and by the joint MLE sketch.
+/// right sets: the `M*N` exclusive overlap grid plus the `M` left and `N` right margins. Build one
+/// with [`JointSketch::estimate`] (or the trait method [`HyperSpheresSketch::joint_sketch`]).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct JointSketch<const M: usize, const N: usize> {
     /// `overlap[i][j] = |L_i intersect R_j|`, the exclusive overlap grid.
@@ -32,6 +32,38 @@ pub struct JointSketch<const M: usize, const N: usize> {
 }
 
 impl<const M: usize, const N: usize> JointSketch<M, N> {
+    /// Estimates the joint sketch of `M` nested left counters and `N` nested right counters, in a
+    /// single call. The estimator follows the *mode* of the operands, exactly like the scalar
+    /// estimators: pass plain counters for the pairwise inclusion-exclusion estimate, or pass
+    /// [`mle`](HyperLogLog::mle) views to run the joint maximum-likelihood optimization (which jointly
+    /// fits every disjoint cell and is generally more accurate, at a higher cost). `M` and `N` are
+    /// inferred from the arrays.
+    ///
+    /// To choose a specific MLE optimizer, use [`JointSketch::estimate_with`].
+    ///
+    /// # Examples
+    /// ```
+    /// use hyperloglog_rs::prelude::*;
+    /// type Hll = HyperLogLog<Precision12, Bits6>;
+    ///
+    /// let mut a = Hll::default();
+    /// let mut b = Hll::default();
+    /// for x in 0u64..4_000 {
+    ///     a.insert(&x);
+    /// }
+    /// for x in 2_000u64..6_000 {
+    ///     b.insert(&x);
+    /// }
+    ///
+    /// // Default pairwise inclusion-exclusion:
+    /// let sketch = JointSketch::estimate(&[a], &[b]);
+    /// assert!((sketch.union() - 6_000.0).abs() / 6_000.0 < 0.2);
+    /// ```
+    #[inline]
+    pub fn estimate<E: HyperSpheresSketch>(lefts: &[E; M], rights: &[E; N]) -> Self {
+        E::joint_sketch(lefts, rights)
+    }
+
     /// The total union cardinality: the sum of every disjoint cell.
     #[inline]
     pub fn union(&self) -> f64 {
@@ -88,7 +120,7 @@ pub trait HyperSpheresSketch: CardinalityEstimator + Sized {
     /// Very similarly, for the case of vectors of two elements:
     ///
     /// ![Illustration of overlaps](https://github.com/LucaCappelletti94/hyperloglog-rs/blob/main/tuple_overlap.png?raw=true)
-    fn overlap_and_differences_cardinality_matrices<const L: usize, const R: usize>(
+    fn joint_sketch<const L: usize, const R: usize>(
         lefts: &[Self; L],
         rights: &[Self; R],
     ) -> JointSketch<L, R> {
@@ -176,7 +208,7 @@ pub trait NormalizedHyperSpheresSketch: HyperSpheresSketch {
     /// * `overlap_cardinality_matrix` - Matrix of normalized estimated overlapping cardinalities between the elements of the left and right arrays.
     /// * `left_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the left array and the last element of the right array.
     /// * `right_difference_cardinality_vector` - Vector of normalized estimated difference cardinalities between the elements of the right array and the last element of the left array.
-    fn normalized_overlap_and_differences_cardinality_matrices<const L: usize, const R: usize>(
+    fn normalized_joint_sketch<const L: usize, const R: usize>(
         lefts: &[Self; L],
         rights: &[Self; R],
     ) -> JointSketch<L, R> {

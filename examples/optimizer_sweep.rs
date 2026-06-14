@@ -97,9 +97,11 @@ where
     let mut total_ms = 0.0;
     for seed in 0..seeds {
         let (lefts, rights, exact, total) = build::<P, B, M, N>(unit, seed);
+        let lefts_mle: [_; M] = core::array::from_fn(|i| lefts[i].mle());
+        let rights_mle: [_; N] = core::array::from_fn(|j| rights[j].mle());
         let start = Instant::now();
         let (overlap, left_diff, right_diff) =
-            Hll::<P, B>::joint_sketch_mle_with::<O, M, N>(&lefts, &rights).into_parts();
+            JointSketch::estimate_with::<O, _>(&lefts_mle, &rights_mle).into_parts();
         total_ms += start.elapsed().as_secs_f64() * 1e3;
         let mut err = 0.0;
         for i in 0..M {

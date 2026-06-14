@@ -7,6 +7,7 @@
 //! overlap matrices come for free, all computed from the MLE primitives, and `Mle` can be passed to
 //! any code generic over those traits.
 
+use super::JointOptimizer;
 use crate::estimator::CardinalityEstimator;
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
 use crate::sketches::{HyperSpheresSketch, JointSketch};
@@ -61,8 +62,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketc
 {
     #[inline]
     /// Overridden to use the joint MLE optimization (rather than the pairwise inclusion-exclusion
-    /// default), unwrapping the views and delegating to [`HyperLogLog::joint_sketch_mle`].
-    fn overlap_and_differences_cardinality_matrices<const L: usize, const N: usize>(
+    /// default), unwrapping the views and delegating to the joint MLE sketch.
+    fn joint_sketch<const L: usize, const N: usize>(
         lefts: &[Self; L],
         rights: &[Self; N],
     ) -> JointSketch<L, N> {
@@ -71,5 +72,70 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketc
         let right_counters: [HyperLogLog<P, B, R, H>; N] =
             core::array::from_fn(|j| rights[j].0.clone());
         HyperLogLog::<P, B, R, H>::joint_sketch_mle::<L, N>(&left_counters, &right_counters)
+    }
+}
+
+/// Sealed helper that lets [`JointSketch::estimate_with`] name only the optimizer while inferring the
+/// underlying counter type. Implemented for [`Mle`] views over [`HyperLogLog`]; it is not meant to be
+/// named or implemented downstream (pass `_` for it at the call site).
+#[doc(hidden)]
+pub trait MleJointSketch: Sized {
+    /// Runs the optimizer-selected joint MLE over arrays of these views.
+    fn joint_sketch_mle_with<O: JointOptimizer, const M: usize, const N: usize>(
+        lefts: &[Self; M],
+        rights: &[Self; N],
+    ) -> JointSketch<M, N>;
+}
+
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> MleJointSketch
+    for Mle<&HyperLogLog<P, B, R, H>>
+{
+    #[inline]
+    fn joint_sketch_mle_with<O: JointOptimizer, const M: usize, const N: usize>(
+        lefts: &[Self; M],
+        rights: &[Self; N],
+    ) -> JointSketch<M, N> {
+        let left_counters: [HyperLogLog<P, B, R, H>; M] =
+            core::array::from_fn(|i| lefts[i].0.clone());
+        let right_counters: [HyperLogLog<P, B, R, H>; N] =
+            core::array::from_fn(|j| rights[j].0.clone());
+        HyperLogLog::<P, B, R, H>::joint_sketch_mle_with::<O, M, N>(&left_counters, &right_counters)
+    }
+}
+
+impl<const M: usize, const N: usize> JointSketch<M, N> {
+    /// Estimates the joint MLE sketch from [`mle`](HyperLogLog::mle) views with a caller-chosen
+    /// optimizer type `O`, selected at compile time by turbofish. This is the power-user counterpart
+    /// of [`JointSketch::estimate`], which uses the default `Chain<Adam, Lbfgs>`. Compose optimizers
+    /// with [`Chain`](crate::prelude::Chain), or implement [`JointOptimizer`] for a custom strategy;
+    /// [`Lbfgs`](crate::prelude::Lbfgs) alone is fastest where the objective is unimodal.
+    ///
+    /// The counter type is inferred from the operands, so only the optimizer is named (followed by an
+    /// inference placeholder): `JointSketch::estimate_with::<Lbfgs, _>(..)`.
+    ///
+    /// # Examples
+    /// ```
+    /// use hyperloglog_rs::prelude::*;
+    /// type Hll = HyperLogLog<Precision12, Bits6>;
+    ///
+    /// let mut a = Hll::default();
+    /// let mut b = Hll::default();
+    /// for x in 0u64..4_000 {
+    ///     a.insert(&x);
+    /// }
+    /// for x in 2_000u64..6_000 {
+    ///     b.insert(&x);
+    /// }
+    ///
+    /// // Plain L-BFGS (the counter type and M, N are inferred).
+    /// let sketch = JointSketch::estimate_with::<Lbfgs, _>(&[a.mle()], &[b.mle()]);
+    /// assert!((sketch.union() - 6_000.0).abs() / 6_000.0 < 0.2);
+    /// ```
+    #[inline]
+    pub fn estimate_with<O: JointOptimizer, V: MleJointSketch>(
+        lefts: &[V; M],
+        rights: &[V; N],
+    ) -> Self {
+        V::joint_sketch_mle_with::<O, M, N>(lefts, rights)
     }
 }

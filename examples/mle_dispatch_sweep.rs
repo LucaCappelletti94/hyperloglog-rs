@@ -241,13 +241,16 @@ where
                     c.convert_hash_list_to_hyperloglog().unwrap();
                 }
             }
+            let fl_mle: [_; M] = core::array::from_fn(|i| forced_lefts[i].mle());
+            let fr_mle: [_; N] = core::array::from_fn(|j| forced_rights[j].mle());
             let t = Instant::now();
-            let (fo, fl, fr) =
-                Hll::<P, B>::joint_sketch_mle::<M, N>(&forced_lefts, &forced_rights).into_parts();
+            let (fo, fl, fr) = JointSketch::estimate(&fl_mle, &fr_mle).into_parts();
             let forced_ms = t.elapsed().as_secs_f64() * 1e3;
 
+            let lefts_mle: [_; M] = core::array::from_fn(|i| lefts[i].mle());
+            let rights_mle: [_; N] = core::array::from_fn(|j| rights[j].mle());
             let t = Instant::now();
-            let (o, l, r) = Hll::<P, B>::joint_sketch_mle::<M, N>(&lefts, &rights).into_parts();
+            let (o, l, r) = JointSketch::estimate(&lefts_mle, &rights_mle).into_parts();
             let disp_ms = t.elapsed().as_secs_f64() * 1e3;
 
             let forced_err = cell_error::<M, N>(&fo, &fl, &fr, &exact, union);

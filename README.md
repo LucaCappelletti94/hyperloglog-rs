@@ -79,54 +79,51 @@ With the optional `mle` feature, the [joint Maximum Likelihood Estimation for Hy
 The joint union estimator is the one worth using. The single-counter MLE cardinality (`hll.mle().estimate_cardinality()`) is provided for completeness but is dominated by the default HyperLogLog++ corrected estimate, so prefer the default for plain cardinality.
 
 ```rust
-#[cfg(feature = "mle")]
-{
-        use hyperloglog_rs::prelude::*;
+# #[cfg(feature = "mle")] {
+use hyperloglog_rs::prelude::*;
 
-        let mut hll1 = HyperLogLog::<Precision10, Bits6>::default();
-        let mut hll2 = HyperLogLog::<Precision10, Bits6>::default();
+let mut hll1 = HyperLogLog::<Precision10, Bits6>::default();
+let mut hll2 = HyperLogLog::<Precision10, Bits6>::default();
 
-        for value in 0..10_000_u64 {
-                hll1.insert(&value);
-        }
-        for value in 5_000..15_000_u64 {
-                hll2.insert(&value);
-        }
-
-        // The true union cardinality of [0, 10000) and [5000, 15000) is 15000.
-        let mle_union: f64 = hll1.mle().estimate_union_cardinality(&hll2.mle());
-        assert!(
-                mle_union >= 15_000.0_f64 * 0.9 &&
-                mle_union <= 15_000.0_f64 * 1.1,
-                "MLE: Expected union cardinality to be around 15000, got {}",
-                mle_union
-        );
+for value in 0..10_000_u64 {
+    hll1.insert(&value);
 }
+for value in 5_000..15_000_u64 {
+    hll2.insert(&value);
+}
+
+// The true union cardinality of [0, 10000) and [5000, 15000) is 15000.
+let mle_union: f64 = hll1.mle().estimate_union_cardinality(&hll2.mle());
+assert!(
+    mle_union >= 15_000.0_f64 * 0.9 && mle_union <= 15_000.0_f64 * 1.1,
+    "MLE: Expected union cardinality to be around 15000, got {}",
+    mle_union
+);
+# }
 ```
 
-For more than two sets, `HyperLogLog::joint_sketch_mle` runs a single optimization over `M` nested left counters and `N` nested right counters, returning a `JointSketch<M, N>` that holds every disjoint-region cardinality at once: the `overlap[i][j]` grid of exclusive intersections plus the `left_diff` and `right_diff` margins. Its `union` method sums all the cells. Pick the optimizer with `joint_sketch_mle_with` (for example `Lbfgs` alone where the objective is unimodal).
+For more than two sets, `JointSketch::estimate` runs a single optimization over `M` nested left counters and `N` nested right counters, returning a `JointSketch<M, N>` that holds every disjoint-region cardinality at once: the `overlap[i][j]` grid of exclusive intersections plus the `left_diff` and `right_diff` margins. Its `union` method sums all the cells. Just as in the scalar case, putting the operands in `.mle()` mode selects the joint MLE (plain counters would instead give the faster pairwise inclusion-exclusion estimate). Pick a specific optimizer with `JointSketch::estimate_with` (for example `Lbfgs` alone where the objective is unimodal).
 
 ```rust
-#[cfg(feature = "mle")]
-{
-        use hyperloglog_rs::prelude::*;
-        type Hll = HyperLogLog<Precision12, Bits6>;
+# #[cfg(feature = "mle")] {
+use hyperloglog_rs::prelude::*;
+type Hll = HyperLogLog<Precision12, Bits6>;
 
-        let mut a = Hll::default();
-        let mut b = Hll::default();
-        for x in 0u64..4_000 {
-                a.insert(&x);
-        }
-        for x in 2_000u64..6_000 {
-                b.insert(&x);
-        }
-
-        let sketch = Hll::joint_sketch_mle(&[a], &[b]);
-        // sketch.overlap[i][j] is |left_i intersect right_j|; here the single shared cell.
-        assert!((sketch.overlap[0][0] - 2_000.0).abs() / 2_000.0 < 0.25);
-        // sketch.union() sums the overlap grid and the left and right margins.
-        assert!((sketch.union() - 6_000.0).abs() / 6_000.0 < 0.2);
+let mut a = Hll::default();
+let mut b = Hll::default();
+for x in 0u64..4_000 {
+    a.insert(&x);
 }
+for x in 2_000u64..6_000 {
+    b.insert(&x);
+}
+
+let sketch = JointSketch::estimate(&[a.mle()], &[b.mle()]);
+// sketch.overlap[i][j] is |left_i intersect right_j|; here the single shared cell.
+assert!((sketch.overlap[0][0] - 2_000.0).abs() / 2_000.0 < 0.25);
+// sketch.union() sums the overlap grid and the left and right margins.
+assert!((sketch.union() - 6_000.0).abs() / 6_000.0 < 0.2);
+# }
 ```
 
 ## Feature flags
@@ -138,15 +135,14 @@ All features are off by default, so the crate is `no_std` with no allocator out 
 - `std`: use the Rust standard library (implies `alloc`).
 
 ```rust
-#[cfg(feature = "alloc")]
-{
-        use hyperloglog_rs::prelude::*;
+# #[cfg(feature = "alloc")] {
+use hyperloglog_rs::prelude::*;
 
-        // Same API as the array-backed counter, but the registers live on the heap.
-        let mut hll = VecHll::<Precision10, Bits6>::default();
-        hll.insert(&1);
-        let _cardinality: f64 = hll.estimate_cardinality();
-}
+// Same API as the array-backed counter, but the registers live on the heap.
+let mut hll = VecHll::<Precision10, Bits6>::default();
+hll.insert(&1);
+let _cardinality: f64 = hll.estimate_cardinality();
+# }
 ```
 
 ## No STD

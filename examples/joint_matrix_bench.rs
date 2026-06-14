@@ -130,16 +130,14 @@ where
 
     // Pairwise hypersphere sketch (the current production estimator).
     let t = Instant::now();
-    let (pov, pl, pr) =
-        <Hll<P, B> as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(
-            &lefts, &rights,
-        )
-        .into_parts();
+    let (pov, pl, pr) = JointSketch::estimate(&lefts, &rights).into_parts();
     let pair_ms = t.elapsed().as_secs_f64() * 1e3;
 
-    // Generalized joint MLE.
+    // Generalized joint MLE (the .mle() views select the joint optimization).
+    let lefts_mle: [_; M] = core::array::from_fn(|i| lefts[i].mle());
+    let rights_mle: [_; N] = core::array::from_fn(|j| rights[j].mle());
     let t = Instant::now();
-    let (mov, ml, mr) = Hll::<P, B>::joint_sketch_mle(&lefts, &rights).into_parts();
+    let (mov, ml, mr) = JointSketch::estimate(&lefts_mle, &rights_mle).into_parts();
     let mle_ms = t.elapsed().as_secs_f64() * 1e3;
 
     let mut pair_err = 0.0;

@@ -96,12 +96,10 @@ where
             build(&ranges)
         });
 
-        let (pov, pl, pr) =
-            <Hll<P, B> as HyperSpheresSketch>::overlap_and_differences_cardinality_matrices(
-                &lefts, &rights,
-            )
-            .into_parts();
-        let (mov, ml, mr) = Hll::<P, B>::joint_sketch_mle(&lefts, &rights).into_parts();
+        let (pov, pl, pr) = JointSketch::estimate(&lefts, &rights).into_parts();
+        let lefts_mle: [_; M] = core::array::from_fn(|i| lefts[i].mle());
+        let rights_mle: [_; N] = core::array::from_fn(|j| rights[j].mle());
+        let (mov, ml, mr) = JointSketch::estimate(&lefts_mle, &rights_mle).into_parts();
 
         for i in 0..M {
             for j in 0..N {
