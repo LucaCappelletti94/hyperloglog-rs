@@ -10,8 +10,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // The `alloc` crate is not auto-injected in no_std builds; bring it in so the allocation-backed
-// register (the growable `Packed<Vec<u64>, _>`) compiles with `alloc` but without `std`.
+// register and the no_std MLE compile with `alloc` but without `std`. The `vec!` macro it provides
+// is only needed by the MLE, so `macro_use` is applied only then to avoid an unused-import warning.
 #[cfg(feature = "alloc")]
+#[cfg_attr(feature = "mle", macro_use)]
 extern crate alloc;
 
 mod bits;

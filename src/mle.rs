@@ -1,6 +1,9 @@
 //! Maximum Likelihood Estimation for HyperLogLog cardinalities and set sketches.
 //!
-//! This module is behind the `mle` feature (which pulls in `std`). It provides three estimators on
+//! This module is behind the `mle` feature, which works in no_std + alloc: it stores joint patterns
+//! in an `alloc::collections::BTreeMap` and routes the float transcendentals to `libm` (via
+//! `num-traits`) when `std` is unavailable, and to the standard library otherwise. It provides three
+//! estimators on
 //! [`HyperLogLog`], all maximizing a register-multiplicity likelihood:
 //! - [`HyperLogLog::estimate_union_cardinality_mle`]: Ertl's 2-set joint union MLE.
 //! - [`HyperLogLog::estimate_cardinality_mle`]: Ertl's single-counter cardinality MLE.
@@ -33,6 +36,11 @@ mod tests;
 mod union;
 
 pub use optimizers::{Adam, Chain, JointOptimizer, Lbfgs, RmsProp};
+
+// The associative map used to tabulate joint patterns and classify exact cells. It is the
+// no_std-friendly `alloc::collections::BTreeMap` (the keys are all `Ord`); benchmarks showed it
+// matches `std::collections::HashMap` end to end (often faster, the maps are small).
+pub(crate) use alloc::collections::BTreeMap as PatternMap;
 
 use cardinality::mle_cardinality;
 use exact::joint_sketch_exact_from_hash_lists;

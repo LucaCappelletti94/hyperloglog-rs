@@ -4,6 +4,9 @@
 
 use crate::prelude::*;
 use crate::utils::FloatOps;
+use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 /// Tabulates the distinct joint register value patterns and their multiplicities (the cheap part
 /// of pattern accounting, shared by the polynomial and reference paths). Nesting is enforced by a
@@ -22,7 +25,7 @@ pub(crate) fn tabulate_joint_value_patterns<
     lefts: &[HyperLogLog<P, B, R, H>; M],
     rights: &[HyperLogLog<P, B, R, H>; N],
 ) -> Vec<([u8; M], [u8; N], f64)> {
-    use std::collections::HashMap;
+    use super::PatternMap;
 
     let left_regs: [Vec<u8>; M] =
         core::array::from_fn(|i| lefts[i].registers.iter_registers().collect());
@@ -30,7 +33,7 @@ pub(crate) fn tabulate_joint_value_patterns<
         core::array::from_fn(|j| rights[j].registers.iter_registers().collect());
 
     let m_registers = 1_usize << P::EXPONENT;
-    let mut counts: HashMap<([u8; M], [u8; N]), f64> = HashMap::new();
+    let mut counts: PatternMap<([u8; M], [u8; N]), f64> = PatternMap::new();
     for r in 0..m_registers {
         let mut a_pat = [0u8; M];
         let mut acc = 0u8;

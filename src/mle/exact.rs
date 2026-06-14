@@ -9,10 +9,10 @@
 //! near-exact at high hash sizes and degrades gracefully toward `SMALLEST_VIABLE_HASH_BITS`, where a
 //! composite hash is essentially just `(index, rank)`.
 
+use super::PatternMap;
 use crate::composite_hash::GapHash;
 use crate::prelude::*;
 use crate::utils::Zero;
-use std::collections::HashMap;
 
 /// Exact joint sketch over the disjoint-region model, assuming all counters are in hash-list mode.
 ///
@@ -53,7 +53,7 @@ pub(crate) fn joint_sketch_exact_from_hash_lists<
     // Per distinct downgraded hash, the 1-based smallest containing left and right shell indices
     // (0 means the hash is absent from that side). Because the inputs are nested, the smallest index
     // that contains a hash is its shell index, and the first sighting over increasing index wins.
-    let mut membership: HashMap<u32, (u8, u8)> = HashMap::new();
+    let mut membership: PatternMap<u32, (u8, u8)> = PatternMap::new();
     for (i, left) in lefts.iter().enumerate() {
         let shell = (i + 1) as u8;
         let hash_bits = left.get_hash_bits().unwrap();
@@ -124,7 +124,7 @@ pub(crate) fn joint_sketch_exact_from_values<
         "joint_sketch_exact_from_values requires every operand to be in exact-values mode",
     );
 
-    let mut membership: HashMap<u64, (u8, u8)> = HashMap::new();
+    let mut membership: PatternMap<u64, (u8, u8)> = PatternMap::new();
     for (i, left) in lefts.iter().enumerate() {
         let shell = (i + 1) as u8;
         for value in ValueIter::new(left.registers.as_ref(), left.get_number_of_values()) {

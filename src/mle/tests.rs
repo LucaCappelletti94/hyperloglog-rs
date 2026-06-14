@@ -7,6 +7,8 @@ use super::oracle::*;
 use super::sketch::*;
 use super::union::*;
 use crate::prelude::*;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 // Test function: f(x) = -(x1 - 1)^2 - (x2 + 2)^2
 fn quadratic_function(phis: &[f64; 2]) -> (f64, [f64; 2]) {
@@ -461,7 +463,8 @@ fn test_poly_joint_sketch_matches_oracle() {
 /// Experiment (ignored by default): compares how fast different optimizers drive the per-cell
 /// error down from the warm start, to see whether the Adam iteration budget can be cut.
 /// Run with: `cargo test --release --features mle --lib experiment_optimizers -- --ignored --nocapture`.
-#[cfg(feature = "mle")]
+// Uses `println!` and `std::time::Instant`, so it is limited to std builds.
+#[cfg(all(feature = "mle", feature = "std"))]
 fn experiment_optimizers<const M: usize, const N: usize>(unit: u64) {
     type Counter =
             HyperLogLog<
@@ -665,7 +668,7 @@ fn experiment_optimizers<const M: usize, const N: usize>(unit: u64) {
     run!("rmsprop+lbfgs", Chain<RmsProp, Lbfgs>);
 }
 
-#[cfg(feature = "mle")]
+#[cfg(all(feature = "mle", feature = "std"))]
 #[test]
 #[ignore]
 fn experiment_optimizers_run() {

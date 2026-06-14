@@ -4,6 +4,8 @@
 use super::likelihood::tabulate_joint_value_patterns;
 use crate::prelude::*;
 use crate::utils::{FloatOps, Zero};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 /// One distinct observed joint register pattern and everything needed to evaluate its
 /// per-register log-likelihood contribution under the inclusion-exclusion model.

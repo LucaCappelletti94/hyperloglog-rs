@@ -5,6 +5,8 @@ use crate::prelude::*;
 use crate::utils::{FloatOps, Zero};
 use core::cmp::Ordering;
 use core::ops::{Add, Mul, Sub};
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 #[allow(clippy::too_many_lines)]
 /// Computes the union cardinality using the Maximum Likelihood Estimation.

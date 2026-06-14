@@ -5,6 +5,9 @@ use super::likelihood::{joint_pattern_ll_and_gradient_poly, tabulate_joint_value
 use super::optimizers::{Adam, Chain, JointOptimizer, Lbfgs};
 use crate::prelude::*;
 use crate::utils::{FloatOps, Zero};
+use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 /// Generalized joint MLE over the disjoint-region model, assuming all counters are in register
 /// mode. Returns `(overlap[M][N], left_diff[M], right_diff[N])`. Uses the polynomial per-pattern

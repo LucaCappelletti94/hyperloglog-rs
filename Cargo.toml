@@ -34,6 +34,7 @@ paste = "1.0.15"
 twox-hash = {version="1.6.3", default-features = false}
 mem_dbg = {version = "0.2.4", optional = true}
 hyperloglog-derive = { path = "hyperloglog-derive" }
+num-traits = { version = "0.2", default-features = false, features = ["libm"], optional = true }
 
 
 [dev-dependencies]
@@ -51,9 +52,11 @@ mem_dbg = [
     "std",
 ]
 std = ["alloc"]
-mle = ["std"]
+# The MLE works in no_std + alloc: it uses `alloc::collections::BTreeMap` and routes the float
+# transcendentals to `libm` when `std` is unavailable (to the standard library otherwise).
+mle = ["alloc", "dep:num-traits"]
 alloc = []
-exact = ["std"]
+exact = ["alloc"]
 
 [package.metadata.clippy]
 all-features = true

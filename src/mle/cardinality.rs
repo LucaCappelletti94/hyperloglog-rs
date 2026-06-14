@@ -2,6 +2,8 @@
 
 use crate::prelude::*;
 use crate::utils::{FloatOps, Zero};
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 #[allow(clippy::too_many_lines)]
 /// Single-counter cardinality via Ertl's secant-method Maximum Likelihood Estimation.

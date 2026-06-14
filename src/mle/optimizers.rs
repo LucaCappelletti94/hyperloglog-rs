@@ -1,6 +1,9 @@
 //! Compile-time, type-level optimizers for the joint MLE refinement (selected via turbofish).
 
 use crate::utils::Zero;
+use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 /// A maximizer of a smooth objective, used to refine the joint-MLE warm start. The optimizer is
 /// chosen at compile time by type (`O::maximize(..)`), not as a runtime value: each implementor is a
