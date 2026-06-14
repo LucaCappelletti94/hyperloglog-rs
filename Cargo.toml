@@ -53,6 +53,7 @@ mem_dbg = [
 std = ["alloc"]
 mle = ["std"]
 alloc = []
+exact = []
 
 [package.metadata.clippy]
 all-features = true

@@ -142,9 +142,35 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     #[inline]
-    /// Returns whether the counter is in hybrid mode.
+    /// Returns whether the counter is in a pre-dense (hybrid) representation, that is either a
+    /// proper hash list or the exact-values list, as opposed to dense register mode. Both pre-dense
+    /// representations repurpose `harmonic_sum` as a metadata word with the top bit set.
+    ///
+    /// To distinguish the two pre-dense representations use [`HyperLogLog::is_proper_hash_list`] and
+    /// [`HyperLogLog::is_exact`].
     pub fn is_hash_list(&self) -> bool {
         self.harmonic_sum.to_bits().leading_zeros() == 0
+    }
+
+    #[inline]
+    /// Returns whether the counter is in dense (register) mode.
+    pub fn is_dense(&self) -> bool {
+        !self.is_hash_list()
+    }
+
+    #[inline]
+    /// Returns whether the counter is in the exact-values mode: the representation that precedes the
+    /// hash list, storing the literal inserted integers for exact recovery and exact set
+    /// operations.
+    pub fn is_exact(&self) -> bool {
+        self.is_hash_list() && self.is_exact_metadata()
+    }
+
+    #[inline]
+    /// Returns whether the counter is in proper hash-list mode (sorted composite hashes), as
+    /// opposed to the exact-values mode or dense mode.
+    pub fn is_proper_hash_list(&self) -> bool {
+        self.is_hash_list() && !self.is_exact_metadata()
     }
 
     #[inline]
@@ -153,7 +179,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// # Raises
     /// If the counter is in HashList mode, an error is raised.
     pub fn number_of_zero_registers(&self) -> Result<usize, &'static str> {
-        if self.is_hash_list() {
+        if !self.is_dense() {
             Err("The counter is in HashList mode.")
         } else {
             Ok(self
@@ -172,7 +198,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         self.set_writer_tell(0);
         self.set_duplicates(0);
         self.set_hash_bits(GapHash::<P, B>::LARGEST_VIABLE_HASH_BITS);
-        debug_assert!(self.is_hash_list());
+        debug_assert!(self.is_proper_hash_list());
     }
 
     #[inline]
@@ -227,7 +253,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                         self.set_writer_tell(bit_index);
                         debug_assert_eq!(bit_index, self.get_writer_tell());
                         self.convert_hash_list_to_hyperloglog().unwrap();
-                        debug_assert!(!self.is_hash_list());
+                        debug_assert!(self.is_dense());
                         self.insert_index_register_hash(index, register, original_hash)
                     }
                 },
@@ -240,7 +266,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     #[inline]
     /// Converts the Hybrid counter to a regular [`HyperLogLog`] counter.
     pub fn convert_hash_list_to_hyperloglog(&mut self) -> Result<(), &str> {
-        if !self.is_hash_list() {
+        if !self.is_proper_hash_list() {
             return Err("The counter is already in HyperLogLog mode.");
         }
         let hash_bits = self.get_hash_bits().unwrap();

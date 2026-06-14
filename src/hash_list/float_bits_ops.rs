@@ -15,11 +15,29 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// # Errors
     /// If the counter is not in hash list mode, an error is returned.
     pub fn get_hash_bits(&self) -> Result<u8, &'static str> {
-        if self.is_hash_list() {
+        if self.is_proper_hash_list() {
             Ok(decode_hash_bits(self.harmonic_sum))
         } else {
             Err("The counter is not in hash list mode.")
         }
+    }
+
+    #[inline]
+    /// Returns whether the metadata word carries the exact-values mode sentinel.
+    ///
+    /// This only distinguishes the exact-values mode from a proper hash list; it is meaningful
+    /// only once the caller knows the counter is not dense (the top mode bit is set). Prefer the
+    /// guarded [`HyperLogLog::is_exact`].
+    pub(crate) fn is_exact_metadata(&self) -> bool {
+        decode_is_exact(self.harmonic_sum)
+    }
+
+    #[cfg(feature = "exact")]
+    #[inline]
+    /// Marks the metadata word as exact-values mode by writing the sentinel into the hash-bits
+    /// subfield. The top mode bit is left untouched (it must already be set).
+    pub(crate) fn set_exact_mode(&mut self) {
+        encode_exact_sentinel(&mut self.harmonic_sum);
     }
 
     #[inline]
@@ -68,6 +86,23 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
 const BITS_FOR_HASH_BITS: usize = 5;
 const HASH_BITS_MASK: u64 = (1 << BITS_FOR_HASH_BITS) - 1;
+
+/// The hash-bits subfield code that marks the exact-values mode. Valid hash sizes are 8..=32,
+/// stored as 0..=24, so the code 31 never collides with a real hash size.
+pub(crate) const EXACT_MODE_SENTINEL: u64 = 31;
+
+#[inline]
+fn decode_is_exact(float: f64) -> bool {
+    (float.to_bits() & HASH_BITS_MASK) == EXACT_MODE_SENTINEL
+}
+
+#[allow(unsafe_code)]
+#[cfg(feature = "exact")]
+#[inline]
+fn encode_exact_sentinel(float: &mut f64) {
+    let harmonic_sum_as_u64: &mut u64 = unsafe { core::mem::transmute(float) };
+    *harmonic_sum_as_u64 = (*harmonic_sum_as_u64 & !HASH_BITS_MASK) | EXACT_MODE_SENTINEL;
+}
 
 #[allow(unsafe_code)]
 #[inline]
@@ -187,6 +222,35 @@ mod test_encode_decode_hash_bits {
         // equal to zero, as we have initialized it to minus infinity and we
         // should not have touched those bits.
         assert_eq!(harmonic_sum.to_bits().leading_zeros(), 0);
+    }
+
+    #[cfg(feature = "exact")]
+    #[test]
+    fn test_exact_mode_sentinel() {
+        // No valid hash size (8..=32, stored 0..=24) is read as the exact-mode sentinel.
+        for hash_bits in 8..=32u8 {
+            let mut harmonic_sum = f64::NEG_INFINITY;
+            encode_hash_bits(&mut harmonic_sum, hash_bits);
+            assert!(
+                !decode_is_exact(harmonic_sum),
+                "hash_bits {hash_bits} must not read as exact mode"
+            );
+        }
+
+        // Setting the sentinel marks the word as exact while preserving the top mode bit and the
+        // other repurposed metadata fields.
+        let mut harmonic_sum = f64::NEG_INFINITY;
+        set_number_of_hashes(&mut harmonic_sum, 1234);
+        set_writer_tell(&mut harmonic_sum, 567);
+        encode_exact_sentinel(&mut harmonic_sum);
+        assert!(decode_is_exact(harmonic_sum));
+        assert_eq!(
+            harmonic_sum.to_bits().leading_zeros(),
+            0,
+            "the top mode bit must stay set in exact mode"
+        );
+        assert_eq!(decode_number_of_hashes(harmonic_sum), 1234);
+        assert_eq!(decode_writer_tell(harmonic_sum), 567);
     }
 
     #[test]
