@@ -204,6 +204,12 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     #[inline]
     /// Inserts an element into the counter.
     pub fn insert<T: Hash>(&mut self, element: &T) -> bool {
+        // A hashed insert is incompatible with the exact-values mode (which stores literal values),
+        // so first promote an exact counter to a proper hash list by hashing its stored values.
+        #[cfg(feature = "exact")]
+        if self.is_exact() {
+            self.convert_exact_to_hash_list().unwrap();
+        }
         let (index, register, original_hash) = Self::index_and_register_and_hash(element);
         self.insert_index_register_hash(index, register, original_hash)
     }
@@ -222,7 +228,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         register: u8,
         original_hash: u64,
     ) -> bool {
-        if self.is_hash_list() {
+        // The exact-values mode never reaches this hashed-insert path: callers promote it to a
+        // proper hash list first.
+        #[cfg(feature = "exact")]
+        debug_assert!(!self.is_exact());
+        if self.is_proper_hash_list() {
             let hash_bits = self.get_hash_bits().unwrap();
             let number_of_hashes = self.get_number_of_hashes().unwrap();
             let writer_tell = self.get_writer_tell();
@@ -292,6 +302,92 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         Ok(())
     }
 
+    #[cfg(feature = "exact")]
+    #[inline]
+    /// Inserts a literal integer value, storing it exactly (and recoverably) while the counter is
+    /// small enough to remain in the exact-values mode.
+    ///
+    /// A fresh counter enters the exact-values mode on its first `insert_value`. When the exact
+    /// buffer fills, the stored values are hashed (with the counter's hasher `H`) into a proper hash
+    /// list, which later transitions to dense registers, exactly like a hashed counter. Once a
+    /// counter has left the exact-values mode (because it grew, or because a hashed
+    /// [`HyperLogLog::insert`] was used) a value is hashed and inserted like any other element.
+    ///
+    /// Returns whether the value was newly inserted.
+    pub fn insert_value(&mut self, value: u64) -> bool {
+        if self.is_exact() {
+            return self.insert_value_exact(value);
+        }
+        if self.is_proper_hash_list() && self.get_number_of_hashes().unwrap() == 0 {
+            // A fresh, empty counter: enter the exact-values mode.
+            self.registers.clear_registers();
+            self.set_exact_mode();
+            debug_assert!(self.is_exact());
+            return self.insert_value_exact(value);
+        }
+        // The counter has already left the exact-values mode: hash the value like any element.
+        let (index, register, original_hash) = Self::index_and_register_and_hash(&value);
+        self.insert_index_register_hash(index, register, original_hash)
+    }
+
+    #[cfg(feature = "exact")]
+    #[inline]
+    /// Inserts a value into the exact-values list, growing the buffer or transitioning to a hash
+    /// list when it no longer fits.
+    fn insert_value_exact(&mut self, value: u64) -> bool {
+        use crate::composite_hash::gaps::value_list::{self, ValueInsertion};
+
+        let count = self.get_number_of_values();
+        match value_list::insert_value(self.registers.as_mut(), count, value) {
+            ValueInsertion::Inserted => {
+                self.set_number_of_values(count + 1);
+                true
+            }
+            ValueInsertion::Duplicate => false,
+            ValueInsertion::DoesNotFit => {
+                let maximal_bits = (1usize << P::EXPONENT) * B::NUMBER_OF_BITS as usize;
+                if self.registers.as_ref().len() * 8 < maximal_bits {
+                    // The buffer is a growable vector below its maximum: grow and retry.
+                    self.registers.increase_capacity();
+                    self.insert_value_exact(value)
+                } else {
+                    // The buffer is at its maximum: hash the stored values into a hash list and
+                    // insert the new value there.
+                    self.convert_exact_to_hash_list().unwrap();
+                    let (index, register, original_hash) =
+                        Self::index_and_register_and_hash(&value);
+                    self.insert_index_register_hash(index, register, original_hash)
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "exact")]
+    #[inline]
+    /// Converts an exact-values counter into a proper hash list by hashing each stored value with
+    /// the counter's hasher `H`. This is the one-way transition that the exact mode shares with the
+    /// hash-list to dense transition: recovery and absolute exactness are lost past this point.
+    ///
+    /// # Errors
+    /// If the counter is not in exact mode, an error is returned.
+    pub fn convert_exact_to_hash_list(&mut self) -> Result<(), &'static str> {
+        if !self.is_exact() {
+            return Err("The counter is not in exact-values mode.");
+        }
+        // Decode the literal values out first (into an owned buffer) before clearing, since the
+        // values and the destination hash list share the same register buffer.
+        let count = self.get_number_of_values();
+        let values =
+            crate::composite_hash::gaps::value_list::decode_values(self.registers.as_ref(), count);
+        self.clear();
+        debug_assert!(self.is_proper_hash_list());
+        for value in values {
+            let (index, register, original_hash) = Self::index_and_register_and_hash(&value);
+            self.insert_index_register_hash(index, register, original_hash);
+        }
+        Ok(())
+    }
+
     #[inline]
     /// Splits a hash into a register value and an index.
     fn insert_register_value_and_index(&mut self, new_register_value: u8, index: usize) -> bool {
@@ -317,6 +413,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     #[inline]
     /// Returns the uncorrected estimate of the cardinality.
     pub fn uncorrected_estimate_cardinality(&self) -> f64 {
+        #[cfg(feature = "exact")]
+        if self.is_exact() {
+            return f64::from(self.get_number_of_values());
+        }
         if self.is_hash_list() {
             f64::from(self.get_number_of_hashes().unwrap() + self.get_duplicates())
         } else {
@@ -327,6 +427,12 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     #[inline]
     /// Returns the corrected estimate of the cardinality.
     pub fn estimate_cardinality(&self) -> f64 {
+        // The exact-values mode stores every inserted value verbatim, so its cardinality is the
+        // exact count with no bias correction.
+        #[cfg(feature = "exact")]
+        if self.is_exact() {
+            return f64::from(self.get_number_of_values());
+        }
         if self.is_hash_list() {
             correct_cardinality::<P, B>(
                 f64::from(self.get_number_of_hashes().unwrap() + self.get_duplicates()),

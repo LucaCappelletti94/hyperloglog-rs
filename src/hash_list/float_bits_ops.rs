@@ -34,12 +34,25 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
     #[cfg(feature = "exact")]
     #[inline]
-    // Called by the exact-mode insert path wired in a later stage.
-    #[allow(dead_code)]
     /// Marks the metadata word as exact-values mode by writing the sentinel into the hash-bits
     /// subfield. The top mode bit is left untouched (it must already be set).
     pub(crate) fn set_exact_mode(&mut self) {
         encode_exact_sentinel(&mut self.harmonic_sum);
+    }
+
+    #[cfg(feature = "exact")]
+    #[inline]
+    /// Returns the number of values stored in exact mode. This aliases the number-of-hashes
+    /// subfield, which holds the stored item count in both pre-dense representations.
+    pub(crate) fn get_number_of_values(&self) -> u32 {
+        decode_number_of_hashes(self.harmonic_sum)
+    }
+
+    #[cfg(feature = "exact")]
+    #[inline]
+    /// Sets the number of values stored in exact mode (aliases the number-of-hashes subfield).
+    pub(crate) fn set_number_of_values(&mut self, number_of_values: u32) {
+        set_number_of_hashes(&mut self.harmonic_sum, number_of_values);
     }
 
     #[inline]
@@ -99,7 +112,6 @@ fn decode_is_exact(float: f64) -> bool {
 }
 
 #[allow(unsafe_code)]
-#[allow(dead_code)]
 #[cfg(feature = "exact")]
 #[inline]
 fn encode_exact_sentinel(float: &mut f64) {

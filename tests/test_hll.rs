@@ -663,3 +663,83 @@ fn test_joint_sketch_mle_matches_exact_cells_hash_list() {
         );
     }
 }
+
+/// The exact-values mode stores literal integers verbatim, so a fresh counter fed via
+/// `insert_value` stays in exact mode for small cardinalities and reports the exact cardinality
+/// with no error, and rejects duplicates.
+#[cfg(feature = "exact")]
+#[test]
+fn test_insert_value_exact_mode() {
+    type Counter =
+        HyperLogLog<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut counter: Counter = Default::default();
+    for value in 0u64..50 {
+        assert!(
+            counter.insert_value(value),
+            "value {value} should be newly inserted"
+        );
+    }
+    assert!(counter.is_exact(), "the counter must remain in exact mode");
+    assert_eq!(
+        counter.estimate_cardinality(),
+        50.0,
+        "exact cardinality must be precise"
+    );
+
+    // Duplicates are rejected and do not change the cardinality.
+    assert!(!counter.insert_value(25));
+    assert_eq!(counter.estimate_cardinality(), 50.0);
+}
+
+/// When the exact buffer fills, the counter transitions to the hash list (and then dense), hashing
+/// the stored values, so a large number of `insert_value` calls still yields a cardinality estimate
+/// within the precision's error rate.
+#[cfg(feature = "exact")]
+#[test]
+fn test_insert_value_saturates_gracefully() {
+    type Counter =
+        HyperLogLog<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut counter: Counter = Default::default();
+    let n = 5_000u64;
+    for value in 0..n {
+        counter.insert_value(value);
+    }
+    assert!(!counter.is_exact(), "the counter must have left exact mode");
+
+    let estimate = counter.estimate_cardinality();
+    let error = (estimate - n as f64).abs() / n as f64;
+    assert!(
+        error <= Precision8::error_rate(),
+        "estimate {estimate} differs from {n} by {error}, exceeding {}",
+        Precision8::error_rate()
+    );
+}
+
+/// A hashed `insert` arriving while the counter is in exact mode must promote it to a proper hash
+/// list (hashing the stored values) before inserting, keeping the cardinality coherent.
+#[cfg(feature = "exact")]
+#[test]
+fn test_generic_insert_promotes_exact_mode() {
+    type Counter =
+        HyperLogLog<Precision8, Bits6, <Precision8 as PackedRegister<Bits6>>::Array, XxHash>;
+
+    let mut counter: Counter = Default::default();
+    for value in 0u64..30 {
+        counter.insert_value(value);
+    }
+    assert!(counter.is_exact());
+
+    counter.insert(&999_u64);
+    assert!(
+        !counter.is_exact(),
+        "a hashed insert must promote out of exact mode"
+    );
+
+    let estimate = counter.estimate_cardinality();
+    assert!(
+        (estimate - 31.0).abs() <= 31.0 * Precision8::error_rate() + 2.0,
+        "estimate {estimate} should be about 31"
+    );
+}
