@@ -1,4 +1,4 @@
-//! Methods relative to the HashList structure.
+//! Methods relative to the sorted hash list.
 mod float_bits_ops;
 use crate::{
     composite_hash::GapHash,
@@ -20,7 +20,16 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         left_cardinality: f64,
         right_cardinality: f64,
     ) -> f64 {
-        let mut harmonic_sum = self.harmonic_sum;
+        // `self` is the sorted hash list (whose `harmonic_sum` field is a repurposed metadata word,
+        // not a real sum) and `other` is the HyperLogLog register counter. Start from the registers'
+        // actual harmonic sum and zero-register count, then raise the sum (and drop a zero) wherever a
+        // hash in `self` decodes to a higher register rank than `other` holds at that index (the union
+        // register is the element-wise maximum). This reconstructs the union's harmonic sum and zero
+        // count exactly as if both operands were registers.
+        let mut harmonic_sum = other.harmonic_sum;
+        let mut union_zeros = other
+            .number_of_zero_registers()
+            .expect("`other` is a HyperLogLog register counter");
         // We set the previous index to the NUMBER OF REGISTERS, which is a value higher
         // than the maximal possible index, so that the first value is always considered
         // as a new value.
@@ -54,14 +63,20 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
             // If the right register value is a zero, we are surely now removing
             // it because the left register value cannot be a zero.
+            if right_register_value == 0 {
+                union_zeros -= 1;
+            }
             harmonic_sum += f64::integer_exp2_minus(left_register_value)
                 - f64::integer_exp2_minus(right_register_value);
         }
 
+        // Apply the same linear-counting/bias correction the both-registers union path applies,
+        // rather than the badly-biased raw register estimate (which at low union load overshoots so
+        // far it is clamped to `left + right`, silently discarding the overlap).
         correct_union_estimate(
             left_cardinality,
             right_cardinality,
-            P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / harmonic_sum,
+            Self::corrected_register_cardinality(harmonic_sum, union_zeros),
         )
     }
 }

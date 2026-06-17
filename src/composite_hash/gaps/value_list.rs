@@ -1,12 +1,12 @@
 //! Exact-values list: a sorted (descending) delta-coded list of literal `u64` values stored in the
-//! same byte buffer as the hash list, for the exact-values representation mode.
+//! same byte buffer as the sorted hash list, for the sorted value list mode.
 //!
 //! The codec is deliberately simple and fully allocation-free: each value is written as an
 //! Elias-gamma-style code (a unary length prefix followed by its significant bits), the first
 //! (largest) value absolutely and each subsequent value as the positive gap to its predecessor.
 //! Reading is a lazy iterator ([`ValueIter`]); insertion splices the new value into the bitstream in
 //! place (shifting the tail), so neither path allocates. The composite-hash index/register/remainder
-//! decomposition does not apply to arbitrary user values, so this does not reuse the hash-list
+//! decomposition does not apply to arbitrary user values, so this does not reuse the sorted hash list
 //! `GapHash` codec, only the same big-endian, MSB-first bit layout.
 
 /// Number of significant bits of `value` (`0` for the value `0`).
@@ -22,7 +22,7 @@ fn code_len(value: u64) -> u32 {
 }
 
 /// Reads the bit at index `bit` from the buffer, interpreted as big-endian `u64` words with the most
-/// significant bit first (the layout used by the hash-list bitstream).
+/// significant bit first (the layout used by the sorted hash list bitstream).
 #[inline]
 fn get_bit(buffer: &[u8], bit: u32) -> u64 {
     let word = (bit / 64) as usize * 8;
@@ -374,10 +374,12 @@ pub(crate) fn insert_value(buffer: &mut [u8], count: u32, value: u64) -> ValueIn
     }
 }
 
-#[cfg(test)]
+// The tests use `vec!`/`Vec`, which come from `alloc`. The production codec above is alloc-free.
+#[cfg(all(test, feature = "alloc"))]
 mod tests {
     use super::*;
     use crate::prelude::iter_random_values;
+    use alloc::vec::Vec;
 
     /// Inserts an ascending value set and checks lazy recovery (descending), membership, and the
     /// reported insert outcomes.

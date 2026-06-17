@@ -1,9 +1,12 @@
-//! Marker struct for the hybrid approach, that keeps the hash explicit up until they fit into the registers.
+//! The [`HyperLogLog`] counter: a hybrid that transitions across three internal representations as it
+//! grows, the sorted value list (exact, for the smallest sets), then the sorted hash list, then the
+//! HyperLogLog registers. The earlier representations keep values or hashes explicit until they no
+//! longer fit, only then falling back to the probabilistic registers.
 
 use crate::composite_hash::{GapHash, SaturationError};
 use crate::correction_coefficients::{
     HASHLIST_CORRECTION_BIAS, HASHLIST_CORRECTION_CARDINALITIES, HYPERLOGLOG_CORRECTION_BIAS,
-    HYPERLOGLOG_CORRECTION_CARDINALITIES,
+    HYPERLOGLOG_CORRECTION_CARDINALITIES, HYPERLOGLOG_LINEAR_COUNT_THRESHOLD,
 };
 use crate::prelude::*;
 use core::f64;
@@ -12,10 +15,10 @@ use core::hash::Hash;
 use core::marker::PhantomData;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// A struct representing the hybrid for approximate set cardinality estimation,
-/// where the hash values are kept explicit up until they fit into the registers.
+/// A hybrid counter for approximate set cardinality estimation that transitions across three
+/// representations as it grows (sorted value list, then sorted hash list, then HyperLogLog
+/// registers), keeping values or hashes explicit until they no longer fit.
 pub struct HyperLogLog<
     P: Precision,
     B: Bits,
@@ -100,6 +103,30 @@ pub fn correct_cardinality<P: Precision, B: Bits>(
         + lower_bias
 }
 
+/// Which cardinality-estimation regime a counter is in, returned by
+/// [`HyperLogLog::estimation_regime`]. It is a function of the representation and, for HyperLogLog
+/// registers, of the cardinality (raw above the correction bound, empirically corrected below).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EstimationRegime {
+    /// Sorted value list: the stored values are counted directly, with no estimation.
+    Exact,
+    /// Sorted hash list: corrected for hash collisions via the birthday-paradox
+    /// `HASHLIST_CORRECTION_*` tables.
+    HashListCollisionCorrected,
+    /// HyperLogLog registers below `correction_upper_bound`: the empirical HyperLogLog++ bias
+    /// correction (the `HYPERLOGLOG_CORRECTION_*` tables).
+    HyperLogLogBiasCorrected,
+    /// HyperLogLog registers at very low load (the linear-counting estimate is at or below the
+    /// regenerated per-`(P, B)` `HYPERLOGLOG_LINEAR_COUNT_THRESHOLD`): the count of zero registers
+    /// drives `m * ln(m / zeros)`, which beats the bias-corrected raw estimate there. This regime
+    /// is reached only by a counter forced into registers early (`to_hll`) while still sparse; a
+    /// counter that densified naturally is already past it.
+    HyperLogLogLinearCounted,
+    /// HyperLogLog registers at or above `correction_upper_bound`: the raw `alpha * m^2 / sum`
+    /// estimate, returned uncorrected.
+    HyperLogLogRaw,
+}
+
 impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
     #[inline]
     fn new() -> Self {
@@ -117,7 +144,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     #[inline]
     /// Returns whether the counter is empty.
     pub fn is_empty(&self) -> bool {
-        self.is_hash_list() && self.get_number_of_hashes().unwrap() == 0
+        self.is_sorted_hash_list() && self.get_number_of_hashes().unwrap() == 0
     }
 
     #[inline]
@@ -127,9 +154,9 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         // When all registers are maximally filled, i.e. equal to the maximal multiplicity value,
         // the harmonic sum is equal to (2^(-max_multiplicity)) * number_of_registers.
         // Since number_of_registers is a power of 2, specifically 2^exponent, the harmonic sum
-        // is equal to 2^(exponent - max_multiplicity). Only a dense counter can be full; the
-        // pre-dense representations reuse `harmonic_sum` as a metadata word, not a real sum.
-        self.is_dense()
+        // is equal to 2^(exponent - max_multiplicity). Only a HyperLogLog counter can be full; the
+        // pre-HyperLogLog representations reuse `harmonic_sum` as a metadata word, not a real sum.
+        self.is_hyperloglog()
             && self.harmonic_sum
                 <= f64::integer_exp2_minus_signed(
                     (1_i16 << B::NUMBER_OF_BITS) - i16::from(P::EXPONENT) - 1,
@@ -142,15 +169,14 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         let (index, register, original_hash) = Self::index_and_register_and_hash(element);
         // In exact mode the stored items are literal values, not hashes, so test membership by
         // hashing each stored value and matching the full original hash (exact, no false negatives).
-        #[cfg(feature = "exact")]
-        if self.is_exact() {
+        if self.is_sorted_value_list() {
             return crate::composite_hash::gaps::value_list::ValueIter::new(
                 self.registers.as_ref(),
                 self.get_number_of_values(),
             )
             .any(|value| Self::index_and_register_and_hash(&value).2 == original_hash);
         }
-        if self.is_hash_list() {
+        if self.is_sorted_hash_list() {
             GapHash::<P, B>::find(
                 self.registers.as_ref(),
                 self.get_number_of_hashes().unwrap(),
@@ -166,37 +192,63 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     #[inline]
-    /// Returns whether the counter is in dense (register) mode, as opposed to one of the two
-    /// pre-dense representations (the hash list or the exact-values list), which repurpose
+    /// Returns whether the counter is in HyperLogLog registers, as opposed to one of the two
+    /// pre-HyperLogLog representations (the sorted hash list or the sorted value list), which repurpose
     /// `harmonic_sum` as a metadata word with its top bit set.
-    pub fn is_dense(&self) -> bool {
+    pub fn is_hyperloglog(&self) -> bool {
         self.harmonic_sum.to_bits().leading_zeros() != 0
     }
 
     #[inline]
-    /// Returns whether the counter is in the exact-values mode: the representation that precedes the
-    /// hash list, storing the literal inserted integers for exact recovery and exact set
+    /// Returns whether the counter is in the sorted value list: the representation that precedes the
+    /// sorted hash list, storing the literal inserted integers for exact recovery and exact set
     /// operations.
-    pub fn is_exact(&self) -> bool {
-        !self.is_dense() && self.is_exact_metadata()
+    pub fn is_sorted_value_list(&self) -> bool {
+        !self.is_hyperloglog() && self.is_sorted_value_list_metadata()
     }
 
     #[inline]
-    /// Returns whether the counter is in hash-list mode: a sorted list of composite hashes, the
-    /// representation between the exact-values list and dense registers. This is exactly one of the
-    /// three representations (see [`HyperLogLog::is_exact`] and [`HyperLogLog::is_dense`]).
-    pub fn is_hash_list(&self) -> bool {
-        !self.is_dense() && !self.is_exact_metadata()
+    /// Returns whether the counter is in sorted hash list: a sorted list of composite hashes, the
+    /// representation between the sorted value list and HyperLogLog registers. This is exactly one of the
+    /// three representations (see [`HyperLogLog::is_sorted_value_list`] and [`HyperLogLog::is_hyperloglog`]).
+    pub fn is_sorted_hash_list(&self) -> bool {
+        !self.is_hyperloglog() && !self.is_sorted_value_list_metadata()
+    }
+
+    #[inline]
+    /// Returns which cardinality-estimation regime the counter is currently in (see
+    /// [`EstimationRegime`]), a function of its representation and, for registers, its cardinality.
+    pub fn estimation_regime(&self) -> EstimationRegime {
+        if self.is_sorted_value_list() {
+            return EstimationRegime::Exact;
+        }
+        if self.is_sorted_hash_list() {
+            return EstimationRegime::HashListCollisionCorrected;
+        }
+        // HyperLogLog registers: linear counting at very low load, then raw above the correction
+        // bound, empirically bias-corrected in between. This mirrors `estimate_cardinality`.
+        if let Some(linear_counting) = self.linear_counting_estimate() {
+            if linear_counting <= Self::linear_count_threshold() {
+                return EstimationRegime::HyperLogLogLinearCounted;
+            }
+        }
+        let raw_estimate =
+            P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / self.harmonic_sum;
+        if raw_estimate >= correction_upper_bound::<P>() {
+            EstimationRegime::HyperLogLogRaw
+        } else {
+            EstimationRegime::HyperLogLogBiasCorrected
+        }
     }
 
     #[inline]
     /// Returns the number of registers equal to zero.
     ///
     /// # Raises
-    /// If the counter is in HashList mode, an error is raised.
+    /// If the counter is in sorted hash list, an error is raised.
     pub fn number_of_zero_registers(&self) -> Result<usize, &'static str> {
-        if !self.is_dense() {
-            Err("The counter is in HashList mode.")
+        if !self.is_hyperloglog() {
+            Err("The counter is in sorted hash list mode.")
         } else {
             Ok(self
                 .registers
@@ -214,17 +266,16 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         self.set_writer_tell(0);
         self.set_duplicates(0);
         self.set_hash_bits(GapHash::<P, B>::LARGEST_VIABLE_HASH_BITS);
-        debug_assert!(self.is_hash_list());
+        debug_assert!(self.is_sorted_hash_list());
     }
 
     #[inline]
     /// Inserts an element into the counter.
     pub fn insert<T: Hash>(&mut self, element: &T) -> bool {
-        // A hashed insert is incompatible with the exact-values mode (which stores literal values),
-        // so first promote an exact counter to a proper hash list by hashing its stored values.
-        #[cfg(feature = "exact")]
-        if self.is_exact() {
-            self.convert_exact_to_hash_list().unwrap();
+        // A hashed insert is incompatible with the sorted value list (which stores literal values),
+        // so first promote an exact counter to a proper sorted hash list by hashing its stored values.
+        if self.is_sorted_value_list() {
+            self.to_sorted_hash_list();
         }
         let (index, register, original_hash) = Self::index_and_register_and_hash(element);
         self.insert_index_register_hash(index, register, original_hash)
@@ -236,7 +287,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     ///
     /// This is the shared core of [`HyperLogLog::insert`] and of the counter merging
     /// performed by the [`BitOr`] implementations: both need to route a hash through the
-    /// hash-list insertion path (with its saturation and downgrade handling) or, once the
+    /// sorted hash list insertion path (with its saturation and downgrade handling) or, once the
     /// counter is a fully-fledged [`HyperLogLog`], straight into the registers.
     fn insert_index_register_hash(
         &mut self,
@@ -244,11 +295,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         register: u8,
         original_hash: u64,
     ) -> bool {
-        // The exact-values mode never reaches this hashed-insert path: callers promote it to a
-        // proper hash list first.
-        #[cfg(feature = "exact")]
-        debug_assert!(!self.is_exact());
-        if self.is_hash_list() {
+        // The sorted value list never reaches this hashed-insert path: callers promote it to a
+        // proper sorted hash list first.
+        debug_assert!(!self.is_sorted_value_list());
+        if self.is_sorted_hash_list() {
             let hash_bits = self.get_hash_bits().unwrap();
             let number_of_hashes = self.get_number_of_hashes().unwrap();
             let writer_tell = self.get_writer_tell();
@@ -278,8 +328,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                     SaturationError::Saturation(bit_index) => {
                         self.set_writer_tell(bit_index);
                         debug_assert_eq!(bit_index, self.get_writer_tell());
-                        self.convert_hash_list_to_hyperloglog().unwrap();
-                        debug_assert!(self.is_dense());
+                        self.to_hll();
+                        debug_assert!(self.is_hyperloglog());
                         self.insert_index_register_hash(index, register, original_hash)
                     }
                 },
@@ -290,14 +340,53 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     #[inline]
-    /// Converts the Hybrid counter to a regular [`HyperLogLog`] counter.
-    pub fn convert_hash_list_to_hyperloglog(&mut self) -> Result<(), &str> {
-        if !self.is_hash_list() {
-            return Err("The counter is already in HyperLogLog mode.");
-        }
-        let hash_bits = self.get_hash_bits().unwrap();
+    /// Returns a zeroed register buffer grown to the full HyperLogLog register array size.
+    ///
+    /// The current buffer may be a lazily grown vector far smaller than the full register array
+    /// (a small sorted value list or sorted hash list never triggers a capacity bump). Promotions
+    /// that scatter registers across the whole index space need a full-size destination first,
+    /// otherwise a high register index would write out of bounds.
+    fn full_size_cleared_registers(&self) -> R {
         let mut new_registers = self.registers.clone();
         new_registers.clear_registers();
+        let maximal_bits = (1usize << P::EXPONENT) * B::NUMBER_OF_BITS as usize;
+        while new_registers.as_ref().len() * 8 < maximal_bits {
+            new_registers.increase_capacity();
+        }
+        new_registers
+    }
+
+    #[inline]
+    /// Promotes the counter to HyperLogLog registers, dispatching on its current representation. A
+    /// sorted hash list is decoded into registers. A sorted value list is rehashed **directly** into
+    /// registers at full hash width, which is strictly less lossy than routing through the sorted
+    /// hash list (whose truncated hashes can clip a register's leading-zero rank, biasing the count
+    /// low). A no-op if the counter is already in HyperLogLog registers.
+    pub fn to_hll(&mut self) {
+        if self.is_hyperloglog() {
+            return;
+        }
+
+        if self.is_sorted_value_list() {
+            // Direct: decode each stored value and rehash it at full width straight into the
+            // registers (no sorted hash list round-trip).
+            let count = self.get_number_of_values();
+            let new_registers = self.full_size_cleared_registers();
+            let source = core::mem::replace(&mut self.registers, new_registers);
+            self.harmonic_sum = f64::integer_exp2(P::EXPONENT);
+            for value in
+                crate::composite_hash::gaps::value_list::ValueIter::new(source.as_ref(), count)
+            {
+                let (index, register, _) = Self::index_and_register_and_hash(&value);
+                self.insert_register_value_and_index(register, index);
+            }
+            debug_assert!(self.harmonic_sum.is_finite());
+            return;
+        }
+
+        // Sorted hash list: decode the stored hashes into registers.
+        let hash_bits = self.get_hash_bits().unwrap();
+        let new_registers = self.full_size_cleared_registers();
         let registers = core::mem::replace(&mut self.registers, new_registers);
         let number_of_hashes = self.get_number_of_hashes().unwrap();
         let writer_tell = self.get_writer_tell();
@@ -314,41 +403,52 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             });
 
         debug_assert!(self.harmonic_sum.is_finite());
-
-        Ok(())
     }
 
-    #[cfg(feature = "exact")]
+    #[inline]
+    #[must_use]
+    /// Consuming form of [`to_hll`](Self::to_hll): promotes the counter to HyperLogLog registers and
+    /// returns it.
+    pub fn into_hll(mut self) -> Self {
+        self.to_hll();
+        self
+    }
+
     #[inline]
     /// Inserts a literal integer value, storing it exactly (and recoverably) while the counter is
-    /// small enough to remain in the exact-values mode.
+    /// small enough to remain in the sorted value list.
     ///
-    /// A fresh counter enters the exact-values mode on its first `insert_value`. When the exact
+    /// Accepts any unsigned integer that fits in a `u64` (`u8`, `u16`, `u32`, `u64`), so a smaller
+    /// type can be passed without an `as u64` cast. Smaller values also pack tighter in the sorted
+    /// value list (its gamma codec sizes each entry by magnitude), so `u32` inputs roughly double its
+    /// capacity over full-width `u64` values.
+    ///
+    /// A fresh counter enters the sorted value list on its first `insert_value`. When the exact
     /// buffer fills, the stored values are hashed (with the counter's hasher `H`) into a proper hash
-    /// list, which later transitions to dense registers, exactly like a hashed counter. Once a
-    /// counter has left the exact-values mode (because it grew, or because a hashed
+    /// list, which later transitions to HyperLogLog registers, exactly like a hashed counter. Once a
+    /// counter has left the sorted value list (because it grew, or because a hashed
     /// [`HyperLogLog::insert`] was used) a value is hashed and inserted like any other element.
     ///
     /// Returns whether the value was newly inserted.
-    pub fn insert_value(&mut self, value: u64) -> bool {
-        if self.is_exact() {
+    pub fn insert_value<T: Into<u64>>(&mut self, value: T) -> bool {
+        let value: u64 = value.into();
+        if self.is_sorted_value_list() {
             return self.insert_value_exact(value);
         }
-        if self.is_hash_list() && self.get_number_of_hashes().unwrap() == 0 {
-            // A fresh, empty counter: enter the exact-values mode.
+        if self.is_sorted_hash_list() && self.get_number_of_hashes().unwrap() == 0 {
+            // A fresh, empty counter: enter the sorted value list.
             self.registers.clear_registers();
-            self.set_exact_mode();
-            debug_assert!(self.is_exact());
+            self.set_sorted_value_list_mode();
+            debug_assert!(self.is_sorted_value_list());
             return self.insert_value_exact(value);
         }
-        // The counter has already left the exact-values mode: hash the value like any element.
+        // The counter has already left the sorted value list: hash the value like any element.
         let (index, register, original_hash) = Self::index_and_register_and_hash(&value);
         self.insert_index_register_hash(index, register, original_hash)
     }
 
-    #[cfg(feature = "exact")]
     #[inline]
-    /// Inserts a value into the exact-values list, growing the buffer or transitioning to a hash
+    /// Inserts a value into the sorted value list, growing the buffer or transitioning to a hash
     /// list when it no longer fits.
     fn insert_value_exact(&mut self, value: u64) -> bool {
         use crate::composite_hash::gaps::value_list::{self, ValueInsertion};
@@ -367,9 +467,9 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                     self.registers.increase_capacity();
                     self.insert_value_exact(value)
                 } else {
-                    // The buffer is at its maximum: hash the stored values into a hash list and
+                    // The buffer is at its maximum: hash the stored values into a sorted hash list and
                     // insert the new value there.
-                    self.convert_exact_to_hash_list().unwrap();
+                    self.to_sorted_hash_list();
                     let (index, register, original_hash) =
                         Self::index_and_register_and_hash(&value);
                     self.insert_index_register_hash(index, register, original_hash)
@@ -378,8 +478,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         }
     }
 
-    #[cfg(feature = "exact")]
-    /// Merges another exact-values counter into this one (both must be in exact mode) in linear time,
+    /// Merges another sorted value list counter into this one (both must be in exact mode) in linear time,
     /// keeping the result exact. Returns `false` without modifying `self` if the union does not fit
     /// the exact buffer, so the caller can transition out of exact mode instead.
     ///
@@ -421,41 +520,45 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         true
     }
 
-    #[cfg(feature = "exact")]
     #[inline]
-    /// Converts an exact-values counter into a proper hash list by hashing each stored value with
-    /// the counter's hasher `H`. This is the one-way transition that the exact mode shares with the
-    /// hash-list to dense transition: recovery and absolute exactness are lost past this point.
-    ///
-    /// # Errors
-    /// If the counter is not in exact mode, an error is returned.
-    pub fn convert_exact_to_hash_list(&mut self) -> Result<(), &'static str> {
-        if !self.is_exact() {
-            return Err("The counter is not in exact-values mode.");
+    /// Promotes a sorted value list to a sorted hash list by hashing each stored value with the
+    /// counter's hasher `H`. This one-way transition loses recovery and absolute exactness. A no-op
+    /// if the counter is already a sorted hash list or HyperLogLog registers (you cannot move back
+    /// down the ladder); use [`to_hll`](Self::to_hll) to go further.
+    pub fn to_sorted_hash_list(&mut self) {
+        if !self.is_sorted_value_list() {
+            return;
         }
-        // The values and the destination hash list share the same register buffer, so move the
-        // value bytes aside (a single buffer clone, as the hash-list to dense transition also does)
-        // and stream them lazily into the cleared hash list.
+        // The values and the destination sorted hash list share the same register buffer, so move the
+        // value bytes aside (a single buffer clone, as the sorted hash list to HyperLogLog transition
+        // also does) and stream them lazily into the cleared sorted hash list.
         let count = self.get_number_of_values();
         let source = self.registers.clone();
         self.clear();
-        debug_assert!(self.is_hash_list());
+        debug_assert!(self.is_sorted_hash_list());
         for value in crate::composite_hash::gaps::value_list::ValueIter::new(source.as_ref(), count)
         {
             let (index, register, original_hash) = Self::index_and_register_and_hash(&value);
             self.insert_index_register_hash(index, register, original_hash);
         }
-        Ok(())
     }
 
-    #[cfg(feature = "exact")]
+    #[inline]
+    #[must_use]
+    /// Consuming form of [`to_sorted_hash_list`](Self::to_sorted_hash_list): promotes the counter to
+    /// a sorted hash list and returns it.
+    pub fn into_sorted_hash_list(mut self) -> Self {
+        self.to_sorted_hash_list();
+        self
+    }
+
     #[inline]
     /// Recovers the exact set of literal values inserted via [`HyperLogLog::insert_value`] as a lazy
-    /// iterator yielding them in descending order, if the counter is still in the exact-values mode.
+    /// iterator yielding them in descending order, if the counter is still in the sorted value list.
     /// Returns `None` once the counter has left exact mode (the literal values are no longer retained
     /// past that transition).
     pub fn recover_values(&self) -> Option<impl Iterator<Item = u64> + '_> {
-        if self.is_exact() {
+        if self.is_sorted_value_list() {
             Some(crate::composite_hash::gaps::value_list::ValueIter::new(
                 self.registers.as_ref(),
                 self.get_number_of_values(),
@@ -465,12 +568,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         }
     }
 
-    #[cfg(feature = "exact")]
     #[inline]
     /// Returns whether the given literal value is present, exactly, while the counter is in the
-    /// exact-values mode. Falls back to the probabilistic hashed membership otherwise.
+    /// sorted value list. Falls back to the probabilistic hashed membership otherwise.
     pub fn may_contain_value(&self, value: u64) -> bool {
-        if self.is_exact() {
+        if self.is_sorted_value_list() {
             crate::composite_hash::gaps::value_list::contains_value(
                 self.registers.as_ref(),
                 self.get_number_of_values(),
@@ -506,11 +608,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     #[inline]
     /// Returns the uncorrected estimate of the cardinality.
     pub fn uncorrected_estimate_cardinality(&self) -> f64 {
-        #[cfg(feature = "exact")]
-        if self.is_exact() {
+        if self.is_sorted_value_list() {
             return f64::from(self.get_number_of_values());
         }
-        if self.is_hash_list() {
+        if self.is_sorted_hash_list() {
             f64::from(self.get_number_of_hashes().unwrap() + self.get_duplicates())
         } else {
             P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / self.harmonic_sum
@@ -518,15 +619,62 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     #[inline]
+    /// The cardinality at or below which registers should report linear counting instead of the
+    /// bias-corrected raw estimate, the regenerated empirical `HYPERLOGLOG_LINEAR_COUNT_THRESHOLD`
+    /// for this `(precision, bits)`.
+    fn linear_count_threshold() -> f64 {
+        f64::from(
+            HYPERLOGLOG_LINEAR_COUNT_THRESHOLD[P::EXPONENT as usize - 4]
+                [B::NUMBER_OF_BITS as usize - 4],
+        )
+    }
+
+    #[inline]
+    /// The linear-counting cardinality estimate `m * ln(m / zeros)` for the current registers, or
+    /// `None` when the counter is not in register mode or has no zero registers (linear counting is
+    /// undefined at full load). This is the most accurate estimator at very low register load.
+    fn linear_counting_estimate(&self) -> Option<f64> {
+        let zeros = self.number_of_zero_registers().ok()?;
+        if zeros == 0 {
+            return None;
+        }
+        let m = f64::integer_exp2(P::EXPONENT);
+        Some(m * (m / zeros as f64).natural_log())
+    }
+
+    #[inline]
+    /// Corrects a register-mode cardinality from its harmonic sum and zero-register count. Uses
+    /// linear counting (`m * ln(m / zeros)`) when its estimate is at or below the regenerated
+    /// threshold (the most accurate estimator at low load), otherwise the empirically bias-corrected
+    /// raw estimate, which passes through to the uncorrected raw above the correction bound. Shared by
+    /// the single-counter [`estimate_cardinality`](Self::estimate_cardinality) and the dense union
+    /// path so both apply linear counting at low load rather than the badly-biased raw correction.
+    pub(crate) fn corrected_register_cardinality(harmonic_sum: f64, zeros: usize) -> f64 {
+        if zeros > 0 {
+            let m = f64::integer_exp2(P::EXPONENT);
+            let linear_counting = m * (m / zeros as f64).natural_log();
+            if linear_counting <= Self::linear_count_threshold() {
+                return linear_counting;
+            }
+        }
+        let raw = P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / harmonic_sum;
+        correct_cardinality::<P, B>(
+            raw,
+            &HYPERLOGLOG_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
+                [B::NUMBER_OF_BITS as usize - 4],
+            &HYPERLOGLOG_CORRECTION_BIAS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4],
+        )
+    }
+
+    #[inline]
     /// Returns the corrected estimate of the cardinality.
     pub fn estimate_cardinality(&self) -> f64 {
-        // The exact-values mode stores every inserted value verbatim, so its cardinality is the
+        // The sorted value list stores every inserted value verbatim, so its cardinality is the
         // exact count with no bias correction.
-        #[cfg(feature = "exact")]
-        if self.is_exact() {
+        if self.is_sorted_value_list() {
             return f64::from(self.get_number_of_values());
         }
-        if self.is_hash_list() {
+        if self.is_sorted_hash_list() {
             correct_cardinality::<P, B>(
                 f64::from(self.get_number_of_hashes().unwrap() + self.get_duplicates()),
                 &HASHLIST_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
@@ -534,15 +682,12 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 &HASHLIST_CORRECTION_BIAS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4],
             )
         } else {
-            let raw_estimate =
-                P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / self.harmonic_sum;
-
-            correct_cardinality::<P, B>(
-                raw_estimate,
-                &HYPERLOGLOG_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
-                    [B::NUMBER_OF_BITS as usize - 4],
-                &HYPERLOGLOG_CORRECTION_BIAS[P::EXPONENT as usize - 4]
-                    [B::NUMBER_OF_BITS as usize - 4],
+            // At very low register load (reachable by forcing a sparse counter into registers via
+            // `to_hll`) linear counting beats the bias-corrected raw estimate; the regenerated
+            // threshold marks the crossover. A naturally densified counter is always past it.
+            Self::corrected_register_cardinality(
+                self.harmonic_sum,
+                self.number_of_zero_registers().unwrap(),
             )
         }
     }
@@ -648,12 +793,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         self_cardinality: f64,
         other_cardinality: f64,
     ) -> f64 {
-        // Exact-values operands are handled before the hash-list/dense matrix: two exact operands
+        // Exact-values operands are handled before the sorted hash list/HyperLogLog matrix: two exact operands
         // give the exact union directly, and a mixed pair promotes the exact one to a proper hash
         // list (a clone) and reuses the existing logic.
-        #[cfg(feature = "exact")]
         {
-            if self.is_exact() && other.is_exact() {
+            if self.is_sorted_value_list() && other.is_sorted_value_list() {
                 let union = crate::composite_hash::gaps::value_list::union_count(
                     self.registers.as_ref(),
                     self.get_number_of_values(),
@@ -662,18 +806,18 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 );
                 return f64::from(union);
             }
-            if self.is_exact() {
+            if self.is_sorted_value_list() {
                 let mut promoted = self.clone();
-                promoted.convert_exact_to_hash_list().unwrap();
+                promoted.to_sorted_hash_list();
                 return promoted.estimate_union_cardinality_with_cardinalities(
                     other,
                     self_cardinality,
                     other_cardinality,
                 );
             }
-            if other.is_exact() {
+            if other.is_sorted_value_list() {
                 let mut promoted = other.clone();
-                promoted.convert_exact_to_hash_list().unwrap();
+                promoted.to_sorted_hash_list();
                 return self.estimate_union_cardinality_with_cardinalities(
                     &promoted,
                     self_cardinality,
@@ -681,9 +825,9 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 );
             }
         }
-        match (self.is_hash_list(), other.is_hash_list()) {
+        match (self.is_sorted_hash_list(), other.is_sorted_hash_list()) {
             (true, true) => {
-                // Build the union as a hash list and estimate its cardinality directly, so the
+                // Build the union as a sorted hash list and estimate its cardinality directly, so the
                 // birthday-paradox correction is applied to the union the same way it is to a
                 // single counter. Inclusion-exclusion (A + B - intersection) would subtract a
                 // raw, uncorrected count of coinciding downgraded hashes; for sets with little
@@ -713,14 +857,13 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 other_cardinality,
             ),
             (false, false) => {
-                let union_estimate = correct_cardinality::<P, B>(
-                    P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT)
-                        / self.registers.get_union_harmonic_sum(&other.registers),
-                    &HYPERLOGLOG_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
-                        [B::NUMBER_OF_BITS as usize - 4],
-                    &HYPERLOGLOG_CORRECTION_BIAS[P::EXPONENT as usize - 4]
-                        [B::NUMBER_OF_BITS as usize - 4],
-                );
+                // Estimate the union from the element-wise-max registers, applying linear counting at
+                // low union load just like the single-counter path, so a force-dense low-cardinality
+                // union is not stuck with the badly-biased raw correction.
+                let (union_harmonic_sum, union_zeros) =
+                    self.registers.get_union_harmonic_sum(&other.registers);
+                let union_estimate =
+                    Self::corrected_register_cardinality(union_harmonic_sum, union_zeros);
                 correct_union_estimate(self_cardinality, other_cardinality, union_estimate)
             }
         }
@@ -730,27 +873,26 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// Merges another counter into this one, equivalent to a set union.
     ///
     /// # Implementative details
-    /// When both counters are still in hash-list mode, the union is itself kept as a hash
+    /// When both counters are still in sorted hash list, the union is itself kept as a hash
     /// list, preserving the accuracy of small cardinalities: the hashes of the
     /// higher-precision counter are downgraded and inserted into the lower-precision one
     /// (a stored hash can only be downgraded, never upgraded). As soon as either operand
     /// is a fully-fledged [`HyperLogLog`], the result is a [`HyperLogLog`] whose registers
     /// are the element-wise maximum of the two operands.
     fn merge(&mut self, rhs: &Self) {
-        // Exact-values operands are folded in before the hash-list/dense matrix. When both counters
+        // Exact-values operands are folded in before the sorted hash list/HyperLogLog matrix. When both counters
         // are exact, a single linear two-pointer merge keeps the result exact (and falls back to a
         // mode transition if the union no longer fits). When only `self` is exact and `rhs` is
-        // hashed, `self` is first promoted to a proper hash list, then merged normally.
-        #[cfg(feature = "exact")]
+        // hashed, `self` is first promoted to a proper sorted hash list, then merged normally.
         {
-            if rhs.is_exact() {
-                if self.is_exact() && self.try_merge_exact_values(rhs) {
+            if rhs.is_sorted_value_list() {
+                if self.is_sorted_value_list() && self.try_merge_exact_values(rhs) {
                     return;
                 }
-                if self.is_exact() {
+                if self.is_sorted_value_list() {
                     // The exact union overflows the buffer: leave exact mode, then fold `rhs`'s
                     // values in (now hashed, so each insertion is cheap).
-                    self.convert_exact_to_hash_list().unwrap();
+                    self.to_sorted_hash_list();
                 }
                 for value in crate::composite_hash::gaps::value_list::ValueIter::new(
                     rhs.registers.as_ref(),
@@ -760,11 +902,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 }
                 return;
             }
-            if self.is_exact() {
-                self.convert_exact_to_hash_list().unwrap();
+            if self.is_sorted_value_list() {
+                self.to_sorted_hash_list();
             }
         }
-        match (self.is_hash_list(), rhs.is_hash_list()) {
+        match (self.is_sorted_hash_list(), rhs.is_sorted_hash_list()) {
             (false, false) => {
                 // Both counters are fully-fledged HyperLogLogs: element-wise register maximum.
                 for (index, register) in rhs.registers.iter_registers().enumerate() {
@@ -772,14 +914,14 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 }
             }
             (true, false) => {
-                // Only `self` is a hash list: materialize it, then take the register maximum.
-                self.convert_hash_list_to_hyperloglog().unwrap();
+                // Only `self` is a sorted hash list: materialize it, then take the register maximum.
+                self.to_hll();
                 for (index, register) in rhs.registers.iter_registers().enumerate() {
                     self.insert_register_value_and_index(register, index);
                 }
             }
             (false, true) => {
-                // Only `rhs` is a hash list: fold its hashes into `self`'s registers.
+                // Only `rhs` is a sorted hash list: fold its hashes into `self`'s registers.
                 let mut last_index = usize::MAX;
                 for (register, index) in GapHash::<P, B>::decoded(
                     rhs.registers.as_ref(),
@@ -795,7 +937,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 }
             }
             (true, true) => {
-                // Both counters are hash lists: keep the union as a hash list by inserting the
+                // Both counters are sorted hash lists: keep the union as a sorted hash list by inserting the
                 // hashes of the higher-precision counter into the lower-precision one. A stored
                 // hash can only be downgraded, never upgraded, so the lower-precision counter
                 // (the one with the larger or equal hash size... i.e. fewer hashes) is used as
@@ -876,14 +1018,100 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOr for &HyperL
 }
 
 #[cfg(test)]
-mod test_hybrid_propertis {
+mod test_hybrid_properties {
     use super::*;
     use hyperloglog_derive::test_estimator;
+
+    #[test]
+    fn insert_value_accepts_smaller_int_types() {
+        // `insert_value` takes any `T: Into<u64>`, so `u8`/`u16`/`u32` go in without an `as u64` cast.
+        let mut h: HyperLogLog<Precision10, Bits6> = Default::default();
+        assert!(h.insert_value(7u32));
+        assert!(h.insert_value(300u16));
+        assert!(h.insert_value(5u8));
+        assert!(h.insert_value(1_000_000u64));
+        assert!(!h.insert_value(7u32), "duplicate must be rejected");
+        assert!(h.is_sorted_value_list());
+        assert_eq!(h.estimate_cardinality(), 4.0);
+        let recovered: std::collections::HashSet<u64> = h.recover_values().unwrap().collect();
+        assert_eq!(recovered, [7u64, 300, 5, 1_000_000].into_iter().collect());
+    }
+
+    #[test_estimator]
+    fn test_estimation_regime_and_direct_to_hll<
+        P: Precision,
+        B: Bits,
+        R: Registers<P, B>,
+        H: HasherType,
+    >() {
+        // A fresh counter is a sorted hash list.
+        let fresh: HyperLogLog<P, B, R, H> = Default::default();
+        assert!(fresh.is_sorted_hash_list());
+        assert_eq!(
+            fresh.estimation_regime(),
+            EstimationRegime::HashListCollisionCorrected
+        );
+
+        // A counter populated via `insert_value` is a sorted value list, estimated exactly.
+        let mut values: HyperLogLog<P, B, R, H> = Default::default();
+        for v in 0..16u64 {
+            values.insert_value(v);
+        }
+        assert!(values.is_sorted_value_list());
+        assert_eq!(values.estimation_regime(), EstimationRegime::Exact);
+        assert_eq!(values.estimate_cardinality(), 16.0);
+
+        // Converting the sorted value list directly to HyperLogLog registers (re-hashing each stored
+        // value at full width) yields a register-mode counter with a finite positive estimate. At
+        // this low load the regenerated threshold selects linear counting, which is accurate, rather
+        // than the bias-corrected raw estimate, which is badly inflated here.
+        let dense = values.clone().into_hll();
+        assert!(dense.is_hyperloglog());
+        let estimate = dense.estimate_cardinality();
+        assert!(
+            estimate.is_finite() && estimate > 0.0,
+            "direct value-list to HLL estimate {estimate} is not a finite positive number"
+        );
+
+        // `estimate_cardinality` and `estimation_regime` must agree on the linear-counting branch,
+        // and where linear counting is active (and the registers are not too small to be noisy) the
+        // estimate must be close to the true 16 instead of HyperLogLog's small-cardinality bias.
+        let zeros = dense.number_of_zero_registers().unwrap();
+        let m = f64::integer_exp2(P::EXPONENT);
+        if dense.estimation_regime() == EstimationRegime::HyperLogLogLinearCounted {
+            let linear_counting = m * (m / zeros as f64).ln();
+            assert!(
+                (estimate - linear_counting).abs() < 1e-9,
+                "regime is linear counting but estimate {estimate} != m*ln(m/zeros) {linear_counting}"
+            );
+            if P::EXPONENT >= 8 {
+                assert!(
+                    (estimate - 16.0).abs() <= 8.0,
+                    "linear-counting estimate {estimate} not near the true 16 at precision {}",
+                    P::EXPONENT
+                );
+            }
+        }
+
+        // The direct route must agree with the indirect route through the sorted hash list for this
+        // small case (the hash list does not truncate the rank at this load), proving the direct
+        // conversion scatters the same registers rather than dropping or misplacing values.
+        let mut indirect = values.clone();
+        indirect.to_sorted_hash_list();
+        indirect.to_hll();
+        assert!(indirect.is_hyperloglog());
+        assert_eq!(indirect.estimate_cardinality(), estimate);
+
+        // `into_hll` is idempotent: a counter already in register mode is returned unchanged.
+        let again = dense.clone().into_hll();
+        assert!(again.is_hyperloglog());
+        assert_eq!(again.estimate_cardinality(), dense.estimate_cardinality());
+    }
 
     #[test_estimator]
     fn test_plusplus_properties<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
         let mut hybrid: HyperLogLog<P, B, R, H> = Default::default();
-        assert!(hybrid.is_hash_list());
+        assert!(hybrid.is_sorted_hash_list());
         assert!(hybrid.is_empty());
         assert!(!hybrid.is_full());
         assert_eq!(hybrid.get_number_of_hashes().unwrap(), 0);
@@ -892,7 +1120,7 @@ mod test_hybrid_propertis {
         let mut random_state = 34567897654354_u64;
         let mut iterations = 0;
 
-        while hybrid.is_hash_list() {
+        while hybrid.is_sorted_hash_list() {
             iterations += 1;
             // To make the test a bit fairer using more random elements
             // than a numerical sequence.
@@ -902,7 +1130,7 @@ mod test_hybrid_propertis {
                 !hybrid.insert(&random_state),
                 "The Hybrid counter should NOT already contain the element {random_state}. Hash size: {}. Iteration n. {iterations}. Hash list status: {}",
                 hybrid.get_hash_bits().unwrap(),
-                hybrid.is_hash_list()
+                hybrid.is_sorted_hash_list()
             );
             assert!(
                 hybrid.may_contain(&random_state),
@@ -919,20 +1147,20 @@ mod test_hybrid_propertis {
         normalized_error /= iterations as f64;
         non_normalized_error /= iterations as f64;
 
-        // In hash-list mode the counter stores explicit hashes, so the only error source is
+        // In sorted hash list the counter stores explicit hashes, so the only error source is
         // hash collisions plus the residual bias of the fitted cardinality correction. The
         // meaningful, theoretically grounded bound is the structure's own accuracy contract:
         // the estimate must satisfy the precision's nominal relative error rate, which it does
-        // with a wide margin (the hash-list mode is far more accurate than the HyperLogLog
+        // with a wide margin (the sorted hash list is far more accurate than the HyperLogLog
         // register estimator at these cardinalities). We bound the magnitude of the mean
         // relative error, catching both under- and over-counting. The previous `/ 13.0`
         // tightening had no theoretical basis and is dropped.
         assert!(
             normalized_error.abs() <= P::error_rate(),
-            "The mean relative hash-list error ({normalized_error}, non-normalized {non_normalized_error}) must not exceed the precision's error rate ({}).",
+            "The mean relative sorted hash list error ({normalized_error}, non-normalized {non_normalized_error}) must not exceed the precision's error rate ({}).",
             P::error_rate()
         );
 
-        assert!(!hybrid.is_hash_list());
+        assert!(!hybrid.is_sorted_hash_list());
     }
 }

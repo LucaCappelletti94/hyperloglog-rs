@@ -1,7 +1,6 @@
 //! Trait definition for a set.
 
 use hyperloglog_rs::prelude::*;
-use mem_dbg::MemSize;
 use std::collections::HashSet;
 use wyhash::WyHash;
 
@@ -86,7 +85,7 @@ impl<H: HasherType, P: Precision, B: Bits, R: Registers<P, B>> Set for HyperLogL
     }
 }
 
-#[derive(Clone, MemSize)]
+#[derive(Clone)]
 /// Wrapper for the Uncorrected implementation
 pub struct UncorrectedFullyImprinted<P: Precision + PackedRegister<B>, B: Bits> {
     hll: HyperLogLog<P, B, <P as PackedRegister<B>>::Array, WyHash>,
@@ -137,7 +136,7 @@ impl<P: Precision + PackedRegister<B>, B: Bits> Set for UncorrectedFullyImprinte
     }
 }
 
-#[derive(Clone, MemSize, Default)]
+#[derive(Clone, Default)]
 /// Wrapper for the Uncorrected implementation
 pub struct Uncorrected<P: Precision + PackedRegister<B>, B: Bits> {
     hll: HyperLogLog<P, B, <P as PackedRegister<B>>::Array, WyHash>,
@@ -145,13 +144,40 @@ pub struct Uncorrected<P: Precision + PackedRegister<B>, B: Bits> {
 
 impl<P: Precision + PackedRegister<B>, B: Bits> Uncorrected<P, B> {
     #[inline]
-    pub fn is_hash_list(&self) -> bool {
-        self.hll.is_hash_list()
+    pub fn is_sorted_hash_list(&self) -> bool {
+        self.hll.is_sorted_hash_list()
     }
 
     #[inline]
     pub fn is_full(&self) -> bool {
         self.hll.is_full()
+    }
+
+    /// Forces the counter into HyperLogLog registers (no-op once dense), so that the register
+    /// regime can be measured at low load where a natural counter would still be a hash list.
+    #[inline]
+    pub fn to_hll(&mut self) {
+        self.hll.to_hll();
+    }
+
+    /// Number of zero registers, the input to linear counting. Only meaningful in register mode.
+    #[inline]
+    pub fn number_of_zero_registers(&self) -> usize {
+        self.hll.number_of_zero_registers().unwrap_or(0)
+    }
+
+    /// The linear-counting estimate `m * ln(m / zeros)` on the current (force-dense) registers.
+    /// Falls back to the raw uncorrected estimate when there are no zero registers (high load),
+    /// where linear counting is undefined and never used anyway.
+    #[inline]
+    pub fn linear_counting_estimate(&self) -> f64 {
+        let m = f64::from(1u32 << P::EXPONENT);
+        let zeros = self.number_of_zero_registers() as f64;
+        if zeros > 0.0 && zeros < m {
+            m * (m / zeros).ln()
+        } else {
+            self.hll.uncorrected_estimate_cardinality()
+        }
     }
 }
 
@@ -187,7 +213,7 @@ impl<P: Precision + PackedRegister<B>, B: Bits> Set for Uncorrected<P, B> {
     }
 }
 
-#[derive(Clone, MemSize, Default)]
+#[derive(Clone, Default)]
 /// Wrapper using exclusively linear counting
 /// for the estimation of the cardinality.
 pub struct LinearCountingHashList<P: Precision + PackedRegister<B>, B: Bits> {
@@ -197,7 +223,7 @@ pub struct LinearCountingHashList<P: Precision + PackedRegister<B>, B: Bits> {
 impl<P: Precision + PackedRegister<B>, B: Bits> Set for LinearCountingHashList<P, B> {
     #[inline]
     fn cardinality(&self) -> f64 {
-        if self.hll.is_hash_list() {
+        if self.hll.is_sorted_hash_list() {
             let hash_list_cardinality = self.hll.uncorrected_estimate_cardinality();
             // The bits part of the hash, being geometric, only contributes two bits
             // to the hash list bits entropy.

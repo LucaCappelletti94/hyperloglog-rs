@@ -62,7 +62,7 @@ where
     CaseResult {
         default_rel_err: (default_est - exact_union).abs() / exact_union,
         mle_rel_err: (mle_est - exact_union).abs() / exact_union,
-        register_mode: !left.is_hash_list() && !right.is_hash_list(),
+        register_mode: !left.is_sorted_hash_list() && !right.is_sorted_hash_list(),
     }
 }
 

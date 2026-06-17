@@ -1,9 +1,9 @@
-//! Exact set-algebra decomposition of the joint sketch when every operand is still a hash list.
+//! Exact set-algebra decomposition of the joint sketch when every operand is still a sorted hash list.
 //!
-//! A hash list stores a near-exact sample of the element hashes (the composite hash encodes the
+//! A sorted hash list stores a near-exact sample of the element hashes (the composite hash encodes the
 //! register index, the rank, and leading bits of the original hash), so the disjoint-cell
 //! cardinalities can be counted directly from the stored hashes instead of being reconstructed from
-//! register collisions by MLE. This mirrors the crate's existing hash-list union (the `(true, true)`
+//! register collisions by MLE. This mirrors the crate's existing sorted hash list union (the `(true, true)`
 //! branch of [`HyperLogLog::estimate_union_cardinality`] and of `merge`): two hashes are the same
 //! element iff their encodings are equal once both are downgraded to a common hash size. Accuracy is
 //! near-exact at high hash sizes and degrades gracefully toward `SMALLEST_VIABLE_HASH_BITS`, where a
@@ -14,11 +14,11 @@ use crate::composite_hash::GapHash;
 use crate::prelude::*;
 use crate::utils::Zero;
 
-/// Exact joint sketch over the disjoint-region model, assuming all counters are in hash-list mode.
+/// Exact joint sketch over the disjoint-region model, assuming all counters are in sorted hash list mode.
 ///
-/// Returns `(overlap[M][N], left_diff[M], right_diff[N])` with the same cell layout as
-/// [`super::sketch::joint_sketch_mle_from_registers`]: `overlap[i][j] = |L_i intersect R_j|`,
-/// `left_diff[i] = |L_i \ B_{N-1}|`, `right_diff[j] = |R_j \ A_{M-1}|`, where `L_i = A_i \ A_{i-1}`
+/// Returns `(overlap[M][N], left_diff[M], right_diff[N])` with the same cell layout as the
+/// register-mode joint sketch ([`HyperLogLog::joint_sketch_mle`]): `overlap[i][j] = |L_i intersect
+/// R_j|`, `left_diff[i] = |L_i \ B_{N-1}|`, `right_diff[j] = |R_j \ A_{M-1}|`, where `L_i = A_i \ A_{i-1}`
 /// and `R_j = B_j \ B_{j-1}` are the left/right shells of the nested inputs.
 ///
 /// The cells are raw distinct-hash counts: each distinct downgraded composite hash is assigned to
@@ -37,8 +37,9 @@ pub(crate) fn joint_sketch_exact_from_hash_lists<
     rights: &[HyperLogLog<P, B, R, H>; N],
 ) -> JointSketch<M, N> {
     debug_assert!(
-        lefts.iter().all(HyperLogLog::is_hash_list) && rights.iter().all(HyperLogLog::is_hash_list),
-        "joint_sketch_exact_from_hash_lists requires every operand to be a hash list",
+        lefts.iter().all(HyperLogLog::is_sorted_hash_list)
+            && rights.iter().all(HyperLogLog::is_sorted_hash_list),
+        "joint_sketch_exact_from_hash_lists requires every operand to be a sorted hash list",
     );
 
     // The common hash size is the minimum across all operands: a stored hash can only be downgraded,
@@ -106,10 +107,9 @@ pub(crate) fn joint_sketch_exact_from_hash_lists<
     }
 }
 
-/// Exact joint sketch when every operand is in the exact-values mode: classify each distinct literal
+/// Exact joint sketch when every operand is in the sorted value list: classify each distinct literal
 /// value directly (no hashing, no collisions), giving truly exact disjoint cells. Same cell layout
 /// and contract as [`joint_sketch_exact_from_hash_lists`].
-#[cfg(feature = "exact")]
 pub(crate) fn joint_sketch_exact_from_values<
     P: Precision,
     B: Bits,
@@ -124,8 +124,9 @@ pub(crate) fn joint_sketch_exact_from_values<
     use crate::composite_hash::gaps::value_list::ValueIter;
 
     debug_assert!(
-        lefts.iter().all(HyperLogLog::is_exact) && rights.iter().all(HyperLogLog::is_exact),
-        "joint_sketch_exact_from_values requires every operand to be in exact-values mode",
+        lefts.iter().all(HyperLogLog::is_sorted_value_list)
+            && rights.iter().all(HyperLogLog::is_sorted_value_list),
+        "joint_sketch_exact_from_values requires every operand to be in sorted value list",
     );
 
     let mut membership: PatternMap<u64, (u8, u8)> = PatternMap::new();

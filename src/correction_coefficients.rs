@@ -6526,3 +6526,22 @@ pub(super) const HYPERLOGLOG_CORRECTION_BIAS: [[&[f64]; 3]; 15usize] = [
         ],
     ],
 ];
+/// The cardinality at or below which a force-dense HyperLogLog counter should report linear
+/// counting instead of the bias-corrected raw estimate, indexed `[precision - 4][bits - 4]`.
+pub(super) const HYPERLOGLOG_LINEAR_COUNT_THRESHOLD: [[u32; 3]; 15usize] = [
+    [19u32, 65u32, 64u32],
+    [40u32, 71u32, 70u32],
+    [80u32, 110u32, 142u32],
+    [158u32, 220u32, 286u32],
+    [314u32, 436u32, 570u32],
+    [622u32, 866u32, 1132u32],
+    [1228u32, 1708u32, 2240u32],
+    [2392u32, 3352u32, 4400u32],
+    [4720u32, 6624u32, 8736u32],
+    [9344u32, 13152u32, 17344u32],
+    [30720u32, 30720u32, 34560u32],
+    [36864u32, 51968u32, 68608u32],
+    [117248u32, 117248u32, 136704u32],
+    [593920u32, 593920u32, 593920u32],
+    [1372160u32, 1372160u32, 1372160u32],
+];

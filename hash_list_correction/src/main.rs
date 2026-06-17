@@ -102,12 +102,14 @@ fn correction() {
     let mut hash_list_errors: Vec<TokenStream> = Vec::new();
     let mut hyperloglog_cardinalities: Vec<TokenStream> = Vec::new();
     let mut hyperloglog_errors: Vec<TokenStream> = Vec::new();
+    let mut linear_count_thresholds: Vec<TokenStream> = Vec::new();
 
     (4..=maximal_precision).for_each(|exponent| {
         let mut this_hash_list_cardinalities: Vec<TokenStream> = Vec::new();
         let mut this_hash_list_errors: Vec<TokenStream> = Vec::new();
         let mut this_hyperloglog_cardinalities: Vec<TokenStream> = Vec::new();
         let mut this_hyperloglog_errors: Vec<TokenStream> = Vec::new();
+        let mut this_linear_count_thresholds: Vec<TokenStream> = Vec::new();
 
         (4..=6).for_each(|bit_size| {
             let (correction, _) = reports
@@ -116,6 +118,10 @@ fn correction() {
                     correction.precision == exponent && correction.bits == bit_size
                 })
                 .unwrap();
+            let sub_linear_count_threshold = correction.linear_count_threshold;
+            this_linear_count_thresholds.push(quote! {
+                #sub_linear_count_threshold
+            });
             let sub_hash_list_cardinalities = correction.hash_list_cardinalities.clone();
             this_hash_list_cardinalities.push(quote! {
                 &[#(#sub_hash_list_cardinalities),*]
@@ -154,6 +160,9 @@ fn correction() {
         hyperloglog_errors.push(quote! {
             [#(#this_hyperloglog_errors),*]
         });
+        linear_count_thresholds.push(quote! {
+            [#(#this_linear_count_thresholds),*]
+        });
     });
 
     let number_of_precisions = hash_list_cardinalities.len();
@@ -179,6 +188,12 @@ fn correction() {
         /// The hyperloglog-correction errors for the gap hash birthday paradox.
         pub(super) const HYPERLOGLOG_CORRECTION_BIAS: [[&[f64]; 3]; #number_of_precisions] = [
             #(#hyperloglog_errors),*
+        ];
+
+        /// The cardinality at or below which a force-dense HyperLogLog counter should report linear
+        /// counting instead of the bias-corrected raw estimate, indexed `[precision - 4][bits - 4]`.
+        pub(super) const HYPERLOGLOG_LINEAR_COUNT_THRESHOLD: [[u32; 3]; #number_of_precisions] = [
+            #(#linear_count_thresholds),*
         ];
     };
 

@@ -8,36 +8,23 @@
 //! - `hll.mle().estimate_union_cardinality(&other.mle())`: Ertl's 2-set joint union MLE.
 //! - `hll.mle().estimate_cardinality()`: Ertl's single-counter cardinality MLE (provided for
 //!   completeness; it is dominated by the default HyperLogLog++ estimate).
-//! - [`JointSketch::estimate`] / [`JointSketch::estimate_with`] over `.mle()` views: the generalized
-//!   hypersphere-sketch MLE over `M` nested left and `N` nested right counters, jointly estimating
-//!   all `M*N + M + N` disjoint-cell cardinalities.
+//! - [`JointSketch::estimate`] over `.mle()` views: the hypersphere-sketch decomposition over `M`
+//!   nested left and `N` nested right counters, formed by pairwise inclusion-exclusion over the 2-set
+//!   union MLE (exactly counted from the stored values or hashes while the operands are still
+//!   pre-dense).
 //!
-//! The submodules hold the implementation: `union` and `cardinality` (the classic Ertl
-//! estimators), `likelihood` (the polynomial per-register likelihood and gradient), `sketch` (warm
-//! start, marginal anchor, optimization), `optimizers` (the pluggable, compile-time `JointOptimizer`
-//! family), and the test-only `oracle` (the exponential reference). The maths is in
-//! `docs/joint_mle_math.md`.
+//! The submodules hold the implementation: `union` and `cardinality` (the classic Ertl estimators)
+//! and `exact` (the exact value-list and hash-list joint set-algebra decompositions).
 
-use crate::correction_coefficients::{
-    HYPERLOGLOG_CORRECTION_BIAS, HYPERLOGLOG_CORRECTION_CARDINALITIES,
-};
-use crate::hyperloglog::correct_cardinality;
 use crate::prelude::*;
-use crate::utils::FloatOps;
 
 mod cardinality;
 mod exact;
-mod likelihood;
-mod optimizers;
-#[cfg(test)]
-mod oracle;
-mod sketch;
 #[cfg(test)]
 mod tests;
 mod union;
 mod wrapper;
 
-pub use optimizers::{Adam, Chain, JointOptimizer, Lbfgs, RmsProp};
 pub use wrapper::Mle;
 
 // The associative map used to tabulate joint patterns and classify exact cells. It is the
@@ -47,9 +34,7 @@ pub(crate) use alloc::collections::BTreeMap as PatternMap;
 
 use cardinality::mle_cardinality;
 use exact::joint_sketch_exact_from_hash_lists;
-#[cfg(feature = "exact")]
 use exact::joint_sketch_exact_from_values;
-use sketch::{joint_sketch_mle_from_registers, joint_sketch_mle_from_registers_with};
 use union::mle_union_regions;
 
 impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
@@ -75,44 +60,43 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     ///
     /// # Implementative details
     /// The estimator dispatches on the representation of the two operands. When both are still hash
-    /// lists, the near-exact hash-list union ([`HyperLogLog::estimate_union_cardinality`]) is used
+    /// lists, the near-exact sorted hash list union ([`HyperLogLog::estimate_union_cardinality`]) is used
     /// directly, since the stored hashes carry more information than the register multiplicities the
     /// MLE consumes. When both are fully-fledged HyperLogLogs, the left difference, right difference
     /// and intersection likelihood is maximized jointly and the union estimate is their sum. In the
-    /// mixed case the hash-list operand is materialized into registers first and the MLE is run.
+    /// mixed case the sorted hash list operand is materialized into registers first and the MLE is run.
     #[inline]
     pub(crate) fn estimate_union_cardinality_mle(&self, other: &Self) -> f64 {
         // Exact-values operands are resolved first: two exact operands give the exact union, and a
-        // mixed pair promotes the exact one to a hash list (a clone) before falling through.
-        #[cfg(feature = "exact")]
+        // mixed pair promotes the exact one to a sorted hash list (a clone) before falling through.
         {
-            if self.is_exact() && other.is_exact() {
+            if self.is_sorted_value_list() && other.is_sorted_value_list() {
                 return self.estimate_union_cardinality(other);
             }
-            if self.is_exact() {
+            if self.is_sorted_value_list() {
                 let mut promoted = self.clone();
-                promoted.convert_exact_to_hash_list().unwrap();
+                promoted.to_sorted_hash_list();
                 return promoted.estimate_union_cardinality_mle(other);
             }
-            if other.is_exact() {
+            if other.is_sorted_value_list() {
                 let mut promoted = other.clone();
-                promoted.convert_exact_to_hash_list().unwrap();
+                promoted.to_sorted_hash_list();
                 return self.estimate_union_cardinality_mle(&promoted);
             }
         }
 
-        if self.is_hash_list() && other.is_hash_list() {
+        if self.is_sorted_hash_list() && other.is_sorted_hash_list() {
             return self.estimate_union_cardinality(other);
         }
 
-        if self.is_hash_list() || other.is_hash_list() {
+        if self.is_sorted_hash_list() || other.is_sorted_hash_list() {
             let mut left = self.clone();
             let mut right = other.clone();
-            if left.is_hash_list() {
-                left.convert_hash_list_to_hyperloglog().unwrap();
+            if left.is_sorted_hash_list() {
+                left.to_hll();
             }
-            if right.is_hash_list() {
-                right.convert_hash_list_to_hyperloglog().unwrap();
+            if right.is_sorted_hash_list() {
+                right.to_hll();
             }
             return left.mle_union_from_registers(&right);
         }
@@ -138,17 +122,17 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     ///
     /// # Implementative details
     /// This is Ertl's secant-method maximum-likelihood estimator over the register multiplicities.
-    /// A pre-dense operand (exact values or a hash list) returns the default estimate directly
+    /// A pre-HyperLogLog operand (sorted value list or a sorted hash list) returns the default estimate directly
     /// ([`HyperLogLog::estimate_cardinality`]) rather than being run through the register MLE: those
     /// representations already carry a more accurate direct count, and their backing buffer is not a
     /// register multiset. In register mode the MLE is provided for completeness and comparison: it is
     /// less accurate, and substantially slower, than the default corrected estimate.
     #[inline]
     pub(crate) fn estimate_cardinality_mle(&self) -> f64 {
-        // Both pre-dense representations (exact values and the hash list) carry a more accurate
+        // Both pre-HyperLogLog representations (sorted value list and the sorted hash list) carry a more accurate
         // direct count than the register MLE could recover, and their `registers` buffer is not a
         // register multiset, so fall back to the default estimate rather than running the MLE.
-        if !self.is_dense() {
+        if !self.is_hyperloglog() {
             return self.estimate_cardinality();
         }
 
@@ -160,107 +144,59 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         )
     }
 
-    /// Generalized joint Maximum Likelihood Estimation of the disjoint-cell cardinalities of the
-    /// hypersphere sketch for `M` nested left counters and `N` nested right counters.
+    /// Joint sketch of the disjoint-cell cardinalities of the hypersphere sketch for `M` nested left
+    /// counters and `N` nested right counters, using maximum-likelihood union estimates.
     ///
-    /// Given `lefts = [A_0 subset ... subset A_{M-1}]` and `rights = [B_0 subset ... subset
-    /// B_{N-1}]`, this jointly estimates, in a single optimization over the disjoint-region model,
-    /// all `M*N + M + N` non-negative cell cardinalities:
-    /// * `overlap[i][j] = |L_i intersect R_j|`, the exclusive overlap grid, where `L_i = A_i \
-    ///   A_{i-1}` and `R_j = B_j \ B_{j-1}` are the left/right shells.
-    /// * `left_diff[i] = |L_i \ B_{N-1}|` and `right_diff[j] = |R_j \ A_{M-1}|`, the margins.
-    ///
-    /// Because the parameters are the disjoint regions themselves (optimized in log-space), the
-    /// returned cells are non-negative and globally consistent by construction. At `M = N = 1`
-    /// this reduces to the three-region model of the 2-set joint union MLE.
-    ///
-    /// This is the crate-internal engine behind the public [`JointSketch::estimate`] /
-    /// [`JointSketch::estimate_with`], reached by passing [`mle`](HyperLogLog::mle) views as operands.
+    /// Returns the exclusive overlap grid `overlap[i][j] = |L_i intersect R_j|` (where `L_i = A_i \
+    /// A_{i-1}` and `R_j = B_j \ B_{j-1}` are the shells) and the margins `left_diff[i]`,
+    /// `right_diff[j]`.
     ///
     /// # Implementative details
-    /// When every operand is still a hash list, the disjoint cells are counted exactly from the
-    /// stored composite hashes, with no optimization. Otherwise any hash-list operand is
-    /// materialized into registers first, and the optimization is warm-started from the pairwise
-    /// sketch and refined with the default `Chain<Adam, Lbfgs>` optimizer, driven by the exact
-    /// forward-mode gradient of the joint per-register log-likelihood. See `docs/joint_mle_math.md`.
+    /// When every operand is still a sorted value list (or every operand a sorted hash list) the
+    /// disjoint cells are counted EXACTLY from the stored values (or composite hashes), with no
+    /// estimation. Otherwise the operands are materialized into HyperLogLog registers and the cells
+    /// are formed by pairwise inclusion-exclusion over the 2-set union MLE (Ertl's joint estimator,
+    /// `mle_union_regions_from_registers`), the same per-pair estimator the scalar
+    /// [`mle()`](HyperLogLog::mle) union uses. Materializing first keeps every cell on the same
+    /// (register) footing, avoiding the representation-mismatch spike of mixing near-exact hash-list
+    /// cells with probabilistic register ones.
     #[inline]
     pub(crate) fn joint_sketch_mle<const M: usize, const N: usize>(
         lefts: &[Self; M],
         rights: &[Self; N],
     ) -> JointSketch<M, N> {
-        #[cfg(feature = "exact")]
-        if lefts.iter().all(Self::is_exact) && rights.iter().all(Self::is_exact) {
+        if lefts.iter().all(Self::is_sorted_value_list)
+            && rights.iter().all(Self::is_sorted_value_list)
+        {
             return joint_sketch_exact_from_values::<P, B, R, H, M, N>(lefts, rights);
         }
-        if lefts.iter().all(Self::is_hash_list) && rights.iter().all(Self::is_hash_list) {
+        if lefts.iter().all(Self::is_sorted_hash_list)
+            && rights.iter().all(Self::is_sorted_hash_list)
+        {
             return joint_sketch_exact_from_hash_lists::<P, B, R, H, M, N>(lefts, rights);
         }
 
-        let lefts: [Self; M] = core::array::from_fn(|i| Self::materialize_to_registers(&lefts[i]));
-        let rights: [Self; N] =
-            core::array::from_fn(|j| Self::materialize_to_registers(&rights[j]));
-
-        joint_sketch_mle_from_registers::<P, B, R, H, M, N>(&lefts, &rights)
-    }
-
-    /// Same as [`HyperLogLog::joint_sketch_mle`] but with a caller-chosen optimizer type driving the
-    /// refinement, selected at compile time by turbofish. Compose optimizers with [`Chain`], for
-    /// example `Chain<Adam, Lbfgs>`, or implement [`JointOptimizer`] for a custom strategy. The
-    /// default uses `Chain<Adam, Lbfgs>`; `Lbfgs` alone is fastest where the objective is unimodal.
-    ///
-    /// This is the crate-internal engine behind the public [`JointSketch::estimate_with`].
-    #[inline]
-    pub(crate) fn joint_sketch_mle_with<O: JointOptimizer, const M: usize, const N: usize>(
-        lefts: &[Self; M],
-        rights: &[Self; N],
-    ) -> JointSketch<M, N> {
-        // When every operand is in a recoverable pre-dense representation, the exact set-algebra
-        // paths are used and the optimizer type O is irrelevant: the result is exact and
-        // optimizer-independent.
-        #[cfg(feature = "exact")]
-        if lefts.iter().all(Self::is_exact) && rights.iter().all(Self::is_exact) {
-            return joint_sketch_exact_from_values::<P, B, R, H, M, N>(lefts, rights);
-        }
-        if lefts.iter().all(Self::is_hash_list) && rights.iter().all(Self::is_hash_list) {
-            return joint_sketch_exact_from_hash_lists::<P, B, R, H, M, N>(lefts, rights);
-        }
-
-        let lefts: [Self; M] = core::array::from_fn(|i| Self::materialize_to_registers(&lefts[i]));
-        let rights: [Self; N] =
-            core::array::from_fn(|j| Self::materialize_to_registers(&rights[j]));
-
-        joint_sketch_mle_from_registers_with::<P, B, R, H, O, M, N>(&lefts, &rights)
-    }
-
-    /// Clones `counter` and materializes it into dense register mode, stepping an exact-values
-    /// operand through the hash list first.
-    #[inline]
-    fn materialize_to_registers(counter: &Self) -> Self {
-        let mut counter = counter.clone();
-        #[cfg(feature = "exact")]
-        if counter.is_exact() {
-            counter.convert_exact_to_hash_list().unwrap();
-        }
-        if counter.is_hash_list() {
-            counter.convert_hash_list_to_hyperloglog().unwrap();
-        }
-        counter
+        // Materialize every operand to registers (a no-op once dense) so all cells share the same
+        // footing, then decompose by inclusion-exclusion over the 2-set union MLE views.
+        let lefts: [Self; M] = core::array::from_fn(|i| lefts[i].clone().into_hll());
+        let rights: [Self; N] = core::array::from_fn(|j| rights[j].clone().into_hll());
+        let left_views: [Mle<&Self>; M] = core::array::from_fn(|i| lefts[i].mle());
+        let right_views: [Mle<&Self>; N] = core::array::from_fn(|j| rights[j].mle());
+        crate::sketches::inclusion_exclusion_joint_sketch(&left_views, &right_views)
     }
 
     /// The three disjoint regions `[left_difference, right_difference, intersection]` of the 2-set
     /// joint MLE, assuming both counters are in HyperLogLog (register) mode. This is the fast analytic
     /// estimator the `M = N = 1` joint sketch uses.
     pub(crate) fn mle_union_regions_from_registers(&self, other: &Self) -> [f64; 3] {
-        // Maps a union harmonic sum to the HyperLogLog++ corrected cardinality, exactly as the
-        // default register-based union estimator does.
-        let estimate = |harmonic_sum: f64, _zeros: u32| {
-            correct_cardinality::<P, B>(
-                P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / harmonic_sum,
-                &HYPERLOGLOG_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
-                    [B::NUMBER_OF_BITS as usize - 4],
-                &HYPERLOGLOG_CORRECTION_BIAS[P::EXPONENT as usize - 4]
-                    [B::NUMBER_OF_BITS as usize - 4],
-            )
+        // Maps a union harmonic sum (and zero-register count) to the corrected cardinality, exactly as
+        // the default register-based union estimator does. This must apply linear counting at low
+        // union load, not just the bias-corrected raw estimate: at small cardinalities almost every
+        // union register is zero, where linear counting is far more accurate, and seeding the regions
+        // from the badly-biased raw estimate makes the union MLE several times worse than the default
+        // (a low-load analogue of the mixed hash-list/registers union bug).
+        let estimate = |harmonic_sum: f64, zeros: u32| {
+            Self::corrected_register_cardinality(harmonic_sum, zeros as usize)
         };
 
         mle_union_regions::<P, B, _>(

@@ -11,7 +11,7 @@ pub use switch::SwitchHash;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Enumeration of errors that can occur when downgrading a composite hash.
 pub enum SaturationError {
-    /// The underlying vector that contains the hash list is saturated but can be extended.
+    /// The underlying vector that contains the sorted hash list is saturated but can be extended.
     ExtendableSaturation,
     /// The Hash List is saturated and cannot be downgraded.
     Saturation(u32),
@@ -35,7 +35,6 @@ mod test_composite_hash {
     use hyperloglog_derive::test_precisions_and_bits;
 
     #[allow(unsafe_code)]
-    #[cfg(feature = "std")]
     fn test_composite_hash<P: Precision + PackedRegister<B>, B: Bits>() {
         let mut random_state = 498_123_456_789;
         let number_of_iterations = core::cmp::min(1, 10_000 / (1 << (P::EXPONENT - 4)));
@@ -301,7 +300,6 @@ mod test_composite_hash {
     {
         test_composite_hash_stateless_operations::<P, B>();
 
-        #[cfg(feature = "std")]
         test_composite_hash::<P, B>();
     }
 }

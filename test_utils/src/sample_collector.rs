@@ -8,14 +8,13 @@ use crate::sample_builder::{
 use crate::set::{Set, Uncorrected};
 use hyperloglog_rs::prelude::*;
 use indicatif::{MultiProgress, ParallelProgressIterator, ProgressBar, ProgressStyle};
-use mem_dbg::{MemSize, SizeFlags};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 const RANDOM_STATE: u64 = 5_435_765_765_854_357_668u64;
 
 #[inline]
-pub fn cardinality_samples<S: MemSize + Set + Default>(
+pub fn cardinality_samples<S: Set + Default>(
     iterations: u64,
     maximum_cardinality: u64,
 ) -> Vec<ExtendedCardinalitySample> {
@@ -78,7 +77,7 @@ pub fn cardinality_samples<S: MemSize + Set + Default>(
                 reports[index].update(
                     exact_cardinality,
                     cardinality_estimate,
-                    hll.mem_size(SizeFlags::default() | SizeFlags::FOLLOW_REFS),
+                    0,
                     (end - start).as_nanos(),
                 );
 
@@ -266,7 +265,7 @@ pub fn uncorrected_cardinality_samples_by_model<P: Precision + PackedRegister<B>
 
                 let index: usize = cardinality_estimate_to_index(exact_cardinality);
 
-                if model_not_imprinted.is_hash_list() {
+                if model_not_imprinted.is_sorted_hash_list() {
                     hash_list_reports[index]
                         .update(exact_cardinality, cardinality_estimate_not_imprinted);
                 } else {
@@ -274,11 +273,11 @@ pub fn uncorrected_cardinality_samples_by_model<P: Precision + PackedRegister<B>
                         .update(exact_cardinality, cardinality_estimate_not_imprinted);
                 }
 
-                let was_hash_list = model_not_imprinted.is_hash_list();
+                let was_hash_list = model_not_imprinted.is_sorted_hash_list();
                 let was_not_full_not_imprinted = !model_not_imprinted.is_full();
                 model_not_imprinted.insert_element(starting_value);
 
-                if was_hash_list != model_not_imprinted.is_hash_list() {
+                if was_hash_list != model_not_imprinted.is_sorted_hash_list() {
                     hash_list_saturations.update(exact_cardinality as f64);
                 }
 
@@ -305,5 +304,108 @@ pub fn uncorrected_cardinality_samples_by_model<P: Precision + PackedRegister<B>
         mean_hyperloglog_saturation,
         hyperloglog: total_hyperloglog_reports,
         hash_list: total_hash_list_reports,
+    }
+}
+
+/// Samples a counter forced into HyperLogLog registers from its first insert (via `into_hll`), so
+/// the register regime is characterized even at low load where a natural counter would still be a
+/// hash list. For each cardinality up to `maximum_cardinality` it records the raw uncorrected
+/// register estimate and the linear-counting estimate `m * ln(m / zeros)`, letting the generator
+/// locate the cardinality at which linear counting stops beating the bias-corrected raw estimate.
+///
+/// This is intentionally cheap: `maximum_cardinality` only needs to cover the linear-counting
+/// region (a small multiple of the register count), so it does not touch the heavy, cached
+/// natural-regime sampling used to fit the correction tables.
+#[inline]
+pub fn force_dense_cardinality_samples<P: Precision + PackedRegister<B>, B: Bits>(
+    iterations: u64,
+    maximum_cardinality: u64,
+    multiprogress: &MultiProgress,
+) -> Vec<CardinalitySample> {
+    let progress_bar = multiprogress.add(ProgressBar::new(iterations));
+    progress_bar.set_style(
+        ProgressStyle::default_bar()
+            .template("Force-dense [{elapsed_precise} {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+            .unwrap()
+            .progress_chars("##-"),
+    );
+
+    let step_size = u64::MAX / (2 * maximum_cardinality + 1);
+    let capacity_to_allocate = cardinality_estimate_to_index(maximum_cardinality) as usize + 1;
+
+    let reports = ReportsBuilder::new(capacity_to_allocate);
+
+    (0..iterations)
+        .into_par_iter()
+        .progress_with(progress_bar)
+        .for_each(|i| {
+            let bias = splitmix64(splitmix64(
+                RANDOM_STATE.wrapping_mul(splitmix64(i as u64 + 1)),
+            ));
+            let mut dense = Uncorrected::<P, B>::default();
+
+            let reports = reports.get_mut();
+            reports
+                .iter_mut()
+                .for_each(|report| report.increase_measuremenet_count());
+
+            let mut starting_value = bias;
+            // The linear-counting estimate scans every register (O(m)), so we only sample it once
+            // per cardinality bucket (when the bucket index changes) rather than at every insert.
+            let mut last_index = usize::MAX;
+
+            for exact_cardinality in 0..=maximum_cardinality {
+                let index: usize = cardinality_estimate_to_index(exact_cardinality);
+                if index != last_index {
+                    last_index = index;
+                    reports[index].update_with_linear_counting(
+                        exact_cardinality,
+                        dense.cardinality(),
+                        dense.linear_counting_estimate(),
+                    );
+                }
+
+                dense.insert_element(starting_value);
+                dense.to_hll();
+
+                starting_value = starting_value.wrapping_add(step_size);
+            }
+        });
+
+    reports.flatten(iterations)
+}
+
+#[cfg(test)]
+mod force_dense_tests {
+    use super::*;
+
+    #[test]
+    fn force_dense_low_load_linear_counting_is_accurate() {
+        // At low load a force-dense counter's raw estimate is heavily biased high, while linear
+        // counting tracks the true cardinality. This is the regime the threshold protects.
+        let mp = MultiProgress::new();
+        let samples = force_dense_cardinality_samples::<Precision10, Bits4>(256, 256, &mp);
+
+        let low: Vec<&CardinalitySample> = samples
+            .iter()
+            .filter(|s| s.exact_cardinality_mean >= 8.0 && s.exact_cardinality_mean <= 64.0)
+            .collect();
+        assert!(!low.is_empty(), "expected low-load samples");
+
+        for s in low {
+            let exact = s.exact_cardinality_mean;
+            let lc_err = (exact - s.linear_counting_estimate_mean).abs() / exact;
+            let raw_err = (exact - s.estimated_cardinality_mean).abs() / exact;
+            assert!(
+                lc_err < raw_err,
+                "linear counting ({}) should beat raw ({}) at exact {exact}",
+                s.linear_counting_estimate_mean,
+                s.estimated_cardinality_mean
+            );
+            assert!(
+                lc_err < 0.25,
+                "linear counting error {lc_err} too high at exact {exact}"
+            );
+        }
     }
 }

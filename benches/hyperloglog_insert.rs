@@ -22,16 +22,17 @@ fn bench_hyperloglog_insert(c: &mut Criterion) {
     // already switched from the HashList to the HyperLogLog, we will only saturate the
     // data structure with random values until it switches.
     for random_value in iter_random_values::<u64>(50_000, None, None) {
-        if hllx.is_hash_list() {
+        if hllx.is_sorted_hash_list() {
             hllx.insert(&random_value);
         }
-        if hllw.is_hash_list() {
+        if hllw.is_sorted_hash_list() {
             hllw.insert(&random_value);
         }
-        if hlla.is_hash_list() {
+        if hlla.is_sorted_hash_list() {
             hlla.insert(&random_value);
         }
-        if !hllx.is_hash_list() && !hllw.is_hash_list() && !hlla.is_hash_list() {
+        if !hllx.is_sorted_hash_list() && !hllw.is_sorted_hash_list() && !hlla.is_sorted_hash_list()
+        {
             break;
         }
     }
@@ -83,7 +84,7 @@ fn hash_list_of(count: u64, seed: u64) -> HLL14 {
         hll.insert(&value);
     }
     assert!(
-        hll.is_hash_list(),
+        hll.is_sorted_hash_list(),
         "a counter of {count} elements must still be a hash list"
     );
     hll
@@ -92,8 +93,8 @@ fn hash_list_of(count: u64, seed: u64) -> HLL14 {
 /// Compares the per-insert cost of the hash-list mode (sorted, gap-encoded, O(n) per insert)
 /// against the fully-fledged HyperLogLog mode (O(1) register update), inserting the same batch
 /// of new elements into bases of increasing size. The HyperLogLog base is obtained by flipping
-/// a hash-list counter with `convert_hash_list_to_hyperloglog`, so both modes hold the same
-/// elements. The clone in the setup closure is not timed (`iter_batched`).
+/// a hash-list counter with `to_hll`, so both modes hold the same elements. The clone in the setup
+/// closure is not timed (`iter_batched`).
 fn bench_insert_modes(c: &mut Criterion) {
     let mut group = c.benchmark_group("insert_mode_p14_bits6");
 
@@ -103,8 +104,8 @@ fn bench_insert_modes(c: &mut Criterion) {
     for &base_size in &[256_u64, 4_096, 16_384] {
         let hash_list_base = hash_list_of(base_size, 0x00BA_5E00);
         let mut hll_base = hash_list_base.clone();
-        hll_base.convert_hash_list_to_hyperloglog().unwrap();
-        assert!(!hll_base.is_hash_list());
+        hll_base.to_hll();
+        assert!(!hll_base.is_sorted_hash_list());
 
         group.bench_with_input(
             BenchmarkId::new("hash_list", base_size),
@@ -116,7 +117,7 @@ fn bench_insert_modes(c: &mut Criterion) {
                         for value in &batch {
                             hll.insert(black_box(value));
                         }
-                        black_box(hll.is_hash_list())
+                        black_box(hll.is_sorted_hash_list())
                     },
                     BatchSize::SmallInput,
                 );
@@ -169,7 +170,7 @@ fn build_hyperloglog(count: u64, seed: u64) -> HLL14 {
     for value in iter_random_values::<u64>(count, None, Some(seed)) {
         hll.insert(&value);
     }
-    assert!(!hll.is_hash_list());
+    assert!(!hll.is_sorted_hash_list());
     hll
 }
 

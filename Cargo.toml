@@ -1,6 +1,9 @@
 [workspace]
 resolver = "2"
-members = [".", "hyperloglog-derive", "optimal-gap-codes", "measure_variant", "statistical_comparisons", "statistical_comparisons/macro_test_utils", "test_utils", "hash_list_correction"]
+members = [".", "hyperloglog-derive", "optimal-gap-codes", "test_utils", "hash_list_correction"]
+# The memory-comparison tooling was built on the `mem_dbg` crate, which has been dropped. These
+# members are detached from the build until that tooling is rebuilt; their source is retained.
+exclude = ["measure_variant", "statistical_comparisons", "statistical_comparisons/macro_test_utils"]
 
 [package]
 name = "hyperloglog-rs"
@@ -32,7 +35,6 @@ exclude = [
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 paste = "1.0.15"
 twox-hash = {version="1.6.3", default-features = false}
-mem_dbg = {version = "0.2.4", optional = true}
 hyperloglog-derive = { path = "hyperloglog-derive" }
 num-traits = { version = "0.2", default-features = false, features = ["libm"], optional = true }
 
@@ -44,19 +46,14 @@ ahash = "0.8.11"
 color-backtrace = { version = "0.6" }
 ctor = "0.2.8"
 criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.5"
 
 [features]
 default = []
-mem_dbg = [
-    "dep:mem_dbg",
-    "std",
-]
-std = ["alloc"]
-# The MLE works in no_std + alloc: it uses `alloc::collections::BTreeMap` and routes the float
-# transcendentals to `libm` when `std` is unavailable (to the standard library otherwise).
+# The crate is always `no_std`. The MLE uses `alloc::collections::BTreeMap` and routes float
+# transcendentals through `libm` (via `num-traits`).
 mle = ["alloc", "dep:num-traits"]
 alloc = []
-exact = ["alloc"]
 
 [package.metadata.clippy]
 all-features = true

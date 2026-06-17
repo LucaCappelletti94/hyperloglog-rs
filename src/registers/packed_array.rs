@@ -25,9 +25,6 @@ use core::hash::Hash;
 use core::marker::PhantomData;
 use core::mem::size_of;
 
-#[cfg(feature = "mem_dbg")]
-use mem_dbg::{MemDbg, MemSize};
-
 #[allow(unsafe_code)]
 #[inline]
 /// Extracts the register from one or more words at the given offset.
@@ -311,7 +308,6 @@ where
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "mem_dbg", derive(MemDbg, MemSize))]
 /// Register implementation for the packed array registers.
 pub struct Packed<W, V> {
     /// The packed array of registers.
@@ -507,16 +503,9 @@ impl<V: VariableWord> Default for Packed<Vec<u64>, V> {
 ///
 /// Meant to be associated with a specific Precision.
 pub trait PackedRegister<B: Bits>: Precision {
-    #[cfg(feature = "mem_dbg")]
-    /// The type of the packed array register.
-    type Array: Registers<Self, B> + MemDbg + MemSize;
-    #[cfg(not(feature = "mem_dbg"))]
     /// The type of the packed array register.
     type Array: Registers<Self, B>;
-    #[cfg(all(feature = "mem_dbg", feature = "alloc"))]
-    /// The type of the packed vector register.
-    type Vec: Registers<Self, B> + MemDbg + MemSize;
-    #[cfg(all(not(feature = "mem_dbg"), feature = "alloc"))]
+    #[cfg(feature = "alloc")]
     /// The type of the packed vector register.
     type Vec: Registers<Self, B>;
 }

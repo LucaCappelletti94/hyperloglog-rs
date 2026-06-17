@@ -47,7 +47,7 @@ where
     let b0 = build::<P, B>(&[ro[0][0], ro[1][0], rdb[0]]);
     let b1 = build::<P, B>(&[ro[0][0], ro[1][0], rdb[0], ro[0][1], ro[1][1], rdb[1]]);
 
-    if a1.is_hash_list() || b1.is_hash_list() {
+    if a1.is_sorted_hash_list() || b1.is_sorted_hash_list() {
         println!("P{:<2}: hash-list regime (skipped)", P::EXPONENT);
         return;
     }

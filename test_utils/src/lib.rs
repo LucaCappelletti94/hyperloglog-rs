@@ -21,7 +21,8 @@ pub mod prelude {
         CardinalitySample, CardinalitySampleBuilder, ExtendedCardinalitySample,
     };
     pub use crate::sample_collector::{
-        cardinality_samples, uncorrected_cardinality_samples_by_model, CardinalitySamplesByModel,
+        cardinality_samples, force_dense_cardinality_samples,
+        uncorrected_cardinality_samples_by_model, CardinalitySamplesByModel,
     };
     pub use crate::set::Set;
     pub use crate::statistics::{

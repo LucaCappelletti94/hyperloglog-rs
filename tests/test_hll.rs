@@ -250,11 +250,11 @@ fn test_union_small_cardinality_stays_accurate() {
     }
 
     assert!(
-        a.is_hash_list(),
+        a.is_sorted_hash_list(),
         "Small counter `a` must be in hash-list mode."
     );
     assert!(
-        b.is_hash_list(),
+        b.is_sorted_hash_list(),
         "Small counter `b` must be in hash-list mode."
     );
 
@@ -293,7 +293,7 @@ fn test_mle_union_matches_exact() {
         right.insert(&element);
     }
 
-    assert!(!left.is_hash_list() && !right.is_hash_list());
+    assert!(!left.is_sorted_hash_list() && !right.is_sorted_hash_list());
 
     let exact_union = 75_000.0_f64;
     let mle_union = left.mle().estimate_union_cardinality(&right.mle());
@@ -320,7 +320,7 @@ fn test_mle_cardinality_reasonable() {
     for element in 0..100_000_u64 {
         hll.insert(&element);
     }
-    assert!(!hll.is_hash_list());
+    assert!(!hll.is_sorted_hash_list());
 
     let exact = 100_000.0_f64;
     let mle = hll.mle().estimate_cardinality();
@@ -396,7 +396,7 @@ fn test_joint_sketch_mle_reduces_to_union_mle() {
     let mut right: Counter = Default::default();
     insert_range(&mut left, 0, 50_000);
     insert_range(&mut right, 25_000, 50_000);
-    assert!(!left.is_hash_list() && !right.is_hash_list());
+    assert!(!left.is_sorted_hash_list() && !right.is_sorted_hash_list());
 
     let (overlap, left_diff, right_diff) =
         JointSketch::estimate(&[left.mle()], &[right.mle()]).into_parts();
@@ -419,39 +419,6 @@ fn test_joint_sketch_mle_reduces_to_union_mle() {
         agreement <= 0.05,
         "joint union {joint_union} disagrees with 2-set union MLE {union_mle} by {agreement}."
     );
-}
-
-/// The public generic-composition API (`JointSketch::estimate_with`) must accept a caller-chosen
-/// optimizer, including composed ones, and recover the union within the precision's error rate.
-#[cfg(feature = "mle")]
-#[test]
-fn test_joint_sketch_mle_with_custom_optimizer() {
-    type Counter = HyperLogLog<Precision10, Bits6>;
-
-    let mut left: Counter = Default::default();
-    let mut right: Counter = Default::default();
-    insert_range(&mut left, 0, 50_000);
-    insert_range(&mut right, 25_000, 50_000);
-
-    let exact_union = 75_000.0_f64;
-    let error_rate = Precision10::error_rate();
-
-    // A user composes a custom optimizer by type: an Adam warmup followed by L-BFGS polishing.
-    let (overlap, left_diff, right_diff) =
-        JointSketch::estimate_with::<Chain<Adam, Lbfgs>, _>(&[left.mle()], &[right.mle()])
-            .into_parts();
-    let union = overlap[0][0] + left_diff[0] + right_diff[0];
-    let error = (union - exact_union).abs() / exact_union;
-    assert!(
-        error <= error_rate,
-        "custom-optimizer joint union {union} differs from exact {exact_union} by {error}."
-    );
-
-    // A plain L-BFGS optimizer must also work.
-    let (overlap, left_diff, right_diff) =
-        JointSketch::estimate_with::<Lbfgs, _>(&[left.mle()], &[right.mle()]).into_parts();
-    let union = overlap[0][0] + left_diff[0] + right_diff[0];
-    assert!((union - exact_union).abs() / exact_union <= error_rate);
 }
 
 /// For small `M, N` (here `M = N = 2`) built from disjoint integer ranges with known cell
@@ -557,7 +524,7 @@ fn test_mle_union_matches_exact_hash_list() {
     let mut right: Counter = Default::default();
     insert_range(&mut left, 0, 300);
     insert_range(&mut right, 150, 300);
-    assert!(left.is_hash_list() && right.is_hash_list());
+    assert!(left.is_sorted_hash_list() && right.is_sorted_hash_list());
 
     let exact_union = 450.0_f64;
     let mle_union = left.mle().estimate_union_cardinality(&right.mle());
@@ -612,7 +579,7 @@ fn test_joint_sketch_mle_matches_exact_cells_hash_list() {
     insert_range(&mut b1, ro[1][1].0, ro[1][1].1);
     insert_range(&mut b1, rdb[1].0, rdb[1].1);
 
-    assert!([&a0, &a1, &b0, &b1].iter().all(|c| c.is_hash_list()));
+    assert!([&a0, &a1, &b0, &b1].iter().all(|c| c.is_sorted_hash_list()));
 
     let total_union: f64 =
         (o[0][0] + o[0][1] + o[1][0] + o[1][1] + da[0] + da[1] + db[0] + db[1]) as f64;
@@ -655,7 +622,6 @@ fn test_joint_sketch_mle_matches_exact_cells_hash_list() {
 /// The exact-values mode stores literal integers verbatim, so a fresh counter fed via
 /// `insert_value` stays in exact mode for small cardinalities and reports the exact cardinality
 /// with no error, and rejects duplicates.
-#[cfg(feature = "exact")]
 #[test]
 fn test_insert_value_exact_mode() {
     type Counter = HyperLogLog<Precision8, Bits6>;
@@ -667,7 +633,10 @@ fn test_insert_value_exact_mode() {
             "value {value} should be newly inserted"
         );
     }
-    assert!(counter.is_exact(), "the counter must remain in exact mode");
+    assert!(
+        counter.is_sorted_value_list(),
+        "the counter must remain in exact mode"
+    );
     assert_eq!(
         counter.estimate_cardinality(),
         50.0,
@@ -675,14 +644,13 @@ fn test_insert_value_exact_mode() {
     );
 
     // Duplicates are rejected and do not change the cardinality.
-    assert!(!counter.insert_value(25));
+    assert!(!counter.insert_value(25u64));
     assert_eq!(counter.estimate_cardinality(), 50.0);
 }
 
 /// When the exact buffer fills, the counter transitions to the hash list (and then dense), hashing
 /// the stored values, so a large number of `insert_value` calls still yields a cardinality estimate
 /// within the precision's error rate.
-#[cfg(feature = "exact")]
 #[test]
 fn test_insert_value_saturates_gracefully() {
     type Counter = HyperLogLog<Precision8, Bits6>;
@@ -692,7 +660,10 @@ fn test_insert_value_saturates_gracefully() {
     for value in 0..n {
         counter.insert_value(value);
     }
-    assert!(!counter.is_exact(), "the counter must have left exact mode");
+    assert!(
+        !counter.is_sorted_value_list(),
+        "the counter must have left exact mode"
+    );
 
     let estimate = counter.estimate_cardinality();
     let error = (estimate - n as f64).abs() / n as f64;
@@ -705,7 +676,6 @@ fn test_insert_value_saturates_gracefully() {
 
 /// A hashed `insert` arriving while the counter is in exact mode must promote it to a proper hash
 /// list (hashing the stored values) before inserting, keeping the cardinality coherent.
-#[cfg(feature = "exact")]
 #[test]
 fn test_generic_insert_promotes_exact_mode() {
     type Counter = HyperLogLog<Precision8, Bits6>;
@@ -714,11 +684,11 @@ fn test_generic_insert_promotes_exact_mode() {
     for value in 0u64..30 {
         counter.insert_value(value);
     }
-    assert!(counter.is_exact());
+    assert!(counter.is_sorted_value_list());
 
     counter.insert(&999_u64);
     assert!(
-        !counter.is_exact(),
+        !counter.is_sorted_value_list(),
         "a hashed insert must promote out of exact mode"
     );
 
@@ -732,7 +702,6 @@ fn test_generic_insert_promotes_exact_mode() {
 /// While in exact mode the counter recovers the exact set of inserted values (lazily, descending)
 /// and answers exact membership; once it leaves exact mode recovery returns `None` and membership
 /// falls back to the hashed test.
-#[cfg(feature = "exact")]
 #[test]
 fn test_recover_values_and_membership() {
     type Counter = HyperLogLog<Precision10, Bits6>;
@@ -741,7 +710,7 @@ fn test_recover_values_and_membership() {
     for value in [5u64, 1, 9, 1, 3] {
         counter.insert_value(value);
     }
-    assert!(counter.is_exact());
+    assert!(counter.is_sorted_value_list());
     let recovered: Vec<u64> = counter.recover_values().unwrap().collect();
     assert_eq!(
         recovered,
@@ -759,7 +728,7 @@ fn test_recover_values_and_membership() {
     for value in 0u64..5_000 {
         big.insert_value(value);
     }
-    assert!(!big.is_exact());
+    assert!(!big.is_sorted_value_list());
     assert!(big.recover_values().is_none());
     // Membership falls back to the hashed test; an inserted value must still be reported present.
     assert!(big.may_contain_value(1_234));
@@ -767,7 +736,6 @@ fn test_recover_values_and_membership() {
 
 /// Two exact-mode operands give a bit-exact union, and merging them (via `BitOr`) yields a counter
 /// that stays exact (when small) and recovers the exact union set.
-#[cfg(feature = "exact")]
 #[test]
 fn test_exact_exact_union_and_merge() {
     type Counter = HyperLogLog<Precision10, Bits6>;
@@ -780,13 +748,16 @@ fn test_exact_exact_union_and_merge() {
     for value in 25u64..70 {
         b.insert_value(value);
     }
-    assert!(a.is_exact() && b.is_exact());
+    assert!(a.is_sorted_value_list() && b.is_sorted_value_list());
 
     // The exact union of {0..40} and {25..70} is {0..70}, exactly 70.
     assert_eq!(a.estimate_union_cardinality(&b), 70.0);
 
     let merged = &a | &b;
-    assert!(merged.is_exact(), "the merged small union must stay exact");
+    assert!(
+        merged.is_sorted_value_list(),
+        "the merged small union must stay exact"
+    );
     assert_eq!(merged.estimate_cardinality(), 70.0);
     let mut recovered: Vec<u64> = merged.recover_values().unwrap().collect();
     recovered.sort_unstable();
@@ -795,7 +766,6 @@ fn test_exact_exact_union_and_merge() {
 
 /// The linear two-pointer exact merge must recover exactly the set union for arbitrary (unsorted,
 /// overlapping) inputs that still fit the exact buffer, and stay in exact mode.
-#[cfg(feature = "exact")]
 #[test]
 fn test_exact_merge_recovers_set_union() {
     type Counter = HyperLogLog<Precision12, Bits6>;
@@ -818,11 +788,11 @@ fn test_exact_merge_recovers_set_union() {
         b.insert_value(vb);
         exact_b.insert(vb);
     }
-    assert!(a.is_exact() && b.is_exact());
+    assert!(a.is_sorted_value_list() && b.is_sorted_value_list());
 
     let merged = &a | &b;
     assert!(
-        merged.is_exact(),
+        merged.is_sorted_value_list(),
         "the union still fits, so it must stay exact"
     );
 
@@ -842,7 +812,6 @@ fn test_exact_merge_recovers_set_union() {
 
 /// When the exact union overflows the exact buffer, the merge must leave exact mode but still
 /// estimate the union cardinality within the precision's error rate (no values are lost).
-#[cfg(feature = "exact")]
 #[test]
 fn test_exact_merge_overflow_transitions() {
     type Counter = HyperLogLog<Precision10, Bits6>;
@@ -856,7 +825,7 @@ fn test_exact_merge_overflow_transitions() {
         loop {
             let mut trial = counter;
             trial.insert_value(value);
-            if !trial.is_exact() {
+            if !trial.is_sorted_value_list() {
                 break;
             }
             counter = trial;
@@ -870,12 +839,12 @@ fn test_exact_merge_overflow_transitions() {
     // twice the exact capacity and cannot stay exact.
     let (a, count_a) = fill_to_exact_max(0);
     let (b, count_b) = fill_to_exact_max(10_000_000);
-    assert!(a.is_exact() && b.is_exact());
+    assert!(a.is_sorted_value_list() && b.is_sorted_value_list());
 
     let true_union = (count_a + count_b) as f64; // the ranges are disjoint
     let merged = &a | &b;
     assert!(
-        !merged.is_exact(),
+        !merged.is_sorted_value_list(),
         "a union past the exact capacity must transition out of exact mode"
     );
     let estimate = merged.estimate_cardinality();
@@ -888,7 +857,6 @@ fn test_exact_merge_overflow_transitions() {
 
 /// A mixed exact / dense union promotes the exact operand and estimates the union within the
 /// precision's error rate.
-#[cfg(feature = "exact")]
 #[test]
 fn test_exact_dense_union() {
     type Counter = HyperLogLog<Precision10, Bits6>;
@@ -897,13 +865,13 @@ fn test_exact_dense_union() {
     for value in 0u64..30 {
         small.insert_value(value);
     }
-    assert!(small.is_exact());
+    assert!(small.is_sorted_value_list());
 
     let mut big: Counter = Default::default();
     for value in 20u64..20_000 {
         big.insert(&value);
     }
-    assert!(big.is_dense());
+    assert!(big.is_hyperloglog());
 
     let estimate = small.estimate_union_cardinality(&big);
     let error = (estimate - 20_000.0).abs() / 20_000.0;
@@ -915,7 +883,7 @@ fn test_exact_dense_union() {
 
 /// When every operand of the joint sketch is in exact-values mode, the disjoint cells are exact
 /// (classified directly from the literal values, no hashing, no collisions).
-#[cfg(all(feature = "exact", feature = "mle"))]
+#[cfg(feature = "mle")]
 #[test]
 fn test_joint_sketch_exact_values() {
     type Counter = HyperLogLog<Precision12, Bits6>;
@@ -961,7 +929,9 @@ fn test_joint_sketch_exact_values() {
     insert_vals(&mut b1, ro[1][1]);
     insert_vals(&mut b1, rdb[1]);
 
-    assert!([&a0, &a1, &b0, &b1].iter().all(|c| c.is_exact()));
+    assert!([&a0, &a1, &b0, &b1]
+        .iter()
+        .all(|c| c.is_sorted_value_list()));
 
     let (overlap, left_diff, right_diff) =
         JointSketch::estimate(&[a0.mle(), a1.mle()], &[b0.mle(), b1.mle()]).into_parts();
@@ -981,7 +951,6 @@ fn test_joint_sketch_exact_values() {
 /// Power-law graph neighbourhoods: the many low-degree nodes stay in exact mode and recover their
 /// exact neighbour sets, while the rare high-degree hub degrades gracefully to the HLL estimate
 /// within the precision's error rate. This is the motivating workload for the exact-values mode.
-#[cfg(feature = "exact")]
 #[test]
 fn test_power_law_graph_neighbourhoods() {
     type Counter = HyperLogLog<Precision10, Bits6>;
@@ -995,7 +964,10 @@ fn test_power_law_graph_neighbourhoods() {
         for &neighbour in &neighbours {
             node.insert_value(neighbour);
         }
-        assert!(node.is_exact(), "a degree-{degree} node must stay exact");
+        assert!(
+            node.is_sorted_value_list(),
+            "a degree-{degree} node must stay exact"
+        );
         assert_eq!(node.estimate_cardinality(), degree as f64);
         let mut recovered: Vec<u64> = node.recover_values().unwrap().collect();
         recovered.sort_unstable();
@@ -1008,7 +980,7 @@ fn test_power_law_graph_neighbourhoods() {
     for neighbour in base..base + hub_degree {
         hub.insert_value(neighbour);
     }
-    assert!(!hub.is_exact(), "a hub must leave exact mode");
+    assert!(!hub.is_sorted_value_list(), "a hub must leave exact mode");
     assert!(hub.recover_values().is_none());
     let estimate = hub.estimate_cardinality();
     let error = (estimate - hub_degree as f64).abs() / hub_degree as f64;
@@ -1020,7 +992,7 @@ fn test_power_law_graph_neighbourhoods() {
 
 /// The MLE union estimator handles exact-values operands: two exact operands give the exact union,
 /// and a mixed exact / dense pair estimates within the precision's error rate.
-#[cfg(all(feature = "exact", feature = "mle"))]
+#[cfg(feature = "mle")]
 #[test]
 fn test_estimate_union_cardinality_mle_exact() {
     type Counter = HyperLogLog<Precision10, Bits6>;
@@ -1033,14 +1005,14 @@ fn test_estimate_union_cardinality_mle_exact() {
     for value in 25u64..70 {
         b.insert_value(value);
     }
-    assert!(a.is_exact() && b.is_exact());
+    assert!(a.is_sorted_value_list() && b.is_sorted_value_list());
     assert_eq!(a.mle().estimate_union_cardinality(&b.mle()), 70.0);
 
     let mut big: Counter = Default::default();
     for value in 20u64..20_000 {
         big.insert(&value);
     }
-    assert!(big.is_dense());
+    assert!(big.is_hyperloglog());
     let estimate = a.mle().estimate_union_cardinality(&big.mle());
     let error = (estimate - 20_000.0).abs() / 20_000.0;
     assert!(
@@ -1094,7 +1066,7 @@ fn test_mle_wrapper() {
     for v in 25_000u64..75_000 {
         b.insert(&v);
     }
-    assert!(a.is_dense() && b.is_dense());
+    assert!(a.is_hyperloglog() && b.is_hyperloglog());
 
     // Derived ops come from the MLE primitives, via the trait default.
     let ca = a.mle().estimate_cardinality();
@@ -1136,7 +1108,7 @@ fn test_vec_hll_matches_array_backed() {
         array_backed.insert(&value);
         vec_backed.insert(&value);
     }
-    assert!(array_backed.is_dense() && vec_backed.is_dense());
+    assert!(array_backed.is_hyperloglog() && vec_backed.is_hyperloglog());
     assert_eq!(
         array_backed.estimate_cardinality(),
         vec_backed.estimate_cardinality()

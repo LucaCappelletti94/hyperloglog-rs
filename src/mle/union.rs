@@ -5,7 +5,7 @@ use crate::prelude::*;
 use crate::utils::{FloatOps, Zero};
 use core::cmp::Ordering;
 use core::ops::{Add, Mul, Sub};
-#[cfg(not(feature = "std"))]
+#[allow(unused_imports)]
 use num_traits::Float;
 
 #[allow(clippy::too_many_lines)]
@@ -59,9 +59,12 @@ pub(crate) fn mle_union_regions<P: Precision, B: Bits, I: ExactSizeIterator<Item
     // We get the best estimates from HyperLogLog++
     let union_cardinality = estimate(union_harmonic_sum, union_zeros);
 
-    // If the number of registers equal to zero in the union is equal to the number of
-    // registers, the union is empty.
-    if union_zeros == 1 << B::NUMBER_OF_BITS {
+    // If every register of the union is zero, the union is empty. The number of registers is
+    // `2^P::EXPONENT` (NOT `2^B::NUMBER_OF_BITS`, which is the number of distinct register *values*
+    // and merely sizes the multiplicity arrays): confusing the two made this guard fire spuriously
+    // whenever a non-empty union happened to have exactly `2^B` zero registers (e.g. around a union
+    // of ~18000 at Precision12/Bits6, where the zero count hovers near 64), returning a union of zero.
+    if union_zeros == 1_u32 << P::EXPONENT {
         return [f64::ZERO; 3];
     }
 
@@ -319,5 +322,60 @@ impl<const N: usize> ArrayAdam<N> {
                     };
                 *phi += *gradient;
             });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+
+    type Hll = HyperLogLog<Precision12, Bits6>;
+
+    fn splitmix64(mut x: u64) -> u64 {
+        x = x.wrapping_add(0x9E3779B97F4A7C15);
+        x = (x ^ (x >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+        x = (x ^ (x >> 27)).wrapping_mul(0x94D049BB133111EB);
+        x ^ (x >> 31)
+    }
+
+    /// Regression for the spurious "empty union" early return. At a union cardinality where the
+    /// number of zero registers hovers near `2^B::NUMBER_OF_BITS` (64 at Bits6), the guard used to
+    /// compare the union zero count against that wrong constant and collapse the union to zero. With
+    /// two sets of ~12111 elements at 50 percent overlap (true union ~18167, zero count near 49), the
+    /// register-mode union MLE must stay close to the truth on every seed, never returning zero.
+    #[test]
+    fn union_mle_does_not_collapse_to_zero_near_64_zero_registers() {
+        let card = 12111u64;
+        for seed in 1..=256u64 {
+            let base = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+            let shared = card / 2;
+            let only_b = card - shared;
+            let va: Vec<u64> = (0..card)
+                .map(|i| splitmix64(base.wrapping_add(i)))
+                .collect();
+            let vb: Vec<u64> = (0..shared)
+                .map(|i| splitmix64(base.wrapping_add(i)))
+                .chain((0..only_b).map(|i| splitmix64(base.wrapping_add(card + i))))
+                .collect();
+
+            let mut a = Hll::default();
+            for &v in &va {
+                a.insert(&v);
+            }
+            let mut b = Hll::default();
+            for &v in &vb {
+                b.insert(&v);
+            }
+            let a = a.into_hll();
+            let b = b.into_hll();
+
+            let truth = (card + only_b) as f64;
+            let union = a.mle().estimate_union_cardinality(&b.mle());
+            assert!(
+                (union - truth).abs() / truth < 0.1,
+                "seed {seed}: union MLE {union} vs truth {truth} (relative error {:.1}%)",
+                100.0 * (union - truth).abs() / truth
+            );
+        }
     }
 }

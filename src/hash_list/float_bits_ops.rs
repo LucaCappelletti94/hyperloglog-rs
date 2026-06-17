@@ -1,5 +1,5 @@
 //! This module provides functions to encode and decode into the bits that are
-//! used in a HyperLogLog as the harmonic sum, while in the HashList we repourpose
+//! used in a HyperLogLog as the harmonic sum, while in the sorted hash list we repurpose
 //! them to store other metadata.
 use crate::prelude::*;
 
@@ -13,42 +13,39 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// Returns the number of bits used to store the hash.
     ///
     /// # Errors
-    /// If the counter is not in hash list mode, an error is returned.
+    /// If the counter is not in sorted hash list, an error is returned.
     pub fn get_hash_bits(&self) -> Result<u8, &'static str> {
-        if self.is_hash_list() {
+        if self.is_sorted_hash_list() {
             Ok(decode_hash_bits(self.harmonic_sum))
         } else {
-            Err("The counter is not in hash list mode.")
+            Err("The counter is not in sorted hash list mode.")
         }
     }
 
     #[inline]
-    /// Returns whether the metadata word carries the exact-values mode sentinel.
+    /// Returns whether the metadata word carries the sorted value list sentinel.
     ///
-    /// This only distinguishes the exact-values mode from a proper hash list; it is meaningful
-    /// only once the caller knows the counter is not dense (the top mode bit is set). Prefer the
-    /// guarded [`HyperLogLog::is_exact`].
-    pub(crate) fn is_exact_metadata(&self) -> bool {
-        decode_is_exact(self.harmonic_sum)
+    /// This only distinguishes the sorted value list from a proper sorted hash list; it is meaningful
+    /// only once the caller knows the counter is not in HyperLogLog registers (the top mode bit is set). Prefer the
+    /// guarded [`HyperLogLog::is_sorted_value_list`].
+    pub(crate) fn is_sorted_value_list_metadata(&self) -> bool {
+        decode_is_sorted_value_list(self.harmonic_sum)
     }
 
-    #[cfg(feature = "exact")]
     #[inline]
-    /// Marks the metadata word as exact-values mode by writing the sentinel into the hash-bits
+    /// Marks the metadata word as sorted value list by writing the sentinel into the hash-bits
     /// subfield. The top mode bit is left untouched (it must already be set).
-    pub(crate) fn set_exact_mode(&mut self) {
+    pub(crate) fn set_sorted_value_list_mode(&mut self) {
         encode_exact_sentinel(&mut self.harmonic_sum);
     }
 
-    #[cfg(feature = "exact")]
     #[inline]
     /// Returns the number of values stored in exact mode. This aliases the number-of-hashes
-    /// subfield, which holds the stored item count in both pre-dense representations.
+    /// subfield, which holds the stored item count in both pre-HyperLogLog representations.
     pub(crate) fn get_number_of_values(&self) -> u32 {
         decode_number_of_hashes(self.harmonic_sum)
     }
 
-    #[cfg(feature = "exact")]
     #[inline]
     /// Sets the number of values stored in exact mode (aliases the number-of-hashes subfield).
     pub(crate) fn set_number_of_values(&mut self, number_of_values: u32) {
@@ -89,12 +86,12 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// Returns the number of hashes stored in the harmonic sum.
     ///
     /// # Errors
-    /// If the counter is not in hash list mode, an error is returned.
+    /// If the counter is not in sorted hash list, an error is returned.
     pub fn get_number_of_hashes(&self) -> Result<u32, &'static str> {
-        if self.is_hash_list() {
+        if self.is_sorted_hash_list() {
             Ok(decode_number_of_hashes(self.harmonic_sum))
         } else {
-            Err("The counter is not in hash list mode.")
+            Err("The counter is not in sorted hash list mode.")
         }
     }
 }
@@ -102,21 +99,20 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 const BITS_FOR_HASH_BITS: usize = 5;
 const HASH_BITS_MASK: u64 = (1 << BITS_FOR_HASH_BITS) - 1;
 
-/// The hash-bits subfield code that marks the exact-values mode. Valid hash sizes are 8..=32,
+/// The hash-bits subfield code that marks the sorted value list. Valid hash sizes are 8..=32,
 /// stored as 0..=24, so the code 31 never collides with a real hash size.
-pub(crate) const EXACT_MODE_SENTINEL: u64 = 31;
+pub(crate) const SORTED_VALUE_LIST_SENTINEL: u64 = 31;
 
 #[inline]
-fn decode_is_exact(float: f64) -> bool {
-    (float.to_bits() & HASH_BITS_MASK) == EXACT_MODE_SENTINEL
+fn decode_is_sorted_value_list(float: f64) -> bool {
+    (float.to_bits() & HASH_BITS_MASK) == SORTED_VALUE_LIST_SENTINEL
 }
 
 #[allow(unsafe_code)]
-#[cfg(feature = "exact")]
 #[inline]
 fn encode_exact_sentinel(float: &mut f64) {
     let harmonic_sum_as_u64: &mut u64 = unsafe { core::mem::transmute(float) };
-    *harmonic_sum_as_u64 = (*harmonic_sum_as_u64 & !HASH_BITS_MASK) | EXACT_MODE_SENTINEL;
+    *harmonic_sum_as_u64 = (*harmonic_sum_as_u64 & !HASH_BITS_MASK) | SORTED_VALUE_LIST_SENTINEL;
 }
 
 #[allow(unsafe_code)]
@@ -138,7 +134,7 @@ fn decode_hash_bits(float: f64) -> u8 {
 /// We use therefore all remaining bits to store the number of duplicates:
 ///
 /// We are currently using, out of the 64 bits of a f64:
-/// * 1 bit to represent we are in hash list mode.
+/// * 1 bit to represent we are in sorted hash list mode.
 /// * 5 bits to represent the hash bits we are using (minus 8).
 /// * 20 bits to represent the number of hashes.
 /// * 21 bits to represent the bit index of the writer tell.
@@ -239,7 +235,6 @@ mod test_encode_decode_hash_bits {
         assert_eq!(harmonic_sum.to_bits().leading_zeros(), 0);
     }
 
-    #[cfg(feature = "exact")]
     #[test]
     fn test_exact_mode_sentinel() {
         // No valid hash size (8..=32, stored 0..=24) is read as the exact-mode sentinel.
@@ -247,7 +242,7 @@ mod test_encode_decode_hash_bits {
             let mut harmonic_sum = f64::NEG_INFINITY;
             encode_hash_bits(&mut harmonic_sum, hash_bits);
             assert!(
-                !decode_is_exact(harmonic_sum),
+                !decode_is_sorted_value_list(harmonic_sum),
                 "hash_bits {hash_bits} must not read as exact mode"
             );
         }
@@ -258,7 +253,7 @@ mod test_encode_decode_hash_bits {
         set_number_of_hashes(&mut harmonic_sum, 1234);
         set_writer_tell(&mut harmonic_sum, 567);
         encode_exact_sentinel(&mut harmonic_sum);
-        assert!(decode_is_exact(harmonic_sum));
+        assert!(decode_is_sorted_value_list(harmonic_sum));
         assert_eq!(
             harmonic_sum.to_bits().leading_zeros(),
             0,

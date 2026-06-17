@@ -105,15 +105,22 @@ pub trait Registers<P: Precision, B: Bits>:
         other: &'registers Self,
     ) -> Self::IterZipped<'registers>;
 
-    /// Returns the harmonic sum of the maximum value of the registers and the number of zero registers.
-    fn get_union_harmonic_sum(&self, other: &Self) -> f64 {
+    /// Returns the harmonic sum of the element-wise maximum of the two register sets (the union
+    /// registers), together with the number of union registers equal to zero (zero in both operands).
+    /// The zero count feeds linear counting on the union at low load.
+    fn get_union_harmonic_sum(&self, other: &Self) -> (f64, usize) {
         let mut harmonic_sum = f64::ZERO;
+        let mut zeros = 0usize;
 
         for [left, right] in Self::iter_registers_zipped(self, other) {
-            harmonic_sum += f64::integer_exp2_minus(core::cmp::max(left, right));
+            let max = core::cmp::max(left, right);
+            harmonic_sum += f64::integer_exp2_minus(max);
+            if max == 0 {
+                zeros += 1;
+            }
         }
 
-        harmonic_sum
+        (harmonic_sum, zeros)
     }
 
     /// Applies a function to each register.

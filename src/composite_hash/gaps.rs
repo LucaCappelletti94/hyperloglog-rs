@@ -4,7 +4,6 @@ use core::u64;
 mod bitreader;
 mod bitwriter;
 mod optimal_codes;
-#[cfg(feature = "exact")]
 pub(crate) mod value_list;
 use super::{
     switch::{DecodedIter, DowngradedIter},
@@ -310,7 +309,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     ///                               This position is equal to bit index i
     /// ```
     ///
-    /// When we insert y, it will cause the hash list to expand, and as we are not inserting the hash
+    /// When we insert y, it will cause the sorted hash list to expand, and as we are not inserting the hash
     /// itself but the gap between the hash and the predecessor and successor, the following state will
     /// be reached for the Hash gaps:
     ///
@@ -323,7 +322,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// Such change needs to be reflected in the bit indices in the rank index. The bit index i + 1
     /// needs to become equal to 'bit_index_after_hash', i.e. the bit index of the position right after
     /// the newly inserted hash. Indices associated to subsequent buckets, instead, need to be fully
-    /// shifted by the increased size of the hash list.
+    /// shifted by the increased size of the sorted hash list.
     ///
     /// ```text
     /// Indices: [ ... | bit index i + bit_index_after_hash, hash successor_hash | bit index (i + 1) + shift, hash q| ... ]
@@ -494,7 +493,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// We store both values explicitly to avoid having to decode the hash to find the bit index. The hash
     /// requires `hash_bits` bits, while the bit index has to represent any value between 0 and `hashes.len() * 8`,
     /// which is equal to `ceil(2^{EXPONENT} * B::NUMBER_OF_BITS, 64) * 64` bits, since the underlying storage is
-    /// what we will use upon saturation to store the HyperLogLog registers inplace of the current HashList. An upper
+    /// what we will use upon saturation to store the HyperLogLog registers inplace of the current sorted hash list. An upper
     /// bound for the number of bits required to store the bit index is `log2(1 + (2^{EXPONENT} * B::NUMBER_OF_BITS))`
     /// We can remove the `1` from the logarithm, as it is negligible since the other term is an exponential term.
     /// We obtain therefore `EXPONENT + log2(B::NUMBER_OF_BITS)` bits to store the bit index.
@@ -503,9 +502,9 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// the hashes to have a uniform distribution. Keeping in mind that we know the largest possible hash (i.e.
     /// `1 << hash_bits`), we bucket the hashes in `rank_index_capacity` buckets, and in each i-th bucket we store
     /// the largest hash that is smaller than `(rank_index_capacity - i) * (1 << hash_bits) / rank_index_capacity`.
-    /// The entry associated to the largest bucket is not stored as part of the index, as recalling that the hash list
+    /// The entry associated to the largest bucket is not stored as part of the index, as recalling that the sorted hash list
     /// is sorted in descending order, it always has necessarily bit index 0 and is already stored explicitly in the
-    /// hash list.
+    /// sorted hash list.
     ///
     /// Each bucket, except for the first implicit one, takes the following form:
     ///
@@ -570,8 +569,8 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// The rank index is solely actively used when we are using Prefix-Free codes, as in such cases we cannot
     /// execute a binary search to find the hash we are looking for. That being said, if we were to not preserve
     /// a certain portion of memory for the rank index, we would need to somehow free it when we switch from the
-    /// simple hash list to the Prefix-Free encoded hash list, but we execute the switch only when we have completely
-    /// saturated the hash list, and therefore a situation where we do not have any wiggle room to store the rank index.
+    /// simple sorted hash list to the Prefix-Free encoded sorted hash list, but we execute the switch only when we have completely
+    /// saturated the sorted hash list, and therefore a situation where we do not have any wiggle room to store the rank index.
     fn skip_rank_index<S: SkipSliceAhead>(hashes: S, hash_bits: u8) -> S {
         debug_assert_eq!(
             hash_bits % 8,
@@ -817,7 +816,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         // When the currently encoded value has a successor, we will be adding the gap between
         // the current hash and the next hash. If it does not have a successor, then there is
         // nothing to write. If there is no predecessor but there is a successor, it means that
-        // we are replacing the first hash in the hash list, which has size 'hash_bits'.
+        // we are replacing the first hash in the sorted hash list, which has size 'hash_bits'.
         // Such delta is already accounted for in 'last_read_bit_position_variation'.
         let current_to_next_size: u32 = current_to_next_gap.map_or(0, |current_to_next_gap| {
             len_rice(
@@ -864,7 +863,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 hash_bits,
             ) {
                 Err(SaturationError::Saturation(_)) => {
-                    // If the non-Prefix-Free-Encoded hash list is saturated, we must switch to the
+                    // If the non-Prefix-Free-Encoded sorted hash list is saturated, we must switch to the
                     // PFC variant, which generally requires a smaller number of bits to encode the hashes.
                     // This procedure will potentially reduce the number of hash bits employed, introduce
                     // duplicates (which are removed and we receive their number) and return the new bit index.
@@ -954,7 +953,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         );
 
         if bit_index + number_of_inserted_bits > Self::rank_index_offset(hashes, hash_bits) {
-            // If inserting the newly encoded hash would cause the hash list to overflow, we must
+            // If inserting the newly encoded hash would cause the sorted hash list to overflow, we must
             // downgrade it. This will change the number of hash bits, bit index, and potentially
             // introduce duplicates which will therefore reduce the number of hashes.
             return Self::insert_downgrading(
@@ -1198,7 +1197,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 );
 
                 // We have already checked that encoded hash is not present
-                // in the hash list, so we just need to check whether it is
+                // in the sorted hash list, so we just need to check whether it is
                 // larger than the current hash.
                 writer_tell += if encoded_hash > next && !encoded_hash_accounted_for {
                     encoded_hash_accounted_for = true;
@@ -1256,12 +1255,12 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 continue;
             }
 
-            // We check whether the encoded hash is accounted for in the hash list after having
+            // We check whether the encoded hash is accounted for in the sorted hash list after having
             // checked for reader overflow as the overflow might have happened before we could
             // account for the encoded hash.
             debug_assert!(
                 encoded_hash_accounted_for,
-                "Failed to account for the encoded hash {encoded_hash} in the hash list at precision {} and bits {}, with hash bits {}.",
+                "Failed to account for the encoded hash {encoded_hash} in the sorted hash list at precision {} and bits {}, with hash bits {}.",
                 P::EXPONENT,
                 B::NUMBER_OF_BITS,
                 hash_bits,
@@ -1986,10 +1985,10 @@ mod tests {
 
                 // We try to get the best starting point for the iterator from the rank index
                 // Since the index is empty, it should return as position 'hash_bits', as if
-                // returning the position associated to the first hash in the hash list.
+                // returning the position associated to the first hash in the sorted hash list.
                 // While this cannot happen in practice since the index is created upon preliminary
-                // saturation of the hash list, in our case we do not have any first hash in the
-                // hash list and as such we expect the rank index to return zero.
+                // saturation of the sorted hash list, in our case we do not have any first hash in the
+                // sorted hash list and as such we expect the rank index to return zero.
                 let (bit_index, bucket_hash) =
                     GapHash::<Precision11, Bits4>::best_search_start(&hashes, hash_bits, fake_hash);
 

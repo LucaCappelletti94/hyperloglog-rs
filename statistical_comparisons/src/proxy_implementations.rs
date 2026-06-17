@@ -62,7 +62,7 @@ impl<P: Precision + PackedRegister<B>, B: Bits> Default for HashListCorrectedImp
 impl<P: Precision + PackedRegister<B>, B: Bits> Set for HashListCorrectedImprinted<P, B> {
     #[inline]
     fn cardinality(&self) -> f64 {
-        if self.hll.is_hash_list() {
+        if self.hll.is_sorted_hash_list() {
             self.hll.estimate_cardinality()
         } else {
             self.hll.uncorrected_estimate_cardinality()

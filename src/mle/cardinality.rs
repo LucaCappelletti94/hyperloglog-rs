@@ -2,7 +2,7 @@
 
 use crate::prelude::*;
 use crate::utils::{FloatOps, Zero};
-#[cfg(not(feature = "std"))]
+#[allow(unused_imports)]
 use num_traits::Float;
 
 #[allow(clippy::too_many_lines)]

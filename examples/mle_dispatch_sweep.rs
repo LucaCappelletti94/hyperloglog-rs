@@ -156,8 +156,8 @@ where
             let (lefts, rights, _exact, union) = build::<P, B, 1, 1>(unit, seed);
             let left = &lefts[0];
             let right = &rights[0];
-            let all_hash_list = left.is_hash_list() && right.is_hash_list();
-            let all_dense = !left.is_hash_list() && !right.is_hash_list();
+            let all_hash_list = left.is_sorted_hash_list() && right.is_sorted_hash_list();
+            let all_dense = !left.is_sorted_hash_list() && !right.is_sorted_hash_list();
             path = path_label(all_hash_list, all_dense);
 
             let t = Instant::now();
@@ -227,18 +227,18 @@ where
         let mut path = "mixed";
         for seed in 0..SEEDS {
             let (lefts, rights, exact, union) = build::<P, B, M, N>(unit, seed);
-            let all_hash_list =
-                lefts.iter().all(Hll::is_hash_list) && rights.iter().all(Hll::is_hash_list);
-            let all_dense =
-                lefts.iter().all(|c| !c.is_hash_list()) && rights.iter().all(|c| !c.is_hash_list());
+            let all_hash_list = lefts.iter().all(Hll::is_sorted_hash_list)
+                && rights.iter().all(Hll::is_sorted_hash_list);
+            let all_dense = lefts.iter().all(|c| !c.is_sorted_hash_list())
+                && rights.iter().all(|c| !c.is_sorted_hash_list());
             path = path_label(all_hash_list, all_dense);
 
             // Forced register MLE: materialize every operand, then run the (now all-dense) MLE.
             let mut forced_lefts = lefts.clone();
             let mut forced_rights = rights.clone();
             for c in forced_lefts.iter_mut().chain(forced_rights.iter_mut()) {
-                if c.is_hash_list() {
-                    c.convert_hash_list_to_hyperloglog().unwrap();
+                if c.is_sorted_hash_list() {
+                    c.to_hll();
                 }
             }
             let fl_mle: [_; M] = core::array::from_fn(|i| forced_lefts[i].mle());

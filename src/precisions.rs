@@ -86,7 +86,7 @@ impl_precisions!(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
 mod tests {
     use super::*;
 
-    fn test_error_rate_simmetry<P: Precision>() {
+    fn test_error_rate_symmetry<P: Precision>() {
         let error_rate = P::error_rate();
         let exponent = (f64::log2(1.04 / error_rate) * 2.0).ceil();
         assert_eq!(exponent as u8, P::EXPONENT);
@@ -99,8 +99,8 @@ mod tests {
             $(
                 paste::paste! {
                     #[test]
-                    fn [<test_error_rate_simmetry_ $exponent>]() {
-                        test_error_rate_simmetry::<[<Precision $exponent>]>();
+                    fn [<test_error_rate_symmetry_ $exponent>]() {
+                        test_error_rate_symmetry::<[<Precision $exponent>]>();
                     }
                 }
             )*

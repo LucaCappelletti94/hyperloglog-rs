@@ -7,11 +7,13 @@
 #![deny(unused_import_braces)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
-#![cfg_attr(not(feature = "std"), no_std)]
+// The shipped crate is `no_std`. Tests link `std` (for the test harness and convenient std types in
+// test code), so `no_std` is applied only outside `test`. The library code itself never uses `std`.
+#![cfg_attr(not(test), no_std)]
 
-// The `alloc` crate is not auto-injected in no_std builds; bring it in so the allocation-backed
-// register and the no_std MLE compile with `alloc` but without `std`. The `vec!` macro it provides
-// is only needed by the MLE, so `macro_use` is applied only then to avoid an unused-import warning.
+// `alloc` is optional: bring it in so the allocation-backed register and the MLE compile with
+// `alloc`. The `vec!` macro it provides is only needed by the MLE, so `macro_use` is applied only
+// then to avoid an unused-import warning.
 #[cfg(feature = "alloc")]
 #[cfg_attr(feature = "mle", macro_use)]
 extern crate alloc;
@@ -35,7 +37,7 @@ pub mod prelude {
     pub use crate::estimator::CardinalityEstimator;
     pub use crate::hyperloglog::*;
     #[cfg(feature = "mle")]
-    pub use crate::mle::{Adam, Chain, JointOptimizer, Lbfgs, Mle, RmsProp};
+    pub use crate::mle::Mle;
     pub use crate::precisions::*;
     pub use crate::registers::*;
     pub use crate::sketches::*;

@@ -4,7 +4,8 @@ use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 use std::u32;
 use test_utils::prelude::{
-    rdp, uncorrected_cardinality_samples_by_model, CardinalitySample, CardinalitySamplesByModel,
+    force_dense_cardinality_samples, rdp, uncorrected_cardinality_samples_by_model,
+    CardinalitySample, CardinalitySamplesByModel,
 };
 
 fn small_float_formatter<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
@@ -40,6 +41,10 @@ pub struct HashCorrection {
     pub hyperloglog_relative_bias: Vec<f64>,
     pub hash_list_cardinalities: Vec<u32>,
     pub hyperloglog_cardinalities: Vec<u32>,
+    /// The cardinality at or below which linear counting beats the bias-corrected raw register
+    /// estimate (the largest sampled cardinality where linear-counting error is no worse than the
+    /// corrected-raw error). Below this, a force-dense counter should report linear counting.
+    pub linear_count_threshold: u32,
 }
 
 impl HashCorrection {
@@ -112,6 +117,35 @@ fn correction<P: Precision>(report: &[CardinalitySample], tolerance: f64) -> (Ve
     (cardinalities, biases)
 }
 
+/// Returns the linear-counting threshold for the given force-dense hyperloglog samples: the largest
+/// exact cardinality at which the measured linear-counting estimate is at least as accurate as the
+/// bias-corrected raw register estimate. Returns 0 when linear counting never wins.
+fn linear_count_threshold<P: Precision, B: Bits>(
+    hyperloglog: &[CardinalitySample],
+    correction: &HashCorrection,
+) -> u32 {
+    let mut samples: Vec<&CardinalitySample> = hyperloglog.iter().collect();
+    samples.sort_by(|a, b| {
+        a.exact_cardinality_mean
+            .partial_cmp(&b.exact_cardinality_mean)
+            .unwrap()
+    });
+
+    let mut threshold = 0u32;
+    for sample in samples {
+        let exact = sample.exact_cardinality_mean.max(1.0);
+        let corrected_raw =
+            correction.adjust_hyperloglog_cardinality::<P, B>(sample.estimated_cardinality_mean);
+        let corrected_raw_error = (exact - corrected_raw).abs() / exact;
+        let linear_counting_error = (exact - sample.linear_counting_estimate_mean).abs() / exact;
+        if linear_counting_error <= corrected_raw_error {
+            threshold = sample.exact_cardinality_mean.round() as u32;
+        }
+    }
+
+    threshold
+}
+
 #[allow(unsafe_code)]
 /// Measures the gap between subsequent hashes in the Listhash variant of HyperLogLog.
 pub fn hash_correction<P: Precision, B: Bits>(
@@ -163,14 +197,30 @@ where
         correction::<P>(&filtered_hyperloglog, 0.000005);
 
     // We create the correction.
-    let correction = HashCorrection {
+    let mut correction = HashCorrection {
         precision: P::EXPONENT,
         bits: B::NUMBER_OF_BITS,
         hash_list_bias,
         hyperloglog_relative_bias,
         hash_list_cardinalities,
         hyperloglog_cardinalities,
+        linear_count_threshold: 0,
     };
+
+    // Locate the linear-counting threshold: the largest cardinality where the linear-counting
+    // estimate is at least as accurate as the bias-corrected raw register estimate. Below this load a
+    // force-dense counter is more accurate using linear counting; above it the bias correction wins.
+    // This uses a separate, cheap force-dense sweep (capped at the bias-correction upper bound, the
+    // linear-counting region) so the heavy, cached natural-regime sampling above is left untouched.
+    let linear_region_max_cardinality = (7.5 * (1u64 << P::EXPONENT) as f64) as u64;
+    let force_dense_iterations: u64 = (12_800_000 * 64 / (1u64 << P::EXPONENT)).max(4096);
+    let force_dense_samples = force_dense_cardinality_samples::<P, B>(
+        force_dense_iterations,
+        linear_region_max_cardinality,
+        multiprogress,
+    );
+    correction.linear_count_threshold =
+        linear_count_threshold::<P, B>(&force_dense_samples, &correction);
 
     // We dump the HasHCorrection as a JSON file with the same path
     // as the output path but with a .json extension.

@@ -1,153 +1,4846 @@
 {
+  "bias_to_raw": 31004,
   "bits": 6,
+  "dense_start": 8368,
+  "linear_to_bias": 8755,
   "num_registers": 4096,
   "precision": 12,
-  "rows": [
+  "records": [
     {
-      "cardinality": 1,
-      "default_card_mre": 0.0,
-      "default_inter_mre": 0.0,
-      "default_union_mre": 0.0,
-      "est_card_ns": 1.385708,
-      "est_union_ns": 201.05060035336115,
-      "insert_ns": 1422.34,
-      "merge_ns": 879.4746738097296,
-      "mle_union_mre": null,
-      "mle_union_ns": null,
-      "regime": "exact",
-      "sketch_def_ns": 273.2095775742497,
-      "sketch_mle_inter_mre": null,
-      "sketch_mle_ns": null
+      "cardinality": 16,
+      "insert_ns": {
+        "mean": 10834.8075,
+        "std": 343.09810469843205
+      },
+      "merge_ns": {
+        "mean": 10800.336341422279,
+        "std": 404.2152493902636
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.24656801,
+              "std": 0.045432814417526425
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 54088.950478634026,
+              "std": 1377.081178317364
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 3128.964452119318,
+              "std": 106.45782114390578
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "value_list"
     },
     {
-      "cardinality": 2716,
-      "default_card_mre": 0.0,
-      "default_inter_mre": 0.0,
-      "default_union_mre": 0.0,
-      "est_card_ns": 1.4109885,
-      "est_union_ns": 17773.931914893616,
-      "insert_ns": 9770.23,
-      "merge_ns": 62716.7412755716,
-      "mle_union_mre": null,
-      "mle_union_ns": null,
-      "regime": "exact",
-      "sketch_def_ns": 17125.717303822938,
-      "sketch_mle_inter_mre": null,
-      "sketch_mle_ns": null
+      "cardinality": 16,
+      "insert_ns": {
+        "mean": 998.4515200000001,
+        "std": 11.489769844935982
+      },
+      "merge_ns": {
+        "mean": 514.0721701802153,
+        "std": 11.265053597205128
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0000909727081874756,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 13.299822257837095,
+              "std": 0.39974777008946016
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.0000909727081874756,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 7008.966460076872,
+              "std": 140.34719048615258
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0000909727081874756,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 366.55954596593773,
+              "std": 10.461303722802857
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
     },
     {
-      "cardinality": 5383,
-      "default_card_mre": 0.0,
-      "default_inter_mre": 0.0,
-      "default_union_mre": 0.0,
-      "est_card_ns": 1.4121155,
-      "est_union_ns": 35087.09414225941,
-      "insert_ns": 17499.49,
-      "merge_ns": 121487.68824940048,
-      "mle_union_mre": null,
-      "mle_union_ns": null,
-      "regime": "exact",
-      "sketch_def_ns": 34704.45858184228,
-      "sketch_mle_inter_mre": null,
-      "sketch_mle_ns": null
+      "cardinality": 16,
+      "insert_ns": {
+        "mean": 14.502260000000001,
+        "std": 0.5491976533088978
+      },
+      "merge_ns": {
+        "mean": 15657.097229630004,
+        "std": 459.77760786628016
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.003336842402850799,
+              "std": 0.008898929253750886
+            },
+            "speed_ns": {
+              "mean": 2931.2241757855036,
+              "std": 94.24451614374323
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.003333776809650288,
+              "std": 0.008895078493840714
+            },
+            "speed_ns": {
+              "mean": 11352.886578908325,
+              "std": 377.3068290666058
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.031485437430260915,
+              "std": 0.011863848693881048
+            },
+            "speed_ns": {
+              "mean": 58693.11178292581,
+              "std": 1223.6158938271174
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.027600569215274134,
+              "std": 0.014609022853525005
+            },
+            "speed_ns": {
+              "mean": 727646.2095742277,
+              "std": 25666.62529201592
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.005192728147662954,
+              "std": 0.00872020026796488
+            },
+            "speed_ns": {
+              "mean": 11704.563701905294,
+              "std": 339.41349123170505
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.0038655920413225714,
+              "std": 0.007943900987798578
+            },
+            "speed_ns": {
+              "mean": 170229.18660562873,
+              "std": 3889.5317029590055
+            }
+          }
+        }
+      },
+      "representation": "dense"
     },
     {
-      "cardinality": 8204,
-      "default_card_mre": 0.005643202509265855,
-      "default_inter_mre": 0.029333760782782006,
-      "default_union_mre": 0.009407183062889134,
-      "est_card_ns": 10.74950875,
-      "est_union_ns": 570697.1235955056,
-      "insert_ns": 154.9355,
-      "merge_ns": 562958.2637362637,
-      "mle_union_mre": null,
-      "mle_union_ns": null,
-      "regime": "hash_list",
-      "sketch_def_ns": 585564.0459770114,
-      "sketch_mle_inter_mre": null,
-      "sketch_mle_ns": null
+      "cardinality": 16,
+      "insert_ns": {
+        "mean": 11000.885625,
+        "std": 239.61884710736445
+      },
+      "merge_ns": {
+        "mean": 10774.432950785651,
+        "std": 231.63982252134372
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.2626910799999997,
+              "std": 0.05748300419622829
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 53807.891801957536,
+              "std": 1191.8251652068964
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 3112.684722757343,
+              "std": 65.37022750458047
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
     },
     {
-      "cardinality": 8313,
-      "default_card_mre": 0.005848967104805084,
-      "default_inter_mre": 0.04979531088720485,
-      "default_union_mre": 0.016007651366675243,
-      "est_card_ns": 11.7126125,
-      "est_union_ns": 248297.23300970873,
-      "insert_ns": 79.42275,
-      "merge_ns": 250085.16666666666,
-      "mle_union_mre": null,
-      "mle_union_ns": null,
-      "regime": "hash_list",
-      "sketch_def_ns": 237136.73953488373,
-      "sketch_mle_inter_mre": null,
-      "sketch_mle_ns": null
+      "cardinality": 26,
+      "insert_ns": {
+        "mean": 13252.656875,
+        "std": 685.3972084486622
+      },
+      "merge_ns": {
+        "mean": 16931.05518410032,
+        "std": 332.47725733751247
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.2328475699999997,
+              "std": 0.018654204207700774
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 86418.21678426063,
+              "std": 1993.3137183473757
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 4994.216728914349,
+              "std": 180.29711782708225
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "value_list"
     },
     {
-      "cardinality": 8567,
-      "default_card_mre": 0.01116867543881691,
-      "default_inter_mre": 0.3106525273763333,
-      "default_union_mre": 0.10260732571836069,
-      "est_card_ns": 10.88938075,
-      "est_union_ns": 9116.895837120524,
-      "insert_ns": 14.99575,
-      "merge_ns": 15398.001515151514,
-      "mle_union_mre": 0.00810392062235541,
-      "mle_union_ns": 150021.14369501467,
-      "regime": "dense",
-      "sketch_def_ns": 9300.087827988338,
-      "sketch_mle_inter_mre": 0.01563922366129963,
-      "sketch_mle_ns": 10775934.7
+      "cardinality": 26,
+      "insert_ns": {
+        "mean": 957.8328600000002,
+        "std": 18.863878535720062
+      },
+      "merge_ns": {
+        "mean": 729.3302440169806,
+        "std": 11.124620658976186
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818751007,
+              "std": 2.981555974335137e-19
+            },
+            "speed_ns": {
+              "mean": 13.095169307874757,
+              "std": 0.24111455487815797
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.0000909727081875097,
+              "std": 6.776263578034403e-20
+            },
+            "speed_ns": {
+              "mean": 13303.587737827176,
+              "std": 397.34097316679134
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818760057,
+              "std": 2.846030702774449e-19
+            },
+            "speed_ns": {
+              "mean": 580.102272145783,
+              "std": 9.42879970712136
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
     },
     {
-      "cardinality": 16384,
-      "default_card_mre": 0.010399384697183383,
-      "default_inter_mre": 0.023845407863326912,
-      "default_union_mre": 0.010866075624933752,
-      "est_card_ns": 11.13712675,
-      "est_union_ns": 9128.747417171357,
-      "insert_ns": 14.95325,
-      "merge_ns": 15607.819964349375,
-      "mle_union_mre": 0.009845341529542006,
-      "mle_union_ns": 131415.59817945384,
-      "regime": "dense",
-      "sketch_def_ns": 9629.7663282896,
-      "sketch_mle_inter_mre": 0.017582092723994244,
-      "sketch_mle_ns": 10916462.4
+      "cardinality": 26,
+      "insert_ns": {
+        "mean": 15.405579999999997,
+        "std": 0.8772426879718062
+      },
+      "merge_ns": {
+        "mean": 15476.251609094767,
+        "std": 464.2201413121313
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00583921624095222,
+              "std": 0.008871157096237911
+            },
+            "speed_ns": {
+              "mean": 2879.8570166221216,
+              "std": 42.81170934758734
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.005843997694406843,
+              "std": 0.008911270465920154
+            },
+            "speed_ns": {
+              "mean": 11163.724941627539,
+              "std": 191.671652728069
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.030457003717842407,
+              "std": 0.009362405403781813
+            },
+            "speed_ns": {
+              "mean": 58763.14582694621,
+              "std": 1620.2196445794189
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.028135140482648705,
+              "std": 0.00992320235561495
+            },
+            "speed_ns": {
+              "mean": 652301.8849078572,
+              "std": 10764.813084096108
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.008087375231314866,
+              "std": 0.007460624898943978
+            },
+            "speed_ns": {
+              "mean": 11766.429356750274,
+              "std": 273.0008721137393
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.006358069765705014,
+              "std": 0.0073166297071082876
+            },
+            "speed_ns": {
+              "mean": 167942.22958013738,
+              "std": 4142.835836078824
+            }
+          }
+        }
+      },
+      "representation": "dense"
     },
     {
-      "cardinality": 65536,
-      "default_card_mre": 0.011890436430546866,
-      "default_inter_mre": 0.02691394368128859,
-      "default_union_mre": 0.012085866092199962,
-      "est_card_ns": 2.52931825,
-      "est_union_ns": 9320.360938333037,
-      "insert_ns": 15.8375,
-      "merge_ns": 15085.182553956834,
-      "mle_union_mre": 0.009751543876478346,
-      "mle_union_ns": 124804.21245421245,
-      "regime": "dense",
-      "sketch_def_ns": 9130.325296869378,
-      "sketch_mle_inter_mre": 0.021612242522677228,
-      "sketch_mle_ns": 12887331.5
+      "cardinality": 26,
+      "insert_ns": {
+        "mean": 13115.44375,
+        "std": 713.2483920964175
+      },
+      "merge_ns": {
+        "mean": 17025.432849201487,
+        "std": 315.680309751427
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.2905239799999997,
+              "std": 0.05372463462797675
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 86683.98446328472,
+              "std": 5341.351012239747
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 5280.268388433378,
+              "std": 342.96199198660213
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
     },
     {
-      "cardinality": 262144,
-      "default_card_mre": 0.014530078795195642,
-      "default_inter_mre": 0.025152615773870318,
-      "default_union_mre": 0.013034694226000223,
-      "est_card_ns": 2.565439,
-      "est_union_ns": 9470.133019755409,
-      "insert_ns": 15.835,
-      "merge_ns": 15906.879812206573,
-      "mle_union_mre": 0.010652172229657662,
-      "mle_union_ns": 155073.2015503876,
-      "regime": "dense",
-      "sketch_def_ns": 9535.883955792682,
-      "sketch_mle_inter_mre": 0.020287958789858153,
-      "sketch_mle_ns": 13097472.625
+      "cardinality": 42,
+      "insert_ns": {
+        "mean": 16315.576875,
+        "std": 597.7189632116523
+      },
+      "merge_ns": {
+        "mean": 26846.454737821805,
+        "std": 528.6588906577625
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.2531890699999995,
+              "std": 0.045231685252128284
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 7885.90069296188,
+              "std": 172.3410183356265
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "value_list"
+    },
+    {
+      "cardinality": 42,
+      "insert_ns": {
+        "mean": 965.9328200000001,
+        "std": 16.61932568540613
+      },
+      "merge_ns": {
+        "mean": 1075.4010363250138,
+        "std": 19.45378232653584
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818749649,
+              "std": 2.574980159653073e-19
+            },
+            "speed_ns": {
+              "mean": 13.073482120795852,
+              "std": 0.23019363723388003
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.0000909727081874966,
+              "std": 1.4907779871675686e-19
+            },
+            "speed_ns": {
+              "mean": 22833.602062455084,
+              "std": 331.6862112360108
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818749649,
+              "std": 2.574980159653073e-19
+            },
+            "speed_ns": {
+              "mean": 934.0349141930643,
+              "std": 42.828982939163154
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 42,
+      "insert_ns": {
+        "mean": 14.374220000000003,
+        "std": 0.7055165069649326
+      },
+      "merge_ns": {
+        "mean": 15387.391303395456,
+        "std": 256.7277564780172
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00834029281093781,
+              "std": 0.007929991656298367
+            },
+            "speed_ns": {
+              "mean": 2968.9008337195282,
+              "std": 151.99983000002143
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.008302309924057578,
+              "std": 0.007972126196589418
+            },
+            "speed_ns": {
+              "mean": 11174.281295265704,
+              "std": 203.38490690744752
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.032811130365339225,
+              "std": 0.009160333992209708
+            },
+            "speed_ns": {
+              "mean": 58653.42986341515,
+              "std": 1297.0486811970238
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.029925704838211373,
+              "std": 0.00980400402141328
+            },
+            "speed_ns": {
+              "mean": 700653.7079754558,
+              "std": 8639.379115958158
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00938778911895951,
+              "std": 0.005619208522065719
+            },
+            "speed_ns": {
+              "mean": 11776.864109503815,
+              "std": 277.1024584087764
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.007739590513134602,
+              "std": 0.005191259101016645
+            },
+            "speed_ns": {
+              "mean": 161997.20181756574,
+              "std": 2687.087873984437
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 42,
+      "insert_ns": {
+        "mean": 16667.044375,
+        "std": 602.7948619872943
+      },
+      "merge_ns": {
+        "mean": 27250.399024179143,
+        "std": 1201.4896179277578
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.26371095,
+              "std": 0.05538211626332998
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.0001364590622814145,
+              "std": 1.8973538018496328e-19
+            },
+            "speed_ns": {
+              "mean": 75232.77024301795,
+              "std": 1492.3419400786277
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 7742.786695024481,
+              "std": 49.714631032812356
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 68,
+      "insert_ns": {
+        "mean": 23300.325,
+        "std": 707.630332835739
+      },
+      "merge_ns": {
+        "mean": 43040.94883437813,
+        "std": 996.9467603997219
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.2325218600000003,
+              "std": 0.01792895226150706
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 12482.644519472578,
+              "std": 117.7481723022392
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "value_list"
+    },
+    {
+      "cardinality": 68,
+      "insert_ns": {
+        "mean": 990.4834,
+        "std": 16.69540731578597
+      },
+      "merge_ns": {
+        "mean": 1850.2276803909897,
+        "std": 112.50946050891383
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818760651,
+              "std": 2.846030702774449e-19
+            },
+            "speed_ns": {
+              "mean": 13.0449373835823,
+              "std": 0.26077922479299875
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.0000909727081876063,
+              "std": 8.131516293641283e-20
+            },
+            "speed_ns": {
+              "mean": 40489.67002855407,
+              "std": 718.6547656535923
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818753694,
+              "std": 3.7947076036992655e-19
+            },
+            "speed_ns": {
+              "mean": 1679.3624359698397,
+              "std": 44.336056140360085
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 68,
+      "insert_ns": {
+        "mean": 15.41348,
+        "std": 0.769049783564107
+      },
+      "merge_ns": {
+        "mean": 15456.711160356512,
+        "std": 335.9361179977896
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.009379408281025996,
+              "std": 0.0059088033360772015
+            },
+            "speed_ns": {
+              "mean": 2909.6700721118937,
+              "std": 63.09920964745674
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.009338577821398363,
+              "std": 0.005911881477340273
+            },
+            "speed_ns": {
+              "mean": 10941.319436992468,
+              "std": 137.50495907225496
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.03354112916446132,
+              "std": 0.01026075840269635
+            },
+            "speed_ns": {
+              "mean": 58744.34225888869,
+              "std": 1594.916423501682
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.030462797720146803,
+              "std": 0.008324407857671584
+            },
+            "speed_ns": {
+              "mean": 710728.7758616086,
+              "std": 9875.034032292824
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.008785240554909049,
+              "std": 0.006474024013125734
+            },
+            "speed_ns": {
+              "mean": 11797.45023898243,
+              "std": 335.31243851201776
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.007568974529399402,
+              "std": 0.005559994168627674
+            },
+            "speed_ns": {
+              "mean": 159413.2967542395,
+              "std": 3044.473414652177
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 68,
+      "insert_ns": {
+        "mean": 23298.145625,
+        "std": 698.9236910091876
+      },
+      "merge_ns": {
+        "mean": 43645.02252034977,
+        "std": 1661.7780760115413
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.33123032,
+              "std": 0.2150098924104833
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.00013645906228088714,
+              "std": 2.710505431213761e-19
+            },
+            "speed_ns": {
+              "mean": 126342.43930628616,
+              "std": 2727.7907894606114
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 12652.372855668835,
+              "std": 310.4068484279662
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 109,
+      "insert_ns": {
+        "mean": 29682.033333333336,
+        "std": 1298.7241955806312
+      },
+      "merge_ns": {
+        "mean": 67856.4785706806,
+        "std": 928.4590890817564
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.23656168,
+              "std": 0.016977092534135586
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 20021.532863874414,
+              "std": 559.3910379353359
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "value_list"
+    },
+    {
+      "cardinality": 109,
+      "insert_ns": {
+        "mean": 1074.5611799999997,
+        "std": 14.202549791414208
+      },
+      "merge_ns": {
+        "mean": 2983.0148991389856,
+        "std": 81.33044368158443
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818751266,
+              "std": 3.7947076036992655e-19
+            },
+            "speed_ns": {
+              "mean": 13.067149746154962,
+              "std": 0.3137690264573633
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.00017341580543800875,
+              "std": 0.0004965075286944956
+            },
+            "speed_ns": {
+              "mean": 70456.60182173307,
+              "std": 1042.3005694644544
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818753003,
+              "std": 2.710505431213761e-19
+            },
+            "speed_ns": {
+              "mean": 2811.934217379208,
+              "std": 58.765835657583715
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 109,
+      "insert_ns": {
+        "mean": 14.549279999999996,
+        "std": 0.6448503869891064
+      },
+      "merge_ns": {
+        "mean": 15291.0542985574,
+        "std": 242.99092962982996
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.008961667273503022,
+              "std": 0.0059970266872461705
+            },
+            "speed_ns": {
+              "mean": 2919.1141884912545,
+              "std": 62.40337349712262
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.008862678367427957,
+              "std": 0.00601321661562412
+            },
+            "speed_ns": {
+              "mean": 10800.996467188159,
+              "std": 96.21333641773255
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.03360861415492931,
+              "std": 0.010847614168708782
+            },
+            "speed_ns": {
+              "mean": 58087.55880055118,
+              "std": 1174.347054262474
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.03147345713115313,
+              "std": 0.01031412325928561
+            },
+            "speed_ns": {
+              "mean": 688815.2677659295,
+              "std": 16715.62094456215
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.008440360839486266,
+              "std": 0.006869987659325874
+            },
+            "speed_ns": {
+              "mean": 11609.543646922033,
+              "std": 275.9640896057045
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.007221429578095448,
+              "std": 0.0056965057718488974
+            },
+            "speed_ns": {
+              "mean": 144488.4847505373,
+              "std": 2195.5763141292623
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 109,
+      "insert_ns": {
+        "mean": 30439.145185185193,
+        "std": 1038.5121248374012
+      },
+      "merge_ns": {
+        "mean": 69079.88154995702,
+        "std": 3418.6834713396656
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.22862338,
+              "std": 0.013232229271010938
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.00017341580543800875,
+              "std": 0.0004965075286944956
+            },
+            "speed_ns": {
+              "mean": 70670.1418720435,
+              "std": 934.9326286172859
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 20118.47391353747,
+              "std": 456.7749826840409
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 162,
+      "insert_ns": {
+        "mean": 38214.51111111112,
+        "std": 2131.5337971634262
+      },
+      "merge_ns": {
+        "mean": 74594.74175064695,
+        "std": 1537.4413872989574
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.2516535300000005,
+              "std": 0.0554220963350503
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 29677.723048218988,
+              "std": 728.2593586195685
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "value_list"
+    },
+    {
+      "cardinality": 162,
+      "insert_ns": {
+        "mean": 1082.3174800000002,
+        "std": 9.733509927544103
+      },
+      "merge_ns": {
+        "mean": 4557.744625013447,
+        "std": 71.87011264506285
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818745914,
+              "std": 1.3552527156068805e-20
+            },
+            "speed_ns": {
+              "mean": 13.101355915822523,
+              "std": 0.27219686662775483
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.00027962714580679086,
+              "std": 0.0005669137172904628
+            },
+            "speed_ns": {
+              "mean": 1318050.3308817206,
+              "std": 11097.940037751556
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818751732,
+              "std": 3.1170812458958252e-19
+            },
+            "speed_ns": {
+              "mean": 4484.052556094577,
+              "std": 112.82460748295814
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 162,
+      "insert_ns": {
+        "mean": 14.305100000000003,
+        "std": 0.6860487592001023
+      },
+      "merge_ns": {
+        "mean": 15447.722172328702,
+        "std": 341.09165193981545
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.008454181537175783,
+              "std": 0.007011688586350733
+            },
+            "speed_ns": {
+              "mean": 2908.679847510428,
+              "std": 60.39382986354485
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.008432827485186282,
+              "std": 0.006975505001636942
+            },
+            "speed_ns": {
+              "mean": 10853.593003501976,
+              "std": 357.26386952763175
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.034329015140201584,
+              "std": 0.009186966141775315
+            },
+            "speed_ns": {
+              "mean": 59966.6189110424,
+              "std": 1352.901887805227
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.030600883891378328,
+              "std": 0.0090205160361697
+            },
+            "speed_ns": {
+              "mean": 673977.639650679,
+              "std": 11537.435718269
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00844697930233681,
+              "std": 0.006242235060093191
+            },
+            "speed_ns": {
+              "mean": 11683.273253120955,
+              "std": 262.6959720383494
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.0072686104695371375,
+              "std": 0.005455171624051434
+            },
+            "speed_ns": {
+              "mean": 175338.51721198042,
+              "std": 2476.168565810231
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 162,
+      "insert_ns": {
+        "mean": 37964.14074074074,
+        "std": 2257.519830312107
+      },
+      "merge_ns": {
+        "mean": 75472.37629385425,
+        "std": 1753.2731465628663
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.2775188800000006,
+              "std": 0.0523643123643441
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.00027962714580679086,
+              "std": 0.0005669137172904628
+            },
+            "speed_ns": {
+              "mean": 1344674.3855394884,
+              "std": 36285.55647807696
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 29528.86812396076,
+              "std": 622.7999292905197
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 175,
+      "insert_ns": {
+        "mean": 39073.11047619047,
+        "std": 2349.251046059046
+      },
+      "merge_ns": {
+        "mean": 81510.58174975355,
+        "std": 2136.6892746986496
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.24982323,
+              "std": 0.040515104032565474
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 32189.122875875444,
+              "std": 726.4405095559057
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "value_list"
+    },
+    {
+      "cardinality": 175,
+      "insert_ns": {
+        "mean": 1090.9031599999998,
+        "std": 12.404945042780321
+      },
+      "merge_ns": {
+        "mean": 4908.161229059364,
+        "std": 94.90695960995852
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818756471,
+              "std": 2.846030702774449e-19
+            },
+            "speed_ns": {
+              "mean": 13.13625843008935,
+              "std": 0.28672196028611574
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.00024320948507116835,
+              "std": 0.00045275910077540186
+            },
+            "speed_ns": {
+              "mean": 1636911.9212000004,
+              "std": 34992.88437263839
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818752092,
+              "std": 2.710505431213761e-19
+            },
+            "speed_ns": {
+              "mean": 4747.4053692514435,
+              "std": 65.84751873525599
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 175,
+      "insert_ns": {
+        "mean": 14.522579999999998,
+        "std": 0.672409989217888
+      },
+      "merge_ns": {
+        "mean": 15457.932343808476,
+        "std": 314.5645978037422
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00838065443682032,
+              "std": 0.006654258125086967
+            },
+            "speed_ns": {
+              "mean": 2911.118255106998,
+              "std": 64.46068919172937
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.008307722986944483,
+              "std": 0.006682230437468361
+            },
+            "speed_ns": {
+              "mean": 10719.9081652073,
+              "std": 163.24992166270368
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.03328480790477355,
+              "std": 0.010613213680462672
+            },
+            "speed_ns": {
+              "mean": 57843.2919057414,
+              "std": 891.4152879672429
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.029533874455875016,
+              "std": 0.00897533249446418
+            },
+            "speed_ns": {
+              "mean": 693724.8714602264,
+              "std": 12621.190161604934
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.008511987683896816,
+              "std": 0.006260307748647157
+            },
+            "speed_ns": {
+              "mean": 11533.066357476238,
+              "std": 202.37426268631478
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.007317051230354698,
+              "std": 0.005795656399216657
+            },
+            "speed_ns": {
+              "mean": 168377.26861790812,
+              "std": 3624.064115222809
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 175,
+      "insert_ns": {
+        "mean": 41387.28952380953,
+        "std": 2562.9307285332284
+      },
+      "merge_ns": {
+        "mean": 80489.53824512534,
+        "std": 915.8232430924745
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.2375842,
+              "std": 0.019864320103265578
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.00024320948507116835,
+              "std": 0.00045275910077540186
+            },
+            "speed_ns": {
+              "mean": 1633197.0540564102,
+              "std": 33107.97650417947
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 31517.627215469096,
+              "std": 303.98453565351343
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 195,
+      "insert_ns": {
+        "mean": 45103.541818181824,
+        "std": 3782.5586334985665
+      },
+      "merge_ns": {
+        "mean": 91664.45135270606,
+        "std": 2348.804920234439
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.2553297999999997,
+              "std": 0.04412775291769341
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 35158.1985696205,
+              "std": 487.6053099721245
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "value_list"
+    },
+    {
+      "cardinality": 195,
+      "insert_ns": {
+        "mean": 1168.71598,
+        "std": 9.763425853131663
+      },
+      "merge_ns": {
+        "mean": 5704.508801820259,
+        "std": 113.12261085301374
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818756471,
+              "std": 2.846030702774449e-19
+            },
+            "speed_ns": {
+              "mean": 13.025545251863907,
+              "std": 0.21146128867331726
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.00038377763139863094,
+              "std": 0.0006092823597956895
+            },
+            "speed_ns": {
+              "mean": 2252028.384444444,
+              "std": 14562.261206976953
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818752527,
+              "std": 3.5236570605778894e-19
+            },
+            "speed_ns": {
+              "mean": 5584.567491388186,
+              "std": 147.16634797456055
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 195,
+      "insert_ns": {
+        "mean": 14.517780000000002,
+        "std": 0.6585684183135418
+      },
+      "merge_ns": {
+        "mean": 15392.549300876712,
+        "std": 363.81942087503
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00845096365948268,
+              "std": 0.006434258245358398
+            },
+            "speed_ns": {
+              "mean": 2916.1031790704233,
+              "std": 61.910539665376085
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.008399720321051515,
+              "std": 0.0064804921662223085
+            },
+            "speed_ns": {
+              "mean": 10755.480333483394,
+              "std": 259.25640484897434
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.03416556135247354,
+              "std": 0.009424014777165092
+            },
+            "speed_ns": {
+              "mean": 58151.82793553965,
+              "std": 1128.216470780357
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.032048113274002255,
+              "std": 0.00805443152522925
+            },
+            "speed_ns": {
+              "mean": 605265.9926752329,
+              "std": 10548.102340602782
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.008623603908538075,
+              "std": 0.006547131458357696
+            },
+            "speed_ns": {
+              "mean": 12143.132969722532,
+              "std": 835.0781343593687
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.007554214035602329,
+              "std": 0.005763107070475066
+            },
+            "speed_ns": {
+              "mean": 163984.4501846936,
+              "std": 1707.7996535781172
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 195,
+      "insert_ns": {
+        "mean": 42596.55999999999,
+        "std": 3564.331638082336
+      },
+      "merge_ns": {
+        "mean": 89874.99734921183,
+        "std": 1668.4126327292902
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 2.30070423,
+              "std": 0.058971974221994655
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.00038377763139863094,
+              "std": 0.0006092823597956895
+            },
+            "speed_ns": {
+              "mean": 2267652.004444444,
+              "std": 82355.31587712308
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0,
+              "std": 0.0
+            },
+            "speed_ns": {
+              "mean": 35671.174426287726,
+              "std": 844.1247666524491
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 281,
+      "insert_ns": {
+        "mean": 1172.4173799999996,
+        "std": 26.724080348359962
+      },
+      "merge_ns": {
+        "mean": 9231.220778116352,
+        "std": 232.7692083624782
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818748342,
+              "std": 8.131516293641283e-20
+            },
+            "speed_ns": {
+              "mean": 13.131433994085258,
+              "std": 0.28890069867229007
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.007231784615074851,
+              "std": 0.004429508923767749
+            },
+            "speed_ns": {
+              "mean": 4722265.426666667,
+              "std": 64556.87161706651
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00010806597697828065,
+              "std": 0.00019263135627344596
+            },
+            "speed_ns": {
+              "mean": 9018.205780111546,
+              "std": 161.18650787564695
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 281,
+      "insert_ns": {
+        "mean": 14.436380000000002,
+        "std": 0.15954292713874837
+      },
+      "merge_ns": {
+        "mean": 15350.291268085859,
+        "std": 243.03339387501586
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.008581535057435257,
+              "std": 0.006565441602948248
+            },
+            "speed_ns": {
+              "mean": 2887.845659130879,
+              "std": 51.18556484027016
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.008567639172155292,
+              "std": 0.006639939599735232
+            },
+            "speed_ns": {
+              "mean": 10495.966829329827,
+              "std": 220.31194289185828
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.03509134063904846,
+              "std": 0.010757527565159594
+            },
+            "speed_ns": {
+              "mean": 59128.12624797631,
+              "std": 1378.6555058080794
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.03322608593887871,
+              "std": 0.009813304439489514
+            },
+            "speed_ns": {
+              "mean": 656791.5635932484,
+              "std": 22433.438946876584
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00920549012464673,
+              "std": 0.00690533003817537
+            },
+            "speed_ns": {
+              "mean": 11668.539299907203,
+              "std": 250.58429938750652
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.007711595157815239,
+              "std": 0.005397443316180692
+            },
+            "speed_ns": {
+              "mean": 156565.7517171062,
+              "std": 2488.4362517228365
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 281,
+      "insert_ns": {
+        "mean": 1169.5376999999999,
+        "std": 25.973672425746813
+      },
+      "merge_ns": {
+        "mean": 9142.716695104824,
+        "std": 210.21940054933438
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00009097270818748342,
+              "std": 8.131516293641283e-20
+            },
+            "speed_ns": {
+              "mean": 13.040734767851022,
+              "std": 0.2101832575746032
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.007231784615074851,
+              "std": 0.004429508923767749
+            },
+            "speed_ns": {
+              "mean": 4713207.395555557,
+              "std": 55076.09829982446
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00010806597697828065,
+              "std": 0.00019263135627344596
+            },
+            "speed_ns": {
+              "mean": 9029.38444376224,
+              "std": 222.1468492898359
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 450,
+      "insert_ns": {
+        "mean": 1258.9454200000002,
+        "std": 24.568353380998094
+      },
+      "merge_ns": {
+        "mean": 15433.021274762594,
+        "std": 139.42178966920804
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0001148845710870289,
+              "std": 0.00021959024598302516
+            },
+            "speed_ns": {
+              "mean": 13.023197081209789,
+              "std": 0.22173886702445134
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.02097044653897742,
+              "std": 0.008651929851209442
+            },
+            "speed_ns": {
+              "mean": 8396289.656,
+              "std": 147379.15837697554
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0001265105827047546,
+              "std": 0.00021195423723604126
+            },
+            "speed_ns": {
+              "mean": 15471.300825711038,
+              "std": 372.04234073569773
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 450,
+      "insert_ns": {
+        "mean": 15.393360000000003,
+        "std": 0.7486713767735483
+      },
+      "merge_ns": {
+        "mean": 15653.142774783493,
+        "std": 621.1320223797493
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.009463783768422386,
+              "std": 0.006815680060710338
+            },
+            "speed_ns": {
+              "mean": 2917.8918146553015,
+              "std": 60.63121850521647
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.009461605566886928,
+              "std": 0.006638392290877559
+            },
+            "speed_ns": {
+              "mean": 10163.232588491364,
+              "std": 198.20100705775067
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.03881076567160931,
+              "std": 0.010385114394868724
+            },
+            "speed_ns": {
+              "mean": 58892.32471073177,
+              "std": 1471.8864846556423
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.031474105290638515,
+              "std": 0.00949918293969123
+            },
+            "speed_ns": {
+              "mean": 641994.0931223558,
+              "std": 23248.953995562184
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00879097706541998,
+              "std": 0.006658561798164936
+            },
+            "speed_ns": {
+              "mean": 11685.381942405476,
+              "std": 298.24955083774734
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.00753940622384431,
+              "std": 0.005303667480425911
+            },
+            "speed_ns": {
+              "mean": 157785.76903324053,
+              "std": 3153.7971729742985
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 450,
+      "insert_ns": {
+        "mean": 1269.9827200000002,
+        "std": 29.501327257626887
+      },
+      "merge_ns": {
+        "mean": 15948.932214463903,
+        "std": 595.3888171320242
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.0001148845710870289,
+              "std": 0.00021959024598302516
+            },
+            "speed_ns": {
+              "mean": 13.193615641210808,
+              "std": 0.3042384577701806
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.02097044653897742,
+              "std": 0.008651929851209442
+            },
+            "speed_ns": {
+              "mean": 8423579.599999998,
+              "std": 170291.03533759128
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0001265105827047546,
+              "std": 0.00021195423723604126
+            },
+            "speed_ns": {
+              "mean": 15473.418329086971,
+              "std": 312.24645524747166
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 721,
+      "insert_ns": {
+        "mean": 1436.8773600000004,
+        "std": 40.22229368286201
+      },
+      "merge_ns": {
+        "mean": 209894.97412335846,
+        "std": 5379.659656533992
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00012392584560803308,
+              "std": 0.00019653840307992649
+            },
+            "speed_ns": {
+              "mean": 13.155899178801736,
+              "std": 0.33295761085691394
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0001503904911013583,
+              "std": 0.00024349119929188262
+            },
+            "speed_ns": {
+              "mean": 210874.03078214088,
+              "std": 9628.100448048917
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 721,
+      "insert_ns": {
+        "mean": 14.526620000000001,
+        "std": 0.6446661039639049
+      },
+      "merge_ns": {
+        "mean": 15533.81971572018,
+        "std": 347.23211368755517
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.009166248615719028,
+              "std": 0.0070029743297432894
+            },
+            "speed_ns": {
+              "mean": 2932.4641199776647,
+              "std": 74.19776095267896
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.0091809699431554,
+              "std": 0.006931899624153491
+            },
+            "speed_ns": {
+              "mean": 9697.285686509242,
+              "std": 297.8702565892317
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.0427151785144971,
+              "std": 0.01594392431701304
+            },
+            "speed_ns": {
+              "mean": 58340.53429344116,
+              "std": 1207.278821605622
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.03263550344179652,
+              "std": 0.01018846978334217
+            },
+            "speed_ns": {
+              "mean": 672605.8581574063,
+              "std": 15184.813358577254
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.008827693049269244,
+              "std": 0.0069426509371722425
+            },
+            "speed_ns": {
+              "mean": 11774.31028530507,
+              "std": 289.4037308146499
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.007156839885756148,
+              "std": 0.00591772672375642
+            },
+            "speed_ns": {
+              "mean": 159634.24086872287,
+              "std": 5530.687124016258
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 721,
+      "insert_ns": {
+        "mean": 1409.09018,
+        "std": 13.608491823769443
+      },
+      "merge_ns": {
+        "mean": 205234.61942367943,
+        "std": 6686.533083153843
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00012392584560803308,
+              "std": 0.00019653840307992649
+            },
+            "speed_ns": {
+              "mean": 13.143722877726542,
+              "std": 0.29905342478398583
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.02173617392950895,
+              "std": 0.007018313372669153
+            },
+            "speed_ns": {
+              "mean": 19515837.906666666,
+              "std": 372954.229542262
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.0001503904911013583,
+              "std": 0.00024349119929188262
+            },
+            "speed_ns": {
+              "mean": 206687.21881605405,
+              "std": 4952.223262684965
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 1154,
+      "insert_ns": {
+        "mean": 1643.7511599999998,
+        "std": 24.00093367922174
+      },
+      "merge_ns": {
+        "mean": 1369695.0989885055,
+        "std": 36252.876506815985
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00015658333262589855,
+              "std": 0.00023872291864213382
+            },
+            "speed_ns": {
+              "mean": 13.086864187381734,
+              "std": 0.2531807791654234
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00033478576554374427,
+              "std": 0.00024428902756986595
+            },
+            "speed_ns": {
+              "mean": 1361387.6670344826,
+              "std": 21397.38610624277
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 1154,
+      "insert_ns": {
+        "mean": 14.11826,
+        "std": 0.05373809077367753
+      },
+      "merge_ns": {
+        "mean": 15342.906176511491,
+        "std": 263.5045152977866
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.008951387145763509,
+              "std": 0.006604800032658915
+            },
+            "speed_ns": {
+              "mean": 2905.201571931725,
+              "std": 65.05951479489465
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.008746595066908268,
+              "std": 0.0066186356073845865
+            },
+            "speed_ns": {
+              "mean": 8600.831447918988,
+              "std": 159.79178374550568
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.06276801756527432,
+              "std": 0.024435972941831634
+            },
+            "speed_ns": {
+              "mean": 58771.159951329566,
+              "std": 1495.546044676206
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.03630449624383938,
+              "std": 0.010915441243885802
+            },
+            "speed_ns": {
+              "mean": 620624.3351477775,
+              "std": 14714.520202045436
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.009254343030750168,
+              "std": 0.006642737114299076
+            },
+            "speed_ns": {
+              "mean": 11686.688201026775,
+              "std": 297.80526100800796
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.007450971450307771,
+              "std": 0.005626591490874832
+            },
+            "speed_ns": {
+              "mean": 121834.8829804792,
+              "std": 2007.1765803702895
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 1154,
+      "insert_ns": {
+        "mean": 1562.96958,
+        "std": 11.063831221308458
+      },
+      "merge_ns": {
+        "mean": 1358369.9091954022,
+        "std": 30768.511966339946
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00015658333262589855,
+              "std": 0.00023872291864213382
+            },
+            "speed_ns": {
+              "mean": 13.160217526813023,
+              "std": 0.29168103122321093
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.03730702329002702,
+              "std": 0.01954966226228612
+            },
+            "speed_ns": {
+              "mean": 35363199.9,
+              "std": 480300.24262821267
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.00033478576554374427,
+              "std": 0.00024428902756986595
+            },
+            "speed_ns": {
+              "mean": 1369196.0972413793,
+              "std": 32301.649215701902
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 1847,
+      "insert_ns": {
+        "mean": 1564.9770000000003,
+        "std": 60.44644723472175
+      },
+      "merge_ns": {
+        "mean": 2361280.000261438,
+        "std": 95909.08935524506
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00038876087203311015,
+              "std": 0.0003087043450008244
+            },
+            "speed_ns": {
+              "mean": 13.015281132994128,
+              "std": 0.3906700588788183
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.004327265570510039,
+              "std": 0.0031714072530950386
+            },
+            "speed_ns": {
+              "mean": 2374755.821960784,
+              "std": 57069.853582351694
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 1847,
+      "insert_ns": {
+        "mean": 14.386140000000001,
+        "std": 0.6542900812330872
+      },
+      "merge_ns": {
+        "mean": 15608.262109448091,
+        "std": 352.78681486875087
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.008944099425488653,
+              "std": 0.006423547681338985
+            },
+            "speed_ns": {
+              "mean": 2901.568669435973,
+              "std": 78.87581050696922
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.00843606319614171,
+              "std": 0.006338059111622717
+            },
+            "speed_ns": {
+              "mean": 7359.64182128232,
+              "std": 90.44511797600711
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04413601007373291,
+              "std": 0.013525917683923654
+            },
+            "speed_ns": {
+              "mean": 58963.334030865946,
+              "std": 1323.378421772481
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.0364817163136605,
+              "std": 0.011203704045285858
+            },
+            "speed_ns": {
+              "mean": 676691.0632632305,
+              "std": 9284.294570362854
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.010734646307011979,
+              "std": 0.0073778448693044354
+            },
+            "speed_ns": {
+              "mean": 11752.024929075698,
+              "std": 250.61399721856614
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.007797786244724676,
+              "std": 0.005753831750294837
+            },
+            "speed_ns": {
+              "mean": 148780.76863606722,
+              "std": 2465.630946250459
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 1847,
+      "insert_ns": {
+        "mean": 1562.93642,
+        "std": 39.54078117176747
+      },
+      "merge_ns": {
+        "mean": 2389904.4954248364,
+        "std": 52981.24952049847
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.00038876087203311015,
+              "std": 0.0003087043450008244
+            },
+            "speed_ns": {
+              "mean": 13.268382902844532,
+              "std": 0.7138076440301107
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04413601007373291,
+              "std": 0.013525917683923654
+            },
+            "speed_ns": {
+              "mean": 141882.4384581304,
+              "std": 2609.0004771237054
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.004327265570510039,
+              "std": 0.0031714072530950386
+            },
+            "speed_ns": {
+              "mean": 2356002.693333334,
+              "std": 50092.719376871246
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 2956,
+      "insert_ns": {
+        "mean": 1714.7248599999998,
+        "std": 41.49831108696353
+      },
+      "merge_ns": {
+        "mean": 3924920.7614545454,
+        "std": 80981.14139536972
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.003933054453252958,
+              "std": 0.00279533475253556
+            },
+            "speed_ns": {
+              "mean": 13.080795567652522,
+              "std": 0.2929377607161087
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.004946959510741757,
+              "std": 0.003733127230634131
+            },
+            "speed_ns": {
+              "mean": 3982086.5352727277,
+              "std": 96965.37019255804
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 2956,
+      "insert_ns": {
+        "mean": 14.5287,
+        "std": 0.6031915947690254
+      },
+      "merge_ns": {
+        "mean": 15442.90791012914,
+        "std": 453.75328555230027
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.011084845092325366,
+              "std": 0.007766412886151063
+            },
+            "speed_ns": {
+              "mean": 2916.8667692879044,
+              "std": 62.85075958961839
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.009920303519480228,
+              "std": 0.006991231181259353
+            },
+            "speed_ns": {
+              "mean": 6407.160878170721,
+              "std": 119.1429374011406
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04752226743088719,
+              "std": 0.016383764839801845
+            },
+            "speed_ns": {
+              "mean": 58272.15979176688,
+              "std": 1059.374744623542
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.03808831138752112,
+              "std": 0.01153548957415677
+            },
+            "speed_ns": {
+              "mean": 699834.6655329403,
+              "std": 15693.798396633769
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.011605310069286872,
+              "std": 0.007753786120248544
+            },
+            "speed_ns": {
+              "mean": 11811.91326611993,
+              "std": 520.6331099472211
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.007767860276903129,
+              "std": 0.005728585352068904
+            },
+            "speed_ns": {
+              "mean": 147143.65969618072,
+              "std": 2961.8068684322
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 2956,
+      "insert_ns": {
+        "mean": 1700.0126399999997,
+        "std": 26.71549009115125
+      },
+      "merge_ns": {
+        "mean": 3921044.020727273,
+        "std": 74778.7941345882
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.003933054453252958,
+              "std": 0.00279533475253556
+            },
+            "speed_ns": {
+              "mean": 13.10093456214544,
+              "std": 0.3364442613045127
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04752226743088719,
+              "std": 0.016383764839801845
+            },
+            "speed_ns": {
+              "mean": 58095.3394382032,
+              "std": 647.9960635014602
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.004946959510741757,
+              "std": 0.003733127230634131
+            },
+            "speed_ns": {
+              "mean": 3954294.084363635,
+              "std": 89650.74416979248
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 4730,
+      "insert_ns": {
+        "mean": 2162.30294,
+        "std": 31.483879107670347
+      },
+      "merge_ns": {
+        "mean": 8545387.944,
+        "std": 142607.10144743876
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.005102124604441102,
+              "std": 0.0038772165193394718
+            },
+            "speed_ns": {
+              "mean": 13.014308020285554,
+              "std": 0.19699113661910278
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.005596976780184443,
+              "std": 0.003922986077565982
+            },
+            "speed_ns": {
+              "mean": 8704563.408,
+              "std": 186178.9533170576
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 4730,
+      "insert_ns": {
+        "mean": 14.354759999999999,
+        "std": 0.08080645023758941
+      },
+      "merge_ns": {
+        "mean": 15440.341863219126,
+        "std": 352.8490004223003
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.011660649300960772,
+              "std": 0.008411853334484206
+            },
+            "speed_ns": {
+              "mean": 2900.093065268674,
+              "std": 73.44843160490854
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.010029090596475998,
+              "std": 0.007252569999005056
+            },
+            "speed_ns": {
+              "mean": 6075.227490480619,
+              "std": 123.78976450898053
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.050126124421086125,
+              "std": 0.016911557269189307
+            },
+            "speed_ns": {
+              "mean": 58702.80406974227,
+              "std": 1437.063309732119
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.045699269304049966,
+              "std": 0.01767945177898326
+            },
+            "speed_ns": {
+              "mean": 655503.7102713047,
+              "std": 12277.796719579179
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.013249869557724631,
+              "std": 0.009706035354523626
+            },
+            "speed_ns": {
+              "mean": 11522.507788986622,
+              "std": 87.3301643244675
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.008507573483401755,
+              "std": 0.006484652848509804
+            },
+            "speed_ns": {
+              "mean": 132676.50762327955,
+              "std": 2492.413880207819
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 4730,
+      "insert_ns": {
+        "mean": 2180.1838799999996,
+        "std": 45.716276474857395
+      },
+      "merge_ns": {
+        "mean": 8547981.975999998,
+        "std": 132412.47490945045
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.005102124604441102,
+              "std": 0.0038772165193394718
+            },
+            "speed_ns": {
+              "mean": 13.118437005572895,
+              "std": 0.32733672976030975
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.050126124421086125,
+              "std": 0.016911557269189307
+            },
+            "speed_ns": {
+              "mean": 60205.53130130203,
+              "std": 3306.130100051105
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.005596976780184443,
+              "std": 0.003922986077565982
+            },
+            "speed_ns": {
+              "mean": 8582930.175999999,
+              "std": 206698.09689382112
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 7569,
+      "insert_ns": {
+        "mean": 1371.16272,
+        "std": 59.729489720418684
+      },
+      "merge_ns": {
+        "mean": 4800375.373333334,
+        "std": 96429.20469065875
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.005593357564412759,
+              "std": 0.003992145348476155
+            },
+            "speed_ns": {
+              "mean": 13.187310114240864,
+              "std": 0.3791635997614312
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.011248934759679688,
+              "std": 0.008234033147253812
+            },
+            "speed_ns": {
+              "mean": 4747605.297777778,
+              "std": 56894.97106743411
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hash_list"
+    },
+    {
+      "cardinality": 7569,
+      "insert_ns": {
+        "mean": 14.362580000000001,
+        "std": 0.6371014468669809
+      },
+      "merge_ns": {
+        "mean": 15355.404278915457,
+        "std": 315.847878107908
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.013366332863520146,
+              "std": 0.01036173166067651
+            },
+            "speed_ns": {
+              "mean": 2914.852870549098,
+              "std": 62.3148311984601
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.011237182227118185,
+              "std": 0.008567358319180854
+            },
+            "speed_ns": {
+              "mean": 6116.587947810197,
+              "std": 103.40580945200836
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04947470256727527,
+              "std": 0.016265387437904913
+            },
+            "speed_ns": {
+              "mean": 59171.21072520456,
+              "std": 1975.6943493495835
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.043614558060255,
+              "std": 0.011777492409846263
+            },
+            "speed_ns": {
+              "mean": 657519.5501168864,
+              "std": 11547.162028642908
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.011248934759679688,
+              "std": 0.008234033147253812
+            },
+            "speed_ns": {
+              "mean": 11707.915436617179,
+              "std": 262.43473242991575
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.009032939801217972,
+              "std": 0.00676047558673156
+            },
+            "speed_ns": {
+              "mean": 126623.24921206846,
+              "std": 1344.2727265897242
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 7569,
+      "insert_ns": {
+        "mean": 1415.4082400000002,
+        "std": 134.11119976848465
+      },
+      "merge_ns": {
+        "mean": 4806896.626666668,
+        "std": 116351.54203490025
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.005593357564412759,
+              "std": 0.003992145348476155
+            },
+            "speed_ns": {
+              "mean": 13.08741730486765,
+              "std": 0.35823523802247637
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04947470256727527,
+              "std": 0.016265387437904913
+            },
+            "speed_ns": {
+              "mean": 58192.814959181705,
+              "std": 892.5919915177042
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.011248934759679688,
+              "std": 0.008234033147253812
+            },
+            "speed_ns": {
+              "mean": 4818427.422222222,
+              "std": 109862.62736042365
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 8328,
+      "insert_ns": {
+        "mean": 14.43904,
+        "std": 0.33326934812550635
+      },
+      "merge_ns": {
+        "mean": 15405.631736898955,
+        "std": 295.2164075045829
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.013304725742681694,
+              "std": 0.010917469836207418
+            },
+            "speed_ns": {
+              "mean": 2879.854282684393,
+              "std": 23.64654340306705
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.011481331563821145,
+              "std": 0.008690723289922106
+            },
+            "speed_ns": {
+              "mean": 6151.092531197493,
+              "std": 113.0264873896548
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04873072828108965,
+              "std": 0.014693217096603912
+            },
+            "speed_ns": {
+              "mean": 58778.99414719988,
+              "std": 1378.4539549942835
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.044565447174845334,
+              "std": 0.012473800831105452
+            },
+            "speed_ns": {
+              "mean": 752988.0158980738,
+              "std": 12287.089862221468
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.011936966953446546,
+              "std": 0.008439403148021959
+            },
+            "speed_ns": {
+              "mean": 11616.021909685041,
+              "std": 223.80563937633482
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.009503313027847194,
+              "std": 0.0069772458566503825
+            },
+            "speed_ns": {
+              "mean": 131911.06351559362,
+              "std": 2547.1280050517553
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 8328,
+      "insert_ns": {
+        "mean": 318.36752,
+        "std": 26.0864719348861
+      },
+      "merge_ns": {
+        "mean": 652232.5203214287,
+        "std": 14171.494234584503
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.005853229229328208,
+              "std": 0.004858183223906693
+            },
+            "speed_ns": {
+              "mean": 13.26243054008588,
+              "std": 0.6685524687251383
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04873072828108965,
+              "std": 0.014693217096603912
+            },
+            "speed_ns": {
+              "mean": 57872.8361620484,
+              "std": 740.903141315891
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.011936966953446546,
+              "std": 0.008439403148021959
+            },
+            "speed_ns": {
+              "mean": 653256.1238928374,
+              "std": 16055.786573564104
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 8408,
+      "insert_ns": {
+        "mean": 14.33648,
+        "std": 0.6685694650520617
+      },
+      "merge_ns": {
+        "mean": 15353.34491383841,
+        "std": 290.1556419365236
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.012635829889141206,
+              "std": 0.0101629670730758
+            },
+            "speed_ns": {
+              "mean": 2883.588610420176,
+              "std": 50.84308433673491
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.01122927888706095,
+              "std": 0.008753353235359728
+            },
+            "speed_ns": {
+              "mean": 6200.484173135101,
+              "std": 120.49753412116804
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04948300582592479,
+              "std": 0.015261839657387899
+            },
+            "speed_ns": {
+              "mean": 58571.88439884262,
+              "std": 1174.3063378689908
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.0441661269582019,
+              "std": 0.013351666673911114
+            },
+            "speed_ns": {
+              "mean": 723905.3543673146,
+              "std": 12062.607410051867
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.01202986696161119,
+              "std": 0.008590993539910429
+            },
+            "speed_ns": {
+              "mean": 11928.017587827935,
+              "std": 472.3388395294055
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.009431829163273436,
+              "std": 0.0069277792633913775
+            },
+            "speed_ns": {
+              "mean": 141530.00819826574,
+              "std": 5088.395788321247
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 8408,
+      "insert_ns": {
+        "mean": 207.73086,
+        "std": 19.481170685828918
+      },
+      "merge_ns": {
+        "mean": 309727.3645803478,
+        "std": 3156.332936302598
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.006476621635137174,
+              "std": 0.005575702974283295
+            },
+            "speed_ns": {
+              "mean": 13.167703120797274,
+              "std": 0.21435373043246775
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04948300582592479,
+              "std": 0.015261839657387899
+            },
+            "speed_ns": {
+              "mean": 58139.05373618809,
+              "std": 712.6672144335537
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.01202986696161119,
+              "std": 0.008590993539910429
+            },
+            "speed_ns": {
+              "mean": 315506.45263486734,
+              "std": 6811.736682328035
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 8715,
+      "insert_ns": {
+        "mean": 14.551459999999997,
+        "std": 0.7689614154169246
+      },
+      "merge_ns": {
+        "mean": 15374.664601019149,
+        "std": 462.2427115730914
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.012861331319163196,
+              "std": 0.01040706632804504
+            },
+            "speed_ns": {
+              "mean": 2924.582467009166,
+              "std": 90.32534190663347
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.011387696601114683,
+              "std": 0.008606240774811856
+            },
+            "speed_ns": {
+              "mean": 6149.556623259452,
+              "std": 110.58735938033396
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04957018000089008,
+              "std": 0.015583291345255287
+            },
+            "speed_ns": {
+              "mean": 58810.716964679435,
+              "std": 1382.4739861062128
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.04357246387043314,
+              "std": 0.010853517751659908
+            },
+            "speed_ns": {
+              "mean": 707376.3528084995,
+              "std": 12441.688507887207
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.01169015915020341,
+              "std": 0.008777470017293738
+            },
+            "speed_ns": {
+              "mean": 11580.588018257891,
+              "std": 196.57564249361795
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.009472223933837363,
+              "std": 0.007100725190863244
+            },
+            "speed_ns": {
+              "mean": 111288.507746972,
+              "std": 2075.7008356002925
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 8715,
+      "insert_ns": {
+        "mean": 14.74686,
+        "std": 0.06801007572411602
+      },
+      "merge_ns": {
+        "mean": 15245.549240262058,
+        "std": 137.6683787134775
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.012339426391251263,
+              "std": 0.009934503125779778
+            },
+            "speed_ns": {
+              "mean": 2908.5626730616523,
+              "std": 60.627209488543265
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04957018000089008,
+              "std": 0.015583291345255287
+            },
+            "speed_ns": {
+              "mean": 57860.95865159549,
+              "std": 941.2681258329184
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.01169015915020341,
+              "std": 0.008777470017293738
+            },
+            "speed_ns": {
+              "mean": 11651.071258340164,
+              "std": 217.90934854321986
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 8795,
+      "insert_ns": {
+        "mean": 14.566260000000002,
+        "std": 0.633415789509545
+      },
+      "merge_ns": {
+        "mean": 15343.050079533265,
+        "std": 422.6198544701802
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.01375281147289707,
+              "std": 0.009882937730708734
+            },
+            "speed_ns": {
+              "mean": 2944.7335762296048,
+              "std": 73.56794242740928
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.011472077431768032,
+              "std": 0.008543124580231504
+            },
+            "speed_ns": {
+              "mean": 6179.403151636069,
+              "std": 131.61864393144683
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04911663355896748,
+              "std": 0.015143075670653077
+            },
+            "speed_ns": {
+              "mean": 58003.88441580981,
+              "std": 1031.6762200532557
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.04320000686843987,
+              "std": 0.01097097104624032
+            },
+            "speed_ns": {
+              "mean": 713674.5662946785,
+              "std": 15581.088635935694
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.011451376627952028,
+              "std": 0.008787801632447799
+            },
+            "speed_ns": {
+              "mean": 11709.842423112405,
+              "std": 258.7627872560219
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.009718934225287105,
+              "std": 0.0071581716358770624
+            },
+            "speed_ns": {
+              "mean": 125203.43275930584,
+              "std": 1540.8486227684366
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 8795,
+      "insert_ns": {
+        "mean": 15.075860000000002,
+        "std": 0.6789290319319098
+      },
+      "merge_ns": {
+        "mean": 15323.729975379521,
+        "std": 388.7658633276077
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.01375281147289707,
+              "std": 0.009882937730708734
+            },
+            "speed_ns": {
+              "mean": 2900.862464955,
+              "std": 60.51431274599858
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04911663355896748,
+              "std": 0.015143075670653077
+            },
+            "speed_ns": {
+              "mean": 58339.7316298896,
+              "std": 1288.1911836754498
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.011451376627952028,
+              "std": 0.008787801632447799
+            },
+            "speed_ns": {
+              "mean": 11674.0071283374,
+              "std": 273.1264476877348
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 12111,
+      "insert_ns": {
+        "mean": 14.521199999999999,
+        "std": 0.8478415771829076
+      },
+      "merge_ns": {
+        "mean": 15344.001881720604,
+        "std": 261.67014624988127
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.011261512030657499,
+              "std": 0.00838566221615919
+            },
+            "speed_ns": {
+              "mean": 2906.3502361157584,
+              "std": 65.80690377482634
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.01124211137439151,
+              "std": 0.008375256558793684
+            },
+            "speed_ns": {
+              "mean": 6155.01341843992,
+              "std": 123.26569228415981
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04704940639297455,
+              "std": 0.014218591291525797
+            },
+            "speed_ns": {
+              "mean": 58581.70409694581,
+              "std": 1653.5971597457092
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.04081528949687234,
+              "std": 0.010372466649270546
+            },
+            "speed_ns": {
+              "mean": 695841.7466652797,
+              "std": 15078.09635054512
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.012677693946488449,
+              "std": 0.009861275400982505
+            },
+            "speed_ns": {
+              "mean": 11628.551651307209,
+              "std": 172.7411646211016
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.009795683229769083,
+              "std": 0.007645585977682911
+            },
+            "speed_ns": {
+              "mean": 127887.85913100149,
+              "std": 3236.6276320795287
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 12111,
+      "insert_ns": {
+        "mean": 15.8778,
+        "std": 0.7709126279936007
+      },
+      "merge_ns": {
+        "mean": 15486.951291328412,
+        "std": 595.5227969403181
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.011261512030657499,
+              "std": 0.00838566221615919
+            },
+            "speed_ns": {
+              "mean": 2972.653901599301,
+              "std": 132.51552365209014
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04704940639297455,
+              "std": 0.014218591291525797
+            },
+            "speed_ns": {
+              "mean": 57681.30446444491,
+              "std": 1015.9643631307496
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.012677693946488449,
+              "std": 0.009861275400982505
+            },
+            "speed_ns": {
+              "mean": 11872.568408185418,
+              "std": 431.96263099747637
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 19378,
+      "insert_ns": {
+        "mean": 14.428760000000002,
+        "std": 0.7475596447107082
+      },
+      "merge_ns": {
+        "mean": 15287.181112224824,
+        "std": 231.8129344965864
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.01233860495920716,
+              "std": 0.009407939529296172
+            },
+            "speed_ns": {
+              "mean": 2922.093304084903,
+              "std": 69.81341124041462
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.012297230993264676,
+              "std": 0.00934249375689564
+            },
+            "speed_ns": {
+              "mean": 6204.0298581233355,
+              "std": 129.99318709999122
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04753291893323072,
+              "std": 0.013327990882424883
+            },
+            "speed_ns": {
+              "mean": 57693.91116241245,
+              "std": 995.2857189180323
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.04213964881199153,
+              "std": 0.011841600576892175
+            },
+            "speed_ns": {
+              "mean": 754916.3703969341,
+              "std": 13927.219196145816
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.01153782388994936,
+              "std": 0.008540453910179695
+            },
+            "speed_ns": {
+              "mean": 11745.864159922998,
+              "std": 268.1100770079826
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.009731249932321856,
+              "std": 0.006944259159521505
+            },
+            "speed_ns": {
+              "mean": 115623.68593603159,
+              "std": 2318.6459373929247
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 19378,
+      "insert_ns": {
+        "mean": 15.775039999999995,
+        "std": 0.7419681114441508
+      },
+      "merge_ns": {
+        "mean": 15331.15863649083,
+        "std": 245.43231974143492
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.01233860495920716,
+              "std": 0.009407939529296172
+            },
+            "speed_ns": {
+              "mean": 2926.2408714389057,
+              "std": 59.57340908051767
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04753291893323072,
+              "std": 0.013327990882424883
+            },
+            "speed_ns": {
+              "mean": 58415.29315627542,
+              "std": 1305.0545581582628
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.01153782388994936,
+              "std": 0.008540453910179695
+            },
+            "speed_ns": {
+              "mean": 11762.09816321939,
+              "std": 264.9604441265812
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 30964,
+      "insert_ns": {
+        "mean": 14.378020000000001,
+        "std": 0.750365037565051
+      },
+      "merge_ns": {
+        "mean": 15650.898849921978,
+        "std": 485.9034791310356
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.011766811418134097,
+              "std": 0.008873300470297957
+            },
+            "speed_ns": {
+              "mean": 2927.2395378174197,
+              "std": 63.80879075430977
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.01169305724877373,
+              "std": 0.008935972016937311
+            },
+            "speed_ns": {
+              "mean": 6248.032024795693,
+              "std": 161.9668516352443
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.049296195612838316,
+              "std": 0.015102194390711811
+            },
+            "speed_ns": {
+              "mean": 59060.15232166481,
+              "std": 1191.5514265963313
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.04406918957430823,
+              "std": 0.012091649955811192
+            },
+            "speed_ns": {
+              "mean": 680887.8854025318,
+              "std": 9670.31431566439
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.012744486756068141,
+              "std": 0.009532356880118631
+            },
+            "speed_ns": {
+              "mean": 11752.42563197553,
+              "std": 376.51840336893395
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.010182764811674181,
+              "std": 0.007928124112744775
+            },
+            "speed_ns": {
+              "mean": 146770.66410877847,
+              "std": 2918.0451648256317
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 30964,
+      "insert_ns": {
+        "mean": 15.681659999999999,
+        "std": 0.17806660102332506
+      },
+      "merge_ns": {
+        "mean": 15376.157586024965,
+        "std": 245.55213178812122
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.011766811418134097,
+              "std": 0.008873300470297957
+            },
+            "speed_ns": {
+              "mean": 2878.645111023453,
+              "std": 22.46438153896228
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.049296195612838316,
+              "std": 0.015102194390711811
+            },
+            "speed_ns": {
+              "mean": 58053.04182426758,
+              "std": 1107.3648466775235
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.012744486756068141,
+              "std": 0.009532356880118631
+            },
+            "speed_ns": {
+              "mean": 11605.794790651871,
+              "std": 311.6953851009883
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 31005,
+      "insert_ns": {
+        "mean": 15.23332,
+        "std": 0.10093224261850132
+      },
+      "merge_ns": {
+        "mean": 15443.69008914727,
+        "std": 317.0897049604242
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.011826093426313486,
+              "std": 0.008805415602389973
+            },
+            "speed_ns": {
+              "mean": 2949.8379476115424,
+              "std": 94.83704423431764
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.011765158136920958,
+              "std": 0.008854997257098813
+            },
+            "speed_ns": {
+              "mean": 6175.055698121691,
+              "std": 99.14231174898595
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.049630992619850024,
+              "std": 0.015431618198218271
+            },
+            "speed_ns": {
+              "mean": 58424.8953168389,
+              "std": 1349.3188610822199
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.04498484537390684,
+              "std": 0.01212638310129833
+            },
+            "speed_ns": {
+              "mean": 702460.276270581,
+              "std": 20386.509080149568
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.012719572864227428,
+              "std": 0.009561903649418014
+            },
+            "speed_ns": {
+              "mean": 11474.049263936977,
+              "std": 56.679264723013056
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.010228393906756835,
+              "std": 0.007894152384121582
+            },
+            "speed_ns": {
+              "mean": 109396.39018111637,
+              "std": 1993.1622148641572
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 31005,
+      "insert_ns": {
+        "mean": 15.0228,
+        "std": 0.6910618930312971
+      },
+      "merge_ns": {
+        "mean": 15420.443680429862,
+        "std": 308.81964127165344
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.011826093426313486,
+              "std": 0.008805415602389973
+            },
+            "speed_ns": {
+              "mean": 2904.5981996230626,
+              "std": 51.40266015442192
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.049630992619850024,
+              "std": 0.015431618198218271
+            },
+            "speed_ns": {
+              "mean": 58703.026376362934,
+              "std": 1372.713056720893
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.012719572864227428,
+              "std": 0.009561903649418014
+            },
+            "speed_ns": {
+              "mean": 11490.117339275177,
+              "std": 95.83541909068927
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 31044,
+      "insert_ns": {
+        "mean": 14.295239999999996,
+        "std": 0.6935889866484328
+      },
+      "merge_ns": {
+        "mean": 15491.504260928508,
+        "std": 356.9013156027295
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.011829723049418641,
+              "std": 0.00879401823203328
+            },
+            "speed_ns": {
+              "mean": 2901.2047972902587,
+              "std": 58.83328614671667
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.0117834635363467,
+              "std": 0.00883064881660565
+            },
+            "speed_ns": {
+              "mean": 6244.095664471927,
+              "std": 182.3072590425544
+            }
+          }
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04937624481228983,
+              "std": 0.015158374044699979
+            },
+            "speed_ns": {
+              "mean": 58440.852375519156,
+              "std": 1251.667094967486
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.044589113799125564,
+              "std": 0.011898494574866405
+            },
+            "speed_ns": {
+              "mean": 732739.8107266282,
+              "std": 13768.383083447387
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.012715219065612167,
+              "std": 0.009566491344241559
+            },
+            "speed_ns": {
+              "mean": 11578.990212790543,
+              "std": 265.29660842423596
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.01021322917249853,
+              "std": 0.007923920450892042
+            },
+            "speed_ns": {
+              "mean": 144976.9735371739,
+              "std": 2487.386964170352
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 31044,
+      "insert_ns": {
+        "mean": 14.97112,
+        "std": 0.6124295597046243
+      },
+      "merge_ns": {
+        "mean": 15309.130977238196,
+        "std": 276.33584774222714
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.011829723049418641,
+              "std": 0.00879401823203328
+            },
+            "speed_ns": {
+              "mean": 2966.7048994077677,
+              "std": 75.34241753394716
+            }
+          },
+          "mle": null
+        },
+        "sketch": {
+          "default": {
+            "mre": {
+              "mean": 0.04937624481228983,
+              "std": 0.015158374044699979
+            },
+            "speed_ns": {
+              "mean": 58090.802977073705,
+              "std": 1016.4541569637121
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.012715219065612167,
+              "std": 0.009566491344241559
+            },
+            "speed_ns": {
+              "mean": 11701.013949774097,
+              "std": 262.4959450007412
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 49609,
+      "insert_ns": {
+        "mean": 14.551540000000003,
+        "std": 0.6478781817595033
+      },
+      "merge_ns": {
+        "mean": 15463.17073419001,
+        "std": 324.3383101408903
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.012347650202419581,
+              "std": 0.009339599203518623
+            },
+            "speed_ns": {
+              "mean": 2893.967048578091,
+              "std": 65.60746457098162
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.012383445453011767,
+              "std": 0.009408553683498699
+            },
+            "speed_ns": {
+              "mean": 6212.511281067813,
+              "std": 113.18075897348906
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.011922559137223973,
+              "std": 0.009324183426272184
+            },
+            "speed_ns": {
+              "mean": 11753.595753935473,
+              "std": 391.2747598953648
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.009911920440245985,
+              "std": 0.007651336808002025
+            },
+            "speed_ns": {
+              "mean": 138845.50837575994,
+              "std": 2267.920850024525
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 49609,
+      "insert_ns": {
+        "mean": 14.866659999999998,
+        "std": 0.089724547365813
+      },
+      "merge_ns": {
+        "mean": 15230.349560998333,
+        "std": 175.84886822870516
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.012347650202419581,
+              "std": 0.009339599203518623
+            },
+            "speed_ns": {
+              "mean": 2886.3662115571105,
+              "std": 78.87209957902864
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.011922559137223973,
+              "std": 0.009324183426272184
+            },
+            "speed_ns": {
+              "mean": 11571.409965147042,
+              "std": 287.44593098781405
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 79375,
+      "insert_ns": {
+        "mean": 14.529480000000001,
+        "std": 0.6613092238884921
+      },
+      "merge_ns": {
+        "mean": 15396.457148455967,
+        "std": 360.361946945008
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.01169549608727929,
+              "std": 0.0097149770490867
+            },
+            "speed_ns": {
+              "mean": 2909.9622015353393,
+              "std": 168.71945289183597
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.011692712937224719,
+              "std": 0.009777685493491672
+            },
+            "speed_ns": {
+              "mean": 6211.009046117488,
+              "std": 121.86118296605756
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.012849727243499963,
+              "std": 0.009790169087458013
+            },
+            "speed_ns": {
+              "mean": 11773.082517688052,
+              "std": 310.6377557829917
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.010441632627795088,
+              "std": 0.00783673975329048
+            },
+            "speed_ns": {
+              "mean": 141980.40859125054,
+              "std": 3224.5954066893205
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 79375,
+      "insert_ns": {
+        "mean": 14.916240000000002,
+        "std": 0.6973477198643441
+      },
+      "merge_ns": {
+        "mean": 15272.944631897823,
+        "std": 284.17138697428356
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.01169549608727929,
+              "std": 0.0097149770490867
+            },
+            "speed_ns": {
+              "mean": 2889.2908841910275,
+              "std": 73.88857732647219
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.012849727243499963,
+              "std": 0.009790169087458013
+            },
+            "speed_ns": {
+              "mean": 11685.714248127875,
+              "std": 361.66865238110364
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 127001,
+      "insert_ns": {
+        "mean": 14.474360000000004,
+        "std": 0.6468325984364116
+      },
+      "merge_ns": {
+        "mean": 15493.144203996497,
+        "std": 341.54228473039626
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.013250702592890335,
+              "std": 0.010353504851284515
+            },
+            "speed_ns": {
+              "mean": 2856.7756532349536,
+              "std": 34.23122803344367
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.013138908099421982,
+              "std": 0.010406282782703878
+            },
+            "speed_ns": {
+              "mean": 6201.568353601861,
+              "std": 104.69991201292665
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.013137802695602262,
+              "std": 0.009682594335142668
+            },
+            "speed_ns": {
+              "mean": 11701.335810445396,
+              "std": 392.7817012385786
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.011079702486488785,
+              "std": 0.008023213576037734
+            },
+            "speed_ns": {
+              "mean": 135615.637198705,
+              "std": 2692.0479886224716
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 127001,
+      "insert_ns": {
+        "mean": 15.846119999999996,
+        "std": 0.730902186068697
+      },
+      "merge_ns": {
+        "mean": 15340.15311045554,
+        "std": 218.41572716951995
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.013250702592890335,
+              "std": 0.010353504851284515
+            },
+            "speed_ns": {
+              "mean": 2860.316581806095,
+              "std": 41.87533524867113
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.013137802695602262,
+              "std": 0.009682594335142668
+            },
+            "speed_ns": {
+              "mean": 11539.827823232308,
+              "std": 200.56665917361173
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
+    },
+    {
+      "cardinality": 203202,
+      "insert_ns": {
+        "mean": 14.594260000000002,
+        "std": 0.698787208240105
+      },
+      "merge_ns": {
+        "mean": 15496.199704904926,
+        "std": 343.363802466594
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.012854591807026918,
+              "std": 0.008988646701730057
+            },
+            "speed_ns": {
+              "mean": 2904.594492756491,
+              "std": 85.3214430340342
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.012766955459480965,
+              "std": 0.008959940588229858
+            },
+            "speed_ns": {
+              "mean": 6245.570181125462,
+              "std": 111.98288238564733
+            }
+          }
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.01418879331653239,
+              "std": 0.009952137647839397
+            },
+            "speed_ns": {
+              "mean": 11563.666637205326,
+              "std": 243.5574653608356
+            }
+          },
+          "mle": {
+            "mre": {
+              "mean": 0.011216450939505424,
+              "std": 0.00818282625766997
+            },
+            "speed_ns": {
+              "mean": 147511.97719395888,
+              "std": 2624.835650338163
+            }
+          }
+        }
+      },
+      "representation": "dense"
+    },
+    {
+      "cardinality": 203202,
+      "insert_ns": {
+        "mean": 14.89874,
+        "std": 0.6841963332260704
+      },
+      "merge_ns": {
+        "mean": 15273.777576308641,
+        "std": 194.32569796915226
+      },
+      "operations": {
+        "cardinality": {
+          "default": {
+            "mre": {
+              "mean": 0.012854591807026918,
+              "std": 0.008988646701730057
+            },
+            "speed_ns": {
+              "mean": 2862.686509820504,
+              "std": 42.641791611608745
+            }
+          },
+          "mle": null
+        },
+        "union": {
+          "default": {
+            "mre": {
+              "mean": 0.01418879331653239,
+              "std": 0.009952137647839397
+            },
+            "speed_ns": {
+              "mean": 11557.385446392367,
+              "std": 243.75395164771314
+            }
+          },
+          "mle": null
+        }
+      },
+      "representation": "hybrid"
     }
   ],
-  "switch_exact_to_hash_list": 8150,
-  "switch_hash_list_to_dense": 8367
+  "reps": 25,
+  "trials": 256,
+  "value_list_capacity": 217
 }

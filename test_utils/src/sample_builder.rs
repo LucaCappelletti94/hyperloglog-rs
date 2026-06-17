@@ -12,6 +12,10 @@ pub struct CardinalitySampleBuilder {
     exact_cardinality_sum: f64,
     estimated_cardinality_sum: f64,
     absolute_relative_error_sum: f64,
+    /// Sum of the linear-counting estimates (`m * ln(m / zeros)`) measured on a force-dense
+    /// counter at this cardinality. Only the force-dense hyperloglog stream populates it; it stays
+    /// zero for the hash-list stream and the extended sampler, which do not measure linear counting.
+    linear_counting_estimate_sum: f64,
 }
 
 #[derive(Default, Debug, Copy, Clone, Serialize, Deserialize)]
@@ -46,6 +50,10 @@ pub struct CardinalitySample {
     pub exact_cardinality_mean: f64,
     pub estimated_cardinality_mean: f64,
     pub absolute_relative_error_mean: f64,
+    /// Mean of the linear-counting estimate (`m * ln(m / zeros)`) on a force-dense counter at this
+    /// cardinality. Zero for streams that do not measure linear counting.
+    #[serde(default)]
+    pub linear_counting_estimate_mean: f64,
 }
 
 impl CardinalitySample {
@@ -101,6 +109,20 @@ impl CardinalitySampleBuilder {
             / exact_cardinality.max(1) as f64;
     }
 
+    /// Like [`update`](Self::update), additionally recording the linear-counting estimate measured
+    /// on a force-dense counter at this cardinality (used by the hyperloglog stream to locate the
+    /// linear-counting threshold).
+    #[inline]
+    pub fn update_with_linear_counting(
+        &mut self,
+        exact_cardinality: u64,
+        estimated_cardinality: f64,
+        linear_counting_estimate: f64,
+    ) {
+        self.update(exact_cardinality, estimated_cardinality);
+        self.linear_counting_estimate_sum += linear_counting_estimate;
+    }
+
     #[inline]
     pub fn increase_measuremenet_count(&mut self) {
         self.number_of_measurements += 1;
@@ -125,6 +147,8 @@ impl Add for CardinalitySampleBuilder {
                 + other.estimated_cardinality_sum,
             absolute_relative_error_sum: self.absolute_relative_error_sum
                 + other.absolute_relative_error_sum,
+            linear_counting_estimate_sum: self.linear_counting_estimate_sum
+                + other.linear_counting_estimate_sum,
         }
     }
 }
@@ -166,6 +190,8 @@ impl From<CardinalitySampleBuilder> for CardinalitySample {
             exact_cardinality_mean: builder.exact_cardinality_sum / builder.count as f64,
             estimated_cardinality_mean: builder.estimated_cardinality_sum / builder.count as f64,
             absolute_relative_error_mean: builder.absolute_relative_error_sum
+                / builder.count as f64,
+            linear_counting_estimate_mean: builder.linear_counting_estimate_sum
                 / builder.count as f64,
         }
     }
