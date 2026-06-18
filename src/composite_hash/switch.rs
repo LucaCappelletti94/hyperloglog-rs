@@ -51,6 +51,7 @@ impl<P: Precision, B: Bits> HashFragment<P, B> {
     /// returned hash are zeroed. This is sufficient to re-encode the hash at the same or
     /// any smaller `hash_bits`, which is exactly what merging a higher-precision counter
     /// into a lower-precision one requires.
+    #[cfg_attr(not(test), allow(dead_code))]
     fn reconstruct_original_hash(&self, hash_bits: u8) -> u64 {
         // At the smallest hash size only the index and register are stored (no hash
         // remainder) and `encode` ignores the original hash entirely, so any value works.
@@ -632,6 +633,7 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
     /// The returned triple can be fed back into the insertion routines (at the same or a
     /// smaller `hash_bits`) to reproduce the stored hash, which is what counter merging
     /// relies upon.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(super) fn decode_full(hash: u32, hash_bits: u8) -> (usize, u8, u64) {
         let fragment = Self::scompose_hash(hash, hash_bits);
         let original_hash = fragment.reconstruct_original_hash(hash_bits);

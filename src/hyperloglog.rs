@@ -937,43 +937,172 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 }
             }
             (true, true) => {
-                // Both counters are sorted hash lists: keep the union as a sorted hash list by inserting the
-                // hashes of the higher-precision counter into the lower-precision one. A stored
-                // hash can only be downgraded, never upgraded, so the lower-precision counter
-                // (the one with the larger or equal hash size... i.e. fewer hashes) is used as
-                // the base, and the other counter's hashes are downgraded to its hash size.
-                // Inserting an already-present hash is a no-op, which keeps the union idempotent.
-                let self_hash_bits = self.get_hash_bits().unwrap();
-                let rhs_hash_bits = rhs.get_hash_bits().unwrap();
+                // Both counters are sorted hash lists. Without `alloc` we cannot replay the union's
+                // downgrade schedule to recover the path-dependent distinct-count statistic, so the
+                // niche no-`alloc` build keeps the correct (but quadratic) one-at-a-time merge.
+                #[cfg(not(feature = "alloc"))]
+                {
+                    self.merge_hash_lists_one_by_one(rhs);
+                }
+                // With `alloc` both operands are already sorted (descending), so a single two-pointer
+                // merge writes the union into a fresh buffer in O(n + m), instead of splicing one hash
+                // at a time (O(n*m), the cost that humped near saturation). The hashes are brought to
+                // the common (coarser) hash size, since a stored hash can only be downgraded.
+                #[cfg(feature = "alloc")]
+                {
+                    let self_hash_bits = self.get_hash_bits().unwrap();
+                    let self_number_of_hashes = self.get_number_of_hashes().unwrap();
+                    let self_writer_tell = self.get_writer_tell();
+                    let self_duplicates = self.get_duplicates();
+                    let rhs_hash_bits = rhs.get_hash_bits().unwrap();
+                    let rhs_number_of_hashes = rhs.get_number_of_hashes().unwrap();
+                    let rhs_writer_tell = rhs.get_writer_tell();
+                    let rhs_duplicates = rhs.get_duplicates();
 
-                if self_hash_bits <= rhs_hash_bits {
-                    for encoded_hash in GapHash::<P, B>::downgraded(
-                        rhs.registers.as_ref(),
-                        rhs.get_number_of_hashes().unwrap(),
-                        rhs_hash_bits,
-                        rhs.get_writer_tell(),
-                        rhs_hash_bits - self_hash_bits,
-                    ) {
-                        let (index, register, original_hash) =
-                            GapHash::<P, B>::decode_full(encoded_hash, self_hash_bits);
-                        self.insert_index_register_hash(index, register, original_hash);
+                    // The coarser operand (smaller hash size, ties broken toward `self`, matching the
+                    // one-at-a-time path) is the base whose distinct-count history is taken whole; the
+                    // finer operand's hashes are replayed on top to recover the union's statistic.
+                    let self_is_base = self_hash_bits <= rhs_hash_bits;
+                    let base_raw = if self_is_base {
+                        self_number_of_hashes + self_duplicates
+                    } else {
+                        rhs_number_of_hashes + rhs_duplicates
+                    };
+
+                    // Move self's hashes aside so the merge can read them while writing into self.
+                    let source = self.registers.clone();
+                    // Grow self to the full hash-list buffer (a no-op for the fixed-size array
+                    // backing, which is already full). The destination size must match what
+                    // `merge_metrics` sizes against, so the rank index lands at the same offset
+                    // during the write.
+                    let maximal_bytes = (1usize << P::EXPONENT) * B::NUMBER_OF_BITS as usize / 8;
+                    while self.registers.as_ref().len() < maximal_bytes {
+                        self.registers.increase_capacity();
                     }
-                } else {
-                    let mut base = rhs.clone();
-                    for encoded_hash in GapHash::<P, B>::downgraded(
-                        self.registers.as_ref(),
-                        self.get_number_of_hashes().unwrap(),
+                    let dest_len = self.registers.as_ref().len();
+
+                    match GapHash::<P, B>::merge_metrics(
+                        source.as_ref(),
+                        self_number_of_hashes,
                         self_hash_bits,
-                        self.get_writer_tell(),
-                        self_hash_bits - rhs_hash_bits,
+                        self_writer_tell,
+                        rhs.registers.as_ref(),
+                        rhs_number_of_hashes,
+                        rhs_hash_bits,
+                        rhs_writer_tell,
+                        dest_len,
                     ) {
-                        let (index, register, original_hash) =
-                            GapHash::<P, B>::decode_full(encoded_hash, rhs_hash_bits);
-                        base.insert_index_register_hash(index, register, original_hash);
+                        Some(meta) => {
+                            self.registers.clear_registers();
+                            GapHash::<P, B>::merge_write(
+                                source.as_ref(),
+                                self_number_of_hashes,
+                                self_hash_bits,
+                                self_writer_tell,
+                                rhs.registers.as_ref(),
+                                rhs_number_of_hashes,
+                                rhs_hash_bits,
+                                rhs_writer_tell,
+                                self.registers.as_mut(),
+                                meta,
+                            );
+
+                            // Recover the union's `number_of_hashes + duplicates`: the coarser
+                            // operand's count is taken whole, the finer operand's hashes are replayed
+                            // across the union's downgrade schedule (see `merge_finer_new_count`).
+                            let b_new = if self_is_base {
+                                GapHash::<P, B>::merge_finer_new_count(
+                                    source.as_ref(),
+                                    self_number_of_hashes,
+                                    self_hash_bits,
+                                    self_writer_tell,
+                                    rhs.registers.as_ref(),
+                                    rhs_number_of_hashes,
+                                    rhs_hash_bits,
+                                    rhs_writer_tell,
+                                    meta.hash_bits,
+                                    dest_len,
+                                )
+                            } else {
+                                GapHash::<P, B>::merge_finer_new_count(
+                                    rhs.registers.as_ref(),
+                                    rhs_number_of_hashes,
+                                    rhs_hash_bits,
+                                    rhs_writer_tell,
+                                    source.as_ref(),
+                                    self_number_of_hashes,
+                                    self_hash_bits,
+                                    self_writer_tell,
+                                    meta.hash_bits,
+                                    dest_len,
+                                )
+                            };
+                            let raw = base_raw + b_new;
+
+                            self.set_hash_bits(meta.hash_bits);
+                            self.set_number_of_hashes(meta.number_of_hashes);
+                            self.set_duplicates(raw.saturating_sub(meta.number_of_hashes));
+                            self.set_writer_tell(meta.bit_index);
+                        }
+                        None => {
+                            // The union does not fit the hash list even at the smallest viable hash
+                            // size: densify self (still a valid hash list, only its buffer grew) and
+                            // fold rhs's hashes as register maxima, like the `(false, true)` arm.
+                            self.to_hll();
+                            let mut last_index = usize::MAX;
+                            for (register, index) in GapHash::<P, B>::decoded(
+                                rhs.registers.as_ref(),
+                                rhs_number_of_hashes,
+                                rhs_hash_bits,
+                                rhs_writer_tell,
+                            ) {
+                                if index == last_index {
+                                    continue;
+                                }
+                                last_index = index;
+                                self.insert_register_value_and_index(register, index);
+                            }
+                        }
                     }
-                    *self = base;
                 }
             }
+        }
+    }
+
+    #[cfg(any(test, not(feature = "alloc")))]
+    /// Reference both-hash-list union by one-at-a-time insertion (the pre-two-pointer-merge
+    /// implementation): the correct but quadratic fallback used by the no-`alloc` build, and the
+    /// oracle [`merge`](Self::merge) is validated against in tests.
+    pub(crate) fn merge_hash_lists_one_by_one(&mut self, rhs: &Self) {
+        debug_assert!(self.is_sorted_hash_list() && rhs.is_sorted_hash_list());
+        let self_hash_bits = self.get_hash_bits().unwrap();
+        let rhs_hash_bits = rhs.get_hash_bits().unwrap();
+        if self_hash_bits <= rhs_hash_bits {
+            for encoded_hash in GapHash::<P, B>::downgraded(
+                rhs.registers.as_ref(),
+                rhs.get_number_of_hashes().unwrap(),
+                rhs_hash_bits,
+                rhs.get_writer_tell(),
+                rhs_hash_bits - self_hash_bits,
+            ) {
+                let (index, register, original_hash) =
+                    GapHash::<P, B>::decode_full(encoded_hash, self_hash_bits);
+                self.insert_index_register_hash(index, register, original_hash);
+            }
+        } else {
+            let mut base = rhs.clone();
+            for encoded_hash in GapHash::<P, B>::downgraded(
+                self.registers.as_ref(),
+                self.get_number_of_hashes().unwrap(),
+                self_hash_bits,
+                self.get_writer_tell(),
+                self_hash_bits - rhs_hash_bits,
+            ) {
+                let (index, register, original_hash) =
+                    GapHash::<P, B>::decode_full(encoded_hash, rhs_hash_bits);
+                base.insert_index_register_hash(index, register, original_hash);
+            }
+            *self = base;
         }
     }
 }
@@ -1021,6 +1150,198 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOr for &HyperL
 mod test_hybrid_properties {
     use super::*;
     use hyperloglog_derive::test_estimator;
+
+    fn smix(state: &mut u64) -> u64 {
+        *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = *state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
+
+    /// Builds two sorted-hash-list counters from disjoint pools (`only_a`, `shared`, `only_b`) and
+    /// checks the two-pointer both-hash-list merge against the one-at-a-time reference and the true
+    /// union: same saturation outcome, accuracy within bound and no worse than the old path,
+    /// commutative up to the base-operand choice, and idempotent. Returns false (skip) if the
+    /// operands do not stay hash lists, so callers can size pools per precision.
+    fn check_merge_equivalence<P: Precision, B: Bits>(
+        only_a: u64,
+        shared: u64,
+        only_b: u64,
+        seed: u64,
+    ) -> bool
+    where
+        P: PackedRegister<B>,
+    {
+        let mut state = seed;
+        let mut a: HyperLogLog<P, B> = Default::default();
+        let mut b: HyperLogLog<P, B> = Default::default();
+        for _ in 0..only_a {
+            a.insert(&smix(&mut state));
+        }
+        for _ in 0..shared {
+            let v = smix(&mut state);
+            a.insert(&v);
+            b.insert(&v);
+        }
+        for _ in 0..only_b {
+            b.insert(&smix(&mut state));
+        }
+        if !(a.is_sorted_hash_list() && b.is_sorted_hash_list()) {
+            return false;
+        }
+
+        let true_union = (only_a + shared + only_b) as f64;
+        let label = format!(
+            "P{} B{} {only_a}/{shared}/{only_b}",
+            P::EXPONENT,
+            B::NUMBER_OF_BITS
+        );
+
+        // The merged object's representation must match the one-at-a-time path (saturation in
+        // lockstep). The bulk merge is fast; the one-at-a-time path is the reference.
+        let new = &a | &b;
+        let mut old = a.clone();
+        old.merge_hash_lists_one_by_one(&b);
+        assert_eq!(
+            new.is_sorted_hash_list(),
+            old.is_sorted_hash_list(),
+            "{label}: representation diverged (new hl={} dense={} hashes={:?}; old hl={} dense={})",
+            new.is_sorted_hash_list(),
+            new.is_hyperloglog(),
+            new.get_number_of_hashes(),
+            old.is_sorted_hash_list(),
+            old.is_hyperloglog(),
+        );
+
+        // The fast two-pointer merge estimates the same cardinality as the one-at-a-time reference.
+        // The stored bytes are not required to be identical: for a sparse union the fast path settles
+        // on the largest optimal (prefix-free) hash size, while the incremental path can retain the
+        // larger non-prefix-free size until an insert forces it down, and the simulated downgrade
+        // schedule can place an overflow one hash either side of the incremental one. Both leave the
+        // distinct-count statistic equal up to a sub-0.1% rounding, so the estimates agree. This is
+        // far stronger than a tolerance on the true union, which the inherent hash-list correction
+        // error dominates anyway.
+        if new.is_sorted_hash_list() {
+            assert!(
+                (new.estimate_cardinality() - old.estimate_cardinality()).abs()
+                    / old.estimate_cardinality()
+                    < 0.005,
+                "{label}: merged estimate {} diverged from one-at-a-time {}",
+                new.estimate_cardinality(),
+                old.estimate_cardinality(),
+            );
+        }
+
+        // User-facing guarantee: the union cardinality (which clamps to [max, sum]) stays within the
+        // hash-list error envelope of the true union, and is commutative and idempotent.
+        let union_new = a.estimate_union_cardinality(&b);
+        let union_swapped = b.estimate_union_cardinality(&a);
+        let err = (union_new - true_union).abs() / true_union;
+        if std::env::var("MERGE_DEBUG").is_ok() {
+            let a_raw = a.get_number_of_hashes().unwrap() + a.get_duplicates();
+            let b_raw = b.get_number_of_hashes().unwrap() + b.get_duplicates();
+            let old_raw = old.get_number_of_hashes().unwrap_or(0) + old.get_duplicates();
+            let new_raw = new.get_number_of_hashes().unwrap_or(0) + new.get_duplicates();
+            let (base_raw, finer_raw) = if a.get_hash_bits().unwrap() <= b.get_hash_bits().unwrap()
+            {
+                (a_raw, b_raw)
+            } else {
+                (b_raw, a_raw)
+            };
+            eprintln!(
+                "{label}: truth {true_union} union_new {union_new:.1} err {err:.4} | a_bits={} b_bits={} | a_raw={a_raw} b_raw={b_raw} base_raw={base_raw} finer_raw={finer_raw} | new(bits={} n={:?} new_raw={new_raw}) ORACLE(bits={} old_raw={old_raw} est={:.1})",
+                a.get_hash_bits().unwrap(),
+                b.get_hash_bits().unwrap(),
+                new.get_hash_bits().unwrap_or(0),
+                new.get_number_of_hashes(),
+                old.get_hash_bits().unwrap_or(0),
+                old.estimate_cardinality(),
+            );
+        }
+        assert!(
+            err < 0.02,
+            "{label}: union {union_new} vs truth {true_union} (err {err})"
+        );
+        assert!(
+            (union_new - union_swapped).abs() / true_union < 0.02,
+            "{label}: union not commutative ({union_new} vs {union_swapped})"
+        );
+        let self_union = a.estimate_union_cardinality(&a);
+        assert!(
+            (self_union - a.estimate_cardinality()).abs() / a.estimate_cardinality() < 0.01,
+            "{label}: a union a != a ({self_union} vs {})",
+            a.estimate_cardinality()
+        );
+        true
+    }
+
+    /// Fixed cases across precisions: P8 exercises tiny (possibly non-prefix-free) lists, P12 the
+    /// mid range, and P14 the active rank index, including high-overlap unions near saturation.
+    #[test]
+    fn merge_two_pointer_matches_one_by_one_and_truth() {
+        for (i, &(a, s, b)) in [(20u64, 10, 20), (40, 20, 40), (60, 30, 60)]
+            .iter()
+            .enumerate()
+        {
+            assert!(check_merge_equivalence::<Precision8, Bits6>(
+                a,
+                s,
+                b,
+                0x51 ^ i as u64
+            ));
+        }
+        for (i, &(a, s, b)) in [
+            (500u64, 250, 500),
+            (1000, 0, 1000),
+            (800, 400, 800),
+            (2000, 1000, 2000),
+        ]
+        .iter()
+        .enumerate()
+        {
+            assert!(check_merge_equivalence::<Precision12, Bits6>(
+                a,
+                s,
+                b,
+                0xC12 ^ i as u64
+            ));
+        }
+        for (i, &(a, s, b)) in [(5000u64, 2500, 5000), (8000, 0, 8000), (3000, 6000, 3000)]
+            .iter()
+            .enumerate()
+        {
+            assert!(check_merge_equivalence::<Precision14, Bits6>(
+                a,
+                s,
+                b,
+                0xE14 ^ i as u64
+            ));
+        }
+    }
+
+    proptest::proptest! {
+        #![proptest_config(proptest::prelude::ProptestConfig {
+            cases: 200,
+            max_global_rejects: 4096,
+            ..proptest::prelude::ProptestConfig::default()
+        })]
+
+        /// Random pool sizes and overlap at P12: the two-pointer merge must stay equivalent to the
+        /// one-at-a-time reference across the hash-list range.
+        #[test]
+        fn merge_two_pointer_equivalence_p12(
+            only_a in 1u64..1500,
+            shared in 0u64..1000,
+            only_b in 1u64..1500,
+            seed in proptest::prelude::any::<u64>(),
+        ) {
+            // Skip draws whose operands leave the hash-list regime (sized to stay in it).
+            proptest::prop_assume!(check_merge_equivalence::<Precision12, Bits6>(
+                only_a, shared, only_b, seed
+            ));
+        }
+    }
 
     #[test]
     fn insert_value_accepts_smaller_int_types() {

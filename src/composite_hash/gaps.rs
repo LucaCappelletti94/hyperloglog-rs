@@ -45,6 +45,19 @@ pub(crate) struct InsertMetadata {
     pub(crate) bit_index: u32,
 }
 
+#[cfg(feature = "alloc")]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+/// Metadata describing the buffer produced by [`GapHash::merge_write`]: the chosen hash size, the
+/// number of distinct stored hashes, the writer bit position past the last hash, and whether the
+/// buffer is prefix-free (rice) encoded or the raw fixed-width layout a sparse list keeps at
+/// `LARGEST_VIABLE_HASH_BITS`.
+pub(crate) struct MergeMetadata {
+    pub(crate) hash_bits: u8,
+    pub(crate) number_of_hashes: u32,
+    pub(crate) bit_index: u32,
+    pub(crate) prefix_free: bool,
+}
+
 trait SkipSliceAhead {
     fn reserve(self, position: usize) -> Self;
     fn len(&self) -> usize;
@@ -695,6 +708,9 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
 
     #[must_use]
     #[inline]
+    // Only the test-only one-at-a-time merge reference (`merge_hash_lists_one_by_one`) decodes full
+    // hashes now; the production merge works directly on encoded hashes.
+    #[cfg_attr(not(test), allow(dead_code))]
     /// Decode the hash into the index, register value and a reconstructed `original_hash`.
     pub(crate) fn decode_full(hash: u32, hash_bits: u8) -> (usize, u8, u64) {
         SwitchHash::<P, B>::decode_full(hash, hash_bits)
@@ -1468,6 +1484,708 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             duplicates,
             bit_index: writer_tell,
         })
+    }
+
+    /// Two-pointer merge of two descending `downgraded` hash streams brought to a common
+    /// `target_hash_bits`, calling `f(is_first, hash)` for each distinct hash of the union in
+    /// strictly descending order (consecutive duplicates, including those created by downgrading, are
+    /// collapsed). Returns the number of cross-stream coincidences (distinct hashes present in both
+    /// operands at `target_hash_bits`), which estimates `|A intersect B|` for the cardinality
+    /// correction. Allocation-free: both inputs are already sorted, exactly like
+    /// [`value_list::for_each_union_value`](super::gaps::value_list).
+    #[cfg(feature = "alloc")]
+    fn for_each_merged_downgraded<F: FnMut(bool, u32)>(
+        a_hashes: &[u8],
+        a_number_of_hashes: u32,
+        a_hash_bits: u8,
+        a_bit_index: u32,
+        b_hashes: &[u8],
+        b_number_of_hashes: u32,
+        b_hash_bits: u8,
+        b_bit_index: u32,
+        target_hash_bits: u8,
+        mut f: F,
+    ) -> u32 {
+        let mut a = Self::downgraded(
+            a_hashes,
+            a_number_of_hashes,
+            a_hash_bits,
+            a_bit_index,
+            a_hash_bits - target_hash_bits,
+        )
+        .peekable();
+        let mut b = Self::downgraded(
+            b_hashes,
+            b_number_of_hashes,
+            b_hash_bits,
+            b_bit_index,
+            b_hash_bits - target_hash_bits,
+        )
+        .peekable();
+
+        let mut first = true;
+        let mut last_emitted: Option<u32> = None;
+        let mut coincidences = 0u32;
+        loop {
+            // Descending streams: take the larger head, advancing both on a tie.
+            let (value, from_tie) = match (a.peek().copied(), b.peek().copied()) {
+                (Some(x), Some(y)) => {
+                    if x == y {
+                        a.next();
+                        b.next();
+                        (x, true)
+                    } else if x > y {
+                        a.next();
+                        (x, false)
+                    } else {
+                        b.next();
+                        (y, false)
+                    }
+                }
+                (Some(x), None) => {
+                    a.next();
+                    (x, false)
+                }
+                (None, Some(y)) => {
+                    b.next();
+                    (y, false)
+                }
+                (None, None) => break,
+            };
+
+            // Collapse consecutive equal hashes (downgrading two distinct hashes can produce the
+            // same value, and a tie already advanced both streams).
+            if Some(value) == last_emitted {
+                continue;
+            }
+            if from_tie {
+                coincidences += 1;
+            }
+            f(first, value);
+            last_emitted = Some(value);
+            first = false;
+        }
+        coincidences
+    }
+
+    /// Sizes the prefix-free encoding of the union of two sorted hash lists at `target_hash_bits`
+    /// (rice coefficient `uniform_coefficient`), without writing. Returns `(number_of_hashes,
+    /// encoded_bits)`.
+    #[cfg(feature = "alloc")]
+    fn merge_size_at(
+        a_hashes: &[u8],
+        a_number_of_hashes: u32,
+        a_hash_bits: u8,
+        a_bit_index: u32,
+        b_hashes: &[u8],
+        b_number_of_hashes: u32,
+        b_hash_bits: u8,
+        b_bit_index: u32,
+        target_hash_bits: u8,
+        uniform_coefficient: u8,
+    ) -> (u32, u32) {
+        let mut number_of_hashes = 0u32;
+        let mut bits = 0u32;
+        let mut previous: Option<u32> = None;
+        let _coincidences = Self::for_each_merged_downgraded(
+            a_hashes,
+            a_number_of_hashes,
+            a_hash_bits,
+            a_bit_index,
+            b_hashes,
+            b_number_of_hashes,
+            b_hash_bits,
+            b_bit_index,
+            target_hash_bits,
+            |first, hash| {
+                bits += if first {
+                    u32::from(target_hash_bits)
+                } else {
+                    let gap = Self::into_gap_fragment(previous.unwrap(), hash, target_hash_bits);
+                    len_rice(
+                        gap.uniform_delta,
+                        uniform_coefficient,
+                        gap.geometric_minus_one,
+                    )
+                };
+                previous = Some(hash);
+                number_of_hashes += 1;
+            },
+        );
+        (number_of_hashes, bits)
+    }
+
+    /// Chooses the prefix-free encoding for the union of two sorted hash lists into a destination of
+    /// `dest_len_bytes` bytes, searching downward from `min(a_hash_bits, b_hash_bits)` for the
+    /// largest optimal hash size whose encoding fits (the destination's usable region is its byte
+    /// size minus the rank index reserved at that hash size). Returns `None` if the union does not
+    /// fit even at the smallest optimal hash size (the caller must transition to registers).
+    ///
+    /// Returns only the stored bytes layout (`hash_bits`, distinct `number_of_hashes` at that size,
+    /// `bit_index`). The `number_of_hashes + duplicates` statistic the cardinality correction is
+    /// keyed on is path-dependent and is computed separately by
+    /// [`merge_finer_new_count`](Self::merge_finer_new_count).
+    #[cfg(feature = "alloc")]
+    pub(crate) fn merge_metrics(
+        a_hashes: &[u8],
+        a_number_of_hashes: u32,
+        a_hash_bits: u8,
+        a_bit_index: u32,
+        b_hashes: &[u8],
+        b_number_of_hashes: u32,
+        b_hash_bits: u8,
+        b_bit_index: u32,
+        dest_len_bytes: usize,
+    ) -> Option<MergeMetadata> {
+        let common = a_hash_bits.min(b_hash_bits);
+
+        // When both operands are still at the largest viable hash size, a sparse union is stored
+        // exactly like a fresh counter: raw fixed-width hashes, no rice coding and no rank index, so
+        // `is_prefix_free_encoded` reports false and `find`/insert use the raw layout. (Rice coding
+        // a sparse list there can produce more bits than the raw layout, which would be misread as a
+        // saturated prefix-free buffer.) Only below the largest size, or once the raw layout no
+        // longer fits, does the union switch to the prefix-free fit-search below.
+        if common == Self::LARGEST_VIABLE_HASH_BITS {
+            let hash_bits = Self::LARGEST_VIABLE_HASH_BITS;
+            let mut number_of_hashes = 0u32;
+            Self::for_each_merged_downgraded(
+                a_hashes,
+                a_number_of_hashes,
+                a_hash_bits,
+                a_bit_index,
+                b_hashes,
+                b_number_of_hashes,
+                b_hash_bits,
+                b_bit_index,
+                hash_bits,
+                |_, _| number_of_hashes += 1,
+            );
+            // The raw region excludes the rank-index tail the buffer reserves once it is more than
+            // half the maximal size (mirroring `skip_rank_index`), exactly as the raw layout a single
+            // counter keeps would saturate.
+            let maximal_bytes = (1usize << P::EXPONENT) * B::NUMBER_OF_BITS as usize / 8;
+            let raw_usable_bytes = if dest_len_bytes > maximal_bytes / 2 {
+                dest_len_bytes - usize::try_from(Self::rank_index_padded_size(hash_bits)).unwrap()
+            } else {
+                dest_len_bytes
+            };
+            if number_of_hashes as usize * usize::from(hash_bits / 8) <= raw_usable_bytes {
+                return Some(MergeMetadata {
+                    hash_bits,
+                    number_of_hashes,
+                    bit_index: number_of_hashes * u32::from(hash_bits),
+                    prefix_free: false,
+                });
+            }
+        }
+
+        let data =
+            OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
+
+        for (target_hash_bits, uniform_coefficient) in data.iter().rev() {
+            let hash_bits = *target_hash_bits;
+            if hash_bits > common {
+                continue;
+            }
+            let usable_bits = dest_len_bytes as u32 * 8 - Self::rank_index_total_size(hash_bits);
+            let (number_of_hashes, bits) = Self::merge_size_at(
+                a_hashes,
+                a_number_of_hashes,
+                a_hash_bits,
+                a_bit_index,
+                b_hashes,
+                b_number_of_hashes,
+                b_hash_bits,
+                b_bit_index,
+                hash_bits,
+                *uniform_coefficient,
+            );
+            // The encoding must both fit and be classified prefix-free. At the largest size the
+            // latter can fail when rice barely beats the raw layout (within the rank-index padding):
+            // such a width is skipped so the union settles on a smaller, unambiguously prefix-free
+            // size instead of a buffer that would be misread as raw.
+            if bits <= usable_bits
+                && Self::is_prefix_free_encoded(number_of_hashes, hash_bits, bits)
+            {
+                // Largest size whose union encoding fits the destination. This sizes the stored
+                // bytes only; the duplicate statistic is recovered by `merge_finer_new_count`.
+                return Some(MergeMetadata {
+                    hash_bits,
+                    number_of_hashes,
+                    bit_index: bits,
+                    prefix_free: true,
+                });
+            }
+        }
+        None
+    }
+
+    /// Writes the union of two sorted hash lists into `dest` at `meta.hash_bits`, returning the
+    /// writer bit position past the last hash (which must equal `meta.bit_index`). When
+    /// `meta.prefix_free` it is a fresh prefix-free (rice) buffer with a rebuilt rank index;
+    /// otherwise it is the raw fixed-width layout. `dest` must be disjoint from both inputs and sized
+    /// per [`merge_metrics`](Self::merge_metrics). Allocation-free.
+    #[cfg(feature = "alloc")]
+    #[allow(unsafe_code)]
+    pub(crate) fn merge_write(
+        a_hashes: &[u8],
+        a_number_of_hashes: u32,
+        a_hash_bits: u8,
+        a_bit_index: u32,
+        b_hashes: &[u8],
+        b_number_of_hashes: u32,
+        b_hash_bits: u8,
+        b_bit_index: u32,
+        dest: &mut [u8],
+        meta: MergeMetadata,
+    ) -> u32 {
+        let hash_bits = meta.hash_bits;
+
+        if !meta.prefix_free {
+            return Self::merge_write_raw(
+                a_hashes,
+                a_number_of_hashes,
+                a_hash_bits,
+                a_bit_index,
+                b_hashes,
+                b_number_of_hashes,
+                b_hash_bits,
+                b_bit_index,
+                dest,
+                meta,
+            );
+        }
+
+        let uniform_coefficient = Self::uniform_coefficient(hash_bits);
+
+        if Self::has_rank_index() {
+            Self::initialize_rank_index(dest, hash_bits);
+        }
+
+        debug_assert!(dest.len() % size_of::<u64>() == 0);
+        // `dest_64` feeds the writer; `dest_8` is used by `update_rank_index`, which writes only into
+        // the rank-index region at the tail of the buffer, disjoint from the prefix codes the writer
+        // emits from the front. This mirrors the `hashes_64`/`hashes_8` aliasing in `insert_downgrading`.
+        let dest_64 = unsafe {
+            core::slice::from_raw_parts_mut(
+                dest.as_mut_ptr().cast::<u64>(),
+                dest.len() / size_of::<u64>(),
+            )
+        };
+        let dest_8: &mut [u8] =
+            unsafe { core::slice::from_raw_parts_mut(dest.as_mut_ptr(), dest.len()) };
+
+        let mut writer = BitWriter::new(dest_64);
+        let mut previous: Option<u32> = None;
+        Self::for_each_merged_downgraded(
+            a_hashes,
+            a_number_of_hashes,
+            a_hash_bits,
+            a_bit_index,
+            b_hashes,
+            b_number_of_hashes,
+            b_hash_bits,
+            b_bit_index,
+            hash_bits,
+            |first, hash| {
+                if first {
+                    writer.write_bits(hash, hash_bits);
+                } else {
+                    let previous_hash = previous.unwrap();
+                    if Self::has_rank_index() {
+                        let previous_bucket =
+                            Self::rank_index_hash_bucket(hash_bits, previous_hash);
+                        let current_bucket = Self::rank_index_hash_bucket(hash_bits, hash);
+                        if current_bucket > previous_bucket {
+                            Self::update_rank_index(dest_8, hash_bits, writer.tell(), hash);
+                        }
+                    }
+                    let gap = Self::into_gap_fragment(previous_hash, hash, hash_bits);
+                    writer.write_rice(
+                        gap.uniform_delta,
+                        gap.geometric_minus_one,
+                        uniform_coefficient,
+                    );
+                }
+                previous = Some(hash);
+            },
+        );
+
+        let writer_tell = writer.tell();
+        drop(writer);
+        debug_assert_eq!(
+            writer_tell, meta.bit_index,
+            "merge_write consumed {writer_tell} bits but merge_metrics predicted {}",
+            meta.bit_index
+        );
+        writer_tell
+    }
+
+    /// Writes the union of two sorted hash lists into `dest` as the raw fixed-width layout at
+    /// `meta.hash_bits` (one byte-aligned little-endian hash per slot, descending, no rank index),
+    /// the representation a sparse list keeps at `LARGEST_VIABLE_HASH_BITS`. Returns the writer bit
+    /// position past the last hash (`number_of_hashes * hash_bits`). Mirrors the byte layout
+    /// `SwitchHash::into_variant` reads back.
+    #[cfg(feature = "alloc")]
+    #[allow(unsafe_code)]
+    fn merge_write_raw(
+        a_hashes: &[u8],
+        a_number_of_hashes: u32,
+        a_hash_bits: u8,
+        a_bit_index: u32,
+        b_hashes: &[u8],
+        b_number_of_hashes: u32,
+        b_hash_bits: u8,
+        b_bit_index: u32,
+        dest: &mut [u8],
+        meta: MergeMetadata,
+    ) -> u32 {
+        let hash_bits = meta.hash_bits;
+        let hash_bytes = usize::from(hash_bits / 8);
+        let mut slot = 0usize;
+        Self::for_each_merged_downgraded(
+            a_hashes,
+            a_number_of_hashes,
+            a_hash_bits,
+            a_bit_index,
+            b_hashes,
+            b_number_of_hashes,
+            b_hash_bits,
+            b_bit_index,
+            hash_bits,
+            |_, hash| {
+                let offset = slot * hash_bytes;
+                match hash_bytes {
+                    1 => dest[offset] = u8::try_from(hash).unwrap(),
+                    2 => {
+                        let hashes: &mut [u16] = unsafe {
+                            core::slice::from_raw_parts_mut(
+                                dest.as_mut_ptr().cast::<u16>(),
+                                dest.len() / 2,
+                            )
+                        };
+                        hashes[slot] = u16::try_from(hash).unwrap();
+                    }
+                    3 => {
+                        dest[offset..offset + 3].copy_from_slice(&hash.to_le_bytes()[..3]);
+                    }
+                    4 => {
+                        let hashes: &mut [u32] = unsafe {
+                            core::slice::from_raw_parts_mut(
+                                dest.as_mut_ptr().cast::<u32>(),
+                                dest.len() / 4,
+                            )
+                        };
+                        hashes[slot] = hash;
+                    }
+                    _ => unreachable!("hash sizes are byte-aligned to 1, 2, 3 or 4 bytes"),
+                }
+                slot += 1;
+            },
+        );
+        let bit_index = u32::try_from(slot).unwrap() * u32::from(hash_bits);
+        debug_assert_eq!(
+            bit_index, meta.bit_index,
+            "merge_write_raw wrote {bit_index} bits but merge_metrics predicted {}",
+            meta.bit_index
+        );
+        bit_index
+    }
+
+    /// Two-pointer merge of two descending encoded-hash slices already at a common width, calling
+    /// `f(is_first, hash)` for each distinct hash of the union in strictly descending order
+    /// (consecutive duplicates, including those an in-place downgrade left behind, are collapsed). The
+    /// slice-based analogue of [`for_each_merged_downgraded`](Self::for_each_merged_downgraded), used
+    /// by the raw-count simulation, which keeps both operands downgraded in place so the per-element
+    /// downgrade is paid once per width instead of once per merge.
+    #[cfg(feature = "alloc")]
+    fn for_each_merged_slice<F: FnMut(bool, u32)>(base: &[u32], finer: &[u32], mut f: F) {
+        let mut i = 0usize;
+        let mut j = 0usize;
+        let mut first = true;
+        let mut last_emitted: Option<u32> = None;
+        loop {
+            let head_a = base.get(i).copied();
+            let head_b = finer.get(j).copied();
+            let value = match (head_a, head_b) {
+                (Some(x), Some(y)) => {
+                    if x == y {
+                        i += 1;
+                        j += 1;
+                        x
+                    } else if x > y {
+                        i += 1;
+                        x
+                    } else {
+                        j += 1;
+                        y
+                    }
+                }
+                (Some(x), None) => {
+                    i += 1;
+                    x
+                }
+                (None, Some(y)) => {
+                    j += 1;
+                    y
+                }
+                (None, None) => break,
+            };
+
+            if Some(value) == last_emitted {
+                continue;
+            }
+            debug_assert!(
+                last_emitted.is_none_or(|last| value < last),
+                "slice merge is not strictly descending"
+            );
+            f(first, value);
+            last_emitted = Some(value);
+            first = false;
+        }
+    }
+
+    /// Number of distinct hashes in the union of two slices already at a common width.
+    #[cfg(feature = "alloc")]
+    fn distinct_count_at(base: &[u32], finer: &[u32]) -> u32 {
+        let mut count = 0u32;
+        Self::for_each_merged_slice(base, finer, |_, _| {
+            count += 1;
+        });
+        count
+    }
+
+    /// Rice-coded length, in bits, of the gap between two consecutive descending hashes
+    /// (`previous > hash`) at `hash_bits`.
+    #[cfg(feature = "alloc")]
+    fn gap_rice_len(previous: u32, hash: u32, hash_bits: u8, uniform_coefficient: u8) -> u32 {
+        let gap = Self::into_gap_fragment(previous, hash, hash_bits);
+        len_rice(
+            gap.uniform_delta,
+            uniform_coefficient,
+            gap.geometric_minus_one,
+        )
+    }
+
+    /// Prefix-free encoded size, in bits, of the union of two slices already at `hash_bits` (rice
+    /// coefficient `uniform_coefficient`).
+    #[cfg(feature = "alloc")]
+    fn slice_size_at(base: &[u32], finer: &[u32], hash_bits: u8, uniform_coefficient: u8) -> u32 {
+        let mut bits = 0u32;
+        let mut previous: Option<u32> = None;
+        Self::for_each_merged_slice(base, finer, |first, hash| {
+            bits += if first {
+                u32::from(hash_bits)
+            } else {
+                Self::gap_rice_len(previous.unwrap(), hash, hash_bits, uniform_coefficient)
+            };
+            previous = Some(hash);
+        });
+        bits
+    }
+
+    /// Largest finer prefix length whose union with `base` (both already at `hash_bits`) still fits
+    /// `capacity` bits. Adds finer hashes in descending order, computing each insertion's rice-size
+    /// delta in `O(1)` via a monotone base pointer (the gap it splits is between its neighbors), so
+    /// the whole boundary is found in a single `O(base + finer)` pass instead of a binary search over
+    /// per-prefix re-encodings.
+    #[cfg(feature = "alloc")]
+    fn finer_prefix_fitting(
+        base: &[u32],
+        finer: &[u32],
+        hash_bits: u8,
+        uniform_coefficient: u8,
+        capacity: u32,
+    ) -> usize {
+        let mut size = Self::slice_size_at(base, &[], hash_bits, uniform_coefficient);
+        if size > capacity {
+            return 0;
+        }
+        let mut base_index = 0usize;
+        let mut previous_finer: Option<u32> = None;
+        let mut end = 0usize;
+        for (k, &hash) in finer.iter().enumerate() {
+            // A finer hash that collapsed onto its predecessor under the in-place downgrade is
+            // already represented and costs nothing.
+            if Some(hash) == previous_finer {
+                end = k + 1;
+                continue;
+            }
+            // `base[..base_index]` are the base hashes >= `hash`; `base[base_index..]` are below it.
+            while base_index < base.len() && base[base_index] >= hash {
+                base_index += 1;
+            }
+            let base_above = if base_index > 0 {
+                Some(base[base_index - 1])
+            } else {
+                None
+            };
+            // Already present in `base`: no new element, no extra bits.
+            if base_above == Some(hash) {
+                end = k + 1;
+                previous_finer = Some(hash);
+                continue;
+            }
+            let base_below = base.get(base_index).copied();
+            // Left neighbour: the smallest union element greater than `hash` (the closer of the
+            // previous finer hash and the nearest base hash above).
+            let left = match (previous_finer, base_above) {
+                (Some(p), Some(b)) => Some(p.min(b)),
+                (Some(p), None) => Some(p),
+                (None, Some(b)) => Some(b),
+                (None, None) => None,
+            };
+            // Inserting `hash` splits the gap between its neighbours into two; if it is the new
+            // maximum the leading full-width code is unchanged in length, so only the new gap counts.
+            let delta = match (left, base_below) {
+                (Some(l), Some(r)) => {
+                    Self::gap_rice_len(l, hash, hash_bits, uniform_coefficient)
+                        + Self::gap_rice_len(hash, r, hash_bits, uniform_coefficient)
+                        - Self::gap_rice_len(l, r, hash_bits, uniform_coefficient)
+                }
+                (Some(l), None) => Self::gap_rice_len(l, hash, hash_bits, uniform_coefficient),
+                (None, Some(r)) => Self::gap_rice_len(hash, r, hash_bits, uniform_coefficient),
+                (None, None) => u32::from(hash_bits),
+            };
+            if size + delta > capacity {
+                break;
+            }
+            size += delta;
+            end = k + 1;
+            previous_finer = Some(hash);
+        }
+        debug_assert_eq!(
+            size,
+            Self::slice_size_at(base, &finer[..end], hash_bits, uniform_coefficient),
+            "incremental prefix size diverged from the full re-encoding"
+        );
+        end
+    }
+
+    /// Downgrades every entry of a sorted-descending slice in place from `from_hash_bits` by `shift`
+    /// bits. The result stays sorted descending (downgrading is monotone); consecutive collisions are
+    /// left in place for the merge helpers to collapse.
+    #[cfg(feature = "alloc")]
+    fn downgrade_slice_in_place(hashes: &mut [u32], from_hash_bits: u8, shift: u8) {
+        if shift == 0 {
+            return;
+        }
+        for hash in hashes {
+            *hash = Self::downgrade(*hash, from_hash_bits, shift);
+        }
+    }
+
+    /// Counts the finer operand's contribution to the union's `number_of_hashes + duplicates`
+    /// statistic (`b_new`), so that the merged union reports the same path-dependent distinct count a
+    /// counter built incrementally from the same elements would. `base` MUST be the coarser operand
+    /// (`base_hash_bits <= finer_hash_bits`); the union's raw count is then `base.number_of_hashes +
+    /// base.duplicates + b_new`.
+    ///
+    /// A hash list's `number_of_hashes + duplicates` counts every element that was distinct at the
+    /// hash size in effect when it was inserted (wide early, narrowing as the buffer fills), which is
+    /// what the `HASHLIST_CORRECTION_*` tables are calibrated against. The coarser operand's own
+    /// count already carries its finer-width history, so it is taken whole; the finer operand's
+    /// hashes are replayed (in descending order, the order the one-at-a-time path inserts them)
+    /// across the union's descending hash-size schedule, each counted at the width in effect when it
+    /// is added. This reproduces the slow one-at-a-time merge's count in `O(widths * (n + m))`
+    /// instead of `O(n * m)`. Requires `alloc` for the random-access finer prefix.
+    #[cfg(feature = "alloc")]
+    pub(crate) fn merge_finer_new_count(
+        base_hashes: &[u8],
+        base_number_of_hashes: u32,
+        base_hash_bits: u8,
+        base_bit_index: u32,
+        finer_hashes: &[u8],
+        finer_number_of_hashes: u32,
+        finer_hash_bits: u8,
+        finer_bit_index: u32,
+        final_hash_bits: u8,
+        dest_len_bytes: usize,
+    ) -> u32 {
+        debug_assert!(base_hash_bits <= finer_hash_bits);
+        debug_assert!(final_hash_bits <= base_hash_bits);
+
+        // Random-access copies of both operands, kept downgraded in place to the width of the current
+        // phase so the per-element downgrade is paid once per width rather than once per merge. They
+        // start at the common (coarser) base width: the finer operand is downgraded there once,
+        // collapsing the duplicates that introduces, so the simulation starts from the same
+        // per-operand state the one-at-a-time merge does. They carry consecutive collisions from
+        // later in-place downgrades, which the merge helpers collapse.
+        let mut base_window: alloc::vec::Vec<u32> = Self::downgraded(
+            base_hashes,
+            base_number_of_hashes,
+            base_hash_bits,
+            base_bit_index,
+            0,
+        )
+        .collect();
+        let mut finer_window: alloc::vec::Vec<u32> =
+            alloc::vec::Vec::with_capacity(finer_number_of_hashes as usize);
+        let mut last: Option<u32> = None;
+        for hash in Self::downgraded(
+            finer_hashes,
+            finer_number_of_hashes,
+            finer_hash_bits,
+            finer_bit_index,
+            finer_hash_bits - base_hash_bits,
+        ) {
+            if Some(hash) != last {
+                finer_window.push(hash);
+                last = Some(hash);
+            }
+        }
+
+        let data =
+            OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
+
+        let mut b_new = 0u32;
+        let mut start = 0usize;
+        let mut window_bits = base_hash_bits;
+        // Downgrade phases at the optimal widths strictly between the final and base sizes: each
+        // absorbs the largest descending finer prefix that still fits before the buffer overflows to
+        // the next size (a stored hash can only be downgraded once the buffer overflows). The windows
+        // are downgraded in place to each successive (narrower) width.
+        for (width, uniform_coefficient) in data.iter().rev() {
+            let width = *width;
+            if width > base_hash_bits || width <= final_hash_bits {
+                continue;
+            }
+            Self::downgrade_slice_in_place(&mut base_window, window_bits, window_bits - width);
+            Self::downgrade_slice_in_place(&mut finer_window, window_bits, window_bits - width);
+            window_bits = width;
+
+            let capacity = dest_len_bytes as u32 * 8 - Self::rank_index_total_size(width);
+            let end = Self::finer_prefix_fitting(
+                &base_window,
+                &finer_window,
+                width,
+                *uniform_coefficient,
+                capacity,
+            );
+            // Each finer hash added in this phase that is distinct at this width bumps the count;
+            // collisions (and collapses of already-carried hashes) do not. A collapse of a hash
+            // counted in a wider phase preserves the running count (the table's raw statistic moves
+            // it from `number_of_hashes` to `duplicates`), so only positive per-phase deltas accrue.
+            b_new += Self::distinct_count_at(&base_window, &finer_window[..end])
+                - Self::distinct_count_at(&base_window, &finer_window[..start]);
+            start = end;
+        }
+        // The final size absorbs every remaining finer hash: the full union fits there (guaranteed by
+        // `merge_metrics`). This phase is always evaluated, even when the final size is the largest
+        // viable raw size, which is absent from the optimal-rice table.
+        Self::downgrade_slice_in_place(
+            &mut base_window,
+            window_bits,
+            window_bits - final_hash_bits,
+        );
+        Self::downgrade_slice_in_place(
+            &mut finer_window,
+            window_bits,
+            window_bits - final_hash_bits,
+        );
+        b_new += Self::distinct_count_at(&base_window, &finer_window)
+            - Self::distinct_count_at(&base_window, &finer_window[..start]);
+        b_new
     }
 }
 

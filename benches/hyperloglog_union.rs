@@ -4,10 +4,84 @@
 //! all three regimes: both operands still hash lists (the accuracy-preserving merge), both
 //! operands saturated into fully-fledged HyperLogLogs (the register-wise maximum), and the
 //! mixed case.
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use hyperloglog_rs::prelude::*;
 
 type HLL = HyperLogLog<Precision9, Bits6>;
+
+/// Cardinalities swept across the hash-list regime to expose the (former) super-linear union/sketch
+/// time hump and confirm the two-pointer merge is flat. The largest entries sit just under the
+/// hash-list-to-registers transition; any that no longer fit a given precision are skipped.
+const HASH_LIST_SWEEP: &[u64] = &[100, 450, 1000, 2000, 3000, 4000, 4730];
+
+/// Builds a counter from `count` distinct values drawn from `seed`. Same seed and a larger `count`
+/// yields a superset (the random stream is a deterministic prefix), so these nest for the sketch.
+fn build_hash_list<P: Precision + PackedRegister<B>, B: Bits>(
+    count: u64,
+    seed: u64,
+) -> HyperLogLog<P, B> {
+    let mut hll = HyperLogLog::<P, B>::default();
+    for value in iter_random_values::<u64>(count, None, Some(seed)) {
+        hll.insert(&value);
+    }
+    hll
+}
+
+/// Both-hash-list union (`a | b`) swept across the hash-list regime at one precision: each operand
+/// holds `card` distinct values and stays a hash list. O(n+m) merge, formerly O(n*m).
+fn union_hash_list_sweep<P: Precision + PackedRegister<B>, B: Bits>(c: &mut Criterion, name: &str) {
+    let mut group = c.benchmark_group(name);
+    for &card in HASH_LIST_SWEEP {
+        let left = build_hash_list::<P, B>(card, 0x00A1_1CE0);
+        let right = build_hash_list::<P, B>(card, 0x0000_B0B0);
+        if !(left.is_sorted_hash_list() && right.is_sorted_hash_list()) {
+            continue;
+        }
+        group.bench_with_input(BenchmarkId::from_parameter(card), &card, |b, _| {
+            b.iter(|| black_box(black_box(&left) | black_box(&right)));
+        });
+    }
+    group.finish();
+}
+
+/// Default (non-MLE) `M=N=2` joint sketch over four nested hash lists, swept across the hash-list
+/// regime: the sketch runs `M*N = 4` both-hash-list unions, so it tracks the union hump.
+fn sketch_hash_list_sweep<P: Precision + PackedRegister<B>, B: Bits>(
+    c: &mut Criterion,
+    name: &str,
+) {
+    let mut group = c.benchmark_group(name);
+    for &card in HASH_LIST_SWEEP {
+        let inner = card / 2;
+        let left = [
+            build_hash_list::<P, B>(inner, 0x00A1_1CE0),
+            build_hash_list::<P, B>(card, 0x00A1_1CE0),
+        ];
+        let right = [
+            build_hash_list::<P, B>(inner, 0x0000_B0B0),
+            build_hash_list::<P, B>(card, 0x0000_B0B0),
+        ];
+        if !left
+            .iter()
+            .chain(right.iter())
+            .all(HyperLogLog::is_sorted_hash_list)
+        {
+            continue;
+        }
+        group.bench_with_input(BenchmarkId::from_parameter(card), &card, |b, _| {
+            b.iter(|| black_box(JointSketch::estimate(black_box(&left), black_box(&right))));
+        });
+    }
+    group.finish();
+}
+
+/// The cardinality sweeps at the two precisions the handoff calls out.
+fn bench_hash_list_sweeps(c: &mut Criterion) {
+    union_hash_list_sweep::<Precision12, Bits6>(c, "union_hash_list_sweep_p12");
+    union_hash_list_sweep::<Precision14, Bits6>(c, "union_hash_list_sweep_p14");
+    sketch_hash_list_sweep::<Precision12, Bits6>(c, "sketch_hash_list_sweep_p12");
+    sketch_hash_list_sweep::<Precision14, Bits6>(c, "sketch_hash_list_sweep_p14");
+}
 
 /// Builds a counter from `count` distinct values drawn from the given seed.
 fn build(count: u64, seed: u64) -> HLL {
@@ -142,7 +216,8 @@ criterion_group!(
     benches,
     bench_hyperloglog_union,
     bench_union_estimate,
-    bench_union_estimate_hyperloglog
+    bench_union_estimate_hyperloglog,
+    bench_hash_list_sweeps
 );
 
 criterion_main!(benches);
