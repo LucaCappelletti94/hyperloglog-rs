@@ -49,7 +49,7 @@ criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.5"
 
 [features]
-default = []
+default = ["alloc"]
 # The crate is always `no_std`. The MLE uses `alloc::collections::BTreeMap` and routes float
 # transcendentals through `libm` (via `num-traits`).
 mle = ["alloc", "dep:num-traits"]
