@@ -40,7 +40,6 @@ pub(crate) use alloc::collections::BTreeMap as PatternMap;
 pub(crate) const REGISTER_MULTIPLICITIES_CAPACITY: usize = 1 << 6;
 
 use cardinality::mle_cardinality;
-use exact::joint_sketch_exact_from_hash_lists;
 use exact::joint_sketch_exact_from_values;
 use union::mle_union_regions;
 
@@ -159,14 +158,17 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// `right_diff[j]`.
     ///
     /// # Implementative details
-    /// When every operand is still a sorted value list (or every operand a sorted hash list) the
-    /// disjoint cells are counted EXACTLY from the stored values (or composite hashes), with no
-    /// estimation. Otherwise the operands are materialized into HyperLogLog registers and the cells
-    /// are formed by pairwise inclusion-exclusion over the 2-set union MLE (Ertl's joint estimator,
-    /// `mle_union_regions_from_registers`), the same per-pair estimator the scalar
-    /// [`mle()`](HyperLogLog::mle) union uses. Materializing first keeps every cell on the same
-    /// (register) footing, avoiding the representation-mismatch spike of mixing near-exact hash-list
-    /// cells with probabilistic register ones.
+    /// When every operand is still a sorted value list the disjoint cells are counted EXACTLY from
+    /// the stored literal values (no hashing, no collisions). When every operand is a sorted hash
+    /// list the cells are formed by pairwise inclusion-exclusion over the corrected hash-list
+    /// union/cardinality estimates (allocation-free): this is far more accurate than the raw exact
+    /// distinct-hash decomposition once the common hash size narrows, where the uncorrected cells
+    /// drift 15-30%, and it matches the scalar [`mle()`](HyperLogLog::mle) union, which also routes
+    /// both-hash-list operands to [`estimate_union_cardinality`](HyperLogLog::estimate_union_cardinality).
+    /// Otherwise the operands are materialized into HyperLogLog registers and the cells are formed by
+    /// pairwise inclusion-exclusion over the 2-set union MLE views, keeping every cell on the same
+    /// (register) footing and avoiding the representation-mismatch spike of mixing hash-list and
+    /// register cells.
     #[inline]
     pub(crate) fn joint_sketch_mle<const M: usize, const N: usize>(
         lefts: &[Self; M],
@@ -180,7 +182,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         if lefts.iter().all(Self::is_sorted_hash_list)
             && rights.iter().all(Self::is_sorted_hash_list)
         {
-            return joint_sketch_exact_from_hash_lists::<P, B, R, H, M, N>(lefts, rights);
+            return crate::sketches::inclusion_exclusion_joint_sketch(lefts, rights);
         }
 
         // Materialize every operand to registers (a no-op once dense) so all cells share the same

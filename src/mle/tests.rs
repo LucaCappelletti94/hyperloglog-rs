@@ -102,3 +102,79 @@ fn test_joint_sketch_mle_2x2_cells_sum_to_union() {
         "cells sum {total} vs union 30000"
     );
 }
+
+#[cfg(test)]
+mod hash_list_sketch_not_degraded {
+    //! Guards that the all-hash-list MLE joint sketch stays accurate when the common hash size
+    //! narrows. It is now routed to inclusion-exclusion over the corrected hash-list union estimates;
+    //! the previous raw distinct-hash decomposition drifted to ~30%+ here (measured: card 1100 went
+    //! from 32.2% with the exact path to 2.3% with inclusion-exclusion). Truth is the disjoint-pool
+    //! construction where every one of the eight differential cells is exactly `card`.
+    use crate::prelude::*;
+
+    type Hll = HyperLogLog<Precision12, Bits6>;
+
+    fn smix(state: &mut u64) -> u64 {
+        *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = *state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
+
+    fn pools(card: u64, seed: u64) -> [std::vec::Vec<u64>; 8] {
+        let mut state = seed;
+        core::array::from_fn(|_| (0..card).map(|_| smix(&mut state)).collect())
+    }
+
+    fn build(pools: &[std::vec::Vec<u64>; 8], idx: &[usize]) -> Hll {
+        let mut hll = Hll::default();
+        for &k in idx {
+            for &v in &pools[k] {
+                hll.insert(&v);
+            }
+        }
+        hll
+    }
+
+    fn cell_error(parts: ([[f64; 2]; 2], [f64; 2], [f64; 2]), card: f64) -> f64 {
+        let (overlap, left_diff, right_diff) = parts;
+        let mut error = 0.0;
+        for row in &overlap {
+            for &cell in row {
+                error += (cell - card).abs();
+            }
+        }
+        for &margin in left_diff.iter().chain(right_diff.iter()) {
+            error += (margin - card).abs();
+        }
+        error / (8.0 * card)
+    }
+
+    #[test]
+    fn mle_hash_list_joint_sketch_stays_corrected() {
+        // Several cardinalities, all in the narrow-common-width band where the exact decomposition
+        // used to blow up; the routed inclusion-exclusion path must keep every config well-bounded.
+        for &card in &[700u64, 900, 1100, 1250] {
+            let p = pools(card, 0xD06);
+            // overlap[i][j] = pool i*2+j; left_diff[i] = pool 4+i; right_diff[j] = pool 6+j.
+            let l0 = build(&p, &[0, 1, 4]);
+            let l1 = build(&p, &[0, 1, 4, 2, 3, 5]);
+            let r0 = build(&p, &[0, 2, 6]);
+            let r1 = build(&p, &[0, 2, 6, 1, 3, 7]);
+            assert!(
+                [&l0, &l1, &r0, &r1].iter().all(|c| c.is_sorted_hash_list()),
+                "card {card}: operands must stay hash lists to exercise the path under test",
+            );
+
+            let sketch =
+                JointSketch::estimate(&[l0.mle(), l1.mle()], &[r0.mle(), r1.mle()]).into_parts();
+            let error = cell_error(sketch, card as f64);
+            assert!(
+                error < 0.05,
+                "card {card}: MLE hash-list joint sketch cell error {error} exceeds 5% (the \
+                 narrow-width degradation appears to have returned)",
+            );
+        }
+    }
+}
