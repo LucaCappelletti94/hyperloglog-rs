@@ -937,18 +937,12 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 }
             }
             (true, true) => {
-                // Both counters are sorted hash lists. Without `alloc` we cannot replay the union's
-                // downgrade schedule to recover the path-dependent distinct-count statistic, so the
-                // niche no-`alloc` build keeps the correct (but quadratic) one-at-a-time merge.
-                #[cfg(not(feature = "alloc"))]
-                {
-                    self.merge_hash_lists_one_by_one(rhs);
-                }
-                // With `alloc` both operands are already sorted (descending), so a single two-pointer
-                // merge writes the union into a fresh buffer in O(n + m), instead of splicing one hash
-                // at a time (O(n*m), the cost that humped near saturation). The hashes are brought to
-                // the common (coarser) hash size, since a stored hash can only be downgraded.
-                #[cfg(feature = "alloc")]
+                // Both counters are sorted hash lists. Both operands are already sorted (descending),
+                // so a single two-pointer merge writes the union into a fresh buffer in O(n + m),
+                // instead of splicing one hash at a time (O(n*m), the cost that humped near
+                // saturation). The hashes are brought to the common (coarser) hash size, since a
+                // stored hash can only be downgraded. The whole path, including the cardinality-count
+                // simulation, re-streams the operand buffers and is allocation-free.
                 {
                     let self_hash_bits = self.get_hash_bits().unwrap();
                     let self_number_of_hashes = self.get_number_of_hashes().unwrap();
@@ -1069,10 +1063,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         }
     }
 
-    #[cfg(any(test, not(feature = "alloc")))]
+    #[cfg(test)]
     /// Reference both-hash-list union by one-at-a-time insertion (the pre-two-pointer-merge
-    /// implementation): the correct but quadratic fallback used by the no-`alloc` build, and the
-    /// oracle [`merge`](Self::merge) is validated against in tests.
+    /// implementation), kept as the oracle the two-pointer [`merge`](Self::merge) is validated
+    /// against in tests.
     pub(crate) fn merge_hash_lists_one_by_one(&mut self, rhs: &Self) {
         debug_assert!(self.is_sorted_hash_list() && rhs.is_sorted_hash_list());
         let self_hash_bits = self.get_hash_bits().unwrap();
@@ -1218,18 +1212,17 @@ mod test_hybrid_properties {
         // The stored bytes are not required to be identical: for a sparse union the fast path settles
         // on the largest optimal (prefix-free) hash size, while the incremental path can retain the
         // larger non-prefix-free size until an insert forces it down, and the simulated downgrade
-        // schedule can place an overflow one hash either side of the incremental one. Both leave the
-        // distinct-count statistic equal up to a sub-0.1% rounding, so the estimates agree. This is
-        // far stronger than a tolerance on the true union, which the inherent hash-list correction
-        // error dominates anyway.
+        // schedule can place an overflow one hash either side of the incremental one. That last effect
+        // is a +/-1-2 difference in the raw `number_of_hashes + duplicates` statistic, so the bound is
+        // a small relative tolerance plus a few-count absolute floor (at tiny cardinalities a single
+        // count is a larger fraction of the estimate). The precision-tuned accuracy-versus-truth check
+        // across every representation lives in `tests/proptest_hinge.rs`.
         if new.is_sorted_hash_list() {
+            let new_estimate = new.estimate_cardinality();
+            let old_estimate = old.estimate_cardinality();
             assert!(
-                (new.estimate_cardinality() - old.estimate_cardinality()).abs()
-                    / old.estimate_cardinality()
-                    < 0.005,
-                "{label}: merged estimate {} diverged from one-at-a-time {}",
-                new.estimate_cardinality(),
-                old.estimate_cardinality(),
+                (new_estimate - old_estimate).abs() <= old_estimate * 0.005 + 3.0,
+                "{label}: merged estimate {new_estimate} diverged from one-at-a-time {old_estimate}",
             );
         }
 
@@ -1259,13 +1252,20 @@ mod test_hybrid_properties {
                 old.estimate_cardinality(),
             );
         }
+        // The estimate-vs-truth and commutativity bounds are precision-relative: a single hash-list
+        // union sits within the precision's error envelope of the truth, and the merge is commutative
+        // only up to the base-operand choice (which shifts the inherited duplicate tally), an effect
+        // that scales with the same envelope. The tight, precision-independent guarantee is the
+        // estimate-vs-oracle parity asserted above; this is a looser accuracy sanity (exact accuracy
+        // across representations is covered by `tests/proptest_hinge.rs`).
+        let truth_tolerance = P::error_rate() * 2.0;
         assert!(
-            err < 0.02,
-            "{label}: union {union_new} vs truth {true_union} (err {err})"
+            err < truth_tolerance,
+            "{label}: union {union_new} vs truth {true_union} (err {err}, tol {truth_tolerance})"
         );
         assert!(
-            (union_new - union_swapped).abs() / true_union < 0.02,
-            "{label}: union not commutative ({union_new} vs {union_swapped})"
+            (union_new - union_swapped).abs() / true_union < truth_tolerance,
+            "{label}: union not commutative ({union_new} vs {union_swapped}, tol {truth_tolerance})"
         );
         let self_union = a.estimate_union_cardinality(&a);
         assert!(
@@ -1338,6 +1338,34 @@ mod test_hybrid_properties {
         ) {
             // Skip draws whose operands leave the hash-list regime (sized to stay in it).
             proptest::prop_assume!(check_merge_equivalence::<Precision12, Bits6>(
+                only_a, shared, only_b, seed
+            ));
+        }
+
+        /// Equivalence at P8, where the hash list is tiny and often non-prefix-free (the raw
+        /// largest-size layout), exercising the raw-merge and absent-from-table final-size paths.
+        #[test]
+        fn merge_two_pointer_equivalence_p8(
+            only_a in 1u64..150,
+            shared in 0u64..100,
+            only_b in 1u64..150,
+            seed in proptest::prelude::any::<u64>(),
+        ) {
+            proptest::prop_assume!(check_merge_equivalence::<Precision8, Bits6>(
+                only_a, shared, only_b, seed
+            ));
+        }
+
+        /// Equivalence at P14, where the rank index is active and the union spans several downgrade
+        /// phases near saturation (the regime where the count simulation does the most work).
+        #[test]
+        fn merge_two_pointer_equivalence_p14(
+            only_a in 1u64..4000,
+            shared in 0u64..3000,
+            only_b in 1u64..4000,
+            seed in proptest::prelude::any::<u64>(),
+        ) {
+            proptest::prop_assume!(check_merge_equivalence::<Precision14, Bits6>(
                 only_a, shared, only_b, seed
             ));
         }

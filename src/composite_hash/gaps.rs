@@ -45,7 +45,6 @@ pub(crate) struct InsertMetadata {
     pub(crate) bit_index: u32,
 }
 
-#[cfg(feature = "alloc")]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 /// Metadata describing the buffer produced by [`GapHash::merge_write`]: the chosen hash size, the
 /// number of distinct stored hashes, the writer bit position past the last hash, and whether the
@@ -1493,7 +1492,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// operands at `target_hash_bits`), which estimates `|A intersect B|` for the cardinality
     /// correction. Allocation-free: both inputs are already sorted, exactly like
     /// [`value_list::for_each_union_value`](super::gaps::value_list).
-    #[cfg(feature = "alloc")]
     fn for_each_merged_downgraded<F: FnMut(bool, u32)>(
         a_hashes: &[u8],
         a_number_of_hashes: u32,
@@ -1571,7 +1569,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// Sizes the prefix-free encoding of the union of two sorted hash lists at `target_hash_bits`
     /// (rice coefficient `uniform_coefficient`), without writing. Returns `(number_of_hashes,
     /// encoded_bits)`.
-    #[cfg(feature = "alloc")]
     fn merge_size_at(
         a_hashes: &[u8],
         a_number_of_hashes: u32,
@@ -1625,7 +1622,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// `bit_index`). The `number_of_hashes + duplicates` statistic the cardinality correction is
     /// keyed on is path-dependent and is computed separately by
     /// [`merge_finer_new_count`](Self::merge_finer_new_count).
-    #[cfg(feature = "alloc")]
     pub(crate) fn merge_metrics(
         a_hashes: &[u8],
         a_number_of_hashes: u32,
@@ -1725,7 +1721,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// `meta.prefix_free` it is a fresh prefix-free (rice) buffer with a rebuilt rank index;
     /// otherwise it is the raw fixed-width layout. `dest` must be disjoint from both inputs and sized
     /// per [`merge_metrics`](Self::merge_metrics). Allocation-free.
-    #[cfg(feature = "alloc")]
     #[allow(unsafe_code)]
     pub(crate) fn merge_write(
         a_hashes: &[u8],
@@ -1826,7 +1821,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// the representation a sparse list keeps at `LARGEST_VIABLE_HASH_BITS`. Returns the writer bit
     /// position past the last hash (`number_of_hashes * hash_bits`). Mirrors the byte layout
     /// `SwitchHash::into_variant` reads back.
-    #[cfg(feature = "alloc")]
     #[allow(unsafe_code)]
     fn merge_write_raw(
         a_hashes: &[u8],
@@ -1892,72 +1886,156 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         bit_index
     }
 
-    /// Two-pointer merge of two descending encoded-hash slices already at a common width, calling
-    /// `f(is_first, hash)` for each distinct hash of the union in strictly descending order
-    /// (consecutive duplicates, including those an in-place downgrade left behind, are collapsed). The
-    /// slice-based analogue of [`for_each_merged_downgraded`](Self::for_each_merged_downgraded), used
-    /// by the raw-count simulation, which keeps both operands downgraded in place so the per-element
-    /// downgrade is paid once per width instead of once per merge.
-    #[cfg(feature = "alloc")]
-    fn for_each_merged_slice<F: FnMut(bool, u32)>(base: &[u32], finer: &[u32], mut f: F) {
-        let mut i = 0usize;
-        let mut j = 0usize;
-        let mut first = true;
-        let mut last_emitted: Option<u32> = None;
-        loop {
-            let head_a = base.get(i).copied();
-            let head_b = finer.get(j).copied();
-            let value = match (head_a, head_b) {
-                (Some(x), Some(y)) => {
-                    if x == y {
-                        i += 1;
-                        j += 1;
-                        x
-                    } else if x > y {
-                        i += 1;
-                        x
-                    } else {
-                        j += 1;
-                        y
-                    }
-                }
-                (Some(x), None) => {
-                    i += 1;
-                    x
-                }
-                (None, Some(y)) => {
-                    j += 1;
-                    y
-                }
-                (None, None) => break,
-            };
+    /// One downgrade phase of the raw-count simulation at `width`, streamed directly from the operand
+    /// byte buffers (no allocation). The finer operand's hashes are added (in base-width-distinct
+    /// order, the order the one-at-a-time merge inserts them) on top of `base` and the already-carried
+    /// finer prefix `[0..start)`. Returns `(end, new)` where `end` is the largest finer prefix that
+    /// still fits `capacity` (all of it when `is_final`, since the full union is known to fit at the
+    /// final size) and `new` is the number of finer hashes in `[start, end)` that are distinct at
+    /// `width` (the phase's contribution to `b_new`).
+    ///
+    /// `base` is at `base_width` (its stored size); the finer operand is at `finer_hash_bits`, first
+    /// brought to `base_width` so its distinct-at-`base_width` count matches the one-at-a-time
+    /// insertion order, then to `width` for the size and collision arithmetic. When `is_final`, the
+    /// size arithmetic (and `uniform_coefficient`) is skipped entirely, so the final size may be the
+    /// raw largest size that has no entry in `OPTIMAL_RICE_COEFFICIENTS`.
+    #[allow(clippy::too_many_arguments)]
+    fn merge_phase_new_count(
+        base_hashes: &[u8],
+        base_number_of_hashes: u32,
+        base_width: u8,
+        base_bit_index: u32,
+        finer_hashes: &[u8],
+        finer_number_of_hashes: u32,
+        finer_hash_bits: u8,
+        finer_bit_index: u32,
+        width: u8,
+        uniform_coefficient: u8,
+        capacity: u32,
+        start: usize,
+        is_final: bool,
+    ) -> (usize, u32) {
+        let shift = base_width - width;
+        let to_width = |hash: u32| {
+            if shift == 0 {
+                hash
+            } else {
+                Self::downgrade(hash, base_width, shift)
+            }
+        };
+        let base_stream = || {
+            Self::downgraded(
+                base_hashes,
+                base_number_of_hashes,
+                base_width,
+                base_bit_index,
+                0,
+            )
+        };
 
-            if Some(value) == last_emitted {
+        // Base-alone encoded size at `width`: the starting point onto which finer hashes are added.
+        // Not needed for the final size, where every remaining hash is absorbed regardless of cost.
+        let mut size = 0u32;
+        if !is_final {
+            let mut previous: Option<u32> = None;
+            for hash in base_stream() {
+                let value = to_width(hash);
+                if Some(value) == previous {
+                    continue;
+                }
+                size += if previous.is_none() {
+                    u32::from(width)
+                } else {
+                    Self::gap_rice_len(previous.unwrap(), value, width, uniform_coefficient)
+                };
+                previous = Some(value);
+            }
+        }
+
+        // Interleaved scan: walk the finer hashes (base-width-distinct order) and a monotone base
+        // pointer, accumulating each insertion's size delta and counting the new ones.
+        let mut base_iter = base_stream().peekable();
+        let mut last_base_at_or_above: Option<u32> = None;
+        let mut previous_finer_base: Option<u32> = None;
+        let mut previous_finer_width: Option<u32> = None;
+        let mut index = 0usize;
+        let mut end = 0usize;
+        let mut new_count = 0u32;
+
+        for finer_at_base in Self::downgraded(
+            finer_hashes,
+            finer_number_of_hashes,
+            finer_hash_bits,
+            finer_bit_index,
+            finer_hash_bits - base_width,
+        ) {
+            // Collapse to the base-width-distinct insertion order (a finer hash equal to its
+            // predecessor at the base width was a no-op insertion in the one-at-a-time path).
+            if Some(finer_at_base) == previous_finer_base {
                 continue;
             }
-            debug_assert!(
-                last_emitted.is_none_or(|last| value < last),
-                "slice merge is not strictly descending"
-            );
-            f(first, value);
-            last_emitted = Some(value);
-            first = false;
-        }
-    }
+            previous_finer_base = Some(finer_at_base);
+            let finer = to_width(finer_at_base);
 
-    /// Number of distinct hashes in the union of two slices already at a common width.
-    #[cfg(feature = "alloc")]
-    fn distinct_count_at(base: &[u32], finer: &[u32]) -> u32 {
-        let mut count = 0u32;
-        Self::for_each_merged_slice(base, finer, |_, _| {
-            count += 1;
-        });
-        count
+            // Advance the base pointer past every base hash >= this finer hash at `width`; the last
+            // one consumed is the nearest base hash at or above it.
+            while let Some(&peeked) = base_iter.peek() {
+                let base_value = to_width(peeked);
+                if base_value >= finer {
+                    last_base_at_or_above = Some(base_value);
+                    base_iter.next();
+                } else {
+                    break;
+                }
+            }
+            let base_above = last_base_at_or_above;
+            let base_below = base_iter.peek().map(|&peeked| to_width(peeked));
+
+            // The hash is already present (collides with a base hash or the previous finer hash at
+            // this width): no new element and no extra bits.
+            let collides = previous_finer_width == Some(finer) || base_above == Some(finer);
+            let delta = if collides || is_final {
+                0
+            } else {
+                // Inserting `finer` splits the gap between its neighbours into two; if it is the new
+                // maximum the leading full-width code keeps its length, so only the new gap counts.
+                let left = match (previous_finer_width, base_above) {
+                    (Some(p), Some(b)) => Some(p.min(b)),
+                    (Some(p), None) => Some(p),
+                    (None, Some(b)) => Some(b),
+                    (None, None) => None,
+                };
+                match (left, base_below) {
+                    (Some(l), Some(r)) => {
+                        Self::gap_rice_len(l, finer, width, uniform_coefficient)
+                            + Self::gap_rice_len(finer, r, width, uniform_coefficient)
+                            - Self::gap_rice_len(l, r, width, uniform_coefficient)
+                    }
+                    (Some(l), None) => Self::gap_rice_len(l, finer, width, uniform_coefficient),
+                    (None, Some(r)) => Self::gap_rice_len(finer, r, width, uniform_coefficient),
+                    (None, None) => u32::from(width),
+                }
+            };
+
+            if !is_final && !collides && size + delta > capacity {
+                break;
+            }
+            if !collides {
+                size += delta;
+            }
+            end = index + 1;
+            if index >= start && !collides {
+                new_count += 1;
+            }
+            previous_finer_width = Some(finer);
+            index += 1;
+        }
+
+        (end, new_count)
     }
 
     /// Rice-coded length, in bits, of the gap between two consecutive descending hashes
     /// (`previous > hash`) at `hash_bits`.
-    #[cfg(feature = "alloc")]
     fn gap_rice_len(previous: u32, hash: u32, hash_bits: u8, uniform_coefficient: u8) -> u32 {
         let gap = Self::into_gap_fragment(previous, hash, hash_bits);
         len_rice(
@@ -1965,114 +2043,6 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             uniform_coefficient,
             gap.geometric_minus_one,
         )
-    }
-
-    /// Prefix-free encoded size, in bits, of the union of two slices already at `hash_bits` (rice
-    /// coefficient `uniform_coefficient`).
-    #[cfg(feature = "alloc")]
-    fn slice_size_at(base: &[u32], finer: &[u32], hash_bits: u8, uniform_coefficient: u8) -> u32 {
-        let mut bits = 0u32;
-        let mut previous: Option<u32> = None;
-        Self::for_each_merged_slice(base, finer, |first, hash| {
-            bits += if first {
-                u32::from(hash_bits)
-            } else {
-                Self::gap_rice_len(previous.unwrap(), hash, hash_bits, uniform_coefficient)
-            };
-            previous = Some(hash);
-        });
-        bits
-    }
-
-    /// Largest finer prefix length whose union with `base` (both already at `hash_bits`) still fits
-    /// `capacity` bits. Adds finer hashes in descending order, computing each insertion's rice-size
-    /// delta in `O(1)` via a monotone base pointer (the gap it splits is between its neighbors), so
-    /// the whole boundary is found in a single `O(base + finer)` pass instead of a binary search over
-    /// per-prefix re-encodings.
-    #[cfg(feature = "alloc")]
-    fn finer_prefix_fitting(
-        base: &[u32],
-        finer: &[u32],
-        hash_bits: u8,
-        uniform_coefficient: u8,
-        capacity: u32,
-    ) -> usize {
-        let mut size = Self::slice_size_at(base, &[], hash_bits, uniform_coefficient);
-        if size > capacity {
-            return 0;
-        }
-        let mut base_index = 0usize;
-        let mut previous_finer: Option<u32> = None;
-        let mut end = 0usize;
-        for (k, &hash) in finer.iter().enumerate() {
-            // A finer hash that collapsed onto its predecessor under the in-place downgrade is
-            // already represented and costs nothing.
-            if Some(hash) == previous_finer {
-                end = k + 1;
-                continue;
-            }
-            // `base[..base_index]` are the base hashes >= `hash`; `base[base_index..]` are below it.
-            while base_index < base.len() && base[base_index] >= hash {
-                base_index += 1;
-            }
-            let base_above = if base_index > 0 {
-                Some(base[base_index - 1])
-            } else {
-                None
-            };
-            // Already present in `base`: no new element, no extra bits.
-            if base_above == Some(hash) {
-                end = k + 1;
-                previous_finer = Some(hash);
-                continue;
-            }
-            let base_below = base.get(base_index).copied();
-            // Left neighbour: the smallest union element greater than `hash` (the closer of the
-            // previous finer hash and the nearest base hash above).
-            let left = match (previous_finer, base_above) {
-                (Some(p), Some(b)) => Some(p.min(b)),
-                (Some(p), None) => Some(p),
-                (None, Some(b)) => Some(b),
-                (None, None) => None,
-            };
-            // Inserting `hash` splits the gap between its neighbours into two; if it is the new
-            // maximum the leading full-width code is unchanged in length, so only the new gap counts.
-            let delta = match (left, base_below) {
-                (Some(l), Some(r)) => {
-                    Self::gap_rice_len(l, hash, hash_bits, uniform_coefficient)
-                        + Self::gap_rice_len(hash, r, hash_bits, uniform_coefficient)
-                        - Self::gap_rice_len(l, r, hash_bits, uniform_coefficient)
-                }
-                (Some(l), None) => Self::gap_rice_len(l, hash, hash_bits, uniform_coefficient),
-                (None, Some(r)) => Self::gap_rice_len(hash, r, hash_bits, uniform_coefficient),
-                (None, None) => u32::from(hash_bits),
-            };
-            if size + delta > capacity {
-                break;
-            }
-            size += delta;
-            end = k + 1;
-            previous_finer = Some(hash);
-        }
-        debug_assert_eq!(
-            size,
-            Self::slice_size_at(base, &finer[..end], hash_bits, uniform_coefficient),
-            "incremental prefix size diverged from the full re-encoding"
-        );
-        end
-    }
-
-    /// Downgrades every entry of a sorted-descending slice in place from `from_hash_bits` by `shift`
-    /// bits. The result stays sorted descending (downgrading is monotone); consecutive collisions are
-    /// left in place for the merge helpers to collapse.
-    #[cfg(feature = "alloc")]
-    fn downgrade_slice_in_place(hashes: &mut [u32], from_hash_bits: u8, shift: u8) {
-        if shift == 0 {
-            return;
-        }
-        for hash in hashes {
-            *hash = Self::downgrade(*hash, from_hash_bits, shift);
-        }
     }
 
     /// Counts the finer operand's contribution to the union's `number_of_hashes + duplicates`
@@ -2089,7 +2059,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// across the union's descending hash-size schedule, each counted at the width in effect when it
     /// is added. This reproduces the slow one-at-a-time merge's count in `O(widths * (n + m))`
     /// instead of `O(n * m)`. Requires `alloc` for the random-access finer prefix.
-    #[cfg(feature = "alloc")]
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn merge_finer_new_count(
         base_hashes: &[u8],
         base_number_of_hashes: u32,
@@ -2105,87 +2075,59 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         debug_assert!(base_hash_bits <= finer_hash_bits);
         debug_assert!(final_hash_bits <= base_hash_bits);
 
-        // Random-access copies of both operands, kept downgraded in place to the width of the current
-        // phase so the per-element downgrade is paid once per width rather than once per merge. They
-        // start at the common (coarser) base width: the finer operand is downgraded there once,
-        // collapsing the duplicates that introduces, so the simulation starts from the same
-        // per-operand state the one-at-a-time merge does. They carry consecutive collisions from
-        // later in-place downgrades, which the merge helpers collapse.
-        let mut base_window: alloc::vec::Vec<u32> = Self::downgraded(
-            base_hashes,
-            base_number_of_hashes,
-            base_hash_bits,
-            base_bit_index,
-            0,
-        )
-        .collect();
-        let mut finer_window: alloc::vec::Vec<u32> =
-            alloc::vec::Vec::with_capacity(finer_number_of_hashes as usize);
-        let mut last: Option<u32> = None;
-        for hash in Self::downgraded(
-            finer_hashes,
-            finer_number_of_hashes,
-            finer_hash_bits,
-            finer_bit_index,
-            finer_hash_bits - base_hash_bits,
-        ) {
-            if Some(hash) != last {
-                finer_window.push(hash);
-                last = Some(hash);
-            }
-        }
-
         let data =
             OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
 
         let mut b_new = 0u32;
         let mut start = 0usize;
-        let mut window_bits = base_hash_bits;
         // Downgrade phases at the optimal widths strictly between the final and base sizes: each
         // absorbs the largest descending finer prefix that still fits before the buffer overflows to
-        // the next size (a stored hash can only be downgraded once the buffer overflows). The windows
-        // are downgraded in place to each successive (narrower) width.
+        // the next size (a stored hash can only be downgraded once the buffer overflows). Each phase
+        // re-streams both operands from their byte buffers, so the count is allocation-free.
         for (width, uniform_coefficient) in data.iter().rev() {
             let width = *width;
             if width > base_hash_bits || width <= final_hash_bits {
                 continue;
             }
-            Self::downgrade_slice_in_place(&mut base_window, window_bits, window_bits - width);
-            Self::downgrade_slice_in_place(&mut finer_window, window_bits, window_bits - width);
-            window_bits = width;
-
             let capacity = dest_len_bytes as u32 * 8 - Self::rank_index_total_size(width);
-            let end = Self::finer_prefix_fitting(
-                &base_window,
-                &finer_window,
+            let (end, new_count) = Self::merge_phase_new_count(
+                base_hashes,
+                base_number_of_hashes,
+                base_hash_bits,
+                base_bit_index,
+                finer_hashes,
+                finer_number_of_hashes,
+                finer_hash_bits,
+                finer_bit_index,
                 width,
                 *uniform_coefficient,
                 capacity,
+                start,
+                false,
             );
-            // Each finer hash added in this phase that is distinct at this width bumps the count;
-            // collisions (and collapses of already-carried hashes) do not. A collapse of a hash
-            // counted in a wider phase preserves the running count (the table's raw statistic moves
-            // it from `number_of_hashes` to `duplicates`), so only positive per-phase deltas accrue.
-            b_new += Self::distinct_count_at(&base_window, &finer_window[..end])
-                - Self::distinct_count_at(&base_window, &finer_window[..start]);
+            b_new += new_count;
             start = end;
         }
         // The final size absorbs every remaining finer hash: the full union fits there (guaranteed by
-        // `merge_metrics`). This phase is always evaluated, even when the final size is the largest
-        // viable raw size, which is absent from the optimal-rice table.
-        Self::downgrade_slice_in_place(
-            &mut base_window,
-            window_bits,
-            window_bits - final_hash_bits,
+        // `merge_metrics`). It is always evaluated (`is_final`), even when the final size is the
+        // largest viable raw size, which is absent from the optimal-rice table; the size arithmetic is
+        // skipped there, so no rice coefficient is needed.
+        let (_end, new_count) = Self::merge_phase_new_count(
+            base_hashes,
+            base_number_of_hashes,
+            base_hash_bits,
+            base_bit_index,
+            finer_hashes,
+            finer_number_of_hashes,
+            finer_hash_bits,
+            finer_bit_index,
+            final_hash_bits,
+            0,
+            0,
+            start,
+            true,
         );
-        Self::downgrade_slice_in_place(
-            &mut finer_window,
-            window_bits,
-            window_bits - final_hash_bits,
-        );
-        b_new += Self::distinct_count_at(&base_window, &finer_window)
-            - Self::distinct_count_at(&base_window, &finer_window[..start]);
-        b_new
+        b_new + new_count
     }
 }
 

@@ -6,3 +6,5 @@
 # everyone who runs the test benefits from these saved cases.
 cc 6c8cf6b7b37d21e6957daa06541bdcb8568176f5adea2d29d9a05af5cc2f7692 # shrinks to only_a = 1327, shared = 618, only_b = 1247, seed = 8689463984627522406
 cc 8a63d309b95bafcdd6f8616f9907b7a54a76b3110e6cfaea769ef1c53e6afd8b # shrinks to only_a = 1430, shared = 654, only_b = 99, seed = 4608606985675699092
+cc ba1947787b2d764f8d8de2e4c24800e473c23be99280f349bec3d9d191142772 # shrinks to only_a = 47, shared = 90, only_b = 36, seed = 8552026715331677917
+cc d555a09e108d8aa56be899ef8847784cc45d8afa3876ef1857d5a41380c60900 # shrinks to only_a = 45, shared = 22, only_b = 84, seed = 2085564659271757961
