@@ -12,8 +12,8 @@ use num_traits::Float;
 /// Computes the three disjoint regions of the 2-set joint MLE: `[left_difference, right_difference,
 /// intersection]`, i.e. `[|A \ B|, |B \ A|, |A intersect B|]`. The union cardinality is their sum.
 /// This is the analytic Ertl estimator over the register multiplicity arrays (each Adam iteration is
-/// O(2^B), not O(number of registers)), so it is much cheaper than the generalized pattern-based
-/// joint sketch optimizer, which the `M = N = 1` joint sketch dispatches here to avoid.
+/// O(2^B), not O(number of registers)), cheap enough that the `M = N = 1` joint sketch dispatches
+/// here directly.
 ///
 /// # Arguments
 /// * `registers` - Iterator over the `[left, right]` register pairs of the two counters.

@@ -110,12 +110,6 @@ pub fn test_approximated_counter_at_precision_and_bits<
     );
 }
 
-// #[test_estimator]
-// #[cfg(feature = "mle")]
-// fn test_hybrid_mle_plusplus<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
-//     test_approximated_counter_at_precision_and_bits::<P, Hybrid<MLE<PlusPlus<P, B, R, H>>>>();
-// }
-
 #[test_estimator]
 fn test_hyperloglog<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>() {
     test_approximated_counter_at_precision_and_bits::<P, B, R, H>();
@@ -185,6 +179,7 @@ pub fn test_union_merge_at_precision_and_bits<
             );
 
             // Merging a counter with itself must be idempotent.
+            #[allow(clippy::eq_op)] // `&left | &left` is the deliberate idempotency check.
             let self_union = &left | &left;
             let left_estimate = left.estimate_cardinality();
             assert!(
