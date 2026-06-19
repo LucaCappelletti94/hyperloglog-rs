@@ -178,3 +178,63 @@ mod hash_list_sketch_not_degraded {
         }
     }
 }
+
+#[cfg(test)]
+mod mixed_value_hash_sketch {
+    //! A nested operand set straddling the value-list/hash-list boundary (value-list inner shells,
+    //! hash-list outer shells, none dense) must be routed by `joint_sketch_mle` to inclusion-exclusion,
+    //! identical to the default joint sketch, rather than materialized to registers. Before the fix the
+    //! MLE path register-ized these near-exact operands and drifted in the transition band, the spike
+    //! the regime figure's hybrid MLE line exposed.
+    use crate::prelude::*;
+
+    type Hll = HyperLogLog<Precision12, Bits6>;
+
+    #[test]
+    fn mle_joint_sketch_matches_default_on_value_hash_mix() {
+        // Inner shells are value lists, outer shells the same elements plus more inserted hashed, so
+        // they are hash lists; the chains are nested by content and the two sides overlap.
+        let value_list = |range: core::ops::Range<u64>| {
+            let mut hll = Hll::default();
+            for value in range {
+                hll.insert_value(value);
+            }
+            hll
+        };
+        let hash_list = |range: core::ops::Range<u64>| {
+            let mut hll = Hll::default();
+            for value in range {
+                hll.insert(&value);
+            }
+            hll
+        };
+        let a0 = value_list(0..20);
+        let a1 = hash_list(0..120);
+        let b0 = value_list(10..30);
+        let b1 = hash_list(10..130);
+
+        assert!(
+            a0.is_sorted_value_list() && b0.is_sorted_value_list(),
+            "inner shells must be value lists to exercise the value/hash mix",
+        );
+        assert!(
+            a1.is_sorted_hash_list() && b1.is_sorted_hash_list(),
+            "outer shells must be hash lists to exercise the value/hash mix",
+        );
+        assert!(
+            ![&a0, &a1, &b0, &b1].iter().any(|c| c.is_hyperloglog()),
+            "no operand may be dense (the materialize-to-registers branch is for dense operands)",
+        );
+
+        // The MLE joint sketch must use the same inclusion-exclusion decomposition as the default
+        // (over the very same operands), so the cells are bit-identical. Computed first so the `.mle()`
+        // borrows end before the default consumes the operands.
+        let mle = JointSketch::estimate(&[a0.mle(), a1.mle()], &[b0.mle(), b1.mle()]).into_parts();
+        let default = JointSketch::estimate(&[a0, a1], &[b0, b1]).into_parts();
+        assert_eq!(
+            mle, default,
+            "the MLE joint sketch on a no-dense value/hash mix must equal the default \
+             inclusion-exclusion sketch, not be materialized to registers",
+        );
+    }
+}
