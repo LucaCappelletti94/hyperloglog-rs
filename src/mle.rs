@@ -32,6 +32,13 @@ pub use wrapper::Mle;
 // matches `std::collections::HashMap` end to end (often faster, the maps are small).
 pub(crate) use alloc::collections::BTreeMap as PatternMap;
 
+/// Upper bound on a register-multiplicity histogram length, which is `1 << B::NUMBER_OF_BITS`. It is
+/// `1 << 6` because the widest supported `Bits` is `Bits6`. The cardinality and union MLE histograms
+/// are stack arrays of this length, indexed only up to their per-`B` logical length, so they avoid a
+/// heap allocation per MLE call. A `debug_assert` at each use site guards the bound should a wider
+/// `Bits` ever be added.
+pub(crate) const REGISTER_MULTIPLICITIES_CAPACITY: usize = 1 << 6;
+
 use cardinality::mle_cardinality;
 use exact::joint_sketch_exact_from_hash_lists;
 use exact::joint_sketch_exact_from_values;

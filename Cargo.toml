@@ -82,3 +82,8 @@ harness = false
 name = "hyperloglog_union"
 harness = false
 
+[[bench]]
+name = "mle"
+harness = false
+required-features = ["mle"]
+

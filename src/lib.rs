@@ -11,11 +11,10 @@
 // test code), so `no_std` is applied only outside `test`. The library code itself never uses `std`.
 #![cfg_attr(not(test), no_std)]
 
-// `alloc` is optional: bring it in so the allocation-backed register and the MLE compile with
-// `alloc`. The `vec!` macro it provides is only needed by the MLE, so `macro_use` is applied only
-// then to avoid an unused-import warning.
+// `alloc` is optional: bring it in so the allocation-backed register and the MLE (which uses
+// `alloc::collections::BTreeMap`) compile. No production code uses the `vec!` macro, so `macro_use`
+// is not needed; the only `vec!` uses are in tests, where it comes from the `std` prelude.
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "mle", macro_use)]
 extern crate alloc;
 
 mod bits;
