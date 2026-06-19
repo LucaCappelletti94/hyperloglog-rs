@@ -344,7 +344,9 @@ fn main() {
         }
         reprs.push(("dense", Repr::Dense, true));
         // The real auto-switching counter, across every cardinality, to expose transition glitches.
-        reprs.push(("hybrid", Repr::Hybrid, false));
+        // MLE is measured here too, so the figure shows the `.mle()` path you actually get on a real
+        // counter as it grows (exact value list, corrected hash list, register MLE once dense).
+        reprs.push(("hybrid", Repr::Hybrid, true));
 
         for (repr_name, repr, with_mle) in reprs {
             eprintln!("  card {card:>8}  {repr_name}");
@@ -430,20 +432,24 @@ fn main() {
             }
 
             // The 2x2 sketch runs in every representation it fits in: the largest operand holds six
-            // pools (6 * card distinct values), so the value list needs 6 * card within capacity, and
-            // the hash-list set algebra is O(n^2) so its cardinality is bounded. On value/hash lists
-            // the sketch dispatches to the exact set algebra (no real MLE); MLE runs on registers only.
+            // pools (6 * card distinct values), so each representation is bounded by where those six
+            // pools still fit. The `.mle()` sketch is measured on hash-list operands too (not just
+            // registers), so the corrected all-hash-list MLE path is plotted and a re-degradation of
+            // it would show in the figure; on value lists it stays the truly-exact decomposition.
             let sketch_ok = match repr {
                 Repr::ValueList => 6 * card <= value_list_capacity,
-                Repr::HashList => 6 * card <= hash_list_max && card <= 600,
+                Repr::HashList => 6 * card <= hash_list_max,
                 Repr::Dense | Repr::Hybrid => card <= sketch_max,
             };
+            // The scalar MLE columns stay dense-only (on hash lists they reduce to the default), but
+            // the joint sketch MLE differs on hash lists, so it is also measured there.
+            let sketch_with_mle = with_mle || matches!(repr, Repr::HashList);
             let sketch_json = sketch_ok.then(|| {
                 let (la, ra) = build_sketch_operands(card, 42, repr);
                 let default_speed = autobench(fast, REPS, || {
                     black_box_f64(JointSketch::estimate(&la, &ra).union());
                 });
-                let mle_speed = with_mle.then(|| {
+                let mle_speed = sketch_with_mle.then(|| {
                     autobench(slow, REPS, || {
                         let lm = [la[0].mle(), la[1].mle()];
                         let rm = [ra[0].mle(), ra[1].mle()];
@@ -458,7 +464,7 @@ fn main() {
                         &JointSketch::estimate(&l, &r),
                         card as f64,
                     ));
-                    if with_mle {
+                    if sketch_with_mle {
                         let lm = [l[0].mle(), l[1].mle()];
                         let rm = [r[0].mle(), r[1].mle()];
                         me.push(sketch_error_2x2(

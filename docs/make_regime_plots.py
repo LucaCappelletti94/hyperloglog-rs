@@ -49,8 +49,14 @@ STYLE = {
     "hash list": ("#2166ac", "s"),
     "registers": ("#b2182b", "^"),
     "registers MLE": ("#762a83", "D"),
+    # The all-hash-list MLE joint sketch (corrected inclusion-exclusion); should track the default
+    # hash-list sketch, so a divergence here flags a return of the old exact-decomposition degradation.
+    "hash list MLE": ("#35978f", "v"),
     # The hybrid is the real auto-switching counter; drawn black on top to trace the actual path.
     "hybrid": ("#111111", "x"),
+    # The `.mle()` path on the real auto-switching counter (exact value list, corrected hash list,
+    # register MLE once dense): the MLE you actually get as a counter grows.
+    "hybrid MLE": ("#e08214", "*"),
 }
 
 # The shading is the regime of the `registers` estimate. Because that curve is force-dense
@@ -143,7 +149,7 @@ fig, axes = plt.subplots(len(TASKS), 2, figsize=(13, 2.9 * len(TASKS)))
 fig.suptitle(
     f"HyperLogLog<Precision{data['precision']}, Bits{data['bits']}> "
     f"({data['num_registers']} registers): speed and accuracy by regime\n"
-    f"shading = the regime of the registers estimate (sketch is M=N=2, register operands only)  |  "
+    f"shading = the regime of the registers estimate (sketch is M=N=2, register and hash-list operands)  |  "
     f"bands = +/-1 std over {data['reps']} timing runs (speed) and {data['trials']} trials (accuracy)",
     fontsize=11, y=0.997,
 )
@@ -179,7 +185,11 @@ for row, (task, has_acc) in enumerate(TASKS):
         plot_series(ax_speed, HASH, op_speed(task, "default"), "hash list", SPEED_FLOOR)
         plot_series(ax_speed, DENSE, op_speed(task, "default"), "registers", SPEED_FLOOR)
         plot_series(ax_speed, DENSE, op_speed(task, "mle"), "registers MLE", SPEED_FLOOR)
+        # Only the sketch records an MLE node for hash-list operands; for the scalar tasks this is None
+        # and plots nothing.
+        plot_series(ax_speed, HASH, op_speed(task, "mle"), "hash list MLE", SPEED_FLOOR)
         plot_series(ax_speed, HYBRID, op_speed(task, "default"), "hybrid", SPEED_FLOOR)
+        plot_series(ax_speed, HYBRID, op_speed(task, "mle"), "hybrid MLE", SPEED_FLOOR)
         ax_speed.set_ylabel(f"{task}\nns / call")
         ax_speed.set_title(f"{TASK_TITLE.get(task, task)}: speed")
 
@@ -187,7 +197,9 @@ for row, (task, has_acc) in enumerate(TASKS):
         plot_series(ax_acc, HASH, op_mre(task, "default"), "hash list", MRE_FLOOR)
         plot_series(ax_acc, DENSE, op_mre(task, "default"), "registers", MRE_FLOOR)
         plot_series(ax_acc, DENSE, op_mre(task, "mle"), "registers MLE", MRE_FLOOR)
+        plot_series(ax_acc, HASH, op_mre(task, "mle"), "hash list MLE", MRE_FLOOR)
         plot_series(ax_acc, HYBRID, op_mre(task, "default"), "hybrid", MRE_FLOOR)
+        plot_series(ax_acc, HYBRID, op_mre(task, "mle"), "hybrid MLE", MRE_FLOOR)
         ax_acc.set_ylabel("mean relative error %")
         ax_acc.set_title(f"{TASK_TITLE.get(task, task)}: accuracy")
 
