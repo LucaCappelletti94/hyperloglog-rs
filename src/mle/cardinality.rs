@@ -2,8 +2,6 @@
 
 use crate::prelude::*;
 use crate::utils::{FloatOps, Zero};
-#[allow(unused_imports)]
-use num_traits::Float;
 
 #[allow(clippy::too_many_lines)]
 /// Single-counter cardinality via Ertl's secant-method Maximum Likelihood Estimation.
@@ -68,12 +66,13 @@ pub(crate) fn mle_cardinality<P: Precision, B: Bits>(
     let mut x = if b <= 1.5 * a {
         number_of_non_zero_registers / (0.5 * b + a)
     } else {
-        (number_of_non_zero_registers / b) * (b / a).ln_1p()
+        (number_of_non_zero_registers / b) * FloatOps::ln_1p(b / a)
     };
 
     // We begin the secant method iterations.
     let mut delta_x = x;
-    let relative_error_limit = 10.0_f64.powi(-error_exponent) / number_of_registers.sqrt();
+    let relative_error_limit =
+        FloatOps::powi(10.0_f64, -error_exponent) / FloatOps::sqrt(number_of_registers);
 
     let forty_five_recip = 1.0 / 45.0;
     let four_seventy_two_point_five_recip = 1.0 / 472.5;
@@ -82,7 +81,7 @@ pub(crate) fn mle_cardinality<P: Precision, B: Bits>(
 
     while delta_x > x * relative_error_limit {
         // Equivalent to `2 + floor(log2(x))`, saturating non-positive exponents to 0.
-        let k: u32 = 2 + (x.log2().floor().max(0.0) as u32);
+        let k: u32 = 2 + (FloatOps::maximum(FloatOps::floor(FloatOps::log2(x)), 0.0) as u32);
 
         let maximal = largest_register_value.max(k);
         let mut x_first = x * f64::integer_exp2_minus((maximal + 1) as u8);
@@ -125,6 +124,8 @@ mod parity {
     //! copy of `mle_cardinality` as it was before the histogram moved to a stack array. The
     //! production fn must produce BIT-IDENTICAL output to this reference for every register
     //! configuration (the refactor only changes where the histogram lives, never the arithmetic).
+    //! Both use the crate's `FloatOps` math (not std), so the comparison stays bit-identical after the
+    //! `num-traits` removal.
     use super::*;
     use crate::prelude::{Bits4, Bits5, Bits6, Precision6, Precision8};
 
@@ -181,11 +182,12 @@ mod parity {
         let mut x = if b <= 1.5 * a {
             number_of_non_zero_registers / (0.5 * b + a)
         } else {
-            (number_of_non_zero_registers / b) * (b / a).ln_1p()
+            (number_of_non_zero_registers / b) * FloatOps::ln_1p(b / a)
         };
 
         let mut delta_x = x;
-        let relative_error_limit = 10.0_f64.powi(-error_exponent) / number_of_registers.sqrt();
+        let relative_error_limit =
+            FloatOps::powi(10.0_f64, -error_exponent) / FloatOps::sqrt(number_of_registers);
 
         let forty_five_recip = 1.0 / 45.0;
         let four_seventy_two_point_five_recip = 1.0 / 472.5;
@@ -194,7 +196,7 @@ mod parity {
             |x_first: f64, h: f64| -> f64 { (x_first + h * (1.0 - h)) / (x_first + 1.0 - h) };
 
         while delta_x > x * relative_error_limit {
-            let k: u32 = 2 + (x.log2().floor().max(0.0) as u32);
+            let k: u32 = 2 + (FloatOps::maximum(FloatOps::floor(FloatOps::log2(x)), 0.0) as u32);
 
             let maximal = largest_register_value.max(k);
             let mut x_first = x * f64::integer_exp2_minus((maximal + 1) as u8);

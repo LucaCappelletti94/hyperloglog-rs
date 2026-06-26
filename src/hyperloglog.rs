@@ -5,8 +5,8 @@
 
 use crate::composite_hash::{GapHash, SaturationError};
 use crate::correction_coefficients::{
-    HASHLIST_CORRECTION_BIAS, HASHLIST_CORRECTION_CARDINALITIES, HYPERLOGLOG_CORRECTION_BIAS,
-    HYPERLOGLOG_CORRECTION_CARDINALITIES, HYPERLOGLOG_LINEAR_COUNT_THRESHOLD,
+    HYPERLOGLOG_CORRECTION_COEFFS, HYPERLOGLOG_CORRECTION_DOMAIN,
+    HYPERLOGLOG_LINEAR_COUNT_THRESHOLD,
 };
 use crate::prelude::*;
 use core::f64;
@@ -14,7 +14,7 @@ use core::fmt::Debug;
 use core::hash::Hash;
 use core::marker::PhantomData;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A hybrid counter for approximate set cardinality estimation that transitions across three
 /// representations as it grows (sorted value list, then sorted hash list, then HyperLogLog
@@ -53,54 +53,70 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> Default for Hyper
     }
 }
 
+impl<P: Precision, B: Bits, R: Registers<P, B> + PartialEq, H: HasherType> PartialEq
+    for HyperLogLog<P, B, R, H>
+{
+    #[inline]
+    /// Compares the `harmonic_sum` word by its raw bits rather than as an `f64`. The word doubles as a
+    /// metadata bitfield (pre-dense) and as a NaN-boxed zero count (dense low-load), and `NaN != NaN`
+    /// under float equality would make two otherwise-identical counters compare unequal. Bitwise
+    /// comparison is exact for every representation.
+    fn eq(&self, other: &Self) -> bool {
+        self.harmonic_sum.to_bits() == other.harmonic_sum.to_bits()
+            && self.registers == other.registers
+    }
+}
+
 #[inline]
 fn correction_upper_bound<P: Precision>() -> f64 {
     7.5 * f64::integer_exp2(P::EXPONENT)
 }
 
+/// Bit pattern of a sign-0 quiet NaN used to mark the dense low-load "zeros mode": in dense register
+/// mode the `harmonic_sum` word holds the real harmonic sum, except below the linear-counting
+/// threshold where it instead holds the zero-register count NaN-boxed here, so linear counting is O(1)
+/// without a register scan. The all-ones exponent plus the set bit 51 make it a NaN regardless of the
+/// payload, and the sign bit stays 0 so [`HyperLogLog::is_hyperloglog`] still classifies it as dense.
+const DENSE_ZEROS_NAN_TAG: u64 = 0x7FF8_0000_0000_0000;
+
+/// Mask for the zero count packed in the low bits of [`DENSE_ZEROS_NAN_TAG`]. 32 bits is far more than
+/// the at most `2^P <= 2^18` zeros, and stays clear of the NaN marker bits.
+const DENSE_ZEROS_MASK: u64 = 0xFFFF_FFFF;
+
+/// Encodes a zero-register count into the NaN-boxed dense "zeros mode" word.
 #[inline]
-/// Returns the corrected estimate of the cardinality.
-pub fn correct_cardinality<P: Precision, B: Bits>(
-    raw_estimate: f64,
-    cardinalities: &[u32],
-    biases: &[f64],
-) -> f64 {
-    if raw_estimate >= correction_upper_bound::<P>() {
-        return raw_estimate;
+fn encode_dense_zeros(zeros: u32) -> f64 {
+    f64::from_bits(DENSE_ZEROS_NAN_TAG | u64::from(zeros))
+}
+
+/// Decodes the zero-register count from a NaN-boxed dense "zeros mode" word.
+#[inline]
+fn decode_dense_zeros(harmonic_sum: f64) -> u32 {
+    (harmonic_sum.to_bits() & DENSE_ZEROS_MASK) as u32
+}
+
+/// Applies a fitted bias-correction polynomial to a raw estimate. The correction is a degree-8
+/// polynomial in the normalized load `t = raw / m` (with `m = 2^P`), stored as monomial coefficients
+/// in the domain-mapped variable `u in [-1, 1]` (low order first) plus the load domain
+/// `[t_lo, t_hi]`. The load is clamped to the fit domain (so the correction never extrapolates), and
+/// `bias / m` is evaluated by Horner and added back: `corrected = raw + m * poly(u)`.
+///
+/// This MUST stay identical to `PolyFit::corrected` in the `correction_coefficients` generator, so the
+/// shipped behavior matches the fit's measured accuracy.
+#[inline]
+pub fn correct_cardinality(raw_estimate: f64, m: f64, coeffs: &[f64], domain: &[f64; 2]) -> f64 {
+    let (t_lo, t_hi) = (domain[0], domain[1]);
+    let t = (raw_estimate / m).clamp(t_lo, t_hi);
+    let u = if t_hi > t_lo {
+        2.0 * (t - t_lo) / (t_hi - t_lo) - 1.0
+    } else {
+        0.0
+    };
+    let mut bias_over_m = *coeffs.last().unwrap();
+    for k in (0..coeffs.len() - 1).rev() {
+        bias_over_m = bias_over_m * u + coeffs[k];
     }
-
-    let estimate_u32 = u32::try_from(raw_estimate as u64).unwrap();
-
-    if estimate_u32 <= cardinalities[0] {
-        return raw_estimate + biases[0] * raw_estimate / f64::from(cardinalities[0]).max(1.0);
-    }
-
-    if estimate_u32 > cardinalities[cardinalities.len() - 1] {
-        return raw_estimate
-            + biases[cardinalities.len() - 1] * raw_estimate
-                / f64::from(cardinalities[cardinalities.len() - 1]);
-    }
-
-    // We use a binary-search-based partition search to find the point where the raw estimate is
-    // located in the cardinalities.
-
-    debug_assert!(cardinalities.windows(2).all(|window| window[0] < window[1]));
-
-    let index = cardinalities.partition_point(|&x| x < estimate_u32);
-
-    let lower_cardinality = cardinalities[index - 1];
-    let upper_cardinality = cardinalities[index];
-
-    let lower_bias = biases[index - 1];
-    let upper_bias = biases[index];
-
-    assert!(lower_cardinality < upper_cardinality);
-
-    raw_estimate
-        + (raw_estimate - f64::from(lower_cardinality))
-            / f64::from(upper_cardinality - lower_cardinality)
-            * (upper_bias - lower_bias)
-        + lower_bias
+    raw_estimate + m * bias_over_m
 }
 
 /// Which cardinality-estimation regime a counter is in, returned by
@@ -167,7 +183,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// Returns whether the provided element may be contained in the counter.
     pub fn may_contain<T: Hash>(&self, element: &T) -> bool {
         let (index, register, original_hash) = Self::index_and_register_and_hash(element);
-        // In exact mode the stored items are literal values, not hashes, so test membership by
+        // In sorted-value-list mode the stored items are literal values, not hashes, so test membership by
         // hashing each stored value and matching the full original hash (exact, no false negatives).
         if self.is_sorted_value_list() {
             return crate::composite_hash::gaps::value_list::ValueIter::new(
@@ -225,12 +241,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         if self.is_sorted_hash_list() {
             return EstimationRegime::HashListCollisionCorrected;
         }
-        // HyperLogLog registers: linear counting at very low load, then raw above the correction
-        // bound, empirically bias-corrected in between. This mirrors `estimate_cardinality`.
-        if let Some(linear_counting) = self.linear_counting_estimate() {
-            if linear_counting <= Self::linear_count_threshold() {
-                return EstimationRegime::HyperLogLogLinearCounted;
-            }
+        // HyperLogLog registers. The dense word's mode records which estimator applies, mirroring
+        // `estimate_cardinality`: zeros mode is the low-load linear-counting regime, harmonic mode is
+        // raw above the correction bound and empirically bias-corrected below it.
+        if self.harmonic_sum.is_nan() {
+            return EstimationRegime::HyperLogLogLinearCounted;
         }
         let raw_estimate =
             P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / self.harmonic_sum;
@@ -256,6 +271,28 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 .filter(|&register| register == 0)
                 .count())
         }
+    }
+
+    #[inline]
+    /// The real harmonic sum of the dense registers, reconstructing it from the registers when the
+    /// word is in NaN-boxed zeros mode. O(1) in harmonic mode, O(m) in zeros mode. Only valid in
+    /// register mode.
+    pub(crate) fn dense_harmonic_sum(&self) -> f64 {
+        if self.harmonic_sum.is_nan() {
+            self.harmonic_sum_from_registers()
+        } else {
+            self.harmonic_sum
+        }
+    }
+
+    #[inline]
+    /// Computes the harmonic sum `sum 2^-register` directly from the registers (an O(m) scan). Used to
+    /// materialize the real sum when leaving zeros mode.
+    fn harmonic_sum_from_registers(&self) -> f64 {
+        self.registers
+            .iter_registers()
+            .map(f64::integer_exp2_minus)
+            .sum()
     }
 
     #[inline]
@@ -381,6 +418,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 self.insert_register_value_and_index(register, index);
             }
             debug_assert!(self.harmonic_sum.is_finite());
+            self.finalize_dense_representation();
             return;
         }
 
@@ -403,6 +441,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             });
 
         debug_assert!(self.harmonic_sum.is_finite());
+        self.finalize_dense_representation();
     }
 
     #[inline]
@@ -412,6 +451,23 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     pub fn into_hll(mut self) -> Self {
         self.to_hll();
         self
+    }
+
+    #[inline]
+    /// Called once a dense counter has just been built with a real harmonic sum. When the load is low
+    /// enough that linear counting is the preferred estimator, switch the word to the NaN-boxed zero
+    /// count (zeros mode) so future estimates are O(1) without a register scan. At higher load it stays
+    /// in harmonic mode, unchanged.
+    fn finalize_dense_representation(&mut self) {
+        debug_assert!(self.is_hyperloglog() && !self.harmonic_sum.is_nan());
+        let zeros = self.number_of_zero_registers().unwrap();
+        if zeros == 0 {
+            return;
+        }
+        let m = f64::integer_exp2(P::EXPONENT);
+        if m * (m / zeros as f64).natural_log() <= Self::linear_count_threshold() {
+            self.harmonic_sum = encode_dense_zeros(u32::try_from(zeros).unwrap());
+        }
     }
 
     #[inline]
@@ -596,11 +652,29 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         let (old_register_value, larger_register_value) =
             self.registers.set_greater(index, new_register_value);
 
-        self.harmonic_sum += f64::integer_exp2_minus(larger_register_value)
-            - f64::integer_exp2_minus(old_register_value);
-
-        debug_assert!(self.harmonic_sum.is_finite());
-        debug_assert!(self.harmonic_sum > 0.0);
+        if self.harmonic_sum.is_nan() {
+            // Zeros mode (dense, low load): the word holds the zero-register count, not the sum. A
+            // register leaves the zero state exactly when `old == 0` and the new larger value is > 0.
+            if old_register_value == 0 && larger_register_value > 0 {
+                let zeros = decode_dense_zeros(self.harmonic_sum) - 1;
+                let m = f64::integer_exp2(P::EXPONENT);
+                // Stay in zeros mode while linear counting is still the preferred estimator (the same
+                // decision `corrected_register_cardinality` makes); otherwise materialize the real
+                // harmonic sum once and switch to harmonic mode for the rest of the counter's life.
+                let stays_linear = zeros > 0
+                    && m * (m / f64::from(zeros)).natural_log() <= Self::linear_count_threshold();
+                self.harmonic_sum = if stays_linear {
+                    encode_dense_zeros(zeros)
+                } else {
+                    self.harmonic_sum_from_registers()
+                };
+            }
+        } else {
+            self.harmonic_sum += f64::integer_exp2_minus(larger_register_value)
+                - f64::integer_exp2_minus(old_register_value);
+            debug_assert!(self.harmonic_sum.is_finite());
+            debug_assert!(self.harmonic_sum > 0.0);
+        }
 
         old_register_value < new_register_value
     }
@@ -614,7 +688,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         if self.is_sorted_hash_list() {
             f64::from(self.get_number_of_hashes().unwrap() + self.get_duplicates())
         } else {
-            P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / self.harmonic_sum
+            P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / self.dense_harmonic_sum()
         }
     }
 
@@ -627,19 +701,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             HYPERLOGLOG_LINEAR_COUNT_THRESHOLD[P::EXPONENT as usize - 4]
                 [B::NUMBER_OF_BITS as usize - 4],
         )
-    }
-
-    #[inline]
-    /// The linear-counting cardinality estimate `m * ln(m / zeros)` for the current registers, or
-    /// `None` when the counter is not in register mode or has no zero registers (linear counting is
-    /// undefined at full load). This is the most accurate estimator at very low register load.
-    fn linear_counting_estimate(&self) -> Option<f64> {
-        let zeros = self.number_of_zero_registers().ok()?;
-        if zeros == 0 {
-            return None;
-        }
-        let m = f64::integer_exp2(P::EXPONENT);
-        Some(m * (m / zeros as f64).natural_log())
     }
 
     #[inline]
@@ -657,13 +718,196 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 return linear_counting;
             }
         }
+        Self::bias_corrected_raw_cardinality(harmonic_sum)
+    }
+
+    #[inline]
+    /// The empirically bias-corrected raw register cardinality, WITHOUT the linear-counting branch:
+    /// `correct_cardinality(alpha * m^2 / harmonic_sum)`, passing through to the uncorrected raw above
+    /// the correction bound. This is the non-linear-counting tail of
+    /// [`corrected_register_cardinality`](Self::corrected_register_cardinality), factored out so the
+    /// [`NoLinearCounting`](crate::no_linear_counting::NoLinearCounting) view can reuse it to measure
+    /// how much linear counting contributes at low load.
+    pub(crate) fn bias_corrected_raw_cardinality(harmonic_sum: f64) -> f64 {
+        let m = f64::integer_exp2(P::EXPONENT);
         let raw = P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / harmonic_sum;
-        correct_cardinality::<P, B>(
+        // Above the correction bound the raw estimate is used uncorrected (the fitted polynomial only
+        // covers the load domain up to 7.5 * 2^P).
+        if raw >= correction_upper_bound::<P>() {
+            return raw;
+        }
+        let p = P::EXPONENT as usize - 4;
+        let b = B::NUMBER_OF_BITS as usize - 4;
+        correct_cardinality(
             raw,
-            &HYPERLOGLOG_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
-                [B::NUMBER_OF_BITS as usize - 4],
-            &HYPERLOGLOG_CORRECTION_BIAS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4],
+            m,
+            &HYPERLOGLOG_CORRECTION_COEFFS[p][b],
+            &HYPERLOGLOG_CORRECTION_DOMAIN[p][b],
         )
+    }
+
+    /// Expected number of distinct composite hashes for `n` elements at the given width, and its
+    /// derivative with respect to `n`, under the SwitchHash cell model.
+    ///
+    /// A composite at width `w = hash_bits` is a uniform `P`-bit index followed by a `t = w - P` bit
+    /// tail encoding the register (a geometric leading-zero count) and a uniform residual. All `2^P`
+    /// indices share the same tail-cell probabilities, so with per-cell absolute probability `p_c`
+    /// the expected distinct count is `E[D | n] = sum_c (1 - (1 - p_c)^n)`, evaluated here by group
+    /// of equiprobable cells. The derivative is returned alongside so the inversion can use Newton
+    /// steps. See `correction_coefficients/validate_occupancy.py` for the model derivation and its
+    /// validation against measured trajectories.
+    fn hash_list_expected_distinct(n: f64, hash_bits: u8) -> (f64, f64, f64) {
+        let m = f64::integer_exp2(P::EXPONENT);
+        let t = hash_bits - P::EXPONENT; // tail bits, always >= B (the smallest viable width is P + B)
+        let r_max = (1_u8 << B::NUMBER_OF_BITS) - 1; // largest register value the B-bit field stores
+
+        let mut expected = 0.0_f64;
+        let mut derivative = 0.0_f64;
+        // Group sums for the fixed-n variance of the distinct count below: `survival_sum = sum_c
+        // s_c`, `shifted_survival_sum = sum_c (1 - 2 p_c)^n`, `weighted_survival = sum_c s_c p_c`,
+        // with `s_c = (1 - p_c)^n`.
+        let mut survival_sum = 0.0_f64;
+        let mut shifted_survival_sum = 0.0_f64;
+        let mut weighted_survival = 0.0_f64;
+        // Accumulate a group of `count` cells, each with per-index conditional probability `q` (so
+        // absolute probability `p = q / m`). `survival = (1 - p)^n` and `d/dn (1 - survival) =
+        // -ln(1 - p) * survival`.
+        let mut accumulate = |count: f64, q: f64| {
+            let p = q / m;
+            let log_survival = (1.0 - p).natural_log();
+            // Call the trait method explicitly: with the `std` feature active `.exp()` would resolve
+            // to std's inherent `f64::exp`, but the no_std build must use our transcendental-free one.
+            let survival = FloatOps::exp(n * log_survival);
+            expected += count * (1.0 - survival);
+            derivative += count * (-log_survival) * survival;
+            survival_sum += count * survival;
+            shifted_survival_sum += count * FloatOps::exp(n * (1.0 - 2.0 * p).natural_log());
+            weighted_survival += count * survival * q;
+        };
+
+        if t == B::NUMBER_OF_BITS {
+            // Smallest width: the tail is exactly the register, capped at r_max.
+            for r in 1..r_max {
+                accumulate(1.0, f64::integer_exp2_minus(r));
+            }
+            // The saturating register absorbs the geometric tail sum_{r >= r_max} 2^-r = 2^-(r_max-1).
+            accumulate(1.0, f64::integer_exp2_minus(r_max - 1));
+        } else {
+            // Wider width: tail = flag bit + (register or leading bits) + residual.
+            // Flag 0 (register <= B + 1): the t-1 leading hash bits are stored verbatim, so every such
+            // cell is equiprobable at 2^-(t-1); group them by leading-zero run length l.
+            let leading_q = f64::integer_exp2_minus(t - 1);
+            let max_run = core::cmp::min(B::NUMBER_OF_BITS, t - 2);
+            for l in 0..=max_run {
+                accumulate(f64::integer_exp2(t - 2 - l), leading_q);
+            }
+            // Flag 1 (register >= B + 2): register in B bits plus a (t-1-B)-bit residual.
+            let residual_bits = t - 1 - B::NUMBER_OF_BITS;
+            let residual_cells = f64::integer_exp2(residual_bits);
+            let residual_q = f64::integer_exp2_minus(residual_bits);
+            for r in (B::NUMBER_OF_BITS + 2)..r_max {
+                accumulate(residual_cells, f64::integer_exp2_minus(r) * residual_q);
+            }
+            // The saturating register again absorbs 2^-(r_max-1), spread over the residual cells.
+            accumulate(
+                residual_cells,
+                f64::integer_exp2_minus(r_max - 1) * residual_q,
+            );
+        }
+
+        // Fixed-n variance of the distinct-composite count D. The cells are occupied/empty under a
+        // FIXED n (a multinomial allocation), so the occupancy indicators are negatively correlated.
+        // The naive Poisson sum `sum_c s_c (1 - s_c)` ignores that correlation and would spuriously
+        // count the variance of n itself, making a near-exact small hash list look as noisy as
+        // `1.04/sqrt(n)`. To leading order in the per-cell probabilities the multinomial variance is
+        // `Var(D) = m*(sum_c s_c) - m*(sum_c (1 - 2 p_c)^n) - n*(sum_c s_c p_c)^2`, which correctly
+        // collapses to ~0 when there are no collisions and grows as the width shrinks toward
+        // conversion. (Here `m * survival_sum = sum over all cells`, since each group holds `count * m`
+        // cells, and `weighted_survival = sum_c s_c p_c` already carries the `1/m` from `p = q/m`.)
+        let variance = (m * (survival_sum - shifted_survival_sum)
+            - n * weighted_survival * weighted_survival)
+            .max(0.0);
+        (expected * m, derivative * m, variance)
+    }
+
+    #[inline]
+    /// Theoretical relative standard error of the sorted-hash-list cardinality estimate, from the
+    /// occupancy model. The distinct-composite count `D` has variance `Var(D)` and sensitivity
+    /// `dE[D]/dn`, so by the delta method the inverted cardinality has
+    /// `Var(n_hat) ~ Var(D) / (dE[D]/dn)^2`, and this returns `sqrt(Var(n_hat)) / n_hat`. Returns `0`
+    /// for an empty list.
+    pub(crate) fn hash_list_relative_standard_error(number_of_hashes: u32, hash_bits: u8) -> f64 {
+        if number_of_hashes == 0 {
+            return 0.0;
+        }
+        let n = Self::hash_list_cardinality(number_of_hashes, hash_bits);
+        if n <= 0.0 {
+            return 0.0;
+        }
+        let (_expected, derivative, variance) = Self::hash_list_expected_distinct(n, hash_bits);
+        if derivative <= 0.0 || variance <= 0.0 {
+            return 0.0;
+        }
+        FloatOps::sqrt(variance) / derivative / n
+    }
+
+    #[inline]
+    /// Cardinality estimate for a sorted hash list from its distinct-composite count and width.
+    ///
+    /// Inverts the expected distinct-composite count
+    /// [`hash_list_expected_distinct`](Self::hash_list_expected_distinct) for the cardinality `n` by
+    /// safeguarded Newton iteration (a bisection bracket guarantees convergence even where the
+    /// occupancy curve flattens near saturation). This is the parameter-free, table-free occupancy
+    /// estimator that replaces the former empirical hash-list bias table; it is path-independent (it
+    /// reads only the distinct-composite count, never the order-dependent duplicate count) and exact
+    /// in expectation under uniform hashing.
+    fn hash_list_cardinality(number_of_hashes: u32, hash_bits: u8) -> f64 {
+        let d = f64::from(number_of_hashes);
+        if d == 0.0 {
+            return 0.0;
+        }
+
+        // Bracket the root: the distinct count never exceeds n, so n >= d; grow the upper bound until
+        // the expected distinct count reaches the observed one.
+        let mut lo = d;
+        let mut hi = d.max(1.0);
+        while Self::hash_list_expected_distinct(hi, hash_bits).0 < d {
+            lo = hi;
+            hi *= 2.0;
+            if hi > 1e15 {
+                return hi;
+            }
+        }
+
+        // Safeguarded Newton: keep `[lo, hi]` bracketing the root and take a Newton step when it stays
+        // inside, else bisect. Convergence is judged on the step size and the returned value is the
+        // iterate itself, NOT the bracket midpoint: the bracket can stay one-sided (when Newton
+        // approaches the root monotonically from one side, only `lo` or only `hi` ever moves), so its
+        // midpoint is not the estimate.
+        let mut n = 0.5 * (lo + hi);
+        for _ in 0..80 {
+            let (expected, derivative, _variance) = Self::hash_list_expected_distinct(n, hash_bits);
+            if expected > d {
+                hi = n;
+            } else {
+                lo = n;
+            }
+            let newton = n - (expected - d) / derivative;
+            let next = if derivative > 0.0 && newton > lo && newton < hi {
+                newton
+            } else {
+                0.5 * (lo + hi)
+            };
+            // Converge on the step in n-space: near saturation the occupancy curve flattens, so a tiny
+            // distinct-count residual still leaves a large cardinality uncertainty, but the step does
+            // shrink to zero. A tight step keeps the two estimation paths (direct and via
+            // inclusion-exclusion) in agreement.
+            if (next - n).abs() <= 1e-12 * n {
+                return next;
+            }
+            n = next;
+        }
+        n
     }
 
     #[inline]
@@ -675,20 +919,37 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             return f64::from(self.get_number_of_values());
         }
         if self.is_sorted_hash_list() {
-            correct_cardinality::<P, B>(
-                f64::from(self.get_number_of_hashes().unwrap() + self.get_duplicates()),
-                &HASHLIST_CORRECTION_CARDINALITIES[P::EXPONENT as usize - 4]
-                    [B::NUMBER_OF_BITS as usize - 4],
-                &HASHLIST_CORRECTION_BIAS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4],
+            Self::hash_list_cardinality(
+                self.get_number_of_hashes().unwrap(),
+                self.get_hash_bits().unwrap(),
             )
+        } else if self.harmonic_sum.is_nan() {
+            // Dense, zeros mode (low load): the word holds the zero count, and linear counting is the
+            // preferred estimator here by construction (the counter has not crossed the threshold), so
+            // compute it directly in O(1) with no register scan.
+            let zeros = decode_dense_zeros(self.harmonic_sum);
+            let m = f64::integer_exp2(P::EXPONENT);
+            m * (m / f64::from(zeros)).natural_log()
         } else {
-            // At very low register load (reachable by forcing a sparse counter into registers via
-            // `to_hll`) linear counting beats the bias-corrected raw estimate; the regenerated
-            // threshold marks the crossover. A naturally densified counter is always past it.
-            Self::corrected_register_cardinality(
-                self.harmonic_sum,
-                self.number_of_zero_registers().unwrap(),
-            )
+            // Dense, harmonic mode: linear counting no longer applies (the counter left zeros mode at
+            // the crossover), so the bias-corrected raw estimate is correct, again with no scan.
+            Self::bias_corrected_raw_cardinality(self.harmonic_sum)
+        }
+    }
+
+    #[inline]
+    /// Returns the cardinality estimate with the register linear-counting branch BYPASSED: in
+    /// register mode it always uses the bias-corrected raw estimate
+    /// ([`bias_corrected_raw_cardinality`](Self::bias_corrected_raw_cardinality)), never linear
+    /// counting. A pre-dense operand (value or sorted hash list) never uses linear counting, so it
+    /// delegates to the default [`estimate_cardinality`](Self::estimate_cardinality). Used by the
+    /// [`NoLinearCounting`](crate::no_linear_counting::NoLinearCounting) view to measure the
+    /// contribution of linear counting at low load.
+    pub(crate) fn estimate_cardinality_no_linear_counting(&self) -> f64 {
+        if self.is_hyperloglog() {
+            Self::bias_corrected_raw_cardinality(self.dense_harmonic_sum())
+        } else {
+            self.estimate_cardinality()
         }
     }
 
@@ -866,6 +1127,31 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                     Self::corrected_register_cardinality(union_harmonic_sum, union_zeros);
                 correct_union_estimate(self_cardinality, other_cardinality, union_estimate)
             }
+        }
+    }
+
+    #[inline]
+    /// Returns the union cardinality estimate with the register linear-counting branch BYPASSED. When
+    /// both operands are dense, the union is estimated from the element-wise-max registers via
+    /// [`bias_corrected_raw_cardinality`](Self::bias_corrected_raw_cardinality) (never linear
+    /// counting), and the operand cardinalities likewise bypass linear counting. Otherwise it delegates
+    /// to the default [`estimate_union_cardinality`](Self::estimate_union_cardinality): two pre-dense
+    /// operands never use linear counting so the delegation is exact, but a union mixing a register
+    /// counter with a pre-dense one can still apply linear counting on the reconstructed union (this
+    /// view does not special-case that mix). Used by the
+    /// [`NoLinearCounting`](crate::no_linear_counting::NoLinearCounting) view.
+    pub(crate) fn estimate_union_cardinality_no_linear_counting(&self, other: &Self) -> f64 {
+        if self.is_hyperloglog() && other.is_hyperloglog() {
+            let (union_harmonic_sum, _union_zeros) =
+                self.registers.get_union_harmonic_sum(&other.registers);
+            let union_estimate = Self::bias_corrected_raw_cardinality(union_harmonic_sum);
+            correct_union_estimate(
+                self.estimate_cardinality_no_linear_counting(),
+                other.estimate_cardinality_no_linear_counting(),
+                union_estimate,
+            )
+        } else {
+            self.estimate_union_cardinality(other)
         }
     }
 
@@ -1137,6 +1423,91 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOr for &HyperL
         let mut result = self.clone();
         result.merge(rhs);
         result
+    }
+}
+
+#[cfg(test)]
+mod occupancy_estimator_tests {
+    //! Tests for the table-free width-aware occupancy inverse used in the sorted hash list regime.
+    use super::*;
+
+    /// The occupancy inverse must be well-behaved across the whole hash-list range at every width: it
+    /// recovers a cardinality at least as large as the observed distinct count, strictly increasing in
+    /// it, and close to it at wide widths where collisions are negligible. This guards against the
+    /// inversion returning a stale bracket midpoint instead of the converged root (a bug that produced
+    /// a ~25% over-estimate at isolated distinct counts such as `D = 1544` at `width = 22`).
+    #[test]
+    fn occupancy_inverse_is_monotone_and_tight() {
+        fn check<P, B>()
+        where
+            P: Precision + PackedRegister<B>,
+            B: Bits,
+        {
+            let smallest = P::EXPONENT + B::NUMBER_OF_BITS;
+            let largest = GapHash::<P, B>::LARGEST_VIABLE_HASH_BITS;
+            for hash_bits in smallest..=largest {
+                let mut previous = 0.0_f64;
+                let mut d = 1u32;
+                while d < (1u32 << P::EXPONENT) * 4 {
+                    let estimate = HyperLogLog::<P, B>::hash_list_cardinality(d, hash_bits);
+                    assert!(
+                        estimate.is_finite() && estimate >= f64::from(d) - 1e-6,
+                        "P{} B{} w{hash_bits}: estimate {estimate} below D={d}",
+                        P::EXPONENT,
+                        B::NUMBER_OF_BITS,
+                    );
+                    assert!(
+                        estimate > previous - 1e-6,
+                        "P{} B{} w{hash_bits}: estimate {estimate} at D={d} not increasing (prev {previous})",
+                        P::EXPONENT,
+                        B::NUMBER_OF_BITS,
+                    );
+                    // At the widest width collisions are negligible, so the inverse must stay close to
+                    // the observed count rather than ballooning.
+                    if hash_bits == largest {
+                        assert!(
+                            estimate <= f64::from(d) * 1.02 + 4.0,
+                            "P{} B{} w{hash_bits}: estimate {estimate} far above D={d} at the widest width",
+                            P::EXPONENT,
+                            B::NUMBER_OF_BITS,
+                        );
+                    }
+                    previous = estimate;
+                    d += 1 + d / 64;
+                }
+            }
+        }
+        check::<Precision8, Bits6>();
+        check::<Precision12, Bits6>();
+        check::<Precision14, Bits6>();
+    }
+
+    /// The predicted hash-list standard error must reflect that the list is near-exact when collisions
+    /// are negligible. This guards against the fixed-n variance regressing to the Poisson occupancy
+    /// variance, which spuriously included the variance of n itself and reported a relative error of
+    /// about `1.04/sqrt(D)` even for a collision-free list (empirically the spread there is ~0).
+    #[test]
+    fn hash_list_relative_standard_error_is_near_exact_without_collisions() {
+        fn check<P, B>()
+        where
+            P: Precision + PackedRegister<B>,
+            B: Bits,
+        {
+            let widest = GapHash::<P, B>::LARGEST_VIABLE_HASH_BITS;
+            for &d in &[10_u32, 50, 200, 1000] {
+                let rse = HyperLogLog::<P, B>::hash_list_relative_standard_error(d, widest);
+                let poisson = 1.04 / f64::from(d).sqrt();
+                assert!(
+                    rse < 0.25 * poisson,
+                    "P{} B{} D{d}: hash-list RSE {rse} is not near-exact (Poisson would be {poisson})",
+                    P::EXPONENT,
+                    B::NUMBER_OF_BITS,
+                );
+            }
+        }
+        check::<Precision10, Bits6>();
+        check::<Precision12, Bits6>();
+        check::<Precision14, Bits6>();
     }
 }
 
@@ -1511,5 +1882,122 @@ mod test_hybrid_properties {
         );
 
         assert!(!hybrid.is_sorted_hash_list());
+    }
+}
+
+#[cfg(test)]
+mod dense_zeros_mode_tests {
+    //! Tests for the NaN-boxed dense "zeros mode": the dense estimate must be unchanged by the
+    //! optimization (it must equal the scan-based reference), and the maintained zero count must stay
+    //! exact across the lifecycle, including the zeros-to-harmonic transition.
+    use super::*;
+
+    /// The scan-based reference estimate (the pre-optimization behavior): the real harmonic sum and
+    /// the scanned zero count fed through the unified corrected estimator.
+    fn reference_estimate<P, B>(counter: &HyperLogLog<P, B>) -> f64
+    where
+        P: Precision + PackedRegister<B>,
+        B: Bits,
+    {
+        HyperLogLog::<P, B>::corrected_register_cardinality(
+            counter.dense_harmonic_sum(),
+            counter.number_of_zero_registers().unwrap(),
+        )
+    }
+
+    fn check_counter<P, B>(counter: &HyperLogLog<P, B>, label: &str)
+    where
+        P: Precision + PackedRegister<B>,
+        B: Bits,
+    {
+        if !counter.is_hyperloglog() {
+            return;
+        }
+        // The fast mode-dispatched estimate must match the slow scan-based reference (the optimization
+        // changes only cost, not the value).
+        let fast = counter.estimate_cardinality();
+        let reference = reference_estimate(counter);
+        assert!(
+            (fast - reference).abs() <= 1e-6 * reference.max(1.0),
+            "{label}: fast estimate {fast} disagrees with scan reference {reference}",
+        );
+        // In zeros mode the maintained count must equal the true scanned zero count exactly.
+        if counter.harmonic_sum.is_nan() {
+            assert_eq!(
+                decode_dense_zeros(counter.harmonic_sum) as usize,
+                counter.number_of_zero_registers().unwrap(),
+                "{label}: maintained zero count drifted from the true count",
+            );
+        }
+    }
+
+    #[test]
+    fn dense_estimate_matches_scan_reference_across_lifecycle() {
+        fn check<P, B>()
+        where
+            P: Precision + PackedRegister<B>,
+            B: Bits,
+        {
+            let seed =
+                0x51A7_C0DEu64 ^ (u64::from(P::EXPONENT) << 16) ^ u64::from(B::NUMBER_OF_BITS);
+            for &n in &[40u64, 200, 1000, 5000, 30000, 120_000] {
+                let mut natural = HyperLogLog::<P, B>::default();
+                let mut state = seed;
+                for _ in 0..n {
+                    state = splitmix64(state);
+                    natural.insert(&state);
+                }
+                check_counter(&natural, "natural");
+
+                // Force dense (low load reaches zeros mode), then grow it across the transition.
+                let forced = natural.clone().into_hll();
+                check_counter(&forced, "forced");
+
+                let mut grown = forced.clone();
+                let mut grow_state = seed ^ 0xDEAD_BEEF;
+                for _ in 0..50_000 {
+                    grow_state = splitmix64(grow_state);
+                    grown.insert(&grow_state);
+                }
+                check_counter(&grown, "grown");
+            }
+        }
+        check::<Precision10, Bits6>();
+        check::<Precision12, Bits6>();
+        check::<Precision8, Bits4>();
+        check::<Precision6, Bits4>();
+    }
+
+    #[test]
+    fn forced_dense_low_load_is_zeros_mode() {
+        // A small counter forced dense is at low load, so it must land in zeros mode (NaN word) and
+        // report the linear-counting regime, while a naturally densified large counter is in harmonic
+        // mode (a real, finite sum).
+        let mut small = HyperLogLog::<Precision12, Bits6>::default();
+        for x in 0u64..200 {
+            small.insert(&x);
+        }
+        let small = small.into_hll();
+        assert!(small.is_hyperloglog());
+        assert!(
+            small.harmonic_sum.is_nan(),
+            "low-load forced dense must be zeros mode"
+        );
+        assert_eq!(
+            small.estimation_regime(),
+            EstimationRegime::HyperLogLogLinearCounted
+        );
+
+        let mut large = HyperLogLog::<Precision12, Bits6>::default();
+        let mut state = 0x1234_5678u64;
+        for _ in 0..200_000 {
+            state = splitmix64(state);
+            large.insert(&state);
+        }
+        assert!(large.is_hyperloglog());
+        assert!(
+            !large.harmonic_sum.is_nan() && large.harmonic_sum.is_finite(),
+            "high-load counter must be harmonic mode",
+        );
     }
 }

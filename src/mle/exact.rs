@@ -4,8 +4,14 @@
 //! all-hash-list case is NOT handled here: routing it to the raw distinct-hash decomposition drifts
 //! 15-30% once the common hash size narrows, so `joint_sketch_mle` sends hash-list operands to the
 //! corrected, allocation-free inclusion-exclusion path instead.)
+//!
+//! Because every value list is sorted and the inputs are nested (`A_0 subseteq A_1 subseteq ...`),
+//! the decomposition is a single `M + N`-way merge over the lists' iterators: no map, no heap
+//! allocation. `ValueIter` yields values in DESCENDING order, so the merge repeatedly takes the
+//! largest current head. For each distinct value we read its left shell (the smallest left list that
+//! contains it) and right shell directly off the merge cursors.
 
-use super::PatternMap;
+use crate::composite_hash::gaps::value_list::ValueIter;
 use crate::prelude::*;
 use crate::utils::Zero;
 
@@ -24,40 +30,63 @@ pub(crate) fn joint_sketch_exact_from_values<
     lefts: &[HyperLogLog<P, B, R, H>; M],
     rights: &[HyperLogLog<P, B, R, H>; N],
 ) -> JointSketch<M, N> {
-    use crate::composite_hash::gaps::value_list::ValueIter;
-
     debug_assert!(
         lefts.iter().all(HyperLogLog::is_sorted_value_list)
             && rights.iter().all(HyperLogLog::is_sorted_value_list),
         "joint_sketch_exact_from_values requires every operand to be in sorted value list",
     );
 
-    let mut membership: PatternMap<u64, (u8, u8)> = PatternMap::new();
-    for (i, left) in lefts.iter().enumerate() {
-        let shell = (i + 1) as u8;
-        for value in ValueIter::new(left.registers.as_ref(), left.get_number_of_values()) {
-            let entry = membership.entry(value).or_insert((0, 0));
-            if entry.0 == 0 {
-                entry.0 = shell;
-            }
-        }
-    }
-    for (j, right) in rights.iter().enumerate() {
-        let shell = (j + 1) as u8;
-        for value in ValueIter::new(right.registers.as_ref(), right.get_number_of_values()) {
-            let entry = membership.entry(value).or_insert((0, 0));
-            if entry.1 == 0 {
-                entry.1 = shell;
-            }
-        }
-    }
+    // One descending cursor per input list, with its current head value buffered. The lists are
+    // sorted, so this is a standard multi-way merge over `M + N` streams (largest value first).
+    let mut left_iters: [ValueIter; M] = core::array::from_fn(|i| {
+        ValueIter::new(lefts[i].registers.as_ref(), lefts[i].get_number_of_values())
+    });
+    let mut right_iters: [ValueIter; N] = core::array::from_fn(|j| {
+        ValueIter::new(
+            rights[j].registers.as_ref(),
+            rights[j].get_number_of_values(),
+        )
+    });
+    let mut left_head: [Option<u64>; M] = core::array::from_fn(|i| left_iters[i].next());
+    let mut right_head: [Option<u64>; N] = core::array::from_fn(|j| right_iters[j].next());
 
     let mut overlap = [[f64::ZERO; N]; M];
     let mut left_diff = [f64::ZERO; M];
     let mut right_diff = [f64::ZERO; N];
-    for &(left_shell, right_shell) in membership.values() {
+
+    loop {
+        // The cursors descend, so the next distinct value is the largest head across all live ones.
+        let mut value: Option<u64> = None;
+        for head in left_head.iter().chain(right_head.iter()).copied().flatten() {
+            value = Some(value.map_or(head, |current| current.max(head)));
+        }
+        let Some(value) = value else { break };
+
+        // The left shell of `value` is the smallest left list that contains it. The inputs are
+        // nested, so every left list from that index onward also contains it; advance all matching
+        // cursors. The right shell is read the same way. A shell index of 0 means "in no list on
+        // that side".
+        let mut left_shell = 0u8;
+        for i in 0..M {
+            if left_head[i] == Some(value) {
+                if left_shell == 0 {
+                    left_shell = (i + 1) as u8;
+                }
+                left_head[i] = left_iters[i].next();
+            }
+        }
+        let mut right_shell = 0u8;
+        for j in 0..N {
+            if right_head[j] == Some(value) {
+                if right_shell == 0 {
+                    right_shell = (j + 1) as u8;
+                }
+                right_head[j] = right_iters[j].next();
+            }
+        }
+
         match (left_shell, right_shell) {
-            (0, 0) => unreachable!("every recorded value belongs to at least one side"),
+            (0, 0) => unreachable!("every merged value belongs to at least one side"),
             (li, 0) => left_diff[usize::from(li) - 1] += 1.0,
             (0, rj) => right_diff[usize::from(rj) - 1] += 1.0,
             (li, rj) => overlap[usize::from(li) - 1][usize::from(rj) - 1] += 1.0,

@@ -26,7 +26,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         // hash in `self` decodes to a higher register rank than `other` holds at that index (the union
         // register is the element-wise maximum). This reconstructs the union's harmonic sum and zero
         // count exactly as if both operands were registers.
-        let mut harmonic_sum = other.harmonic_sum;
+        let mut harmonic_sum = other.dense_harmonic_sum();
         let mut union_zeros = other
             .number_of_zero_registers()
             .expect("`other` is a HyperLogLog register counter");

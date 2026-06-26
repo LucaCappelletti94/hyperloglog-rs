@@ -22,26 +22,26 @@
   <text x="510.0" y="540" font-family="sans-serif" font-size="10" fill="#777" text-anchor="middle" font-weight="normal">5</text>
   <text x="302" y="560" font-family="sans-serif" font-size="11" fill="#555" text-anchor="middle" font-weight="normal">M = N (nested layers)</text>
   <polygon points="106.0,92.9 207.0,231.6 308.0,219.2 409.0,220.9 510.0,229.4 510.0,275.6 409.0,299.0 308.0,331.1 207.0,353.3 106.0,394.9" fill="#2E86AB" fill-opacity="0.16" stroke="none" />
-  <polygon points="106.0,349.2 207.0,375.4 308.0,391.0 409.0,384.9 510.0,365.4 510.0,403.3 409.0,410.9 308.0,431.8 207.0,439.3 106.0,478.7" fill="#E8871E" fill-opacity="0.16" stroke="none" />
-  <polygon points="106.0,349.4 207.0,384.1 308.0,402.0 409.0,397.4 510.0,389.2 510.0,413.8 409.0,426.2 308.0,441.1 207.0,452.1 106.0,481.2" fill="#D62246" fill-opacity="0.16" stroke="none" />
+  <polygon points="106.0,264.7 207.0,286.3 308.0,359.0 409.0,366.5 510.0,362.8 510.0,406.2 409.0,425.3 308.0,450.8 207.0,486.2 106.0,509.0" fill="#E8871E" fill-opacity="0.16" stroke="none" />
+  <polygon points="106.0,266.6 207.0,367.2 308.0,395.0 409.0,392.4 510.0,387.1 510.0,413.3 409.0,427.6 308.0,441.3 207.0,454.4 106.0,510.0" fill="#D62246" fill-opacity="0.16" stroke="none" />
   <polyline points="106.0,243.9 207.0,292.5 308.0,275.2 409.0,259.9 510.0,252.5" fill="none" stroke="#2E86AB" stroke-width="2.5" />
   <circle cx="106.0" cy="243.9" r="3" fill="#2E86AB" />
   <circle cx="207.0" cy="292.5" r="3" fill="#2E86AB" />
   <circle cx="308.0" cy="275.2" r="3" fill="#2E86AB" />
   <circle cx="409.0" cy="259.9" r="3" fill="#2E86AB" />
   <circle cx="510.0" cy="252.5" r="3" fill="#2E86AB" />
-  <polyline points="106.0,414.0 207.0,407.3 308.0,411.4 409.0,397.9 510.0,384.3" fill="none" stroke="#E8871E" stroke-width="2.5" />
-  <circle cx="106.0" cy="414.0" r="3" fill="#E8871E" />
-  <circle cx="207.0" cy="407.3" r="3" fill="#E8871E" />
-  <circle cx="308.0" cy="411.4" r="3" fill="#E8871E" />
-  <circle cx="409.0" cy="397.9" r="3" fill="#E8871E" />
-  <circle cx="510.0" cy="384.3" r="3" fill="#E8871E" />
-  <polyline points="106.0,415.3 207.0,418.1 308.0,421.5 409.0,411.8 510.0,401.5" fill="none" stroke="#D62246" stroke-width="2.5" />
-  <circle cx="106.0" cy="415.3" r="3" fill="#D62246" />
-  <circle cx="207.0" cy="418.1" r="3" fill="#D62246" />
-  <circle cx="308.0" cy="421.5" r="3" fill="#D62246" />
-  <circle cx="409.0" cy="411.8" r="3" fill="#D62246" />
-  <circle cx="510.0" cy="401.5" r="3" fill="#D62246" />
+  <polyline points="106.0,386.9 207.0,386.2 308.0,404.9 409.0,395.9 510.0,384.5" fill="none" stroke="#E8871E" stroke-width="2.5" />
+  <circle cx="106.0" cy="386.9" r="3" fill="#E8871E" />
+  <circle cx="207.0" cy="386.2" r="3" fill="#E8871E" />
+  <circle cx="308.0" cy="404.9" r="3" fill="#E8871E" />
+  <circle cx="409.0" cy="395.9" r="3" fill="#E8871E" />
+  <circle cx="510.0" cy="384.5" r="3" fill="#E8871E" />
+  <polyline points="106.0,389.1 207.0,410.8 308.0,418.1 409.0,410.0 510.0,400.2" fill="none" stroke="#D62246" stroke-width="2.5" />
+  <circle cx="106.0" cy="389.1" r="3" fill="#D62246" />
+  <circle cx="207.0" cy="410.8" r="3" fill="#D62246" />
+  <circle cx="308.0" cy="418.1" r="3" fill="#D62246" />
+  <circle cx="409.0" cy="410.0" r="3" fill="#D62246" />
+  <circle cx="510.0" cy="400.2" r="3" fill="#D62246" />
   <rect x="596" y="80" width="460" height="442" fill="#F8F9FA" stroke="#CCC" stroke-width="1" rx="4" />
   <text x="826" y="68" font-family="sans-serif" font-size="13" fill="#333" text-anchor="middle" font-weight="bold">(b) self-normalized vs exact-normalized</text>
   <line x1="596" y1="510.0" x2="1056" y2="510.0" stroke="#E3E6EA" stroke-width="1" />
@@ -61,26 +61,26 @@
   <text x="1034.0" y="540" font-family="sans-serif" font-size="10" fill="#777" text-anchor="middle" font-weight="normal">5</text>
   <text x="826" y="560" font-family="sans-serif" font-size="11" fill="#555" text-anchor="middle" font-weight="normal">M = N (nested layers)</text>
   <polygon points="630.0,224.3 731.0,323.1 832.0,314.1 933.0,315.3 1034.0,320.5 1034.0,350.9 933.0,366.7 832.0,389.5 731.0,402.4 630.0,429.5" fill="#2E86AB" fill-opacity="0.16" stroke="none" />
-  <polygon points="630.0,399.3 731.0,417.4 832.0,429.9 933.0,426.7 1034.0,411.3 1034.0,438.7 933.0,442.7 832.0,457.1 731.0,462.2 630.0,490.3" fill="#E8871E" fill-opacity="0.16" stroke="none" />
-  <polygon points="630.0,399.0 731.0,423.8 832.0,435.7 933.0,433.3 1034.0,427.3 1034.0,444.9 933.0,452.1 832.0,462.3 731.0,469.3 630.0,492.3" fill="#D62246" fill-opacity="0.16" stroke="none" />
+  <polygon points="630.0,344.4 731.0,358.2 832.0,407.7 933.0,413.4 1034.0,409.3 1034.0,439.6 933.0,451.7 832.0,470.2 731.0,493.3 630.0,509.6" fill="#E8871E" fill-opacity="0.16" stroke="none" />
+  <polygon points="630.0,345.6 731.0,413.3 832.0,431.3 933.0,430.1 1034.0,426.1 1034.0,444.5 933.0,453.0 832.0,462.4 731.0,470.6 630.0,510.0" fill="#D62246" fill-opacity="0.16" stroke="none" />
   <polyline points="630.0,326.9 731.0,362.8 832.0,351.8 933.0,341.0 1034.0,335.7" fill="none" stroke="#2E86AB" stroke-width="2.5" />
   <circle cx="630.0" cy="326.9" r="3" fill="#2E86AB" />
   <circle cx="731.0" cy="362.8" r="3" fill="#2E86AB" />
   <circle cx="832.0" cy="351.8" r="3" fill="#2E86AB" />
   <circle cx="933.0" cy="341.0" r="3" fill="#2E86AB" />
   <circle cx="1034.0" cy="335.7" r="3" fill="#2E86AB" />
-  <polyline points="630.0,444.8 731.0,439.8 832.0,443.5 933.0,434.7 1034.0,425.0" fill="none" stroke="#E8871E" stroke-width="2.5" />
-  <circle cx="630.0" cy="444.8" r="3" fill="#E8871E" />
-  <circle cx="731.0" cy="439.8" r="3" fill="#E8871E" />
-  <circle cx="832.0" cy="443.5" r="3" fill="#E8871E" />
-  <circle cx="933.0" cy="434.7" r="3" fill="#E8871E" />
-  <circle cx="1034.0" cy="425.0" r="3" fill="#E8871E" />
-  <polyline points="630.0,445.6 731.0,446.6 832.0,449.0 933.0,442.7 1034.0,436.1" fill="none" stroke="#D62246" stroke-width="2.5" />
-  <circle cx="630.0" cy="445.6" r="3" fill="#D62246" />
-  <circle cx="731.0" cy="446.6" r="3" fill="#D62246" />
-  <circle cx="832.0" cy="449.0" r="3" fill="#D62246" />
-  <circle cx="933.0" cy="442.7" r="3" fill="#D62246" />
-  <circle cx="1034.0" cy="436.1" r="3" fill="#D62246" />
+  <polyline points="630.0,427.0 731.0,425.7 832.0,439.0 933.0,432.5 1034.0,424.5" fill="none" stroke="#E8871E" stroke-width="2.5" />
+  <circle cx="630.0" cy="427.0" r="3" fill="#E8871E" />
+  <circle cx="731.0" cy="425.7" r="3" fill="#E8871E" />
+  <circle cx="832.0" cy="439.0" r="3" fill="#E8871E" />
+  <circle cx="933.0" cy="432.5" r="3" fill="#E8871E" />
+  <circle cx="1034.0" cy="424.5" r="3" fill="#E8871E" />
+  <polyline points="630.0,428.5 731.0,441.9 832.0,446.9 933.0,441.5 1034.0,435.3" fill="none" stroke="#D62246" stroke-width="2.5" />
+  <circle cx="630.0" cy="428.5" r="3" fill="#D62246" />
+  <circle cx="731.0" cy="441.9" r="3" fill="#D62246" />
+  <circle cx="832.0" cy="446.9" r="3" fill="#D62246" />
+  <circle cx="933.0" cy="441.5" r="3" fill="#D62246" />
+  <circle cx="1034.0" cy="435.3" r="3" fill="#D62246" />
   <line x1="72" y1="570" x2="98" y2="570" stroke="#2E86AB" stroke-width="3" />
   <text x="104" y="574" font-family="sans-serif" font-size="11" fill="#333" text-anchor="start" font-weight="normal">pairwise (HLL++)</text>
   <line x1="240" y1="570" x2="266" y2="570" stroke="#E8871E" stroke-width="3" />

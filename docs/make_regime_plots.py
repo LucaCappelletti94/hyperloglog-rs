@@ -36,7 +36,14 @@ bias_to_raw = data["bias_to_raw"]
 value_list_capacity = data["value_list_capacity"]
 
 # (task, has_accuracy). insert and merge are exact operations with no estimation error.
-TASKS = [("insert", False), ("merge", False), ("cardinality", True), ("union", True), ("sketch", True)]
+TASKS = [
+    ("insert", False),
+    ("merge", False),
+    ("cardinality", True),
+    ("union", True),
+    ("jaccard", True),
+    ("sketch", True),
+]
 
 # Display titles; the sketch reports its grid size (M = N = 2 in this benchmark).
 TASK_TITLE = {"sketch": "sketch (M = N = 2)"}
@@ -57,6 +64,13 @@ STYLE = {
     # The `.mle()` path on the real auto-switching counter (exact value list, corrected hash list,
     # register MLE once dense): the MLE you actually get as a counter grows.
     "hybrid MLE": ("#e08214", "*"),
+    # The register estimate with the linear-counting branch bypassed (`.no_linear_counting()`, always
+    # the bias-corrected raw estimate). The gap from "registers" is the contribution of linear
+    # counting at low load. Forced-dense series only.
+    "registers (no linear counting)": ("#c51b7d", "P"),
+    # Memory-matched MinHash<u32, 768> baseline (same 24576 bits as the register array), a consistency
+    # check for the insert and Jaccard tasks only.
+    "minhash": ("#a6761d", "h"),
 }
 
 # The shading is the regime of the `registers` estimate. Because that curve is force-dense
@@ -81,10 +95,12 @@ VALUE = series_for("value_list")
 HASH = series_for("hash_list")
 DENSE = series_for("dense")
 HYBRID = series_for("hybrid")
+MINHASH = series_for("minhash")
 
 
-def plot_series(ax, recs, getter, label, floor):
-    color, marker = STYLE[label]
+def plot_series(ax, recs, getter, label, floor, ls="-", marker=None, legend_label=None):
+    color, default_marker = STYLE[label]
+    mk = default_marker if marker is None else marker
     xs, ys, es = [], [], []
     for r in recs:
         v = getter(r)
@@ -97,7 +113,7 @@ def plot_series(ax, recs, getter, label, floor):
         return
     lo = [max(y - e, floor) for y, e in zip(ys, es)]
     hi = [y + e for y, e in zip(ys, es)]
-    ax.plot(xs, ys, marker=marker, ms=3.5, lw=1.4, color=color, label=label)
+    ax.plot(xs, ys, marker=mk, ms=3.5, lw=1.4, color=color, ls=ls, label=legend_label or label)
     ax.fill_between(xs, lo, hi, color=color, alpha=0.18, linewidth=0)
 
 
@@ -145,6 +161,18 @@ def op_mre(op, kind):
     return g
 
 
+def op_overlap_mre(op, kind):
+    # Overlap-grid-only error (the joint sketch's intersection cells). Only the sketch node carries
+    # `overlap_mre`. Everything else returns None and plots nothing.
+    def g(r):
+        node = r["operations"].get(op, {}).get(kind)
+        if not node or "overlap_mre" not in node:
+            return None
+        return (node["overlap_mre"]["mean"] * 100.0, node["overlap_mre"]["std"] * 100.0)
+
+    return g
+
+
 fig, axes = plt.subplots(len(TASKS), 2, figsize=(13, 2.9 * len(TASKS)))
 fig.suptitle(
     f"HyperLogLog<Precision{data['precision']}, Bits{data['bits']}> "
@@ -172,6 +200,8 @@ for row, (task, has_acc) in enumerate(TASKS):
         plot_series(ax_speed, HASH, getter, "hash list", SPEED_FLOOR)
         plot_series(ax_speed, DENSE, getter, "registers", SPEED_FLOOR)
         plot_series(ax_speed, HYBRID, getter, "hybrid", SPEED_FLOOR)
+        # MinHash has only insert and jaccard; merge_ns is null and plots nothing.
+        plot_series(ax_speed, MINHASH, getter, "minhash", SPEED_FLOOR)
         ax_speed.set_ylabel(f"{task}\nns / call")
         ax_speed.set_title(
             f"{TASK_TITLE.get(task, task)} speed" + (" (per element)" if task == "insert" else "")
@@ -190,6 +220,10 @@ for row, (task, has_acc) in enumerate(TASKS):
         plot_series(ax_speed, HASH, op_speed(task, "mle"), "hash list MLE", SPEED_FLOOR)
         plot_series(ax_speed, HYBRID, op_speed(task, "default"), "hybrid", SPEED_FLOOR)
         plot_series(ax_speed, HYBRID, op_speed(task, "mle"), "hybrid MLE", SPEED_FLOOR)
+        plot_series(ax_speed, DENSE, op_speed(task, "no_linear"),
+                    "registers (no linear counting)", SPEED_FLOOR)
+        # MinHash records only the jaccard op; for the other scalar tasks this is None and plots nothing.
+        plot_series(ax_speed, MINHASH, op_speed(task, "default"), "minhash", SPEED_FLOOR)
         ax_speed.set_ylabel(f"{task}\nns / call")
         ax_speed.set_title(f"{TASK_TITLE.get(task, task)}: speed")
 
@@ -200,6 +234,22 @@ for row, (task, has_acc) in enumerate(TASKS):
         plot_series(ax_acc, HASH, op_mre(task, "mle"), "hash list MLE", MRE_FLOOR)
         plot_series(ax_acc, HYBRID, op_mre(task, "default"), "hybrid", MRE_FLOOR)
         plot_series(ax_acc, HYBRID, op_mre(task, "mle"), "hybrid MLE", MRE_FLOOR)
+        # Register estimate with linear counting bypassed. The gap from "registers" (red) in the green
+        # linear-counting region is the measured contribution of linear counting at low load.
+        plot_series(ax_acc, DENSE, op_mre(task, "no_linear"),
+                    "registers (no linear counting)", MRE_FLOOR)
+        # MinHash Jaccard accuracy (memory-matched). Only the jaccard task has a minhash node.
+        plot_series(ax_acc, MINHASH, op_mre(task, "default"), "minhash", MRE_FLOOR)
+        # For the joint sketch, the solid lines above are the whole-decomposition error (all eight
+        # cells). Overlay (dashed, no marker) the overlap-grid-only error for the default HLL++ and the
+        # register MLE: the four intersection cells are the joint sketch's actual job, and isolating
+        # them from the margin cells shows the register MLE's accuracy edge over the default more
+        # cleanly. This is the same metric the standalone docs/sketch_benchmark.svg reports.
+        if task == "sketch":
+            plot_series(ax_acc, DENSE, op_overlap_mre(task, "default"), "registers", MRE_FLOOR,
+                        ls="--", marker="", legend_label="registers (overlap grid)")
+            plot_series(ax_acc, DENSE, op_overlap_mre(task, "mle"), "registers MLE", MRE_FLOOR,
+                        ls="--", marker="", legend_label="registers MLE (overlap grid)")
         ax_acc.set_ylabel("mean relative error %")
         ax_acc.set_title(f"{TASK_TITLE.get(task, task)}: accuracy")
 

@@ -9,7 +9,7 @@
 
 This is a Rust library that provides a memory-parsimonious implementation of the `HyperLogLog` (HLL) algorithm. You can use it to estimate the cardinality of large sets, and to estimate the union, intersection, difference and Jaccard index of two sets.
 
-A counter automatically picks the smallest of three internal representations as it fills up: an exact list of the inserted values (with the `exact` feature, for absolute accuracy at low cardinalities), a compact sorted hash list, and finally the dense register array of the classic HyperLogLog. With the optional `mle` feature it additionally offers Maximum Likelihood Estimation of the union and of generalized hypersphere sketches, which can be more accurate than the default estimators at the cost of being slower.
+A counter automatically picks the smallest of three internal representations as it fills up: an exact list of the inserted values (with the `exact` feature, for absolute accuracy at low cardinalities), a compact sorted hash list, and finally the dense register array of the classic HyperLogLog. It additionally offers (always available) Maximum Likelihood Estimation of the union and of generalized hypersphere sketches, which can be more accurate than the default estimators at the cost of being slower.
 
 The register type and the hasher are type parameters with sensible defaults, so the common counter is simply `HyperLogLog<P, B>`, where `P` is the precision (the number of registers is `2^P`) and `B` is the number of bits per register.
 
@@ -75,12 +75,11 @@ fn jaccard<E: CardinalityEstimator>(left: &E, right: &E) -> f64 {
 
 ### Maximum Likelihood Estimation
 
-With the optional `mle` feature, the [joint Maximum Likelihood Estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github.io/hyperloglog-sketch-estimation-paper/paper/paper.pdf) becomes available. It maximizes the joint likelihood of the two counters' register multiplicities and can be more accurate than the default union estimator, at the cost of being slower. It is exposed as a mode rather than a separate set of methods: calling `.mle()` on a counter returns a lightweight view whose `CardinalityEstimator` methods route through the MLE instead of the default HyperLogLog++ estimators (hash-list operands are materialized into registers first). Use `Mle::into_inner` to go back to the default-estimator counter.
+Maximum Likelihood Estimation is always available. The [joint Maximum Likelihood Estimation for HyperLogLog counters by Otmar Ertl](https://oertl.github.io/hyperloglog-sketch-estimation-paper/paper/paper.pdf) is built in (no feature flag required). It maximizes the joint likelihood of the two counters' register multiplicities and can be more accurate than the default union estimator, at the cost of being slower. It is exposed as a mode rather than a separate set of methods: calling `.mle()` on a counter returns a lightweight view whose `CardinalityEstimator` methods route through the MLE instead of the default HyperLogLog++ estimators (hash-list operands are materialized into registers first). Use `Mle::into_inner` to go back to the default-estimator counter.
 
 The joint union estimator is the one worth using. The single-counter MLE cardinality (`hll.mle().estimate_cardinality()`) is provided for completeness but is dominated by the default HyperLogLog++ corrected estimate, so prefer the default for plain cardinality.
 
 ```rust
-# #[cfg(feature = "mle")] {
 use hyperloglog_rs::prelude::*;
 
 let mut hll1 = HyperLogLog::<Precision10, Bits6>::default();
@@ -100,13 +99,11 @@ assert!(
     "MLE: Expected union cardinality to be around 15000, got {}",
     mle_union
 );
-# }
 ```
 
 For more than two sets, `JointSketch::estimate` decomposes `M` nested left counters and `N` nested right counters into a `JointSketch<M, N>` that holds every disjoint-region cardinality at once: the `overlap[i][j]` grid of exclusive intersections plus the `left_diff` and `right_diff` margins. Its `union` method sums all the cells. Just as in the scalar case, putting the operands in `.mle()` mode estimates each cell from the maximum-likelihood union (exact set algebra while the counters are still pre-dense, otherwise pairwise inclusion-exclusion over Ertl's 2-set union MLE), while plain counters use the default HyperLogLog++ inclusion-exclusion.
 
 ```rust
-# #[cfg(feature = "mle")] {
 use hyperloglog_rs::prelude::*;
 type Hll = HyperLogLog<Precision12, Bits6>;
 
@@ -124,7 +121,48 @@ let sketch = JointSketch::estimate(&[a.mle()], &[b.mle()]);
 assert!((sketch.overlap[0][0] - 2_000.0).abs() / 2_000.0 < 0.25);
 // sketch.union() sums the overlap grid and the left and right margins.
 assert!((sketch.union() - 6_000.0).abs() / 6_000.0 < 0.2);
-# }
+```
+
+### Error estimation
+
+Every estimator reports its own theoretical error, computed in closed form from the counter's state, so an estimate can travel with an error bar. The relative standard error and the systematic bias are reported separately, both at the counter's current estimate and at an arbitrary cardinality. There is also a per-cell error grid for the joint sketch ([`HyperLogLog::joint_sketch_error`]), which surfaces the large relative error of small overlap cells, and a threshold telling you the cardinality above which the slower maximum-likelihood estimator becomes more accurate than the raw one.
+
+```rust
+use hyperloglog_rs::prelude::*;
+type Hll = HyperLogLog<Precision12, Bits6>;
+
+let mut a = Hll::default();
+for x in 0u64..50_000 {
+    a.insert(&x);
+}
+
+// The estimate plus its predicted relative standard error (about 1.04/sqrt(2^12) in range) and bias.
+let _estimate = a.estimate_cardinality();
+let rse = a.predicted_relative_standard_error();
+assert!(rse > 0.0 && rse < 0.05);
+let _bias = a.predicted_bias(); // negligible away from saturation
+
+// The error at an arbitrary cardinality (the type alone fixes it), and the maximum-likelihood
+// preferred threshold (None when the registers never saturate in range, as with Bits6).
+let _rse_at = a.relative_standard_error_at(1_000_000.0);
+assert!(mle_preferred_threshold::<Precision12, Bits6>().is_none());
+```
+
+### Adaptive estimation
+
+The default register estimate is O(1) and accurate over the whole normal range, but as tiny registers saturate it develops a large systematic bias (it flatlines at its ceiling), while the much slower maximum-likelihood estimate stays accurate for a window past that point. [`HyperLogLog::adaptive`] returns a borrowing view that picks the estimator with the smaller predicted error per counter: the cheap default everywhere except inside that saturation window, where it pays for the MLE. For wide registers (such as `Bits6`) that never saturate in range the window is empty, so the view is identical to the default and free. Because it implements the same [`CardinalityEstimator`] and [`HyperSpheresSketch`] traits, the derived intersection, Jaccard, and difference estimates come along for free.
+
+```rust
+use hyperloglog_rs::prelude::*;
+
+let mut counter = HyperLogLog::<Precision12, Bits6>::default();
+for x in 0u64..40_000 {
+    counter.insert(&x);
+}
+
+// Auto-selects raw vs MLE; here Bits6 never saturates, so it matches the default.
+let estimate = counter.adaptive().estimate_cardinality();
+assert!((estimate - 40_000.0).abs() / 40_000.0 < 0.1);
 ```
 
 ## Feature flags
@@ -132,7 +170,6 @@ assert!((sketch.union() - 6_000.0).abs() / 6_000.0 < 0.2);
 All features are off by default, so the crate is `no_std` with no allocator out of the box.
 
 - `alloc`: enable allocation-backed functionality. The default `HyperLogLog<P, B>` stores its registers inline as a fixed-size array; the `VecHll<P, B>` alias instead backs them with a heap-allocated, growable vector, which is preferable when the register array would be large (high precision) or when many counters are created dynamically.
-- `mle`: enable the Maximum Likelihood estimators. This works in `no_std + alloc` (it uses `alloc::collections::BTreeMap` and routes the float transcendentals to `libm` when `std` is unavailable, to the standard library otherwise), so it implies `alloc`.
 - `exact`: enable the exact-values representation, which stores the inserted integers exactly (sorted, gap-coded and Elias-gamma packed, so they are recoverable) for absolute accuracy and exact set operations at low cardinalities before the counter switches to the hash list. Implies `alloc`.
 - `std`: use the Rust standard library (implies `alloc`).
 
@@ -161,17 +198,11 @@ The tradeoff is clear. The `value list` and `hash list` keep every task exact or
 
 The `hybrid` curve shows what the transitions actually cost. For insertion every hinge is a gain: each switch drops the per-element cost (value list around 10 to 40 us, hash list around 1 to 2 us, registers around 15 ns), so the two transitions appear as sharp downward steps. For accuracy the hash list to registers hinge near cardinality 8400 shows a single unavoidable step in `cardinality`: the hash list there is near-exact (error under 0.6 percent) because it counts its stored hashes directly, but once it saturates it is forced to convert to registers, which keep only one number per bucket and discard the per-element hashes, so the estimate drops to HyperLogLog's inherent standard error and the `hybrid` `cardinality` error steps up to about 1.2 percent. That step is fundamental once the hash list runs out of space. The only way to keep the lower error is to carry the hash list further before converting. The `union` and the `sketch` stay smooth across both transitions (no spike), and the value list to hash list hinge near cardinality 217 is painless (exact to near-exact).
 
-Reproduce with `cargo run --release --example regime_benchmarks --features mle` (which writes `docs/regime_benchmarks.json`) and render the figure with `env -u PYTHONPATH uv run --isolated --no-project --python 3.12 --with matplotlib python3 docs/make_regime_plots.py`. Measured on an AMD Ryzen Threadripper PRO 5975WX, release build, with one-standard-deviation bands over 9 timing runs and 64 accuracy trials.
+Reproduce with `cargo run --release --example regime_benchmarks` (which writes `docs/regime_benchmarks.json`) and render the figure with `env -u PYTHONPATH uv run --isolated --no-project --python 3.12 --with matplotlib python3 docs/make_regime_plots.py`. Measured on an AMD Ryzen Threadripper PRO 5975WX, release build, with one-standard-deviation bands over 9 timing runs and 64 accuracy trials.
 
 ## No STD
 
 This crate is designed to be as lightweight as possible and does not require any dependencies from the Rust standard library (std). As a result, it can be used in a bare metal or embedded context, where std may not be available. With the `alloc` feature it can use an allocator without pulling in std, and even the optional MLE estimation runs in `no_std + alloc`.
-
-## Fuzzing
-
-Fuzzing is a technique for finding security vulnerabilities and bugs in software by providing random input to the code. We make sure that our fuzz targets are continuously updated and run against the latest versions of the library to ensure that any vulnerabilities or bugs are quickly identified and addressed.
-
-[Learn more about how we fuzz here](https://github.com/LucaCappelletti94/hyperloglog-rs/tree/main/fuzz)
 
 ## Citations
 

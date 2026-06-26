@@ -9,11 +9,10 @@ env:
   CARGO_TERM_COLOR: always
 
 # CI gates the published library only (`hyperloglog-rs` and its `hyperloglog-derive`
-# macro). The experimental comparison crates (`statistical_comparisons`, `measure_variant`,
-# `test_utils`) pull in branch-pinned git forks and are not gated here; they are meant to be
-# extracted into a separate repository. The exhaustive accuracy matrix in `tests/test_hll.rs`
-# is a validation sweep (tens of minutes), run locally rather than on every push; CI runs the
-# library unit tests and doctests instead.
+# macro). The other workspace members (`test_utils`, `correction_coefficients`) are dev tooling
+# and are not gated here. The exhaustive accuracy matrix in `tests/test_hll.rs` is a validation
+# sweep (tens of minutes), run locally rather than on every push; CI runs the library unit tests
+# and doctests instead.
 
 jobs:
   test:

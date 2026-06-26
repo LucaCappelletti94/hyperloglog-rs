@@ -4,7 +4,7 @@
 //! HyperLogLog (register) operands, so every counter here is built well past the hash-list threshold.
 //!
 //! Run with:
-//!   cargo bench --features mle --bench mle
+//!   cargo bench --bench mle
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use hyperloglog_rs::prelude::*;
 

@@ -10,7 +10,7 @@
 //! - Joint (M=N=2): dispatching `joint_sketch_mle` (exact in the hash-list regime) vs the register
 //!   path forced by pre-materializing the operands (always MLE), isolating the exact-vs-MLE delta.
 //!
-//! Run with: `cargo run --release --features mle --example mle_dispatch_sweep`
+//! Run with: `cargo run --release --example mle_dispatch_sweep`
 #![allow(clippy::needless_range_loop)]
 use hyperloglog_rs::prelude::*;
 use std::time::Instant;

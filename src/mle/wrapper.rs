@@ -54,6 +54,43 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstima
     fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         self.0.estimate_union_cardinality_mle(other.0)
     }
+
+    #[inline]
+    fn predicted_relative_standard_error(&self) -> f64 {
+        // For a pre-dense operand the MLE falls back to the default estimate, so its error model does
+        // too.
+        if !self.0.is_hyperloglog() {
+            return self.0.predicted_relative_standard_error();
+        }
+        // A fully saturated counter carries no information: the MLE estimate diverges and so does its
+        // standard error.
+        if self.0.is_full() {
+            return f64::INFINITY;
+        }
+        crate::error_model::register_crlb_relative_standard_error::<P, B>(
+            self.0.estimate_cardinality_mle(),
+        )
+    }
+
+    #[inline]
+    fn predicted_bias(&self) -> f64 {
+        // The MLE is asymptotically unbiased until it diverges at full saturation; the pre-dense
+        // fallback follows the default.
+        if !self.0.is_hyperloglog() {
+            return self.0.predicted_bias();
+        }
+        0.0
+    }
+
+    #[inline]
+    fn relative_standard_error_at(&self, cardinality: f64) -> f64 {
+        crate::error_model::register_crlb_relative_standard_error::<P, B>(cardinality)
+    }
+
+    #[inline]
+    fn bias_at(&self, _cardinality: f64) -> f64 {
+        0.0
+    }
 }
 
 impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketch

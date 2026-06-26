@@ -4,7 +4,7 @@
 //! relative error and the mean signed relative error (bias) for both the pairwise hypersphere
 //! sketch (HLL++ inclusion-exclusion) and the joint MLE.
 //!
-//! Run with: `cargo run --release --features mle --example joint_error_distribution`
+//! Run with: `cargo run --release --example joint_error_distribution`
 #![allow(clippy::needless_range_loop)]
 use hyperloglog_rs::prelude::*;
 use twox_hash::XxHash64;
@@ -41,6 +41,11 @@ where
     let exact = unit as f64;
     let mut pair = Acc::<M, N>::new();
     let mut mle = Acc::<M, N>::new();
+    // Empirical spread of the MLE overlap cells and the theoretical per-cell SE from
+    // `joint_sketch_error`, to validate the error model against the measured spread.
+    let mut sum_cell = [[0.0_f64; N]; M];
+    let mut sumsq_cell = [[0.0_f64; N]; M];
+    let mut sum_predicted_se = [[0.0_f64; N]; M];
 
     for seed in 0..seeds {
         // A seed-derived base shifts every integer range, changing the hashing.
@@ -100,7 +105,15 @@ where
         let lefts_mle: [_; M] = core::array::from_fn(|i| lefts[i].mle());
         let rights_mle: [_; N] = core::array::from_fn(|j| rights[j].mle());
         let (mov, ml, mr) = JointSketch::estimate(&lefts_mle, &rights_mle).into_parts();
+        let predicted = HyperLogLog::joint_sketch_error(&lefts, &rights);
 
+        for i in 0..M {
+            for j in 0..N {
+                sum_cell[i][j] += mov[i][j];
+                sumsq_cell[i][j] += mov[i][j] * mov[i][j];
+                sum_predicted_se[i][j] += predicted.overlap_se[i][j];
+            }
+        }
         for i in 0..M {
             for j in 0..N {
                 pair.abs_overlap[i][j] += (pov[i][j] - exact).abs() / exact;
@@ -176,6 +189,23 @@ where
         print!(" {:>5.1}", 100.0 * mle.abs_right[j] / mle.samples);
     }
     println!("\n");
+
+    // CSV (prefix `CELL,`) for plotting predicted vs empirical per-cell relative standard error.
+    let samples = mle.samples;
+    for i in 0..M {
+        for j in 0..N {
+            let mean = sum_cell[i][j] / samples;
+            let empirical_se = ((sumsq_cell[i][j] / samples - mean * mean).max(0.0)).sqrt();
+            let predicted_se = sum_predicted_se[i][j] / samples;
+            let denom = mean.max(1.0);
+            println!(
+                "CELL,P{},{M},{N},{i},{j},{:.5},{:.5}",
+                P::EXPONENT,
+                empirical_se / denom,
+                predicted_se / denom,
+            );
+        }
+    }
 }
 
 fn main() {

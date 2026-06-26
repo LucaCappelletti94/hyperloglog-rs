@@ -273,7 +273,6 @@ fn test_union_small_cardinality_stays_accurate() {
 /// estimate the union of two fully-fledged HyperLogLog counters within the precision's error
 /// rate. Two partially overlapping sets are used: [0, 50_000) and [25_000, 75_000), whose true
 /// union is 75_000 distinct elements.
-#[cfg(feature = "mle")]
 #[test]
 fn test_mle_union_matches_exact() {
     type Counter = HyperLogLog<Precision10, Bits6>;
@@ -306,7 +305,6 @@ fn test_mle_union_matches_exact() {
 /// rate. (It is known to be less accurate and much slower than the default HyperLogLog++
 /// corrected estimate, and its advantage over the uncorrected estimate is an average-over-
 /// cardinalities property rather than a per-point one; the benchmark quantifies both.)
-#[cfg(feature = "mle")]
 #[test]
 fn test_mle_cardinality_reasonable() {
     type Counter = HyperLogLog<Precision12, Bits6>;
@@ -367,7 +365,6 @@ fn test_hyper_spheres_sketch_overlap_and_differences() {
 }
 
 /// Inserts every integer in the half-open range `[start, start + count)` into `hll`.
-#[cfg(feature = "mle")]
 fn insert_range<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>(
     hll: &mut HyperLogLog<P, B, R, H>,
     start: u64,
@@ -382,7 +379,6 @@ fn insert_range<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>(
 /// the sum of its three disjoint regions (overlap, left difference, right difference) is the
 /// union, and must match both the exact union and `estimate_union_cardinality_mle` within the
 /// precision's error rate. A = [0, 50_000), B = [25_000, 75_000), true union 75_000.
-#[cfg(feature = "mle")]
 #[test]
 fn test_joint_sketch_mle_reduces_to_union_mle() {
     type Counter = HyperLogLog<Precision10, Bits6>;
@@ -421,7 +417,6 @@ fn test_joint_sketch_mle_reduces_to_union_mle() {
 /// must match its exact cardinality within the precision's error rate, measured relative to the
 /// total union. The exact partition is constructed by assigning each of the 8 disjoint regions
 /// its own range, then composing the nested counters A_0 subset A_1 and B_0 subset B_1.
-#[cfg(feature = "mle")]
 #[test]
 fn test_joint_sketch_mle_matches_exact_cells() {
     type Counter = HyperLogLog<Precision12, Bits6>;
@@ -510,7 +505,6 @@ fn test_joint_sketch_mle_matches_exact_cells() {
 /// Hash-list-regime counterpart of `test_mle_union_matches_exact`: with both operands small enough
 /// to stay in hash-list mode, `estimate_union_cardinality_mle` dispatches to the exact hash-list
 /// union, which must match the exact union within the precision's error rate.
-#[cfg(feature = "mle")]
 #[test]
 fn test_mle_union_matches_exact_hash_list() {
     type Counter = HyperLogLog<Precision12, Bits6>;
@@ -534,7 +528,6 @@ fn test_mle_union_matches_exact_hash_list() {
 /// Hash-list-regime counterpart of `test_joint_sketch_mle_matches_exact_cells`: every operand stays
 /// in hash-list mode, so the joint MLE dispatches to the exact set-algebra path and every
 /// disjoint cell must match its exact cardinality within the precision's error rate.
-#[cfg(feature = "mle")]
 #[test]
 fn test_joint_sketch_mle_matches_exact_cells_hash_list() {
     type Counter = HyperLogLog<Precision12, Bits6>;
@@ -878,7 +871,6 @@ fn test_exact_dense_union() {
 
 /// When every operand of the joint sketch is in exact-values mode, the disjoint cells are exact
 /// (classified directly from the literal values, no hashing, no collisions).
-#[cfg(feature = "mle")]
 #[test]
 fn test_joint_sketch_exact_values() {
     type Counter = HyperLogLog<Precision12, Bits6>;
@@ -987,7 +979,6 @@ fn test_power_law_graph_neighbourhoods() {
 
 /// The MLE union estimator handles exact-values operands: two exact operands give the exact union,
 /// and a mixed exact / dense pair estimates within the precision's error rate.
-#[cfg(feature = "mle")]
 #[test]
 fn test_estimate_union_cardinality_mle_exact() {
     type Counter = HyperLogLog<Precision10, Bits6>;
@@ -1049,7 +1040,6 @@ fn test_cardinality_estimator_derived_ops() {
 
 /// The Mle wrapper routes the trait methods to the MLE estimators, derives intersection/jaccard/
 /// difference from them, and its overlap matrices use the joint MLE; into_inner returns the counter.
-#[cfg(feature = "mle")]
 #[test]
 fn test_mle_wrapper() {
     type Counter = HyperLogLog<Precision12, Bits6>;

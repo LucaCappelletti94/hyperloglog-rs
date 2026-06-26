@@ -3,7 +3,6 @@ use core::marker::PhantomData;
 use core::u64;
 mod bitreader;
 mod bitwriter;
-mod optimal_codes;
 pub(crate) mod value_list;
 use super::{
     switch::{DecodedIter, DowngradedIter},
@@ -13,7 +12,34 @@ use crate::bits::Bits;
 use bitreader::{len_rice, BitReader};
 use bitwriter::BitWriter;
 use core::mem::size_of;
-use optimal_codes::OPTIMAL_RICE_COEFFICIENTS;
+
+/// Frozen upper bound of the gap-coded hash-width range per `(precision, bits)`, indexed
+/// `[precision - 4][bits - 4]`: the widest hash width at which the sorted hash list uses gap
+/// (Rice) coding before it switches to the dense registers. This is a structural property of the
+/// dense-switch point, not a clean function of `P` and `B` (for `P >= 11` it equals
+/// `LARGEST_VIABLE_HASH_BITS`, but at smaller precisions it is truncated below it where the list
+/// saturates), so it is kept as a constant. It was formerly emitted, together with the now-derived
+/// Rice parameters, by the `optimal-gap-codes` generator. See `docs/gap_code_optimality.md`.
+const fn max_gap_hash_bits(precision: u8, bits: u8) -> u8 {
+    const TABLE: [[u8; 3]; 15] = [
+        [8, 11, 11],
+        [11, 12, 12],
+        [13, 13, 13],
+        [14, 14, 14],
+        [21, 21, 21],
+        [22, 22, 22],
+        [23, 23, 23],
+        [24, 24, 24],
+        [24, 24, 24],
+        [24, 24, 24],
+        [24, 24, 24],
+        [32, 32, 32],
+        [32, 32, 32],
+        [32, 32, 32],
+        [32, 32, 32],
+    ];
+    TABLE[(precision - 4) as usize][(bits - 4) as usize]
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 /// Gap-based composite hash.
@@ -612,23 +638,33 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             || number_of_hashes * u32::from(hash_bits) > bit_index
     }
 
-    #[inline]
-    fn b(hash_bits: u8) -> (u8, u8) {
-        let data =
-            OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
-
-        for (target_hash_bits, uniform) in data {
-            if *target_hash_bits == hash_bits {
-                return (*target_hash_bits, *uniform);
-            }
-        }
-
-        unreachable!("The hash bits ({hash_bits}) must be one of the optimal hash bits.",);
-    }
-
+    /// The optimal Rice parameter for the gaps between sorted hashes at `hash_bits`.
+    ///
+    /// Derived in closed form rather than tabulated. The gaps between distinct sorted hashes are
+    /// geometric (spacings of uniform order statistics) with mean `2^hash_bits / occupancy`, and
+    /// Rice (power-of-two Golomb) is the optimal code for a geometric source, with parameter
+    /// tracking `log2(mean gap) = hash_bits - log2(occupancy)`. At the narrowest width the list is
+    /// full so gaps are about 1 and the parameter is 0, and above it the occupancy plateau gives
+    /// `hash_bits - (P - 1)`. This reproduces the former empirical table to within one step on every
+    /// cell, at well under a percent of the transient hash-list footprint. See
+    /// `docs/gap_code_optimality.md` for the derivation and the measured cost.
     #[inline]
     fn uniform_coefficient(hash_bits: u8) -> u8 {
-        Self::b(hash_bits).1
+        if hash_bits == Self::SMALLEST_VIABLE_HASH_BITS {
+            0
+        } else {
+            hash_bits - (P::EXPONENT - 1)
+        }
+    }
+
+    /// The gap-coded hash widths from widest to narrowest, each paired with its Rice parameter.
+    /// This is the contiguous range `[SMALLEST_VIABLE_HASH_BITS, MAX_GAP_HASH_BITS]` reversed, the
+    /// set of widths the downgrade and merge schedules step through.
+    #[inline]
+    fn gap_widths_descending() -> impl Iterator<Item = (u8, u8)> {
+        (Self::SMALLEST_VIABLE_HASH_BITS..=Self::MAX_GAP_HASH_BITS)
+            .rev()
+            .map(|hash_bits| (hash_bits, Self::uniform_coefficient(hash_bits)))
     }
 }
 
@@ -1110,6 +1146,9 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     pub const SMALLEST_VIABLE_HASH_BITS: u8 = P::EXPONENT + B::NUMBER_OF_BITS;
     /// The largest viable hash bits that can be employed.
     pub const LARGEST_VIABLE_HASH_BITS: u8 = SwitchHash::<P, B>::LARGEST_VIABLE_HASH_BITS;
+    /// The widest hash width that uses gap (Rice) coding, the top of the contiguous gap-coded
+    /// width range `[SMALLEST_VIABLE_HASH_BITS, MAX_GAP_HASH_BITS]`. See [`max_gap_hash_bits`].
+    const MAX_GAP_HASH_BITS: u8 = max_gap_hash_bits(P::EXPONENT, B::NUMBER_OF_BITS);
 
     #[inline]
     #[allow(unsafe_code)]
@@ -1135,15 +1174,12 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         loop {
             // If the hash is already prefix-free encoded, we need to search the next smaller
             // hash that we can use to encode the hashes.
-            let data =
-                OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
-
             let mut found_smaller = false;
 
-            for (target_hash_bits, target_uniform_coefficient) in data.iter().rev() {
-                if hash_bits >= *target_hash_bits {
-                    hash_bits = *target_hash_bits;
-                    uniform_coefficient = *target_uniform_coefficient;
+            for (target_hash_bits, target_uniform_coefficient) in Self::gap_widths_descending() {
+                if hash_bits >= target_hash_bits {
+                    hash_bits = target_hash_bits;
+                    uniform_coefficient = target_uniform_coefficient;
                     found_smaller = true;
                     break;
                 }
@@ -1675,11 +1711,8 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             }
         }
 
-        let data =
-            OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
-
-        for (target_hash_bits, uniform_coefficient) in data.iter().rev() {
-            let hash_bits = *target_hash_bits;
+        for (target_hash_bits, uniform_coefficient) in Self::gap_widths_descending() {
+            let hash_bits = target_hash_bits;
             if hash_bits > common {
                 continue;
             }
@@ -1694,7 +1727,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 b_hash_bits,
                 b_bit_index,
                 hash_bits,
-                *uniform_coefficient,
+                uniform_coefficient,
             );
             // The encoding must both fit and be classified prefix-free. At the largest size the
             // latter can fail when rice barely beats the raw layout (within the rank-index padding):
@@ -1898,7 +1931,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// brought to `base_width` so its distinct-at-`base_width` count matches the one-at-a-time
     /// insertion order, then to `width` for the size and collision arithmetic. When `is_final`, the
     /// size arithmetic (and `uniform_coefficient`) is skipped entirely, so the final size may be the
-    /// raw largest size that has no entry in `OPTIMAL_RICE_COEFFICIENTS`.
+    /// raw largest size, which lies above the gap-coded width range and so has no Rice parameter.
     #[allow(clippy::too_many_arguments)]
     fn merge_phase_new_count(
         base_hashes: &[u8],
@@ -2075,17 +2108,13 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         debug_assert!(base_hash_bits <= finer_hash_bits);
         debug_assert!(final_hash_bits <= base_hash_bits);
 
-        let data =
-            OPTIMAL_RICE_COEFFICIENTS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
-
         let mut b_new = 0u32;
         let mut start = 0usize;
         // Downgrade phases at the optimal widths strictly between the final and base sizes: each
         // absorbs the largest descending finer prefix that still fits before the buffer overflows to
         // the next size (a stored hash can only be downgraded once the buffer overflows). Each phase
         // re-streams both operands from their byte buffers, so the count is allocation-free.
-        for (width, uniform_coefficient) in data.iter().rev() {
-            let width = *width;
+        for (width, uniform_coefficient) in Self::gap_widths_descending() {
             if width > base_hash_bits || width <= final_hash_bits {
                 continue;
             }
@@ -2100,7 +2129,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 finer_hash_bits,
                 finer_bit_index,
                 width,
-                *uniform_coefficient,
+                uniform_coefficient,
                 capacity,
                 start,
                 false,
@@ -2110,7 +2139,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         }
         // The final size absorbs every remaining finer hash: the full union fits there (guaranteed by
         // `merge_metrics`). It is always evaluated (`is_final`), even when the final size is the
-        // largest viable raw size, which is absent from the optimal-rice table; the size arithmetic is
+        // largest viable raw size, which lies above the gap-coded width range; the size arithmetic is
         // skipped there, so no rice coefficient is needed.
         let (_end, new_count) = Self::merge_phase_new_count(
             base_hashes,

@@ -225,14 +225,76 @@ This polynomial form reproduces the section-4 formula to machine precision (vali
 
 Reference for the open problem this resolves: Otmar Ertl notes (arXiv 1702.01284) that joint estimation across more than two sketches "would scale at least exponentially with the number of involved HyperLogLog sketches" for arbitrary sets. The nested-chain structure here (only `M*N + M + N` disjoint regions, not a `2^k`-region Venn diagram) is what makes a polynomial likelihood possible.
 
-## 10. Optimizers (pluggable, generic composition)
+## 10. Optimizer (Levenberg-damped Newton)
 
-The warm-started MAP objective (log-likelihood plus the marginal-anchor log-prior) is maximized by an optimizer chosen at compile time by type, behind the `JointOptimizer` trait. The optimizers are zero-sized marker types with their hyperparameters as fixed `const`s (`Lbfgs`, `Adam`, `RmsProp`) composed with `Chain<A, B>`, all public behind the `mle` feature. `joint_sketch_mle` uses the default type `Chain<Adam, Lbfgs>`, and `joint_sketch_mle_with::<O>(&lefts, &rights)` selects a different optimizer by turbofish (for example `joint_sketch_mle_with::<Lbfgs>` or `joint_sketch_mle_with::<Chain<Adam, Lbfgs>>`).
+The warm-started MAP objective (log-likelihood plus the marginal-anchor log-prior) is maximized by a single second-order optimizer, Levenberg-damped Newton (`DampedNewton` in `src/mle/optimizers.rs`). Each iteration forms the information matrix `A = -H` from the analytic MAP Hessian of section 11, solves the damped system `(A + lambda*I) delta = g` (Cholesky fast path, pivoted Gaussian fallback), and accepts the step only when it increases the objective, decreasing `lambda` toward a pure Newton step on acceptance and increasing it (with a final steepest-ascent line search) on rejection. Accepting on the objective value rather than the gradient norm keeps it correct on the flat ridges of weakly identified deep cells, where the gradient norm has spurious minima.
 
-Empirically (see the `experiment_optimizers` harness in `src/mle.rs`, which reports per-cell accuracy, the attained MAP objective, and wall-clock for each optimizer):
+An earlier design exposed several optimizers behind a `JointOptimizer` trait (`Lbfgs`, `Adam`, `RmsProp`, the `Chain<A, B>` composition, and `FisherScoring`) selectable by turbofish. They were retired once the analytic Hessian (section 11) made damped Newton both faster and more accurate than every first-order alternative: it converges in far fewer objective evaluations and, because each step uses the true curvature, it reaches a higher attained MAP objective on the anisotropic deep-cell instances where a greedy first-order method stalls on the ridge.
 
-- The objective is mildly multi-modal on non-symmetric instances. A greedy descent method (L-BFGS) converges quickly to the nearest local optimum, which can be worse (lower objective, less accurate) than the optimum a momentum method reaches.
-- Adam's momentum escapes those poor basins and reaches the better optimum, but takes many small steps whose size never shrinks near a flat optimum (so a step-size or objective-plateau stop is unreliable: the escape happens only after a plateau).
-- The default `Chain<Adam, Lbfgs>` runs a fixed short Adam warmup (escaping poor basins via momentum) and then L-BFGS (fast, precise final convergence). It matches the accuracy and attained objective of a long Adam run while being several times faster, and is more accurate than plain L-BFGS. Whether the warmup is worthwhile depends on the data (the objective is multi-modal only for some cell-size/overlap distributions, not predictable from M, N, P alone), so the robust default always includes it, and callers who know their data is benign or want the 9-24x speedup select `Lbfgs` directly.
+This mirrors Ertl's 2-set joint MLE, which uses a quasi-Newton method warm-started from the inclusion-exclusion estimate and reports convergence in roughly 13-42 iterations (arXiv 1702.01284, Table 1). The damping and the analytic Hessian are the additions, motivated by the multi-modality and the anisotropy that appear once the disjoint-region model has more than three cells.
 
-This mirrors Ertl's 2-set joint MLE, which uses BFGS warm-started from the inclusion-exclusion estimate and reports convergence in roughly 13-42 iterations (arXiv 1702.01284, Table 1). The first-order warmup is the only addition, motivated by the multi-modality that appears once the disjoint-region model has more than three cells.
+## 11. Analytic Hessian of the polynomial objective
+
+The damped-Newton optimizer needs the Hessian of the MAP objective in `phi`. This section derives it in closed form from the cancellation-free polynomial likelihood of section 9, so the optimizer can build the `K x K` Hessian once per iteration (one pass over the patterns) instead of finite-differencing the analytic gradient at a cost of about `2 K` gradient evaluations per iteration. The finite-difference Hessian (`finite_difference_hessian` in `src/mle/optimizers.rs`, a test-only helper) is retained as the trusted correctness oracle, and the analytic form is validated to match it to about `1e-6` relative across random patterns and shapes.
+
+### 11.1 Building blocks and their second derivatives
+
+Every region's `x_rho(k) = e^{phi_rho} 2^-(P+k)` depends on its own `phi_rho` alone, so `d x_rho / d phi_rho = x_rho` and `d^2 x_rho / d phi_rho^2 = x_rho`, with all cross and other partials zero. Write `x_rho` for `x_rho(w)` at the level `w` in context.
+
+For a product of survivals over a hitter set `S`, `PS = prod_{rho in S} y_rho(w)` with `y_rho = exp(-x_rho(w))`, the first derivative is `d PS / d phi_sigma = -x_sigma PS` when `sigma in S` (and 0 otherwise), because `d y_sigma / d phi_sigma = -x_sigma y_sigma`. The second derivative follows by differentiating again, using `d x_sigma / d phi_sigma = x_sigma`:
+
+- both `sigma, tau in S`, `sigma != tau`: `d^2 PS / d phi_sigma d phi_tau = x_sigma x_tau PS`.
+- `sigma == tau in S`: `d^2 PS / d phi_sigma^2 = (x_sigma^2 - x_sigma) PS` (the extra `-x_sigma` comes from differentiating the `x_sigma` factor itself).
+- any `sigma not in S`: 0.
+
+Compactly, with the indicator `[sigma in S]`,
+
+```
+d PS / d phi_sigma             = -x_sigma [sigma in S] PS
+d^2 PS / d phi_sigma d phi_tau = ( x_sigma x_tau [sigma in S][tau in S]
+                                   - x_sigma [sigma == tau][sigma in S] ) PS
+```
+
+### 11.2 Hessian of a single ln Q_w
+
+`Q_w` is a signed sum of these products: `Q_w = 1 - PL - PR + PLR` when both blocks are present (`PL` over `L_w`, `PR` over `R_w`, `PLR` over `L_w union R_w`), or `Q_w = 1 - PL` / `Q_w = 1 - PR` for the one-sided cases. The first and second derivatives of `Q_w` are the same signed combination of the product derivatives above:
+
+```
+dQ_w/dphi_sigma         = -(dPL + dPR - dPLR)            (both-sided, drop the absent blocks otherwise)
+d^2 Q_w/dphi_sigma dphi_tau = -(d^2 PL + d^2 PR - d^2 PLR)
+```
+
+Then `ln Q_w` contributes, by the quotient and product rules,
+
+```
+d^2 ln Q_w / d phi_sigma d phi_tau
+  = (1 / Q_w) d^2 Q_w / d phi_sigma d phi_tau
+    - (1 / Q_w^2) (dQ_w/d phi_sigma)(dQ_w/d phi_tau).
+```
+
+The first term is the curvature of `Q_w` reweighted by `1 / Q_w`, and the second is the rank-one outer product of the already-computed `ln Q_w` gradient, with a minus sign. Summed over the distinct values `w`, plus the base, gives the per-register log-likelihood Hessian.
+
+### 11.3 Hessian of the base
+
+The base `-sum_rho x_rho(ceil_rho)` is separable across regions and linear in each `e^{phi_rho}`, so its Hessian is diagonal: `d^2 base / d phi_sigma^2 = -x_sigma(ceil_sigma)` (zero for a saturated ceiling, and zero off the diagonal). This equals the base's gradient contribution, since `d^2 e^{phi} / d phi^2 = e^{phi}`.
+
+### 11.4 Full per-register and per-pattern Hessian
+
+`ln P_reg = base + sum_w ln Q_w`, so its Hessian is the diagonal base term plus the sum of the `ln Q_w` Hessians of 11.2. A register pattern that occurs `count` times contributes `count` times this Hessian. The implementation accumulates value, gradient, and Hessian in one pass over the patterns sharing the `y`, `x`, `PL`, `PR`, `PLR` work (`joint_pattern_ll_grad_hess_poly` in `src/mle/likelihood.rs`).
+
+### 11.5 Hessian of the marginal-anchor prior
+
+Each anchor contributes `-(weight/2) (ln S - ln estimate)^2` to the MAP objective, with `S = sum_{rho in regions} e^{phi_rho}` and `n_rho = e^{phi_rho}`. Let `r = ln S - ln estimate` (the residual). The gradient is `d/dphi_sigma = -weight r (n_sigma / S)` for `sigma in regions`. Differentiating again, using `d S / d phi_tau = n_tau`, `d r / d phi_tau = n_tau / S`, and `d (n_sigma / S) / d phi_tau = (n_sigma / S)[sigma == tau] - (n_sigma n_tau / S^2)`:
+
+```
+d^2 / d phi_sigma d phi_tau
+  = -weight [ (n_sigma n_tau / S^2)
+              + r ( (n_sigma / S)[sigma == tau] - n_sigma n_tau / S^2 ) ]
+  = -weight [ (1 - r) (n_sigma n_tau / S^2) + r (n_sigma / S) [sigma == tau] ]
+```
+
+for `sigma, tau` both in the anchor's region set (zero otherwise). This couples every pair of regions inside one anchor (a dense block on those indices), unlike the diagonal-only base. The full MAP Hessian is the log-likelihood Hessian of 11.4 plus the sum of these anchor blocks.
+
+### 11.6 M = N = 1 sanity anchor
+
+At `M = N = 1` the three regions are `L = D^A_0`, `R = D^B_0`, `J = O_00`, and (for `a = b = k`, the joint case of section 6) the single achievement factor is `Q_k = z_J + y_J z_L z_R` in the notation there, with `y_* = e^{-x_*}`, `z_* = 1 - y_*`. Specializing 11.2 to the hitter sets `L_k = {L, J}` and `R_k = {R, J}` (so `PL = y_L y_J`, `PR = y_R y_J`, `PLR = y_L y_R y_J`) reproduces the curvature of the closed-form 2-set joint term: the diagonal `d^2 ln Q_k / d phi_J^2` matches differentiating the section-6 score `x_J ((y_J y_L + y_J z_L y_R)/(z_J + y_J z_L z_R) - 1)` once more in `phi_J`, and the off-diagonal `d^2 / d phi_L d phi_J` matches differentiating that same score in `phi_L`. This is the smallest case where the dense (non-diagonal) structure of the `ln Q_w` Hessian appears, and the analytic-vs-finite-difference test exercises it directly.

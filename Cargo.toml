@@ -1,9 +1,6 @@
 [workspace]
 resolver = "2"
-members = [".", "hyperloglog-derive", "optimal-gap-codes", "test_utils", "hash_list_correction"]
-# The memory-comparison tooling was built on the `mem_dbg` crate, which has been dropped. These
-# members are detached from the build until that tooling is rebuilt; their source is retained.
-exclude = ["measure_variant", "statistical_comparisons", "statistical_comparisons/macro_test_utils"]
+members = [".", "hyperloglog-derive", "test_utils", "correction_coefficients"]
 
 [package]
 name = "hyperloglog-rs"
@@ -15,59 +12,61 @@ homepage = "https://github.com/LucaCappelletti94/hyperloglog-rs"
 repository = "https://github.com/LucaCappelletti94/hyperloglog-rs"
 readme = "README.md"
 license = "MIT"
-keywords = ["hyperloglog", "probabilistic", "algorithm", "cardinality", "estimation",]
-categories = [
-    "no-std",
-    "algorithms",
-    "science"
+keywords = [
+  "hyperloglog",
+  "probabilistic",
+  "algorithm",
+  "cardinality",
+  "estimation",
 ]
-exclude = [
-    "fuzz/",
-    "intersection_tests/",
-    "union_test",
-    "experiments",
-    "intersection_benchmarks.tsv.gz"
-]
+categories = ["no-std", "algorithms", "science"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+serde = { version = "1.0", default-features = false, features = [
+  "derive",
+], optional = true }
 paste = "1.0.15"
-twox-hash = {version="1.6.3", default-features = false}
+twox-hash = { version = "1.6.3", default-features = false }
 hyperloglog-derive = { path = "hyperloglog-derive" }
-num-traits = { version = "0.2", default-features = false, features = ["libm"], optional = true }
 
 
 [dev-dependencies]
 serde_json = "1.0"
+# Memory-matched MinHash baseline for the regime-benchmark consistency check (insert and Jaccard).
+minhash-rs = { git = "https://github.com/LucaCappelletti94/minhash-rs" }
 wyhash = "0.5.0"
 ahash = "0.8.11"
 color-backtrace = { version = "0.6" }
 ctor = "0.2.8"
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.5"
+rayon = "1.10"
 
 [features]
 default = ["alloc"]
-# The crate is always `no_std`. The MLE uses `alloc::collections::BTreeMap` and routes float
-# transcendentals through `libm` (via `num-traits`).
-mle = ["alloc", "dep:num-traits"]
+# The crate is always `no_std`. Maximum Likelihood Estimation is always available and fully
+# allocation-free: it routes float transcendentals through the crate's own no_std `FloatOps` (no
+# `num-traits`/`libm`), its scalar and register estimators use stack histograms, and the exact
+# value-list joint decomposition is a sorted multi-way merge (no map). The `alloc` feature only
+# enables the heap-`Vec`-backed register storage (`VecHll`); the fixed-size array backing needs no
+# allocation.
 alloc = []
 
 [package.metadata.clippy]
 all-features = true
 
 [profile.test]
-overflow-checks = true   # Disable integer overflow checks.
+overflow-checks = true  # Disable integer overflow checks.
 debug = true            # Include debug info.
-debug-assertions = true  # Enables debug assertions.
+debug-assertions = true # Enables debug assertions.
 opt-level = 3
 
 [profile.release]
-overflow-checks = false   # Disable integer overflow checks.
+overflow-checks = false  # Disable integer overflow checks.
 debug = false            # Include debug info.
-debug-assertions = false  # Enables debug assertions.
+debug-assertions = false # Enables debug assertions.
 opt-level = 3
 
 [[bench]]
@@ -85,5 +84,11 @@ harness = false
 [[bench]]
 name = "mle"
 harness = false
-required-features = ["mle"]
 
+[[bench]]
+name = "correction"
+harness = false
+
+[[bench]]
+name = "joint_mle"
+harness = false

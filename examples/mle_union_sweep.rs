@@ -4,7 +4,7 @@
 //! precisions 4-12 (Bits6), many seeds, cardinalities and overlap fractions, does the joint
 //! MLE union estimator beat the default register-based union estimator, and by how much.
 //!
-//! Run with: `cargo run --release --features mle --example mle_union_sweep`
+//! Run with: `cargo run --release --example mle_union_sweep`
 use hyperloglog_rs::prelude::*;
 use twox_hash::XxHash64;
 

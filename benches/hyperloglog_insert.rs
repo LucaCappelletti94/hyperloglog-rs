@@ -156,7 +156,6 @@ fn bench_cardinality_estimate(c: &mut Criterion) {
         b.iter(|| black_box(black_box(&hll).uncorrected_estimate_cardinality()));
     });
 
-    #[cfg(feature = "mle")]
     group.bench_function("mle", |b| {
         b.iter(|| black_box(black_box(&hll).mle().estimate_cardinality()));
     });

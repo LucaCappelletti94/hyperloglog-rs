@@ -144,13 +144,9 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
         (bits).iter().flat_map(move |bit| {
             let hashers = hashers.clone();
             hashers.into_iter().flat_map(move |(hasher_name, hasher_path)| {
-                    let mut feature_constraints =
-                        vec![];
-
-                    // If in the name of the function there appears the word MLE, we add the feature mle
-                    if fn_name.to_string().contains("mle") {
-                        feature_constraints.push(quote! { #[cfg(feature = "mle")] });
-                    }
+                    // MLE is always available (no longer feature-gated), so MLE-named tests need no
+                    // feature constraints. The `alloc`-gated vec variant constraint is added below.
+                    let feature_constraints: Vec<proc_macro2::TokenStream> = vec![];
 
                     let array_test_fn_name = Ident::new(
                         &format!(

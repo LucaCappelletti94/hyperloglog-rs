@@ -880,13 +880,11 @@ mod switch_hash_test {
     #[test]
     fn test_downgrading_switch_hash_precision4_bits4() {
         let original_hash: u64 = 0b0000000000001001100000001000110110110000010001100010011101000111;
-        // let expected_encoded_24: u64 = 0b0111_0111_1111_1111_1011_0011;
         let index = 7;
         let register = 13;
 
         let encoded_24 =
             SwitchHash::<Precision4, Bits4>::encode(index, register, original_hash, 24);
-        // assert_eq!(encoded_24, expected_encoded_24);
 
         let (decoded_register_24, decoded_index_24) =
             SwitchHash::<Precision4, Bits4>::decode(encoded_24, 24);
@@ -913,13 +911,11 @@ mod switch_hash_test {
     fn test_downgrading_switch_hash_precision4_bits4_2() {
         let original_hash: u64 =
             0b0000_0000_0000_0111_0110_0011_0111_1101_0011_1000_1011_0110_1001_0010_1110_0111;
-        // let expected_encoded_16: u64 = 0b0111_1111_0111_0110;
         let index = 7;
         let register = 14;
 
         let encoded_24 =
             SwitchHash::<Precision4, Bits4>::encode(index, register, original_hash, 24);
-        // assert_eq!(encoded_24, expected_encoded_24);
 
         let (decoded_register_24, decoded_index_24) =
             SwitchHash::<Precision4, Bits4>::decode(encoded_24, 24);
@@ -928,7 +924,6 @@ mod switch_hash_test {
 
         let encoded_16 =
             SwitchHash::<Precision4, Bits4>::encode(index, register, original_hash, 16);
-        // assert_eq!(encoded_16, expected_encoded_16);
 
         let (decoded_register_16, decoded_index_16) =
             SwitchHash::<Precision4, Bits4>::decode(encoded_16, 16);

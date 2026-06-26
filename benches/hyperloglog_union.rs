@@ -198,7 +198,6 @@ fn bench_union_estimate_hyperloglog(c: &mut Criterion) {
         b.iter(|| black_box(black_box(&left).estimate_union_cardinality(black_box(&right))));
     });
 
-    #[cfg(feature = "mle")]
     group.bench_function("mle", |b| {
         b.iter(|| {
             black_box(

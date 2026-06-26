@@ -1,6 +1,0 @@
-./cardinality/*.csv.gz
-./union/*.csv.gz
-cardinality-HashSet.csv.gz
-union-HashSet.csv.gz
-*.csv
-*.csv.gz

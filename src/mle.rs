@@ -1,10 +1,10 @@
 //! Maximum Likelihood Estimation for HyperLogLog cardinalities and set sketches.
 //!
-//! This module is behind the `mle` feature, which works in no_std + alloc: it stores joint patterns
-//! in an `alloc::collections::BTreeMap` and routes the float transcendentals to `libm` (via
-//! `num-traits`) when `std` is unavailable, and to the standard library otherwise. It provides three
-//! estimators, all maximizing a register-multiplicity likelihood and reached through the [`Mle`]
-//! mode wrapper ([`HyperLogLog::mle`]):
+//! This module is always available and fully allocation-free: it routes float transcendentals
+//! through the crate's own no_std [`FloatOps`](crate::utils) (no `num-traits`/`libm`), the scalar and
+//! register estimators use stack histograms, and the exact value-list joint decomposition is a sorted
+//! multi-way merge. It provides three estimators, all maximizing a register-multiplicity likelihood
+//! and reached through the [`Mle`] mode wrapper ([`HyperLogLog::mle`]):
 //! - `hll.mle().estimate_union_cardinality(&other.mle())`: Ertl's 2-set joint union MLE.
 //! - `hll.mle().estimate_cardinality()`: Ertl's single-counter cardinality MLE (provided for
 //!   completeness; it is dominated by the default HyperLogLog++ estimate).
@@ -21,16 +21,26 @@ use crate::prelude::*;
 
 mod cardinality;
 mod exact;
+// The generalized joint MLE is fully allocation-free, like the rest of the MLE: it iterates the
+// registers directly (no pattern map) and its optimizer state is fixed-size stack arrays sized by the
+// `M, N <= 8` bound (`K = M*N + M + N <= 80`). So it is always available, no feature gate.
+mod joint_wrapper;
+mod likelihood;
+mod optimizers;
+#[cfg(test)]
+mod oracle;
+mod sketch;
 #[cfg(test)]
 mod tests;
 mod union;
 mod wrapper;
 
+pub use joint_wrapper::JointMle;
 pub use wrapper::Mle;
 
-// The associative map used to tabulate joint patterns and classify exact cells. It is the
-// no_std-friendly `alloc::collections::BTreeMap` (the keys are all `Ord`); benchmarks showed it
-// matches `std::collections::HashMap` end to end (often faster, the maps are small).
+// The test-only oracle deduplicates joint register patterns into this map (the production path never
+// builds it). The keys are all `Ord`, so a no_std-friendly `alloc::collections::BTreeMap` serves.
+#[cfg(test)]
 pub(crate) use alloc::collections::BTreeMap as PatternMap;
 
 /// Upper bound on a register-multiplicity histogram length, which is `1 << B::NUMBER_OF_BITS`. It is
@@ -40,9 +50,42 @@ pub(crate) use alloc::collections::BTreeMap as PatternMap;
 /// `Bits` ever be added.
 pub(crate) const REGISTER_MULTIPLICITIES_CAPACITY: usize = 1 << 6;
 
+/// Benchmark and test hook: run the generalized joint MLE over the disjoint-region model (always the
+/// full damped-Newton optimizer, no `M = N = 1` short-circuit), assuming every operand is already in
+/// register mode. This forwards to the internal `joint_sketch_mle_from_registers_full` so the criterion
+/// harness (a separate crate that only sees `pub` items) can time it at a fixed shape. It is hidden
+/// from the docs because the supported surface is `JointMle` (`.jmle()`).
+#[doc(hidden)]
+#[must_use]
+pub fn bench_joint_sketch_mle<
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B>,
+    H: HasherType,
+    const M: usize,
+    const N: usize,
+>(
+    lefts: &[HyperLogLog<P, B, R, H>; M],
+    rights: &[HyperLogLog<P, B, R, H>; N],
+) -> crate::sketches::JointSketch<M, N> {
+    sketch::joint_sketch_mle_from_registers_full::<P, B, R, H, M, N>(lefts, rights)
+}
+
+/// Benchmark hook: the 2-set union MLE regions via the production damped-Newton solver. Hidden from the
+/// docs (the supported surface is `.mle()`), exposed only so the criterion harness can time the 2-set
+/// hot path.
+#[doc(hidden)]
+#[must_use]
+pub fn bench_union_regions<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>(
+    left: &HyperLogLog<P, B, R, H>,
+    right: &HyperLogLog<P, B, R, H>,
+) -> [f64; 3] {
+    left.mle_union_regions_from_registers(right)
+}
+
 use cardinality::mle_cardinality;
 use exact::joint_sketch_exact_from_values;
-use union::mle_union_regions;
+use union::{mle_union_regions, union_region_relative_covariance};
 
 impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
     /// Returns the union cardinality estimated with the joint Maximum Likelihood Estimation.
@@ -145,7 +188,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
         mle_cardinality::<P, B>(
             self.registers.iter_registers(),
-            self.harmonic_sum,
+            self.dense_harmonic_sum(),
             self.is_full(),
             2,
         )
@@ -217,6 +260,160 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             estimate,
             2,
         )
+    }
+
+    /// The 2-set union MLE regions `[left_difference, right_difference, intersection]` together with
+    /// their asymptotic relative covariance (log space), assuming both counters are in HyperLogLog
+    /// (register) mode. The covariance diagonal holds the squared relative standard error of each
+    /// region; see [`union_region_relative_covariance`].
+    pub(crate) fn mle_union_region_covariance_from_registers(
+        &self,
+        other: &Self,
+    ) -> ([f64; 3], [[f64; 3]; 3]) {
+        let regions = self.mle_union_regions_from_registers(other);
+        let covariance = union_region_relative_covariance::<P, B, _>(
+            self.registers.iter_registers_zipped(&other.registers),
+            regions,
+        );
+        (regions, covariance)
+    }
+
+    /// Per-cell theoretical standard error of the joint sketch ([`JointSketch`]), as a parallel grid
+    /// of the same shape ([`JointSketchError`]).
+    ///
+    /// All-value-list operands are exact, so every cell error is zero. Otherwise every operand is
+    /// materialized to dense registers (as the dense joint sketch does), and each cumulative pairwise
+    /// region (`|A_i \ B_j|`, `|B_j \ A_i|`, `|A_i intersect B_j|`) gets its variance from the
+    /// Fisher-information covariance of the 2-set union MLE
+    /// ([`mle_union_region_covariance_from_registers`](Self::mle_union_region_covariance_from_registers)).
+    /// The differential cells of the sketch are differences of these cumulative regions, so the cell
+    /// variances propagate through that differencing. For `M = N = 1` the cells ARE the regions and the
+    /// error is exact (validated against the measured per-cell spread). For larger grids the
+    /// differencing treats the cumulative regions as independent, which over-estimates because it
+    /// ignores their strong positive correlation: the bound stays tight on the large diagonal cells but
+    /// is loose (an over-estimate by several times) on near-empty off-diagonal or deep cells, where the
+    /// correlated cumulative terms would otherwise cancel. Under the nested-shell correlation structure
+    /// of a hypersphere sketch this behaves as a conservative over-estimate (it is not an unconditional
+    /// mathematical guarantee for arbitrary correlation).
+    ///
+    /// Note: for operands still pre-dense (hash or value lists) the joint estimate itself uses
+    /// near-exact set algebra, so this dense-register-model error is an upper bound in that case.
+    #[must_use]
+    pub fn joint_sketch_error<const M: usize, const N: usize>(
+        lefts: &[Self; M],
+        rights: &[Self; N],
+    ) -> JointSketchError<M, N> {
+        if lefts.iter().all(Self::is_sorted_value_list)
+            && rights.iter().all(Self::is_sorted_value_list)
+        {
+            return JointSketchError {
+                overlap_se: [[0.0; N]; M],
+                left_diff_se: [0.0; M],
+                right_diff_se: [0.0; N],
+            };
+        }
+
+        // Absolute variance of each cumulative pairwise region `[|A_i \ B_j|, |B_j \ A_i|,
+        // |A_i intersect B_j|]`.
+        let mut intersection_variance = [[0.0_f64; N]; M];
+        let mut left_difference_variance = [[0.0_f64; N]; M];
+        let mut right_difference_variance = [[0.0_f64; N]; M];
+
+        if lefts
+            .iter()
+            .chain(rights.iter())
+            .any(|c| c.is_hyperloglog())
+        {
+            // Any dense operand: materialize everything to registers (as the dense joint sketch does)
+            // and take each region variance from the Fisher-information covariance of the 2-set union
+            // MLE (log-space covariance scaled back: Var(region) = region^2 * cov_diagonal).
+            let lefts: [Self; M] = core::array::from_fn(|i| lefts[i].clone().into_hll());
+            let rights: [Self; N] = core::array::from_fn(|j| rights[j].clone().into_hll());
+            for (i, left) in lefts.iter().enumerate() {
+                for (j, right) in rights.iter().enumerate() {
+                    let (regions, covariance) =
+                        left.mle_union_region_covariance_from_registers(right);
+                    left_difference_variance[i][j] =
+                        regions[0] * regions[0] * covariance[0][0].max(0.0);
+                    right_difference_variance[i][j] =
+                        regions[1] * regions[1] * covariance[1][1].max(0.0);
+                    intersection_variance[i][j] =
+                        regions[2] * regions[2] * covariance[2][2].max(0.0);
+                }
+            }
+        } else {
+            // No dense operand (only value or hash lists): these representations are exact or
+            // near-exact, so do NOT materialize them to dense (that would report the far larger dense
+            // register error). Instead propagate the pre-dense per-operand standard errors by the
+            // delta method. For a pair, `I = |A| + |B| - |A union B|`, `left_diff = |A union B| - |B|`,
+            // `right_diff = |A union B| - |A|`, and treating the three terms as independent gives the
+            // region variances below.
+            let left_variance: [f64; M] = core::array::from_fn(|i| {
+                let sd =
+                    lefts[i].estimate_cardinality() * lefts[i].predicted_relative_standard_error();
+                sd * sd
+            });
+            let right_variance: [f64; N] = core::array::from_fn(|j| {
+                let sd = rights[j].estimate_cardinality()
+                    * rights[j].predicted_relative_standard_error();
+                sd * sd
+            });
+            for (i, var_left) in left_variance.iter().enumerate() {
+                for (j, var_right) in right_variance.iter().enumerate() {
+                    let union = &lefts[i] | &rights[j];
+                    let union_sd =
+                        union.estimate_cardinality() * union.predicted_relative_standard_error();
+                    let var_union = union_sd * union_sd;
+                    intersection_variance[i][j] = var_left + var_right + var_union;
+                    left_difference_variance[i][j] = var_union + var_right;
+                    right_difference_variance[i][j] = var_union + var_left;
+                }
+            }
+        }
+
+        // Overlap cell = 2D difference of cumulative intersections; propagate the four corners.
+        let mut overlap_se = [[0.0_f64; N]; M];
+        for i in 0..M {
+            for j in 0..N {
+                let mut variance = intersection_variance[i][j];
+                if i > 0 {
+                    variance += intersection_variance[i - 1][j];
+                }
+                if j > 0 {
+                    variance += intersection_variance[i][j - 1];
+                }
+                if i > 0 && j > 0 {
+                    variance += intersection_variance[i - 1][j - 1];
+                }
+                overlap_se[i][j] = FloatOps::sqrt(variance);
+            }
+        }
+
+        // Left margin = difference of left-difference regions across successive left shells, taken
+        // against the largest right operand (index N-1).
+        let mut left_diff_se = [0.0_f64; M];
+        for i in 0..M {
+            let mut variance = left_difference_variance[i][N - 1];
+            if i > 0 {
+                variance += left_difference_variance[i - 1][N - 1];
+            }
+            left_diff_se[i] = FloatOps::sqrt(variance);
+        }
+        // Right margin symmetrically against the largest left operand (index M-1).
+        let mut right_diff_se = [0.0_f64; N];
+        for j in 0..N {
+            let mut variance = right_difference_variance[M - 1][j];
+            if j > 0 {
+                variance += right_difference_variance[M - 1][j - 1];
+            }
+            right_diff_se[j] = FloatOps::sqrt(variance);
+        }
+
+        JointSketchError {
+            overlap_se,
+            left_diff_se,
+            right_diff_se,
+        }
     }
 
     /// Joint MLE union estimate assuming both counters are in HyperLogLog (register) mode.

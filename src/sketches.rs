@@ -31,6 +31,22 @@ pub struct JointSketch<const M: usize, const N: usize> {
     pub right_diff: [f64; N],
 }
 
+/// The per-cell theoretical standard error of a [`JointSketch`], same shape as the sketch it
+/// accompanies: a standard error for every overlap cell and every margin. Produced by
+/// [`HyperLogLog::joint_sketch_error`]. Each entry is one standard deviation of that cell's estimate
+/// in absolute (cardinality) units, so the relative error of a cell is its standard error divided by
+/// its estimated value. Small overlap cells between large sets carry a large relative error, which is
+/// exactly what this surfaces.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct JointSketchError<const M: usize, const N: usize> {
+    /// Standard error of each `overlap[i][j]` cell.
+    pub overlap_se: [[f64; N]; M],
+    /// Standard error of each `left_diff[i]` margin.
+    pub left_diff_se: [f64; M],
+    /// Standard error of each `right_diff[j]` margin.
+    pub right_diff_se: [f64; N],
+}
+
 impl<const M: usize, const N: usize> JointSketch<M, N> {
     /// Estimates the joint sketch of `M` nested left counters and `N` nested right counters, in a
     /// single call. The estimator follows the *mode* of the operands, exactly like the scalar
@@ -39,7 +55,9 @@ impl<const M: usize, const N: usize> JointSketch<M, N> {
     /// fits every disjoint cell and is generally more accurate, at a higher cost). `M` and `N` are
     /// inferred from the arrays.
     ///
-    /// To choose a specific MLE optimizer, use [`JointSketch::estimate_with`].
+    /// To run the generalized joint maximum-likelihood optimization that fits every disjoint cell at
+    /// once (rather than inclusion-exclusion over the 2-set MLE), pass [`jmle`](HyperLogLog::jmle)
+    /// views instead.
     ///
     /// # Examples
     /// ```
@@ -542,7 +560,15 @@ mod normalize_tests {
 
         let reconstructed = Hll::joint_sketch(&lefts, &rights).normalize();
         let reference = Hll::normalized_joint_sketch(&lefts, &rights);
-        let close = |a: f64, b: f64| (a - b).abs() <= 1e-9 * a.abs().max(b.abs()).max(1.0);
+        // The two paths are algebraically identical but reach the per-shell denominators differently:
+        // `normalize` rebuilds the marginal cardinalities by cumulative summation of the overlap
+        // matrix, while `normalized_joint_sketch` computes them inline. They agree to floating point
+        // only when the cardinality estimates are exact integers. The occupancy hash-list estimator
+        // predicts a tiny collision deficit even at the wide composite width (order n^2 / 2^w, a few
+        // parts per million for these small counters), so the inputs are not exact integers and the
+        // two reconstructions diverge under cancellation by that same order. This is far below the
+        // estimator's own noise floor.
+        let close = |a: f64, b: f64| (a - b).abs() <= 1e-5 * a.abs().max(b.abs()).max(1.0);
         for i in 0..2 {
             for j in 0..2 {
                 assert!(

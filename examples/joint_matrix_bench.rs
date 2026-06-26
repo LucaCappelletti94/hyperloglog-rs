@@ -8,9 +8,10 @@
 //! MLE, comparing both to the exact decomposition from the std `HashSet`s. We sweep M=N and write the
 //! per-shape error and timing to `docs/sketch_benchmark.json`.
 //!
-//! Run with: `cargo run --release --features "std mle" --example joint_matrix_bench`
+//! Run with: `cargo run --release --example joint_matrix_bench`
 
 use hyperloglog_rs::prelude::*;
+use rayon::prelude::*;
 use std::collections::HashSet;
 use std::time::Instant;
 use twox_hash::XxHash64;
@@ -53,6 +54,18 @@ impl<E: CardinalityEstimator> CardinalityEstimator for IePairwise<E> {
     }
     fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         self.0.estimate_union_cardinality(&other.0)
+    }
+    fn predicted_relative_standard_error(&self) -> f64 {
+        self.0.predicted_relative_standard_error()
+    }
+    fn predicted_bias(&self) -> f64 {
+        self.0.predicted_bias()
+    }
+    fn relative_standard_error_at(&self, cardinality: f64) -> f64 {
+        self.0.relative_standard_error_at(cardinality)
+    }
+    fn bias_at(&self, cardinality: f64) -> f64 {
+        self.0.bias_at(cardinality)
     }
 }
 
@@ -239,8 +252,11 @@ where
     let ulm: [_; M] = core::array::from_fn(|i| IePairwise(left[i].mle()));
     let urm: [_; N] = core::array::from_fn(|j| IePairwise(right[j].mle()));
     let union = JointSketch::estimate(&ulm, &urm);
-    let lm: [_; M] = core::array::from_fn(|i| left[i].mle());
-    let rm: [_; N] = core::array::from_fn(|j| right[j].mle());
+    // The generalized joint MLE goes through the `.jmle()` views (the bare `.mle()` joint sketch now
+    // runs the same repeated 2-set inclusion-exclusion as `IePairwise` above, so it would not isolate
+    // the joint optimizer).
+    let lm: [_; M] = core::array::from_fn(|i| left[i].jmle());
+    let rm: [_; N] = core::array::from_fn(|j| right[j].jmle());
     let joint = JointSketch::estimate(&lm, &rm);
 
     let overlap_of = |js: &JointSketch<M, N>| {
@@ -289,8 +305,8 @@ where
     let time_union = time_ms(50, 50, || {
         std::hint::black_box(JointSketch::estimate(&ulm, &urm));
     });
-    let lm: [_; M] = core::array::from_fn(|i| left[i].mle());
-    let rm: [_; N] = core::array::from_fn(|j| right[j].mle());
+    let lm: [_; M] = core::array::from_fn(|i| left[i].jmle());
+    let rm: [_; N] = core::array::from_fn(|j| right[j].jmle());
     let time_mle = time_ms(50, 5, || {
         std::hint::black_box(JointSketch::estimate(&lm, &rm));
     });
@@ -310,7 +326,11 @@ where
     P: Precision + PackedRegister<B>,
     B: Bits,
 {
+    // The per-seed accuracy trials are independent and each seed is derived deterministically from its
+    // index, so running them across cores does not change the results, only the wall-clock. Timing is
+    // measured separately (below) on a single seed and stays off the parallel section.
     let trials: Vec<Trial> = (0..SEEDS)
+        .into_par_iter()
         .map(|s| {
             let seed_l = 0xDEAD_BEEF_CAFE_F00D ^ (s as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
             let seed_r = 0x0BAD_C0DE_1234_5678 ^ (s as u64).wrapping_mul(0xD1B5_4A32_D192_ED03);
