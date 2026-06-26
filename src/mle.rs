@@ -38,8 +38,9 @@ mod wrapper;
 pub use joint_wrapper::JointMle;
 pub use wrapper::Mle;
 
-// The test-only oracle deduplicates joint register patterns into this map (the production path never
-// builds it). The keys are all `Ord`, so a no_std-friendly `alloc::collections::BTreeMap` serves.
+// The test-only oracle deduplicates joint register patterns into this map (the production path
+// deduplicates by a sort plus run-length encode instead, never this map). The keys are all `Ord`, so a
+// no_std-friendly `alloc::collections::BTreeMap` serves.
 #[cfg(test)]
 pub(crate) use alloc::collections::BTreeMap as PatternMap;
 

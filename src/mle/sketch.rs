@@ -115,6 +115,113 @@ pub(crate) fn joint_sketch_mle_from_registers<
 /// short-circuit. The default path [`joint_sketch_mle_from_registers`] short-circuits the single pair
 /// to the analytic 2-set union MLE, so this variant exists for the benchmark hook and the tests that
 /// need the optimizer exercised at every shape.
+///
+/// With `alloc` it first reduces the registers to their sufficient statistic: the distinct observed
+/// `(a_pat, b_pat)` patterns and their multiplicities, tabulated once by collecting the `m` patterns,
+/// sorting, and run-length encoding. Each Newton objective and Hessian evaluation then iterates the
+/// distinct patterns, so the per-evaluation cost is `O(distinct patterns)` rather than `O(m)`. The
+/// register values concentrate around `log2(n/m)`, so the distinct-pattern count is far below `m` for
+/// the small-to-moderate grids and high precisions where this matters most (it approaches `m` only on
+/// large grids, where the speedup tapers to nothing but the result is unchanged).
+#[cfg(feature = "alloc")]
+pub(crate) fn joint_sketch_mle_from_registers_full<
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B>,
+    H: HasherType,
+    const M: usize,
+    const N: usize,
+>(
+    lefts: &[HyperLogLog<P, B, R, H>; M],
+    rights: &[HyperLogLog<P, B, R, H>; N],
+) -> JointSketch<M, N> {
+    let m_registers = 1_usize << P::EXPONENT;
+    // Collect every register's monotone pattern, sort, then run-length encode into the distinct
+    // (pattern, count) sufficient statistic. The resulting Vec is contiguous, so the repeated
+    // per-evaluation sweeps walk flat memory.
+    let mut keys: alloc::vec::Vec<([u8; M], [u8; N])> = alloc::vec::Vec::with_capacity(m_registers);
+    for r in 0..m_registers {
+        keys.push(register_pattern::<P, B, R, H, M, N>(lefts, rights, r));
+    }
+    keys.sort_unstable();
+    let mut patterns: alloc::vec::Vec<([u8; M], [u8; N], f64)> = alloc::vec::Vec::new();
+    for (a, b) in keys {
+        match patterns.last_mut() {
+            Some((pa, pb, count)) if *pa == a && *pb == b => *count += 1.0,
+            _ => patterns.push((a, b, 1.0)),
+        }
+    }
+    joint_sketch_mle_from_patterns::<P, B, R, H, M, N>(lefts, rights, &patterns)
+}
+
+/// Runs the generalized joint MLE over the distinct `(a_pat, b_pat, count)` patterns (the sufficient
+/// statistic), so each Newton objective and Hessian evaluation costs `O(distinct patterns)`. Shared by
+/// the `alloc` build of [`joint_sketch_mle_from_registers_full`].
+#[cfg(feature = "alloc")]
+fn joint_sketch_mle_from_patterns<
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B>,
+    H: HasherType,
+    const M: usize,
+    const N: usize,
+>(
+    lefts: &[HyperLogLog<P, B, R, H>; M],
+    rights: &[HyperLogLog<P, B, R, H>; N],
+    patterns: &[([u8; M], [u8; N], f64)],
+) -> JointSketch<M, N> {
+    let p_exponent = P::EXPONENT;
+    let q_plus_one: u8 = (1 << B::NUMBER_OF_BITS) - 1;
+    let k = M * N + M + N;
+    joint_sketch_mle_core::<P, B, R, H, M, N>(
+        lefts,
+        rights,
+        |phis, gradient| {
+            let mut ephi = [f64::ZERO; MAX_K];
+            for (slot, phi) in ephi[..k].iter_mut().zip(phis) {
+                *slot = FloatOps::exp(*phi);
+            }
+            let mut log_likelihood = f64::ZERO;
+            for (a_pat, b_pat, count) in patterns {
+                log_likelihood += joint_pattern_ll_and_gradient_poly::<M, N>(
+                    a_pat,
+                    b_pat,
+                    &ephi[..k],
+                    p_exponent,
+                    q_plus_one,
+                    *count,
+                    gradient,
+                );
+            }
+            log_likelihood
+        },
+        |phis, hessian| {
+            let mut ephi = [f64::ZERO; MAX_K];
+            for (slot, phi) in ephi[..k].iter_mut().zip(phis) {
+                *slot = FloatOps::exp(*phi);
+            }
+            let mut scratch_gradient = [f64::ZERO; MAX_K];
+            for (a_pat, b_pat, count) in patterns {
+                joint_pattern_ll_grad_hess_poly::<M, N>(
+                    a_pat,
+                    b_pat,
+                    &ephi[..k],
+                    p_exponent,
+                    q_plus_one,
+                    *count,
+                    &mut scratch_gradient[..k],
+                    hessian,
+                );
+            }
+        },
+    )
+}
+
+/// No-alloc fallback: with no heap to tabulate the sufficient statistic, sum the per-register patterns
+/// on the fly, so each Newton evaluation is `O(m)`. It optimizes the same objective as the `alloc`
+/// deduped path and reaches the same optimum up to floating-point summation order (the two sum the
+/// per-pattern terms in different orders, so converged cells can differ at the 1e-12 level).
+#[cfg(not(feature = "alloc"))]
 pub(crate) fn joint_sketch_mle_from_registers_full<
     P: Precision,
     B: Bits,
@@ -134,9 +241,6 @@ pub(crate) fn joint_sketch_mle_from_registers_full<
     joint_sketch_mle_core::<P, B, R, H, M, N>(
         lefts,
         rights,
-        // Log-likelihood and its gradient, summed over the registers on the fly (no pattern map). For
-        // each register index the monotone observed pattern is rebuilt by a cumulative max along each
-        // chain, then the per-register polynomial contribution (count 1) is accumulated.
         |phis, gradient| {
             let mut ephi = [f64::ZERO; MAX_K];
             for (slot, phi) in ephi[..k].iter_mut().zip(phis) {
@@ -157,9 +261,6 @@ pub(crate) fn joint_sketch_mle_from_registers_full<
             }
             log_likelihood
         },
-        // Analytic log-likelihood Hessian, summed over the registers on the fly (damped Newton
-        // consumes it via maximize_map). The per-register routine also writes its gradient into a
-        // throwaway scratch, which is discarded here.
         |phis, hessian| {
             let mut ephi = [f64::ZERO; MAX_K];
             for (slot, phi) in ephi[..k].iter_mut().zip(phis) {

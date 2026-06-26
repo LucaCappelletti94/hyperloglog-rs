@@ -1,9 +1,12 @@
 //! The polynomial `O((M+N)^2)` per-register joint log-likelihood (level-factor / block-collapse
 //! form), its exact gradient, and its exact Hessian. See `docs/joint_mle_math.md` sections 4 to 11.
 //!
-//! The production path feeds these per-register routines one observed pattern at a time (count 1) as
-//! it iterates the registers, so they are allocation-free. The distinct-pattern tabulation below is
-//! test-only (it backs the `2^(M+N)` oracle and the oracle cross-checks), where allocation is fine.
+//! These per-register routines take a `count` multiplier. With `alloc` the production joint sketch
+//! reduces the registers to their distinct patterns first and calls them once per distinct pattern
+//! with its multiplicity, so each evaluation is `O(distinct patterns)`. The no-alloc fallback calls
+//! them once per register with `count = 1`. Either way the routines themselves are allocation-free.
+//! The `BTreeMap`-backed tabulation below is test-only (it backs the `2^(M+N)` oracle and the oracle
+//! cross-checks), where allocation is fine.
 
 #[cfg(test)]
 use crate::prelude::*;
@@ -11,10 +14,10 @@ use crate::utils::FloatOps;
 #[cfg(test)]
 use alloc::vec::Vec;
 
-/// Tabulates the distinct joint register value patterns and their multiplicities. Nesting is enforced
-/// by a cumulative max along each chain so the observed values are monotone. Test-only: the production
-/// path iterates the registers directly without a pattern map, and only the oracle cross-checks need
-/// the deduplicated patterns.
+/// Tabulates the distinct joint register value patterns and their multiplicities into a `BTreeMap`.
+/// Nesting is enforced by a cumulative max along each chain so the observed values are monotone.
+/// Test-only: the production joint sketch tabulates its distinct patterns with a sort plus run-length
+/// encode (see `sketch.rs`), and only the oracle cross-checks need this `BTreeMap` form.
 ///
 /// `K = M*N + M + N` is the number of disjoint regions, indexed as: overlap `O_ij` at `i*N + j`,
 /// left margin `D^A_i` at `M*N + i`, right margin `D^B_j` at `M*N + M + j`.

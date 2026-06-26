@@ -133,8 +133,9 @@ fn bench_joint_mle(c: &mut Criterion) {
         });
     }
 
-    // High-precision probe: P14 and P16 8x8. Register iteration is O(m) per evaluation with no pattern
-    // dedup, so these expose the cost of the alloc-free design at large m (m = 2^14 and 2^16).
+    // High-precision probe: P14 and P16 8x8. The solver reduces to the distinct register patterns, but
+    // on the 8x8 grid almost every register has a unique pattern, so the distinct count stays close to
+    // m and these still expose the per-evaluation cost at large m (m = 2^14 and 2^16).
     {
         let (lefts, rights) = build_power_law_cells::<Precision14, Bits6, 8, 8>(0xC0FFEE, 4096);
         group.bench_function("damped_p14", |b| {

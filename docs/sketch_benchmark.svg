@@ -78,21 +78,21 @@
   <line x1="611.0" y1="434.58510778274206" x2="619.0" y2="434.58510778274206" stroke="#D62246" stroke-width="2" />
   <line x1="611.0" y1="465.579991534771" x2="619.0" y2="465.579991534771" stroke="#D62246" stroke-width="2" />
   <circle cx="615.0" cy="450.1" r="3" fill="#D62246" />
-  <line x1="712.25" y1="409.6589491403491" x2="712.25" y2="128.92250999794885" stroke="#D62246" stroke-width="2" />
-  <line x1="708.25" y1="128.92250999794885" x2="716.25" y2="128.92250999794885" stroke="#D62246" stroke-width="2" />
-  <line x1="708.25" y1="409.6589491403491" x2="716.25" y2="409.6589491403491" stroke="#D62246" stroke-width="2" />
+  <line x1="712.25" y1="409.6589468076065" x2="712.25" y2="128.92250803750005" stroke="#D62246" stroke-width="2" />
+  <line x1="708.25" y1="128.92250803750005" x2="716.25" y2="128.92250803750005" stroke="#D62246" stroke-width="2" />
+  <line x1="708.25" y1="409.6589468076065" x2="716.25" y2="409.6589468076065" stroke="#D62246" stroke-width="2" />
   <circle cx="712.2" cy="269.3" r="3" fill="#D62246" />
-  <line x1="809.5" y1="427.1861097237403" x2="809.5" y2="289.9761116898301" stroke="#D62246" stroke-width="2" />
-  <line x1="805.5" y1="289.9761116898301" x2="813.5" y2="289.9761116898301" stroke="#D62246" stroke-width="2" />
-  <line x1="805.5" y1="427.1861097237403" x2="813.5" y2="427.1861097237403" stroke="#D62246" stroke-width="2" />
+  <line x1="809.5" y1="427.1861073372365" x2="809.5" y2="289.9761098590307" stroke="#D62246" stroke-width="2" />
+  <line x1="805.5" y1="289.9761098590307" x2="813.5" y2="289.9761098590307" stroke="#D62246" stroke-width="2" />
+  <line x1="805.5" y1="427.1861073372365" x2="813.5" y2="427.1861073372365" stroke="#D62246" stroke-width="2" />
   <circle cx="809.5" cy="358.6" r="3" fill="#D62246" />
-  <line x1="906.75" y1="394.00815802907414" x2="906.75" y2="308.9863758353932" stroke="#D62246" stroke-width="2" />
-  <line x1="902.75" y1="308.9863758353932" x2="910.75" y2="308.9863758353932" stroke="#D62246" stroke-width="2" />
-  <line x1="902.75" y1="394.00815802907414" x2="910.75" y2="394.00815802907414" stroke="#D62246" stroke-width="2" />
+  <line x1="906.75" y1="394.00817709406596" x2="906.75" y2="308.9864017592821" stroke="#D62246" stroke-width="2" />
+  <line x1="902.75" y1="308.9864017592821" x2="910.75" y2="308.9864017592821" stroke="#D62246" stroke-width="2" />
+  <line x1="902.75" y1="394.00817709406596" x2="910.75" y2="394.00817709406596" stroke="#D62246" stroke-width="2" />
   <circle cx="906.8" cy="351.5" r="3" fill="#D62246" />
-  <line x1="1004.0" y1="368.4950493350103" x2="1004.0" y2="305.01568552461333" stroke="#D62246" stroke-width="2" />
-  <line x1="1000.0" y1="305.01568552461333" x2="1008.0" y2="305.01568552461333" stroke="#D62246" stroke-width="2" />
-  <line x1="1000.0" y1="368.4950493350103" x2="1008.0" y2="368.4950493350103" stroke="#D62246" stroke-width="2" />
+  <line x1="1004.0" y1="368.49504956689964" x2="1004.0" y2="305.0156857733409" stroke="#D62246" stroke-width="2" />
+  <line x1="1000.0" y1="305.0156857733409" x2="1008.0" y2="305.0156857733409" stroke="#D62246" stroke-width="2" />
+  <line x1="1000.0" y1="368.49504956689964" x2="1008.0" y2="368.49504956689964" stroke="#D62246" stroke-width="2" />
   <circle cx="1004.0" cy="336.8" r="3" fill="#D62246" />
   <rect x="1090" y="80" width="445" height="442" fill="#F8F9FA" stroke="#CCC" stroke-width="1" rx="4" />
   <text x="1312" y="68" font-family="sans-serif" font-size="12" fill="#333" text-anchor="middle" font-weight="bold">Wall-clock per decomposition (log scale)</text>
@@ -116,30 +116,30 @@
   <text x="1415.75" y="540" font-family="sans-serif" font-size="10" fill="#777" text-anchor="middle" font-weight="normal">4</text>
   <text x="1513.0" y="540" font-family="sans-serif" font-size="10" fill="#777" text-anchor="middle" font-weight="normal">5</text>
   <text x="1312" y="560" font-family="sans-serif" font-size="11" fill="#555" text-anchor="middle" font-weight="normal">M = N (nested layers)</text>
-  <polyline points="1124.0,234.6 1221.2,179.9 1318.5,146.5 1415.8,119.3 1513.0,100.7" fill="none" stroke="#2E7D32" stroke-width="2.5" />
-  <circle cx="1124.0" cy="234.6" r="3" fill="#2E7D32" />
+  <polyline points="1124.0,241.7 1221.2,179.9 1318.5,150.4 1415.8,123.1 1513.0,104.0" fill="none" stroke="#2E7D32" stroke-width="2.5" />
+  <circle cx="1124.0" cy="241.7" r="3" fill="#2E7D32" />
   <circle cx="1221.2" cy="179.9" r="3" fill="#2E7D32" />
-  <circle cx="1318.5" cy="146.5" r="3" fill="#2E7D32" />
-  <circle cx="1415.8" cy="119.3" r="3" fill="#2E7D32" />
-  <circle cx="1513.0" cy="100.7" r="3" fill="#2E7D32" />
-  <polyline points="1124.0,447.3 1221.2,409.6 1318.5,386.3 1415.8,369.9 1513.0,357.3" fill="none" stroke="#2E86AB" stroke-width="2.5" />
-  <circle cx="1124.0" cy="447.3" r="3" fill="#2E86AB" />
-  <circle cx="1221.2" cy="409.6" r="3" fill="#2E86AB" />
-  <circle cx="1318.5" cy="386.3" r="3" fill="#2E86AB" />
-  <circle cx="1415.8" cy="369.9" r="3" fill="#2E86AB" />
-  <circle cx="1513.0" cy="357.3" r="3" fill="#2E86AB" />
-  <polyline points="1124.0,363.6 1221.2,330.3 1318.5,302.9 1415.8,295.2 1513.0,283.8" fill="none" stroke="#E8871E" stroke-width="2.5" />
-  <circle cx="1124.0" cy="363.6" r="3" fill="#E8871E" />
-  <circle cx="1221.2" cy="330.3" r="3" fill="#E8871E" />
-  <circle cx="1318.5" cy="302.9" r="3" fill="#E8871E" />
-  <circle cx="1415.8" cy="295.2" r="3" fill="#E8871E" />
-  <circle cx="1513.0" cy="283.8" r="3" fill="#E8871E" />
-  <polyline points="1124.0,372.1 1221.2,221.9 1318.5,202.9 1415.8,197.6 1513.0,191.1" fill="none" stroke="#D62246" stroke-width="2.5" />
-  <circle cx="1124.0" cy="372.1" r="3" fill="#D62246" />
-  <circle cx="1221.2" cy="221.9" r="3" fill="#D62246" />
-  <circle cx="1318.5" cy="202.9" r="3" fill="#D62246" />
-  <circle cx="1415.8" cy="197.6" r="3" fill="#D62246" />
-  <circle cx="1513.0" cy="191.1" r="3" fill="#D62246" />
+  <circle cx="1318.5" cy="150.4" r="3" fill="#2E7D32" />
+  <circle cx="1415.8" cy="123.1" r="3" fill="#2E7D32" />
+  <circle cx="1513.0" cy="104.0" r="3" fill="#2E7D32" />
+  <polyline points="1124.0,454.2 1221.2,412.6 1318.5,388.7 1415.8,371.5 1513.0,358.3" fill="none" stroke="#2E86AB" stroke-width="2.5" />
+  <circle cx="1124.0" cy="454.2" r="3" fill="#2E86AB" />
+  <circle cx="1221.2" cy="412.6" r="3" fill="#2E86AB" />
+  <circle cx="1318.5" cy="388.7" r="3" fill="#2E86AB" />
+  <circle cx="1415.8" cy="371.5" r="3" fill="#2E86AB" />
+  <circle cx="1513.0" cy="358.3" r="3" fill="#2E86AB" />
+  <polyline points="1124.0,366.3 1221.2,333.3 1318.5,310.4 1415.8,297.1 1513.0,284.2" fill="none" stroke="#E8871E" stroke-width="2.5" />
+  <circle cx="1124.0" cy="366.3" r="3" fill="#E8871E" />
+  <circle cx="1221.2" cy="333.3" r="3" fill="#E8871E" />
+  <circle cx="1318.5" cy="310.4" r="3" fill="#E8871E" />
+  <circle cx="1415.8" cy="297.1" r="3" fill="#E8871E" />
+  <circle cx="1513.0" cy="284.2" r="3" fill="#E8871E" />
+  <polyline points="1124.0,372.0 1221.2,263.8 1318.5,227.5 1415.8,210.3 1513.0,199.7" fill="none" stroke="#D62246" stroke-width="2.5" />
+  <circle cx="1124.0" cy="372.0" r="3" fill="#D62246" />
+  <circle cx="1221.2" cy="263.8" r="3" fill="#D62246" />
+  <circle cx="1318.5" cy="227.5" r="3" fill="#D62246" />
+  <circle cx="1415.8" cy="210.3" r="3" fill="#D62246" />
+  <circle cx="1513.0" cy="199.7" r="3" fill="#D62246" />
   <line x1="72" y1="570" x2="98" y2="570" stroke="#2E7D32" stroke-width="3" />
   <text x="104" y="574" font-family="sans-serif" font-size="11" fill="#333" text-anchor="start" font-weight="normal">exact (HashSet)</text>
   <line x1="233" y1="570" x2="259" y2="570" stroke="#2E86AB" stroke-width="3" />
