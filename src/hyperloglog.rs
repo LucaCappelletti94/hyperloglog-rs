@@ -1139,6 +1139,84 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         }
     }
 
+    /// Width-consistent intersection and union of two counters, returned as
+    /// `Some((intersection, union))`, or `None` when the width-consistent path does not apply (so the
+    /// caller falls back to plain inclusion-exclusion).
+    ///
+    /// The plain inclusion-exclusion `|A| + |B| - |U|` used by the default Jaccard and intersection
+    /// estimates corrects each term at its own composite width. When the union sits at a coarser width
+    /// than the operands (it holds more elements, so it downgrades first), the three corrections live
+    /// in different width regimes and no longer cancel, which inflates the intersection and Jaccard
+    /// error at the width boundary. Here we bring all three to the union's width: `|U|` is already
+    /// there, and `|A|`, `|B|` are recomputed from their distinct composite counts downgraded to that
+    /// width, so a single occupancy correction applies to all three.
+    ///
+    /// Only the both-hash-list case needs this. When either operand is an exact value list (set
+    /// operations are already exact) or a register counter (a single width), the default path is
+    /// already width-consistent and this returns `None`.
+    pub(crate) fn width_consistent_intersection_and_union(
+        &self,
+        other: &Self,
+    ) -> Option<(f64, f64)> {
+        if !(self.is_sorted_hash_list() && other.is_sorted_hash_list()) {
+            return None;
+        }
+        // Build the union and read the width it settled at.
+        let mut union = self.clone();
+        union.merge(other);
+        if !union.is_sorted_hash_list() {
+            // The union overflowed to registers: there is no common hash-list width, so fall back.
+            return None;
+        }
+        let union_hash_bits = union.get_hash_bits().unwrap();
+        let union_cardinality = union.estimate_cardinality();
+
+        let left = self.cardinality_at_hash_bits(union_hash_bits);
+        let right = other.cardinality_at_hash_bits(union_hash_bits);
+
+        // The numerator is width-consistent (all three terms at the union's width). Cap the result at
+        // the smaller operand's reported cardinality, since an intersection can exceed neither set and
+        // the downgrade recount of a much smaller operand can otherwise overshoot slightly.
+        let cap = self
+            .estimate_cardinality()
+            .min(other.estimate_cardinality());
+        let intersection = (left + right - union_cardinality).max(0.0).min(cap);
+        Some((intersection, union_cardinality))
+    }
+
+    /// The corrected cardinality of this hash-list counter evaluated at `target_hash_bits`, a width no
+    /// wider than the counter's own. The stored composites are downgraded to the target width (which
+    /// merges any that collide there) and the occupancy correction for that width is applied to the
+    /// resulting distinct count, so the estimate shares the width regime of a union taken at that
+    /// width.
+    fn cardinality_at_hash_bits(&self, target_hash_bits: u8) -> f64 {
+        let hash_bits = self.get_hash_bits().unwrap();
+        debug_assert!(
+            target_hash_bits <= hash_bits,
+            "target width ({target_hash_bits}) must not exceed the counter's width ({hash_bits})",
+        );
+        if target_hash_bits == hash_bits {
+            return Self::hash_list_cardinality(self.get_number_of_hashes().unwrap(), hash_bits);
+        }
+        // Downgrade truncates low bits, so collided composites become adjacent equal values in the
+        // descending-sorted stream. Count distinct by comparing each to its predecessor.
+        let mut distinct: u32 = 0;
+        let mut previous: u32 = u32::MAX;
+        for downgraded in GapHash::<P, B>::downgraded(
+            self.registers.as_ref(),
+            self.get_number_of_hashes().unwrap(),
+            hash_bits,
+            self.get_writer_tell(),
+            hash_bits - target_hash_bits,
+        ) {
+            if downgraded != previous {
+                distinct += 1;
+                previous = downgraded;
+            }
+        }
+        Self::hash_list_cardinality(distinct, target_hash_bits)
+    }
+
     #[inline]
     /// Returns the union cardinality estimate with the register linear-counting branch BYPASSED. When
     /// both operands are dense, the union is estimated from the element-wise-max registers via
