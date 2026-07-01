@@ -18,86 +18,10 @@ use crate::prelude::{
 use crate::VariableWord;
 use core::fmt::Debug;
 use core::hash::Hash;
-use sketching_core::{split_packed_index, Packed};
-
-#[allow(unsafe_code)]
-#[inline]
-fn extract_value_from_word<V: VariableWord>(word: u64, offset: u8) -> V::Word {
-    debug_assert!(
-        offset + V::NUMBER_OF_BITS <= 64,
-        "The offset ({offset} + {}) should be less than or equal to 64",
-        V::NUMBER_OF_BITS,
-    );
-    unsafe { V::unchecked_from_u64((word >> (64 - V::NUMBER_OF_BITS - offset)) & V::MASK) }
-}
-
-#[inline]
-fn insert_value_into_word<V: VariableWord>(word: &mut u64, offset: u8, value: u64) {
-    debug_assert!(
-        offset + V::NUMBER_OF_BITS <= 64,
-        "The offset ({offset} + {}) should be less than or equal to 64",
-        V::NUMBER_OF_BITS,
-    );
-
-    let flipped_offset = 64 - V::NUMBER_OF_BITS - offset;
-    *word &= !(V::MASK << flipped_offset);
-    *word |= value << flipped_offset;
-}
-
-#[allow(unsafe_code)]
-#[inline]
-fn extract_bridge_value_from_word<V: VariableWord>(
-    lower_word: u64,
-    upper_word: u64,
-    offset: u8,
-) -> V::Word {
-    debug_assert!(offset != 0, "Offset should be greater than 0");
-    debug_assert!(offset != 64, "Offset should be less than 64");
-    debug_assert!(
-        offset > 64 - V::NUMBER_OF_BITS,
-        "Offset should be greater than 64 - V::NUMBER_OF_BITS"
-    );
-
-    let number_of_high_bits_in_lower_value: u8 = 64 - offset;
-    let number_of_low_bits_in_upper_value = V::NUMBER_OF_BITS - number_of_high_bits_in_lower_value;
-    let higher_bits_mask = V::MASK >> number_of_low_bits_in_upper_value;
-
-    let higher_bits = (lower_word & higher_bits_mask) << number_of_low_bits_in_upper_value;
-    let lower_bits = upper_word >> (64 - number_of_low_bits_in_upper_value);
-
-    let word = higher_bits | lower_bits;
-
-    unsafe { V::unchecked_from_u64(word) }
-}
-
-#[inline]
-fn insert_bridge_value_into_word<V: VariableWord>(
-    lower_word: &mut u64,
-    upper_word: &mut u64,
-    offset: u8,
-    value: u64,
-) {
-    debug_assert!(
-        offset + V::NUMBER_OF_BITS > 64,
-        "Offset + bits ({} + {}) should be greater than {}",
-        offset,
-        V::NUMBER_OF_BITS,
-        64
-    );
-
-    debug_assert!(offset < 64, "Offset {} should be less than {}", offset, 64);
-
-    let number_of_lower_bits = V::NUMBER_OF_BITS + offset - 64;
-    let lower_bits_mask = (1 << number_of_lower_bits) - 1;
-    let higher_bits_mask = V::MASK >> number_of_lower_bits;
-    let lower_bits = value & lower_bits_mask;
-    let higher_bits = value >> number_of_lower_bits;
-
-    *lower_word &= !higher_bits_mask;
-    *lower_word |= higher_bits;
-    *upper_word &= !(lower_bits_mask << (64 - number_of_lower_bits));
-    *upper_word |= lower_bits << (64 - number_of_lower_bits);
-}
+use sketching_core::{
+    extract_bridge_value_from_word, extract_value_from_word, insert_bridge_value_into_word,
+    insert_value_into_word, split_packed_index, Packed,
+};
 
 /// Trait marker to associate a specific register array with a combination of precision and bits.
 pub trait PackedRegister<B: Bits>: Precision {
