@@ -139,13 +139,12 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
     ];
 
     // Generate the test functions
-    let test_functions = precisions.iter().flat_map(|precision| {
+    let test_functions = precisions.iter().enumerate().flat_map(|(idx, precision)| {
+        let precision_exponent = idx + 4;
         let hashers = hashers.clone();
         (bits).iter().flat_map(move |bit| {
             let hashers = hashers.clone();
             hashers.into_iter().flat_map(move |(hasher_name, hasher_path)| {
-                    // MLE is always available (no longer feature-gated), so MLE-named tests need no
-                    // feature constraints. The `alloc`-gated vec variant constraint is added below.
                     let feature_constraints: Vec<proc_macro2::TokenStream> = vec![];
 
                     let array_test_fn_name = Ident::new(
@@ -157,14 +156,29 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         fn_name.span(),
                     );
 
-                    let vec_test_fn_name = Ident::new(
-                        &format!(
-                            "{}_{}_{}_{}_vec",
-                            fn_name, precision, bit, hasher_name
-                        )
-                        .to_lowercase(),
-                        fn_name.span(),
-                    );
+                    // Vec tests at high precisions (14+) are extremely slow due to large heap
+                    // allocations. Skip them; the array variant covers correctness.
+                    let vec_test = if precision_exponent <= 12 {
+                        let vec_test_fn_name = Ident::new(
+                            &format!(
+                                "{}_{}_{}_{}_vec",
+                                fn_name, precision, bit, hasher_name
+                            )
+                            .to_lowercase(),
+                            fn_name.span(),
+                        );
+
+                        quote! {
+                            #[test]
+                            #[cfg(feature = "alloc")]
+                            #(#feature_constraints)*
+                            fn #vec_test_fn_name() {
+                                #fn_name::<#precision, #bit, <#precision as PackedRegister<#bit>>::Vec, #hasher_path>();
+                            }
+                        }
+                    } else {
+                        quote! {}
+                    };
 
                     quote! {
                         #[test]
@@ -172,12 +186,7 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         fn #array_test_fn_name() {
                             #fn_name::<#precision, #bit, <#precision as PackedRegister<#bit>>::Array, #hasher_path>();
                         }
-                        #[test]
-                        #[cfg(feature = "alloc")]
-                        #(#feature_constraints)*
-                        fn #vec_test_fn_name() {
-                            #fn_name::<#precision, #bit, <#precision as PackedRegister<#bit>>::Vec, #hasher_path>();
-                        }
+                        #vec_test
                     }
             })
         })

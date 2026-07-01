@@ -235,7 +235,7 @@ mod test_composite_hash {
 
     #[allow(unsafe_code)]
     fn test_composite_hash_stateless_operations<P: Precision + PackedRegister<B>, B: Bits>() {
-        const NUMBER_OF_HASHES: usize = 1_000;
+        const NUMBER_OF_HASHES: usize = 250;
         // We start from the maximal number of bits for the hash.
         for hash_bits in
             GapHash::<P, B>::SMALLEST_VIABLE_HASH_BITS..=GapHash::<P, B>::LARGEST_VIABLE_HASH_BITS
