@@ -801,6 +801,15 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             for l in 0..=max_run {
                 accumulate(f64::integer_exp2(t - 2 - l), leading_q);
             }
+            // At t = B + 1 the t - 1 = B stored leading bits cannot hold a terminating one for
+            // register B + 1, so the loop above (capped at run B - 1) omits it. That register is
+            // carried by the single all-zeros Flag 0 pattern, one cell per index at probability
+            // 2^-(B+1). Add it back so Flag 0 covers registers 1 through B + 1 and the cell masses
+            // sum to one. For t >= B + 2 the loop already reaches run B, and an all-zeros pattern
+            // there means register at least B + 2 (Flag 1), so nothing is added.
+            if max_run < B::NUMBER_OF_BITS {
+                accumulate(1.0, f64::integer_exp2_minus(B::NUMBER_OF_BITS + 1));
+            }
             // Flag 1 (register >= B + 2): register in B bits plus a (t-1-B)-bit residual.
             let residual_bits = t - 1 - B::NUMBER_OF_BITS;
             let residual_cells = f64::integer_exp2(residual_bits);
@@ -1999,5 +2008,53 @@ mod dense_zeros_mode_tests {
             !large.harmonic_sum.is_nan() && large.harmonic_sum.is_finite(),
             "high-load counter must be harmonic mode",
         );
+    }
+}
+
+#[cfg(test)]
+mod occupancy_partition_tests {
+    //! The occupancy model treats the composite values as cells that partition the hash-outcome
+    //! space, so the per-index cell probabilities must sum to one at every viable width. The
+    //! cleanest executable form of that invariant is `E[D | n = 1] = 1`: a single inserted element
+    //! always lands in exactly one composite, so the expected distinct count at `n = 1` equals the
+    //! total cell mass, which must be one. This caught (and now guards against) the wide-width
+    //! enumeration dropping register `B + 1` at the boundary width `t = B + 1`.
+    use super::*;
+
+    /// `E[D | n = 1]` must equal one for every width from the narrowest (`t = B`) up to the widest
+    /// viable hash width, for the given precision and register bits.
+    fn check_partition<P, B>()
+    where
+        P: Precision + PackedRegister<B>,
+        B: Bits,
+    {
+        let smallest = GapHash::<P, B>::SMALLEST_VIABLE_HASH_BITS;
+        let largest = GapHash::<P, B>::LARGEST_VIABLE_HASH_BITS;
+        for hash_bits in smallest..=largest {
+            let expected_at_one =
+                HyperLogLog::<P, B>::hash_list_expected_distinct(1.0, hash_bits).0;
+            // Tolerance sits well above the float rounding of the no_std exp/log survival path
+            // (observed up to ~1e-6 accumulated across the widest bands) and far below the bug it
+            // guards: dropping register B + 1 left a deficit of 2^-(B+1) >= 2^-7, i.e. at least
+            // 0.0078, roughly eighty times the tolerance.
+            assert!(
+                (expected_at_one - 1.0).abs() < 1e-4,
+                "cell masses must sum to one (E[D | n = 1] = 1) at hash_bits = {hash_bits} \
+                 (P = {}, B = {}), got {expected_at_one}",
+                P::EXPONENT,
+                B::NUMBER_OF_BITS,
+            );
+        }
+    }
+
+    #[test]
+    fn cell_masses_sum_to_one_across_widths() {
+        check_partition::<Precision11, Bits4>();
+        check_partition::<Precision12, Bits4>();
+        check_partition::<Precision10, Bits5>();
+        check_partition::<Precision11, Bits5>();
+        check_partition::<Precision9, Bits6>();
+        check_partition::<Precision10, Bits6>();
+        check_partition::<Precision12, Bits6>();
     }
 }
