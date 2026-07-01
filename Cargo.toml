@@ -28,7 +28,7 @@ serde = { version = "1.0", default-features = false, features = [
 ], optional = true }
 paste = "1.0.15"
 twox-hash = { version = "1.6.3", default-features = false }
-sketching-core = { git = "https://github.com/LucaCappelletti94/sketching-core-rs.git", rev = "cead42be4533413924b833a2bc395895d0188974", features = ["alloc", "serde"] }
+sketching-core = { git = "https://github.com/LucaCappelletti94/sketching-core-rs.git", rev = "e5872a0a4c9a16c40688617da312ca76a259f84c", features = ["alloc", "serde"] }
 hyperloglog-derive = { path = "hyperloglog-derive" }
 
 
