@@ -1,5 +1,5 @@
 //! This module provides functions to encode and decode into the bits that are
-//! used in a HyperLogLog as the harmonic sum, while in the sorted hash list we repurpose
+//! used in a `HyperLogLog` as the harmonic sum, while in the sorted hash list we repurpose
 //! them to store other metadata.
 use crate::prelude::*;
 
@@ -26,7 +26,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// Returns whether the metadata word carries the sorted value list sentinel.
     ///
     /// This only distinguishes the sorted value list from a proper sorted hash list; it is meaningful
-    /// only once the caller knows the counter is not in HyperLogLog registers (the top mode bit is set). Prefer the
+    /// only once the caller knows the counter is not in `HyperLogLog` registers (the top mode bit is set). Prefer the
     /// guarded [`HyperLogLog::is_sorted_value_list`].
     pub(crate) fn is_sorted_value_list_metadata(&self) -> bool {
         decode_is_sorted_value_list(self.harmonic_sum)
@@ -192,7 +192,7 @@ fn decode_writer_tell(float: f64) -> u32 {
 /// The largest possible number of hash, given that the largest possible precision
 /// of the hyperloglog is 18, with the largest possible number of bits per register
 /// being 6, we have 2**18 * 6 / 2 (as the very minimum size of an hash is 2 bits)
-/// which is 2**18 * 3 ~ 2**20 - 1 = 0xF_FFFF.
+/// which is 2**18 * 3 ~ 2**20 - 1 = `0xF_FFFF`.
 const BITS_FOR_NUMBER_OF_HASHES: usize = 20;
 const NUMBER_OF_HASHES_OFFSET: usize = WRITER_TELL_OFFSET + BITS_FOR_WRITER_TELL;
 const NUMBER_OF_HASHES_MASK: u64 = (1 << BITS_FOR_NUMBER_OF_HASHES) - 1;

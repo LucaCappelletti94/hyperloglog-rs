@@ -18,7 +18,7 @@ impl<'a> BitReader<'a> {
     }
 
     #[inline]
-    /// Creates a new BitReader skipping ahead `bit_index` bits.
+    /// Creates a new `BitReader` skipping ahead `bit_index` bits.
     pub fn skip(mut data: &'a [u32], bit_index: u32) -> Self {
         data = &data[bit_index as usize / 32..];
         let mut reader = Self::new(data);
@@ -143,13 +143,13 @@ mod tests {
                 if i > 0 {
                     positions[i] += positions[i - 1];
                 }
-                expected[i] = value as u64;
+                expected[i] = u64::from(value);
             }
         }
 
         let transmuted_buffer =
-            unsafe { core::slice::from_raw_parts(buffer.as_ptr() as *const u32, buffer.len() * 2) };
-        let mut reader: BitReader = BitReader::new(&transmuted_buffer);
+            unsafe { core::slice::from_raw_parts(buffer.as_ptr().cast::<u32>(), buffer.len() * 2) };
+        let mut reader: BitReader = BitReader::new(transmuted_buffer);
 
         for (value, position) in expected.into_iter().zip(positions) {
             assert_eq!(

@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::upper_case_acronyms)]
 //! Criterion benchmark for the generalized joint MLE register solve, focused on the expensive,
 //! well-identified end: a fixed 8x8 power-law deep-cell instance at P8, P10, P14 and P16 (Bits6). It
 //! times one full damped-Newton solve (the analytic-Hessian second-order optimizer, the production

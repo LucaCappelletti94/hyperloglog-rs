@@ -1,0 +1,3 @@
+# Performance-critical crate: mathematical algorithms have deep functions and many parameters.
+too-many-arguments-threshold = 10
+too-many-lines-threshold = 300

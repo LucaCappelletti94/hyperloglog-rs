@@ -159,7 +159,7 @@ pub(crate) fn finite_difference_hessian<F: FnMut(&[f64], &mut [f64]) -> f64>(
     // Symmetrize: average the (i, j) and (j, i) entries to cancel the finite-difference asymmetry.
     for i in 0..n {
         for j in (i + 1)..n {
-            let avg = 0.5 * (out[i * n + j] + out[j * n + i]);
+            let avg = f64::midpoint(out[i * n + j], out[j * n + i]);
             out[i * n + j] = avg;
             out[j * n + i] = avg;
         }

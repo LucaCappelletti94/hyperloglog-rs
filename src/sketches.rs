@@ -1,4 +1,4 @@
-//! HyperLogLog sketching algorithms.
+//! `HyperLogLog` sketching algorithms.
 //!
 //! Re-exports [`JointSketch`], [`JointSketchError`], and [`HyperSpheresSketch`] from
 //! [`sketching_core`] and provides the HyperLogLog-specific [`HyperSpheresSketch`] implementation
@@ -27,7 +27,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketc
         let any_dense = lefts
             .iter()
             .chain(rights.iter())
-            .any(|counter| counter.is_hyperloglog());
+            .any(super::hyperloglog::HyperLogLog::is_hyperloglog);
         if any_dense {
             let lefts: [Self; L] = core::array::from_fn(|i| lefts[i].clone().into_hll());
             let rights: [Self; N] = core::array::from_fn(|j| rights[j].clone().into_hll());

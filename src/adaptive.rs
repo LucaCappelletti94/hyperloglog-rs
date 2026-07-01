@@ -19,7 +19,7 @@
 //! from the adaptively chosen primitives, and it can be passed to any code generic over those traits.
 
 use crate::error_model::{register_crlb_relative_standard_error, register_raw_bias};
-use crate::estimator::CardinalityEstimator;
+use crate::estimator::HllCardinalityEstimator;
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
 use crate::sketches::HyperSpheresSketch;
 use crate::utils::FloatOps;
@@ -103,7 +103,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::C
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HllCardinalityEstimator
     for Adaptive<&HyperLogLog<P, B, R, H>>
 {
     #[inline]

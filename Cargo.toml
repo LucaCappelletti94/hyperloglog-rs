@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = [".", "hyperloglog-derive", "test_utils", "correction_coefficients"]
-
 [package]
 name = "hyperloglog-rs"
 version = "0.1.56"
@@ -29,6 +28,7 @@ serde = { version = "1.0", default-features = false, features = [
 ], optional = true }
 paste = "1.0.15"
 twox-hash = { version = "1.6.3", default-features = false }
+sketching-core = { path = "../sketching-core-rs", features = ["alloc", "serde"] }
 hyperloglog-derive = { path = "hyperloglog-derive" }
 
 
@@ -43,6 +43,12 @@ ctor = "0.2.8"
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.5"
 rayon = "1.10"
+setsketch = { path = "../setsketch" }
+# UltraLogLog (Dynatrace hash4j port) for the low-cardinality register-sketch comparison.
+ultraloglog = "0.1.6"
+# HyperLogLogLog (Karppa and Pagh 2022) compressed-register sketch, our own faithful port, for the
+# register-compression comparison: same estimates as HyperLogLog, less memory, no low-cardinality gain.
+hyperlogloglog = { path = "../hyperlogloglog-rs" }
 
 [features]
 default = ["alloc"]
@@ -92,3 +98,10 @@ harness = false
 [[bench]]
 name = "joint_mle"
 harness = false
+
+# Unify sketching-core to the local checkout so setsketch (which references it by git) and the
+# path-based hyperloglog-rs and hyperlogloglog crates all share one sketching-core in the dev
+# dependency graph. Without this the examples see two distinct sketching-core versions and the
+# shared Precision and Base types fail to unify.
+[patch."https://github.com/LucaCappelletti94/sketching-core-rs.git"]
+sketching-core = { path = "../sketching-core-rs" }

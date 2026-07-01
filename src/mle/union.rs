@@ -55,7 +55,7 @@ pub(crate) fn union_region_relative_covariance<
     let mut symmetric = [[0.0_f64; 3]; 3];
     for i in 0..3 {
         for j in 0..3 {
-            symmetric[i][j] = 0.5 * (information[i][j] + information[j][i]);
+            symmetric[i][j] = f64::midpoint(information[i][j], information[j][i]);
         }
     }
 
@@ -361,7 +361,7 @@ impl TwoSetStats {
     }
 
     /// The exact analytic 3x3 Hessian of the log-likelihood at `phis`, the M=N=1 specialization of the
-    /// joint-model Hessian (docs/joint_mle_math.md section 11), accumulated over the same 1D
+    /// joint-model Hessian (`docs/joint_mle_math.md` section 11), accumulated over the same 1D
     /// multiplicity arrays the `score` uses. It needs no score re-evaluations (unlike a finite
     /// difference), so it is the cheapest Hessian for the damped-Newton step. The derivatives of the
     /// score's ratio terms collapse cleanly because numerator-plus-denominator combinations reduce to
@@ -467,7 +467,7 @@ impl TwoSetStats {
     /// The 2-set joint log-likelihood at `phis`, summed over the same 1D multiplicity arrays the
     /// `score` uses, so it is `O(q)`. The per-register likelihood separates: a register with left value
     /// `a` and right value `b` contributes a term that splits cleanly into a part depending on `a` and a
-    /// part depending on `b` (the M=N=1 specialization of docs/joint_mle_math.md section 6), which lets
+    /// part depending on `b` (the M=N=1 specialization of `docs/joint_mle_math.md` section 6), which lets
     /// each side be summed over its 1D bin. Index 0 is the empty boundary (the `zeros_0` factors) and
     /// the index `q_plus_one` is the saturated boundary (the `zeros_q` factors), exactly as the score
     /// handles them. Its gradient is validated against the trusted `score` by
@@ -860,7 +860,7 @@ mod tests {
                 }
                 for i in 0..3 {
                     for j in 0..3 {
-                        let symmetric_fd = 0.5 * (fd[i][j] + fd[j][i]);
+                        let symmetric_fd = f64::midpoint(fd[i][j], fd[j][i]);
                         let rel =
                             (analytic[i][j] - symmetric_fd).abs() / symmetric_fd.abs().max(1.0);
                         worst = worst.max(rel);

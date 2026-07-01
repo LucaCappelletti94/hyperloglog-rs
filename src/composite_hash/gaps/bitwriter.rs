@@ -9,7 +9,7 @@ pub struct BitWriter<'a> {
     space_left_in_buffer: u8,
 }
 
-impl<'a> Drop for BitWriter<'a> {
+impl Drop for BitWriter<'_> {
     #[inline]
     fn drop(&mut self) {
         self.flush();
@@ -72,7 +72,7 @@ impl<'a> BitWriter<'a> {
 
         if n_bits < self.space_left_in_buffer {
             self.buffer <<= n_bits;
-            self.buffer |= value & !(u64::MAX << n_bits as u32);
+            self.buffer |= value & !(u64::MAX << u32::from(n_bits));
             self.space_left_in_buffer -= n_bits;
             return n_bits;
         }
@@ -110,7 +110,7 @@ impl<'a> BitWriter<'a> {
         self.data[self.word_idx] = self.buffer.to_be();
         self.word_idx += 1;
 
-        value -= self.space_left_in_buffer as u64;
+        value -= u64::from(self.space_left_in_buffer);
 
         for _ in 0..value / 64 {
             self.data[self.word_idx] = 0;
@@ -149,7 +149,7 @@ mod testing_writer {
             0b01110111_11000010_11110100_00100011_11101100_10100100_11001010_01110110_u64.to_be(),
             0b11011101_00110110_10011010_00111110_10100000_11110101_01100101_01001010_u64.to_be(),
         ];
-        let mut buffer: [u64; 2] = expected.clone();
+        let mut buffer: [u64; 2] = expected;
 
         let mut writer = BitWriter::new(&mut buffer);
         writer.seek(13);

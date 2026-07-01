@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::upper_case_acronyms)]
 //! Joint hypersphere sketch benchmark on random spheres (no graph).
 //!
 //! Nested spheres are populated by uniformly sampling random `u32` ids over the whole `0..=u32::MAX`
@@ -10,8 +12,10 @@
 //!
 //! Run with: `cargo run --release --example joint_matrix_bench`
 
+use hyperloglog_rs::estimator::HllCardinalityEstimator;
 use hyperloglog_rs::prelude::*;
 use rayon::prelude::*;
+use sketching_core::CardinalityEstimator;
 use std::collections::HashSet;
 use std::time::Instant;
 use twox_hash::XxHash64;
@@ -55,6 +59,9 @@ impl<E: CardinalityEstimator> CardinalityEstimator for IePairwise<E> {
     fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         self.0.estimate_union_cardinality(&other.0)
     }
+}
+
+impl<E: HllCardinalityEstimator> HllCardinalityEstimator for IePairwise<E> {
     fn predicted_relative_standard_error(&self) -> f64 {
         self.0.predicted_relative_standard_error()
     }
@@ -68,7 +75,6 @@ impl<E: CardinalityEstimator> CardinalityEstimator for IePairwise<E> {
         self.0.bias_at(cardinality)
     }
 }
-
 // Empty body: inherits the default inclusion-exclusion `joint_sketch`, unlike the bare `Mle` view
 // which overrides it to run the joint optimizer.
 impl<E: CardinalityEstimator> HyperSpheresSketch for IePairwise<E> {}
@@ -93,7 +99,7 @@ where
         chain.push(hll.clone());
         sets.push(exact.clone());
     }
-    let chain: [Hll<P, B>; K] = chain.try_into().ok().expect("K counters");
+    let chain: [Hll<P, B>; K] = chain.try_into().expect("K counters");
     (chain, sets)
 }
 

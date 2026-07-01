@@ -1,6 +1,6 @@
 //! The [`HyperLogLog`] counter: a hybrid that transitions across three internal representations as it
 //! grows, the sorted value list (exact, for the smallest sets), then the sorted hash list, then the
-//! HyperLogLog registers. The earlier representations keep values or hashes explicit until they no
+//! `HyperLogLog` registers. The earlier representations keep values or hashes explicit until they no
 //! longer fit, only then falling back to the probabilistic registers.
 
 use crate::composite_hash::{GapHash, SaturationError};
@@ -17,7 +17,7 @@ use core::marker::PhantomData;
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// A hybrid counter for approximate set cardinality estimation that transitions across three
-/// representations as it grows (sorted value list, then sorted hash list, then HyperLogLog
+/// representations as it grows (sorted value list, then sorted hash list, then `HyperLogLog`
 /// registers), keeping values or hashes explicit until they no longer fit.
 pub struct HyperLogLog<
     P: Precision,
@@ -104,6 +104,7 @@ fn decode_dense_zeros(harmonic_sum: f64) -> u32 {
 /// This MUST stay identical to `PolyFit::corrected` in the `correction_coefficients` generator, so the
 /// shipped behavior matches the fit's measured accuracy.
 #[inline]
+#[must_use]
 pub fn correct_cardinality(raw_estimate: f64, m: f64, coeffs: &[f64], domain: &[f64; 2]) -> f64 {
     let (t_lo, t_hi) = (domain[0], domain[1]);
     let t = (raw_estimate / m).clamp(t_lo, t_hi);
@@ -120,7 +121,7 @@ pub fn correct_cardinality(raw_estimate: f64, m: f64, coeffs: &[f64], domain: &[
 }
 
 /// Which cardinality-estimation regime a counter is in, returned by
-/// [`HyperLogLog::estimation_regime`]. It is a function of the representation and, for HyperLogLog
+/// [`HyperLogLog::estimation_regime`]. It is a function of the representation and, for `HyperLogLog`
 /// registers, of the cardinality (raw above the correction bound, empirically corrected below).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EstimationRegime {
@@ -129,16 +130,16 @@ pub enum EstimationRegime {
     /// Sorted hash list: corrected for hash collisions via the birthday-paradox
     /// `HASHLIST_CORRECTION_*` tables.
     HashListCollisionCorrected,
-    /// HyperLogLog registers below `correction_upper_bound`: the empirical HyperLogLog++ bias
+    /// `HyperLogLog` registers below `correction_upper_bound`: the empirical `HyperLogLog`++ bias
     /// correction (the `HYPERLOGLOG_CORRECTION_*` tables).
     HyperLogLogBiasCorrected,
-    /// HyperLogLog registers at very low load (the linear-counting estimate is at or below the
+    /// `HyperLogLog` registers at very low load (the linear-counting estimate is at or below the
     /// regenerated per-`(P, B)` `HYPERLOGLOG_LINEAR_COUNT_THRESHOLD`): the count of zero registers
     /// drives `m * ln(m / zeros)`, which beats the bias-corrected raw estimate there. This regime
     /// is reached only by a counter forced into registers early (`to_hll`) while still sparse; a
     /// counter that densified naturally is already past it.
     HyperLogLogLinearCounted,
-    /// HyperLogLog registers at or above `correction_upper_bound`: the raw `alpha * m^2 / sum`
+    /// `HyperLogLog` registers at or above `correction_upper_bound`: the raw `alpha * m^2 / sum`
     /// estimate, returned uncorrected.
     HyperLogLogRaw,
 }
@@ -208,7 +209,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     #[inline]
-    /// Returns whether the counter is in HyperLogLog registers, as opposed to one of the two
+    /// Returns whether the counter is in `HyperLogLog` registers, as opposed to one of the two
     /// pre-HyperLogLog representations (the sorted hash list or the sorted value list), which repurpose
     /// `harmonic_sum` as a metadata word with its top bit set.
     pub fn is_hyperloglog(&self) -> bool {
@@ -225,7 +226,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
     #[inline]
     /// Returns whether the counter is in sorted hash list: a sorted list of composite hashes, the
-    /// representation between the sorted value list and HyperLogLog registers. This is exactly one of the
+    /// representation between the sorted value list and `HyperLogLog` registers. This is exactly one of the
     /// three representations (see [`HyperLogLog::is_sorted_value_list`] and [`HyperLogLog::is_hyperloglog`]).
     pub fn is_sorted_hash_list(&self) -> bool {
         !self.is_hyperloglog() && !self.is_sorted_value_list_metadata()
@@ -262,14 +263,14 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// # Raises
     /// If the counter is in sorted hash list, an error is raised.
     pub fn number_of_zero_registers(&self) -> Result<usize, &'static str> {
-        if !self.is_hyperloglog() {
-            Err("The counter is in sorted hash list mode.")
-        } else {
+        if self.is_hyperloglog() {
             Ok(self
                 .registers
                 .iter_registers()
                 .filter(|&register| register == 0)
                 .count())
+        } else {
+            Err("The counter is in sorted hash list mode.")
         }
     }
 
@@ -377,7 +378,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     #[inline]
-    /// Returns a zeroed register buffer grown to the full HyperLogLog register array size.
+    /// Returns a zeroed register buffer grown to the full `HyperLogLog` register array size.
     ///
     /// The current buffer may be a lazily grown vector far smaller than the full register array
     /// (a small sorted value list or sorted hash list never triggers a capacity bump). Promotions
@@ -394,11 +395,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     #[inline]
-    /// Promotes the counter to HyperLogLog registers, dispatching on its current representation. A
+    /// Promotes the counter to `HyperLogLog` registers, dispatching on its current representation. A
     /// sorted hash list is decoded into registers. A sorted value list is rehashed **directly** into
     /// registers at full hash width, which is strictly less lossy than routing through the sorted
     /// hash list (whose truncated hashes can clip a register's leading-zero rank, biasing the count
-    /// low). A no-op if the counter is already in HyperLogLog registers.
+    /// low). A no-op if the counter is already in `HyperLogLog` registers.
     pub fn to_hll(&mut self) {
         if self.is_hyperloglog() {
             return;
@@ -446,7 +447,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
     #[inline]
     #[must_use]
-    /// Consuming form of [`to_hll`](Self::to_hll): promotes the counter to HyperLogLog registers and
+    /// Consuming form of [`to_hll`](Self::to_hll): promotes the counter to `HyperLogLog` registers and
     /// returns it.
     pub fn into_hll(mut self) -> Self {
         self.to_hll();
@@ -481,7 +482,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     ///
     /// A fresh counter enters the sorted value list on its first `insert_value`. When the exact
     /// buffer fills, the stored values are hashed (with the counter's hasher `H`) into a proper hash
-    /// list, which later transitions to HyperLogLog registers, exactly like a hashed counter. Once a
+    /// list, which later transitions to `HyperLogLog` registers, exactly like a hashed counter. Once a
     /// counter has left the sorted value list (because it grew, or because a hashed
     /// [`HyperLogLog::insert`] was used) a value is hashed and inserted like any other element.
     ///
@@ -579,7 +580,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     #[inline]
     /// Promotes a sorted value list to a sorted hash list by hashing each stored value with the
     /// counter's hasher `H`. This one-way transition loses recovery and absolute exactness. A no-op
-    /// if the counter is already a sorted hash list or HyperLogLog registers (you cannot move back
+    /// if the counter is already a sorted hash list or `HyperLogLog` registers (you cannot move back
     /// down the ladder); use [`to_hll`](Self::to_hll) to go further.
     pub fn to_sorted_hash_list(&mut self) {
         if !self.is_sorted_value_list() {
@@ -747,7 +748,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     /// Expected number of distinct composite hashes for `n` elements at the given width, and its
-    /// derivative with respect to `n`, under the SwitchHash cell model.
+    /// derivative with respect to `n`, under the `SwitchHash` cell model.
     ///
     /// A composite at width `w = hash_bits` is a uniform `P`-bit index followed by a `t = w - P` bit
     /// tail encoding the register (a geometric leading-zero count) and a uniform residual. All `2^P`
@@ -893,7 +894,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         // iterate itself, NOT the bracket midpoint: the bracket can stay one-sided (when Newton
         // approaches the root monotonically from one side, only `lo` or only `hi` ever moves), so its
         // midpoint is not the estimate.
-        let mut n = 0.5 * (lo + hi);
+        let mut n = f64::midpoint(lo, hi);
         for _ in 0..80 {
             let (expected, derivative, _variance) = Self::hash_list_expected_distinct(n, hash_bits);
             if expected > d {
@@ -905,7 +906,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             let next = if derivative > 0.0 && newton > lo && newton < hi {
                 newton
             } else {
-                0.5 * (lo + hi)
+                f64::midpoint(lo, hi)
             };
             // Converge on the step in n-space: near saturation the occupancy curve flattens, so a tiny
             // distinct-count residual still leaves a large cardinality uncertainty, but the step does
@@ -1348,7 +1349,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                     }
                     let dest_len = self.registers.as_ref().len();
 
-                    match GapHash::<P, B>::merge_metrics(
+                    if let Some(meta) = GapHash::<P, B>::merge_metrics(
                         source.as_ref(),
                         self_number_of_hashes,
                         self_hash_bits,
@@ -1359,9 +1360,25 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                         rhs_writer_tell,
                         dest_len,
                     ) {
-                        Some(meta) => {
-                            self.registers.clear_registers();
-                            GapHash::<P, B>::merge_write(
+                        self.registers.clear_registers();
+                        GapHash::<P, B>::merge_write(
+                            source.as_ref(),
+                            self_number_of_hashes,
+                            self_hash_bits,
+                            self_writer_tell,
+                            rhs.registers.as_ref(),
+                            rhs_number_of_hashes,
+                            rhs_hash_bits,
+                            rhs_writer_tell,
+                            self.registers.as_mut(),
+                            meta,
+                        );
+
+                        // Recover the union's `number_of_hashes + duplicates`: the coarser
+                        // operand's count is taken whole, the finer operand's hashes are replayed
+                        // across the union's downgrade schedule (see `merge_finer_new_count`).
+                        let b_new = if self_is_base {
+                            GapHash::<P, B>::merge_finer_new_count(
                                 source.as_ref(),
                                 self_number_of_hashes,
                                 self_hash_bits,
@@ -1370,65 +1387,46 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                                 rhs_number_of_hashes,
                                 rhs_hash_bits,
                                 rhs_writer_tell,
-                                self.registers.as_mut(),
-                                meta,
-                            );
-
-                            // Recover the union's `number_of_hashes + duplicates`: the coarser
-                            // operand's count is taken whole, the finer operand's hashes are replayed
-                            // across the union's downgrade schedule (see `merge_finer_new_count`).
-                            let b_new = if self_is_base {
-                                GapHash::<P, B>::merge_finer_new_count(
-                                    source.as_ref(),
-                                    self_number_of_hashes,
-                                    self_hash_bits,
-                                    self_writer_tell,
-                                    rhs.registers.as_ref(),
-                                    rhs_number_of_hashes,
-                                    rhs_hash_bits,
-                                    rhs_writer_tell,
-                                    meta.hash_bits,
-                                    dest_len,
-                                )
-                            } else {
-                                GapHash::<P, B>::merge_finer_new_count(
-                                    rhs.registers.as_ref(),
-                                    rhs_number_of_hashes,
-                                    rhs_hash_bits,
-                                    rhs_writer_tell,
-                                    source.as_ref(),
-                                    self_number_of_hashes,
-                                    self_hash_bits,
-                                    self_writer_tell,
-                                    meta.hash_bits,
-                                    dest_len,
-                                )
-                            };
-                            let raw = base_raw + b_new;
-
-                            self.set_hash_bits(meta.hash_bits);
-                            self.set_number_of_hashes(meta.number_of_hashes);
-                            self.set_duplicates(raw.saturating_sub(meta.number_of_hashes));
-                            self.set_writer_tell(meta.bit_index);
-                        }
-                        None => {
-                            // The union does not fit the hash list even at the smallest viable hash
-                            // size: densify self (still a valid hash list, only its buffer grew) and
-                            // fold rhs's hashes as register maxima, like the `(false, true)` arm.
-                            self.to_hll();
-                            let mut last_index = usize::MAX;
-                            for (register, index) in GapHash::<P, B>::decoded(
+                                meta.hash_bits,
+                                dest_len,
+                            )
+                        } else {
+                            GapHash::<P, B>::merge_finer_new_count(
                                 rhs.registers.as_ref(),
                                 rhs_number_of_hashes,
                                 rhs_hash_bits,
                                 rhs_writer_tell,
-                            ) {
-                                if index == last_index {
-                                    continue;
-                                }
-                                last_index = index;
-                                self.insert_register_value_and_index(register, index);
+                                source.as_ref(),
+                                self_number_of_hashes,
+                                self_hash_bits,
+                                self_writer_tell,
+                                meta.hash_bits,
+                                dest_len,
+                            )
+                        };
+                        let raw = base_raw + b_new;
+
+                        self.set_hash_bits(meta.hash_bits);
+                        self.set_number_of_hashes(meta.number_of_hashes);
+                        self.set_duplicates(raw.saturating_sub(meta.number_of_hashes));
+                        self.set_writer_tell(meta.bit_index);
+                    } else {
+                        // The union does not fit the hash list even at the smallest viable hash
+                        // size: densify self (still a valid hash list, only its buffer grew) and
+                        // fold rhs's hashes as register maxima, like the `(false, true)` arm.
+                        self.to_hll();
+                        let mut last_index = usize::MAX;
+                        for (register, index) in GapHash::<P, B>::decoded(
+                            rhs.registers.as_ref(),
+                            rhs_number_of_hashes,
+                            rhs_hash_bits,
+                            rhs_writer_tell,
+                        ) {
+                            if index == last_index {
+                                continue;
                             }
+                            last_index = index;
+                            self.insert_register_value_and_index(register, index);
                         }
                     }
                 }
@@ -1946,13 +1944,13 @@ mod test_hybrid_properties {
 
             let estimated_cardinality = hybrid.estimate_cardinality();
 
-            let error = iterations as f64 - estimated_cardinality;
+            let error = f64::from(iterations) - estimated_cardinality;
             non_normalized_error += error;
-            normalized_error += error / iterations as f64;
+            normalized_error += error / f64::from(iterations);
         }
 
-        normalized_error /= iterations as f64;
-        non_normalized_error /= iterations as f64;
+        normalized_error /= f64::from(iterations);
+        non_normalized_error /= f64::from(iterations);
 
         // In sorted hash list the counter stores explicit hashes, so the only error source is
         // hash collisions plus the residual bias of the fitted cardinality correction. The

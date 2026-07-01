@@ -1,5 +1,5 @@
 //! The [`Mle`] mode wrapper: a view over a [`HyperLogLog`] whose set estimates use the
-//! maximum-likelihood estimators instead of the default HyperLogLog++ ones.
+//! maximum-likelihood estimators instead of the default `HyperLogLog`++ ones.
 //!
 //! Obtain it with [`HyperLogLog::mle`] and return to the default estimators with
 //! [`Mle::into_inner`]. Because it implements [`CardinalityEstimator`] (and
@@ -7,7 +7,7 @@
 //! overlap matrices come for free, all computed from the MLE primitives, and `Mle` can be passed to
 //! any code generic over those traits.
 
-use crate::estimator::CardinalityEstimator;
+use crate::estimator::HllCardinalityEstimator;
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
 use crate::sketches::{HyperSpheresSketch, JointSketch};
 
@@ -28,7 +28,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
 
 impl<H> Mle<H> {
     /// Returns the wrapped counter (or reference), switching back from MLE to the default
-    /// (HyperLogLog++) estimators, which the bare [`HyperLogLog`] provides.
+    /// (`HyperLogLog`++) estimators, which the bare [`HyperLogLog`] provides.
     #[inline]
     pub fn into_inner(self) -> H {
         self.0
@@ -56,7 +56,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::C
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HllCardinalityEstimator
     for Mle<&HyperLogLog<P, B, R, H>>
 {
     #[inline]

@@ -22,7 +22,7 @@ fn build(values: &[u64]) -> (C, C) {
     for &v in values {
         base.insert_value(v);
     }
-    let hash = base.clone().into_sorted_hash_list();
+    let hash = base.into_sorted_hash_list();
     let registers = base.into_hll();
     (hash, registers)
 }

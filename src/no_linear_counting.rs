@@ -21,7 +21,7 @@
 //! the reconstructed union. The bypass is exact for register-mode cardinalities and for the union of
 //! two register-mode counters, which is the regime the wrapper is meant to measure.
 
-use crate::estimator::CardinalityEstimator;
+use crate::estimator::HllCardinalityEstimator;
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
 use crate::sketches::HyperSpheresSketch;
 
@@ -85,7 +85,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::C
 // The error model is independent of the linear-counting choice (linear counting only swaps the
 // estimator at low register load, not its variance or the raw-estimator bias), so these delegate
 // to the inner default-estimator error model.
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HllCardinalityEstimator
     for NoLinearCounting<&HyperLogLog<P, B, R, H>>
 {
     #[inline]

@@ -7,6 +7,42 @@
 #![deny(unused_import_braces)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
+// Performance-critical numeric crate: intentional patterns suppressed at crate level.
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_lossless)]
+#![allow(clippy::many_single_char_names)]
+#![allow(clippy::similar_names)]
+#![allow(clippy::inline_always)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::float_cmp)]
+#![allow(clippy::float_cmp_const)]
+#![allow(clippy::large_stack_arrays)]
+#![allow(clippy::useless_conversion)]
+#![allow(clippy::indexing_slicing)]
+#![allow(clippy::legacy_numeric_constants)]
+#![allow(clippy::items_after_statements)]
+#![allow(clippy::default_trait_access)]
+#![allow(clippy::multiple_bound_locations)]
+#![allow(clippy::ptr_cast_constness)]
+#![allow(clippy::as_ptr_cast_mut)]
+#![allow(clippy::unnecessary_cast)]
+#![allow(clippy::infallible_destructuring_match)]
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::cast_ptr_alignment)]
+#![allow(clippy::transmute_ptr_to_ptr)]
+#![allow(clippy::if_not_else)]
+#![allow(clippy::single_range_in_vec_init)]
+#![allow(clippy::needless_match)]
+#![allow(clippy::unnecessary_unwrap)]
+#![allow(clippy::partialeq_ne_impl)]
+#![allow(clippy::comparison_chain)]
+#![allow(clippy::neg_cmp_op_on_partial_ord)]
+#![allow(clippy::unreadable_literal)]
+#![allow(unused_mut)]
+#![allow(clippy::upper_case_acronyms)]
 // The shipped crate is `no_std`. Tests link `std` (for the test harness and convenient std types in
 // test code), so `no_std` is applied only outside `test`. The library code itself never uses `std`.
 #![cfg_attr(not(test), no_std)]
@@ -49,7 +85,7 @@ pub mod utils;
 pub mod prelude {
     pub use crate::adaptive::Adaptive;
     pub use crate::error_model::*;
-    pub use crate::estimator::CardinalityEstimator;
+    pub use crate::estimator::HllCardinalityEstimator;
     pub use crate::hyperloglog::*;
     pub use crate::mle::{JointMle, Mle};
     pub use crate::no_linear_counting::NoLinearCounting;

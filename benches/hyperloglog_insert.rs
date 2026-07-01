@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::upper_case_acronyms)]
 //! Bench to compare and optimize time performance of inserting a prefix-free encoded list of hashes.
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use hyperloglog_rs::prelude::*;
@@ -51,7 +53,7 @@ fn bench_hyperloglog_insert(c: &mut Criterion) {
     group.bench_function("insert_xxhash", |b| {
         b.iter(|| {
             let mut result = false;
-            let mut hllx = hllx.clone();
+            let mut hllx = hllx;
             for random_value in iter_random_values::<u64>(100_000, None, None) {
                 result ^= hllx.insert(black_box(&random_value));
             }
@@ -103,7 +105,7 @@ fn bench_insert_modes(c: &mut Criterion) {
 
     for &base_size in &[256_u64, 4_096, 16_384] {
         let hash_list_base = hash_list_of(base_size, 0x00BA_5E00);
-        let mut hll_base = hash_list_base.clone();
+        let mut hll_base = hash_list_base;
         hll_base.to_hll();
         assert!(!hll_base.is_sorted_hash_list());
 
@@ -112,7 +114,7 @@ fn bench_insert_modes(c: &mut Criterion) {
             &base_size,
             |b, _| {
                 b.iter_batched(
-                    || hash_list_base.clone(),
+                    || hash_list_base,
                     |mut hll| {
                         for value in &batch {
                             hll.insert(black_box(value));
@@ -126,7 +128,7 @@ fn bench_insert_modes(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("hll", base_size), &base_size, |b, _| {
             b.iter_batched(
-                || hll_base.clone(),
+                || hll_base,
                 |mut hll| {
                     for value in &batch {
                         hll.insert(black_box(value));

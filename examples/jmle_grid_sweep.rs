@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::upper_case_acronyms)]
 //! Map the generalized joint MLE against the repeated 2-set MLE across the full M x N grid.
 //!
 //! This sweeps every shape `M` in `1..=8` by `N` in `1..=8` (all 64 combinations, the headline

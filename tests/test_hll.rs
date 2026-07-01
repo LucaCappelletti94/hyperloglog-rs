@@ -75,7 +75,7 @@ pub fn test_approximated_counter_at_precision_and_bits<
                 let union = exact_left.union(&exact_right).count() as f64;
                 let estimated_union = left.estimate_union_cardinality(&right);
 
-                total_union_error_rate += (estimated_union as f64 - union).abs() / union;
+                total_union_error_rate += (estimated_union - union).abs() / union;
 
                 total_union_samples += 1;
             }
@@ -253,7 +253,7 @@ fn test_union_small_cardinality_stays_accurate() {
         "Small counter `b` must be in hash-list mode."
     );
 
-    let union = &a | &b;
+    let union = a | b;
 
     let estimate = union.estimate_cardinality();
     assert!(
@@ -448,7 +448,7 @@ fn test_joint_sketch_mle_matches_exact_cells() {
     insert_range(&mut a0, ro[0][0].0, ro[0][0].1);
     insert_range(&mut a0, ro[0][1].0, ro[0][1].1);
     insert_range(&mut a0, rda[0].0, rda[0].1);
-    let mut a1 = a0.clone();
+    let mut a1 = a0;
     insert_range(&mut a1, ro[1][0].0, ro[1][0].1);
     insert_range(&mut a1, ro[1][1].0, ro[1][1].1);
     insert_range(&mut a1, rda[1].0, rda[1].1);
@@ -459,7 +459,7 @@ fn test_joint_sketch_mle_matches_exact_cells() {
     insert_range(&mut b0, ro[0][0].0, ro[0][0].1);
     insert_range(&mut b0, ro[1][0].0, ro[1][0].1);
     insert_range(&mut b0, rdb[0].0, rdb[0].1);
-    let mut b1 = b0.clone();
+    let mut b1 = b0;
     insert_range(&mut b1, ro[0][1].0, ro[0][1].1);
     insert_range(&mut b1, ro[1][1].0, ro[1][1].1);
     insert_range(&mut b1, rdb[1].0, rdb[1].1);
@@ -553,7 +553,7 @@ fn test_joint_sketch_mle_matches_exact_cells_hash_list() {
     insert_range(&mut a0, ro[0][0].0, ro[0][0].1);
     insert_range(&mut a0, ro[0][1].0, ro[0][1].1);
     insert_range(&mut a0, rda[0].0, rda[0].1);
-    let mut a1 = a0.clone();
+    let mut a1 = a0;
     insert_range(&mut a1, ro[1][0].0, ro[1][0].1);
     insert_range(&mut a1, ro[1][1].0, ro[1][1].1);
     insert_range(&mut a1, rda[1].0, rda[1].1);
@@ -562,7 +562,7 @@ fn test_joint_sketch_mle_matches_exact_cells_hash_list() {
     insert_range(&mut b0, ro[0][0].0, ro[0][0].1);
     insert_range(&mut b0, ro[1][0].0, ro[1][0].1);
     insert_range(&mut b0, rdb[0].0, rdb[0].1);
-    let mut b1 = b0.clone();
+    let mut b1 = b0;
     insert_range(&mut b1, ro[0][1].0, ro[0][1].1);
     insert_range(&mut b1, ro[1][1].0, ro[1][1].1);
     insert_range(&mut b1, rdb[1].0, rdb[1].1);
@@ -741,7 +741,7 @@ fn test_exact_exact_union_and_merge() {
     // The exact union of {0..40} and {25..70} is {0..70}, exactly 70.
     assert_eq!(a.estimate_union_cardinality(&b), 70.0);
 
-    let merged = &a | &b;
+    let merged = a | b;
     assert!(
         merged.is_sorted_value_list(),
         "the merged small union must stay exact"
@@ -778,7 +778,7 @@ fn test_exact_merge_recovers_set_union() {
     }
     assert!(a.is_sorted_value_list() && b.is_sorted_value_list());
 
-    let merged = &a | &b;
+    let merged = a | b;
     assert!(
         merged.is_sorted_value_list(),
         "the union still fits, so it must stay exact"
@@ -792,7 +792,7 @@ fn test_exact_merge_recovers_set_union() {
     assert_eq!(merged.estimate_cardinality(), expected.len() as f64);
 
     // Merging the other way round yields the same exact union.
-    let merged_swapped = &b | &a;
+    let merged_swapped = b | a;
     let mut recovered_swapped: Vec<u64> = merged_swapped.recover_values().unwrap().collect();
     recovered_swapped.sort_unstable();
     assert_eq!(recovered_swapped, expected);
@@ -830,7 +830,7 @@ fn test_exact_merge_overflow_transitions() {
     assert!(a.is_sorted_value_list() && b.is_sorted_value_list());
 
     let true_union = (count_a + count_b) as f64; // the ranges are disjoint
-    let merged = &a | &b;
+    let merged = a | b;
     assert!(
         !merged.is_sorted_value_list(),
         "a union past the exact capacity must transition out of exact mode"
@@ -902,7 +902,7 @@ fn test_joint_sketch_exact_values() {
     insert_vals(&mut a0, ro[0][0]);
     insert_vals(&mut a0, ro[0][1]);
     insert_vals(&mut a0, rda[0]);
-    let mut a1 = a0.clone();
+    let mut a1 = a0;
     insert_vals(&mut a1, ro[1][0]);
     insert_vals(&mut a1, ro[1][1]);
     insert_vals(&mut a1, rda[1]);
@@ -911,7 +911,7 @@ fn test_joint_sketch_exact_values() {
     insert_vals(&mut b0, ro[0][0]);
     insert_vals(&mut b0, ro[1][0]);
     insert_vals(&mut b0, rdb[0]);
-    let mut b1 = b0.clone();
+    let mut b1 = b0;
     insert_vals(&mut b1, ro[0][1]);
     insert_vals(&mut b1, ro[1][1]);
     insert_vals(&mut b1, rdb[1]);

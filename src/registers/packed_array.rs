@@ -303,10 +303,7 @@ mod test_extract_bridge_value_from_word {
                 assert_eq!(
                     extract_bridge_value_from_word::<V>(lower_word, upper_word, offset),
                     value,
-                    "The value extracted from the word {} at offset {} should be equal to the value {}",
-                    lower_word,
-                    offset,
-                    value
+                    "The value extracted from the word {lower_word} at offset {offset} should be equal to the value {value}"
                 );
             }
         }
@@ -329,10 +326,7 @@ mod test_extract_value_from_word {
                 assert_eq!(
                     extract_value_from_word::<V>(word, offset),
                     value,
-                    "The value extracted from the word {} at offset {} should be equal to the value {}",
-                    word,
-                    offset,
-                    value
+                    "The value extracted from the word {word} at offset {offset} should be equal to the value {value}"
                 );
             }
         }
@@ -354,16 +348,13 @@ mod test_split_index {
             let expected_relative_register_offset = (usize::from(V::NUMBER_OF_BITS) * index) % 64;
             let (word_index, relative_register_offset) = split_packed_index::<V>(index);
             assert_eq!(
-                word_index, expected_word_index as usize,
-                "The word index {} should be equal to the word index {}",
-                word_index, expected_word_index
+                word_index, expected_word_index,
+                "The word index {word_index} should be equal to the word index {expected_word_index}"
             );
             assert_eq!(
                 relative_register_offset,
                 expected_relative_register_offset as u8,
-                "The relative register offset {} should be equal to the relative register offset {}",
-                relative_register_offset,
-                expected_relative_register_offset
+                "The relative register offset {relative_register_offset} should be equal to the relative register offset {expected_relative_register_offset}"
             );
         }
     }

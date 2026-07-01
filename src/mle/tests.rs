@@ -433,7 +433,7 @@ mod joint_mle {
         let q1 = 7u8;
         let k = 2 * 2 + 2 + 2;
         let ephi: Vec<f64> = (0..k)
-            .map(|i| FloatOps::exp(1.0 + 0.5 * i as f64))
+            .map(|i| FloatOps::exp(1.0 + 0.5 * f64::from(i)))
             .collect();
         for (a, b) in [
             ([0u8, 0], [0u8, 0]),
@@ -1070,7 +1070,7 @@ mod joint_mle {
     /// short-circuits the single pair to the analytic 2-set union MLE, bypassing the optimizer), which
     /// `test_jmle_m_n_1_reduces_to_two_set_union_mle` already guards. The `_full` path instead runs the
     /// full register optimizer at `M = N = 1`, which reaches the generalized MLE optimum (close to, but
-    /// not identical to, the analytic closed form). Here we require it to land within a HyperLogLog
+    /// not identical to, the analytic closed form). Here we require it to land within a `HyperLogLog`
     /// error of the analytic 2-set regions, confirming the optimizer does not move the single-pair
     /// optimum to a wrong place.
     #[test]

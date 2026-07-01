@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::upper_case_acronyms)]
 //! Bench to measure the performance of the union (`BitOr`) of two HyperLogLog counters.
 //!
 //! The union takes different code paths depending on the mode of each operand, so we cover
@@ -140,7 +142,7 @@ type HLL14 = HyperLogLog<Precision14, Bits6>;
 fn build_full_hash_list(seed: u64) -> HLL14 {
     let mut hll = HLL14::default();
     for value in iter_random_values::<u64>(1_000_000, None, Some(seed)) {
-        let mut candidate = hll.clone();
+        let mut candidate = hll;
         candidate.insert(&value);
         if !candidate.is_sorted_hash_list() {
             break;

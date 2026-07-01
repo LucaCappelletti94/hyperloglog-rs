@@ -5,11 +5,11 @@
 //! Unlike the [`Mle`](crate::mle::Mle) wrapper, which builds the joint sketch by pairwise
 //! inclusion-exclusion over the 2-set union MLE, [`JointMle`] fits every disjoint region (the
 //! `M*N` overlap grid and the `M + N` margins) in a single optimization. The scalar cardinality and
-//! union estimates fall back to the inner counter's default (HyperLogLog++) estimators, so only the
+//! union estimates fall back to the inner counter's default (`HyperLogLog`++) estimators, so only the
 //! joint sketch differs from a bare [`HyperLogLog`].
 
 use super::sketch::joint_sketch_mle_from_registers;
-use crate::estimator::CardinalityEstimator;
+use crate::estimator::HllCardinalityEstimator;
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
 use crate::sketches::{HyperSpheresSketch, JointSketch};
 
@@ -70,7 +70,7 @@ impl<H> JointMle<H> {
 impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::CardinalityEstimator
     for JointMle<&HyperLogLog<P, B, R, H>>
 {
-    /// The scalar cardinality is the inner counter's default (HyperLogLog++) estimate: the joint MLE
+    /// The scalar cardinality is the inner counter's default (`HyperLogLog`++) estimate: the joint MLE
     /// refines the disjoint-region decomposition, not the single-counter cardinality.
     #[inline]
     fn estimate_cardinality(&self) -> f64 {
@@ -85,7 +85,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::C
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HllCardinalityEstimator
     for JointMle<&HyperLogLog<P, B, R, H>>
 {
     #[inline]

@@ -115,7 +115,8 @@ impl SkipSliceAhead for &mut [u8] {
 
 impl<P: Precision, B: Bits> GapHash<P, B> {
     #[inline]
-    /// Returns the gap encoding for the given SwitchHash.
+    /// Returns the gap encoding for the given `SwitchHash`.
+    #[must_use]
     pub fn into_gap_fragment(
         previous_hash: u32,
         hash_to_encode: u32,
@@ -330,13 +331,13 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     ///
     /// # Implementative details
     /// This method is used to update all bit indices in the rank index upon an insertion
-    /// of a new hash. The 'bit_index_after_hash' is relevant for the cases where the 'hash'
+    /// of a new hash. The '`bit_index_after_hash`' is relevant for the cases where the 'hash'
     /// has been inserted just before a bucket - in such cases, the shift does not apply to
     /// the bucket that immediately follows the inserted hash, as part of the expansion is
     /// relative to the hash associated to the bucket itself. Here is a schema illustrating
     /// this particular case, split into two parts: the hashes part and the associated rank index.
     ///
-    /// Suppose we have a predecessor hash x, a hash y that we  want to insert and a successor hash 'successor_hash',
+    /// Suppose we have a predecessor hash x, a hash y that we  want to insert and a successor hash '`successor_hash`',
     /// which also happens to be the hash associated to the bucket that follows the inserted hash. We
     /// start from the following state:
     ///
@@ -358,7 +359,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// ```
     ///
     /// Such change needs to be reflected in the bit indices in the rank index. The bit index i + 1
-    /// needs to become equal to 'bit_index_after_hash', i.e. the bit index of the position right after
+    /// needs to become equal to '`bit_index_after_hash`', i.e. the bit index of the position right after
     /// the newly inserted hash. Indices associated to subsequent buckets, instead, need to be fully
     /// shifted by the increased size of the sorted hash list.
     ///
@@ -459,7 +460,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             );
 
             // We update the bit index.
-            writer.write_bits(shifted_index as u64, Self::rank_index_bits());
+            writer.write_bits(u64::from(shifted_index), Self::rank_index_bits());
         }
 
         // When we are done updating, the reader must be at the end of the rank index
@@ -531,7 +532,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// We store both values explicitly to avoid having to decode the hash to find the bit index. The hash
     /// requires `hash_bits` bits, while the bit index has to represent any value between 0 and `hashes.len() * 8`,
     /// which is equal to `ceil(2^{EXPONENT} * B::NUMBER_OF_BITS, 64) * 64` bits, since the underlying storage is
-    /// what we will use upon saturation to store the HyperLogLog registers inplace of the current sorted hash list. An upper
+    /// what we will use upon saturation to store the `HyperLogLog` registers inplace of the current sorted hash list. An upper
     /// bound for the number of bits required to store the bit index is `log2(1 + (2^{EXPONENT} * B::NUMBER_OF_BITS))`
     /// We can remove the `1` from the logarithm, as it is negligible since the other term is an exponential term.
     /// We obtain therefore `EXPONENT + log2(B::NUMBER_OF_BITS)` bits to store the bit index.
@@ -927,7 +928,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                         bit_index,
                         hash_bits,
                     )
-                    .map(|metadata| Some(metadata))
+                    .map(Some)
                 }
                 other => other,
             };
@@ -1016,7 +1017,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
                 bit_index,
                 hash_bits,
             )
-            .map(|metadata| Some(metadata));
+            .map(Some);
         }
 
         let hashes64 = unsafe {
@@ -1323,7 +1324,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
         }
 
         // safe because the slice is originally allocated as u64s
-        debug_assert!(hashes.len() % size_of::<u64>() == 0);
+        debug_assert!(hashes.len().is_multiple_of(size_of::<u64>()));
         let hashes_64 = unsafe {
             core::slice::from_raw_parts_mut(
                 hashes.as_mut_ptr().cast::<u64>(),
@@ -1790,7 +1791,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
             Self::initialize_rank_index(dest, hash_bits);
         }
 
-        debug_assert!(dest.len() % size_of::<u64>() == 0);
+        debug_assert!(dest.len().is_multiple_of(size_of::<u64>()));
         // `dest_64` feeds the writer; `dest_8` is used by `update_rank_index`, which writes only into
         // the rank-index region at the tail of the buffer, disjoint from the prefix codes the writer
         // emits from the front. This mirrors the `hashes_64`/`hashes_8` aliasing in `insert_downgrading`.
@@ -2169,7 +2170,7 @@ pub enum DispatchedDowngradedIter<'a, P: Precision, B: Bits> {
     InnerDowngradedIter(DowngradedIter<'a, P, B>),
 }
 
-impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDowngradedIter<'a, P, B> {
+impl<P: Precision, B: Bits> LastBufferedBit for DispatchedDowngradedIter<'_, P, B> {
     #[inline]
     fn last_buffered_bit(&self) -> u32 {
         match self {
@@ -2187,7 +2188,7 @@ impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDowngradedIter<'a,
     }
 }
 
-impl<'a, P: Precision, B: Bits> Iterator for DispatchedDowngradedIter<'a, P, B> {
+impl<P: Precision, B: Bits> Iterator for DispatchedDowngradedIter<'_, P, B> {
     type Item = u32;
 
     #[inline(always)]
@@ -2232,7 +2233,7 @@ impl ExactSizeIterator for BypassIter<'_> {
     }
 }
 
-impl<'a> LastBufferedBit for BypassIter<'a> {
+impl LastBufferedBit for BypassIter<'_> {
     #[inline]
     fn last_buffered_bit(&self) -> u32 {
         self.bitstream.last_buffered_bit_position()
@@ -2251,7 +2252,7 @@ pub struct PrefixCodeDowngradedIter<'a, P: Precision, B: Bits> {
     shift: u8,
 }
 
-impl<'a, P: Precision, B: Bits> LastBufferedBit for PrefixCodeDowngradedIter<'a, P, B> {
+impl<P: Precision, B: Bits> LastBufferedBit for PrefixCodeDowngradedIter<'_, P, B> {
     #[inline]
     fn last_buffered_bit(&self) -> u32 {
         self.iter.last_buffered_bit()
@@ -2273,7 +2274,7 @@ impl<'a, P: Precision, B: Bits> PrefixCodeDowngradedIter<'a, P, B> {
     }
 }
 
-impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeDowngradedIter<'a, P, B> {
+impl<P: Precision, B: Bits> Iterator for PrefixCodeDowngradedIter<'_, P, B> {
     type Item = u32;
 
     #[inline(always)]
@@ -2304,7 +2305,7 @@ pub struct PrefixCodeIter<'a, P: Precision, B: Bits> {
     _phantom: PhantomData<GapHash<P, B>>,
 }
 
-impl<'a, P: Precision, B: Bits> LastBufferedBit for PrefixCodeIter<'a, P, B> {
+impl<P: Precision, B: Bits> LastBufferedBit for PrefixCodeIter<'_, P, B> {
     #[inline]
     fn last_buffered_bit(&self) -> u32 {
         self.bitstream.last_buffered_bit_position()
@@ -2401,7 +2402,7 @@ impl<'a, P: Precision, B: Bits> PrefixCodeIter<'a, P, B> {
     }
 }
 
-impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeIter<'a, P, B> {
+impl<P: Precision, B: Bits> Iterator for PrefixCodeIter<'_, P, B> {
     type Item = u32;
 
     #[inline(always)]
@@ -2490,7 +2491,7 @@ impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeIter<'a, P, B> {
             self.previous_uniform + (uniform_delta >> 1)
         } else {
             debug_assert!(
-                self.previous_uniform >= (uniform_delta >> 1) + 1,
+                self.previous_uniform > (uniform_delta >> 1),
                 "The previous uniform ({}) must be greater than or equal to the uniform ({uniform_delta}) >> 1 + 1 = {}. The reader tell is {} and the maximal bit index is {}. Previous hash is {}. The rank index size is {}.",
                 self.previous_uniform,
                 (uniform_delta >> 1) + 1,
@@ -2546,7 +2547,7 @@ pub enum DispatchedDecodedIter<'a, P: Precision, B: Bits> {
     InnerDecodedIter(DecodedIter<'a, P, B>),
 }
 
-impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDecodedIter<'a, P, B> {
+impl<P: Precision, B: Bits> LastBufferedBit for DispatchedDecodedIter<'_, P, B> {
     #[inline]
     fn last_buffered_bit(&self) -> u32 {
         match self {
@@ -2564,7 +2565,7 @@ impl<'a, P: Precision, B: Bits> LastBufferedBit for DispatchedDecodedIter<'a, P,
     }
 }
 
-impl<'a, P: Precision, B: Bits> Iterator for DispatchedDecodedIter<'a, P, B> {
+impl<P: Precision, B: Bits> Iterator for DispatchedDecodedIter<'_, P, B> {
     type Item = (u8, usize);
 
     #[inline]
@@ -2582,7 +2583,7 @@ pub struct PrefixCodeDecodedIter<'a, P: Precision, B: Bits> {
     iter: PrefixCodeIter<'a, P, B>,
 }
 
-impl<'a, P: Precision, B: Bits> LastBufferedBit for PrefixCodeDecodedIter<'a, P, B> {
+impl<P: Precision, B: Bits> LastBufferedBit for PrefixCodeDecodedIter<'_, P, B> {
     #[inline]
     fn last_buffered_bit(&self) -> u32 {
         self.iter.last_buffered_bit()
@@ -2603,7 +2604,7 @@ impl<'a, P: Precision, B: Bits> PrefixCodeDecodedIter<'a, P, B> {
     }
 }
 
-impl<'a, P: Precision, B: Bits> Iterator for PrefixCodeDecodedIter<'a, P, B> {
+impl<P: Precision, B: Bits> Iterator for PrefixCodeDecodedIter<'_, P, B> {
     type Item = (u8, usize);
 
     #[inline]
@@ -2734,7 +2735,7 @@ mod tests {
     }
 
     #[test_precisions_and_bits]
-    /// Test that the apply_gap function works as expected.
+    /// Test that the `apply_gap` function works as expected.
     fn test_apply_gap<P: Precision, B: Bits>()
     where
         P: PackedRegister<B>,

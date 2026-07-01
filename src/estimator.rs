@@ -4,7 +4,7 @@
 //! `estimate_cardinality`, `estimate_union_cardinality`, and the derived intersection, Jaccard, and
 //! difference estimates) with HyperLogLog-specific error and bias analysis methods.
 //!
-//! It is implemented by [`HyperLogLog`] (using its default, HyperLogLog++ corrected estimators) and
+//! It is implemented by [`HyperLogLog`] (using its default, `HyperLogLog`++ corrected estimators) and
 //! by the [`Mle`](crate::mle::Mle) mode wrapper (using the maximum-likelihood estimators).
 
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
@@ -15,7 +15,7 @@ use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
 /// relative standard error and systematic bias of the register estimator. The base trait provides
 /// `estimate_cardinality`, `estimate_union_cardinality`, and the derived intersection, Jaccard, and
 /// difference estimates.
-pub trait CardinalityEstimator: sketching_core::CardinalityEstimator {
+pub trait HllCardinalityEstimator: sketching_core::CardinalityEstimator {
     /// The theoretical relative standard error (the sampling error, one standard deviation as a
     /// fraction of the cardinality) of [`estimate_cardinality`](sketching_core::CardinalityEstimator::estimate_cardinality) at this
     /// counter's current estimate. This is the variance term only; the systematic bias is reported
@@ -26,7 +26,7 @@ pub trait CardinalityEstimator: sketching_core::CardinalityEstimator {
     /// current estimate. It models the raw `alpha * m^2 / harmonic_sum` estimator, so it is meaningful
     /// in the saturation regime (above the correction bound `7.5 * 2^P`, where
     /// [`estimate_cardinality`](sketching_core::CardinalityEstimator::estimate_cardinality) returns the raw value), and overstates the
-    /// true bias below that bound, where the empirical HyperLogLog++ correction has already removed
+    /// true bias below that bound, where the empirical `HyperLogLog`++ correction has already removed
     /// most of it. It is zero for the exact value-list and the unbiased hash-list representations.
     /// Because bias is a function of the true (unknown) cardinality, this evaluates the model at the
     /// current estimate; prefer [`bias_at`](Self::bias_at) with a known cardinality for planning.
@@ -94,7 +94,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::C
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HllCardinalityEstimator
     for HyperLogLog<P, B, R, H>
 {
     #[inline]

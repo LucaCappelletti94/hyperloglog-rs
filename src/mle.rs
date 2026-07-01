@@ -1,13 +1,13 @@
-//! Maximum Likelihood Estimation for HyperLogLog cardinalities and set sketches.
+//! Maximum Likelihood Estimation for `HyperLogLog` cardinalities and set sketches.
 //!
 //! This module is always available and fully allocation-free: it routes float transcendentals
-//! through the crate's own no_std [`FloatOps`](crate::utils) (no `num-traits`/`libm`), the scalar and
+//! through the crate's own `no_std` [`FloatOps`](crate::utils) (no `num-traits`/`libm`), the scalar and
 //! register estimators use stack histograms, and the exact value-list joint decomposition is a sorted
 //! multi-way merge. It provides three estimators, all maximizing a register-multiplicity likelihood
 //! and reached through the [`Mle`] mode wrapper ([`HyperLogLog::mle`]):
 //! - `hll.mle().estimate_union_cardinality(&other.mle())`: Ertl's 2-set joint union MLE.
 //! - `hll.mle().estimate_cardinality()`: Ertl's single-counter cardinality MLE (provided for
-//!   completeness; it is dominated by the default HyperLogLog++ estimate).
+//!   completeness; it is dominated by the default `HyperLogLog`++ estimate).
 //! - [`JointSketch::estimate`] over `.mle()` views: the hypersphere-sketch decomposition over `M`
 //!   nested left and `N` nested right counters. It is counted exactly from stored values while every
 //!   operand is a value list, formed by inclusion-exclusion over the corrected estimates while still
@@ -113,7 +113,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// The estimator dispatches on the representation of the two operands. When both are still hash
     /// lists, the near-exact sorted hash list union ([`HyperLogLog::estimate_union_cardinality`]) is used
     /// directly, since the stored hashes carry more information than the register multiplicities the
-    /// MLE consumes. When both are fully-fledged HyperLogLogs, the left difference, right difference
+    /// MLE consumes. When both are fully-fledged `HyperLogLogs`, the left difference, right difference
     /// and intersection likelihood is maximized jointly and the union estimate is their sum. In the
     /// mixed case the sorted hash list operand is materialized into registers first and the MLE is run.
     #[inline]
@@ -241,7 +241,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     /// The three disjoint regions `[left_difference, right_difference, intersection]` of the 2-set
-    /// joint MLE, assuming both counters are in HyperLogLog (register) mode. This is the fast analytic
+    /// joint MLE, assuming both counters are in `HyperLogLog` (register) mode. This is the fast analytic
     /// estimator the `M = N = 1` joint sketch uses.
     pub(crate) fn mle_union_regions_from_registers(&self, other: &Self) -> [f64; 3] {
         // Maps a union harmonic sum (and zero-register count) to the corrected cardinality, exactly as
@@ -264,7 +264,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     /// The 2-set union MLE regions `[left_difference, right_difference, intersection]` together with
-    /// their asymptotic relative covariance (log space), assuming both counters are in HyperLogLog
+    /// their asymptotic relative covariance (log space), assuming both counters are in `HyperLogLog`
     /// (register) mode. The covariance diagonal holds the squared relative standard error of each
     /// region; see [`union_region_relative_covariance`].
     pub(crate) fn mle_union_region_covariance_from_registers(
@@ -323,7 +323,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         if lefts
             .iter()
             .chain(rights.iter())
-            .any(|c| c.is_hyperloglog())
+            .any(super::hyperloglog::HyperLogLog::is_hyperloglog)
         {
             // Any dense operand: materialize everything to registers (as the dense joint sketch does)
             // and take each region variance from the Fisher-information covariance of the 2-set union
@@ -417,7 +417,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         }
     }
 
-    /// Joint MLE union estimate assuming both counters are in HyperLogLog (register) mode.
+    /// Joint MLE union estimate assuming both counters are in `HyperLogLog` (register) mode.
     fn mle_union_from_registers(&self, other: &Self) -> f64 {
         let [left_difference, right_difference, intersection] =
             self.mle_union_regions_from_registers(other);

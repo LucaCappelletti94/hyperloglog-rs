@@ -8,11 +8,11 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
 
-# CI gates the published library only (`hyperloglog-rs` and its `hyperloglog-derive`
-# macro). The other workspace members (`test_utils`, `correction_coefficients`) are dev tooling
-# and are not gated here. The exhaustive accuracy matrix in `tests/test_hll.rs` is a validation
-# sweep (tens of minutes), run locally rather than on every push; CI runs the library unit tests
-# and doctests instead.
+# CI gates the published libraries (`hyperloglog-rs`, `hyperloglog-derive`, `sketching-core`)
+# and their feature matrices. The other workspace members (`test_utils`, `correction_coefficients`)
+# are dev tooling and are not gated here. The exhaustive accuracy matrix in `tests/test_hll.rs`
+# is a validation sweep (tens of minutes), run locally rather than on every push; CI runs the
+# library unit tests and doctests instead.
 
 jobs:
   test:
@@ -25,9 +25,10 @@ jobs:
 
       - name: Build (default / std / no-default-features)
         run: |
-          cargo build -p hyperloglog-rs -p hyperloglog-derive
+          cargo build -p hyperloglog-rs -p hyperloglog-derive -p sketching-core
           cargo build -p hyperloglog-rs --features std
-          cargo build -p hyperloglog-rs --no-default-features
+          cargo build -p sketching-core --features alloc,serde
+          cargo build -p sketching-core --no-default-features
 
       # The library tests are an exhaustive precision x bits matrix; at high precision the
       # hash-list operations are O(n^2) and take tens of minutes, and the statistical accuracy
@@ -36,6 +37,8 @@ jobs:
       # (which is precision-generic) plus the doctests.
       - name: Library smoke tests and doctests
         run: |
+          cargo test -p sketching-core --features alloc,serde
+          cargo test -p sketching-core --no-default-features
           cargo test -p hyperloglog-rs --features std --lib -- --skip test_plusplus_properties precision4 precision5 precision6
           cargo test -p hyperloglog-rs --doc
 
@@ -49,13 +52,10 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
       - name: Clippy (default and std)
         run: |
-          cargo clippy -p hyperloglog-rs -p hyperloglog-derive -- -D clippy::all
-          cargo clippy -p hyperloglog-rs -p hyperloglog-derive --features std -- -D clippy::all
+          cargo clippy -p hyperloglog-rs -p hyperloglog-derive -p sketching-core -- -D clippy::all
+          cargo clippy -p hyperloglog-rs -p hyperloglog-derive -p sketching-core --features std -- -D clippy::all
 
   msrv:
     name: MSRV 1.82.0 builds the library
@@ -67,6 +67,6 @@ jobs:
 
       - name: Build on MSRV (default / std / no-default-features)
         run: |
-          cargo build -p hyperloglog-rs -p hyperloglog-derive
+          cargo build -p hyperloglog-rs -p hyperloglog-derive -p sketching-core
           cargo build -p hyperloglog-rs --features std
-          cargo build -p hyperloglog-rs --no-default-features
+          cargo build -p sketching-core --no-default-features

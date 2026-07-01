@@ -7,7 +7,7 @@ use crate::prelude::*;
 use crate::utils::{FloatOps, Zero};
 
 /// One marginal anchor: which counter it pins (a left counter `A_i` or a right counter `B_j`), the log
-/// of that counter's HyperLogLog++ cardinality estimate, and the prior weight. The region index set is
+/// of that counter's `HyperLogLog`++ cardinality estimate, and the prior weight. The region index set is
 /// reconstructed structurally (see [`for_each_anchor_region`]) rather than materialized, so the anchors
 /// need no heap.
 #[derive(Clone, Copy)]

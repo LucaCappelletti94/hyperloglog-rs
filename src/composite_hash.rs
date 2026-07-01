@@ -56,7 +56,7 @@ mod test_composite_hash {
             let mut encoded_hashes = vec![u64::MAX; number_of_bits.div_ceil(64)];
             let mut encoded_hashes: &mut [u8] = unsafe {
                 core::slice::from_raw_parts_mut(
-                    encoded_hashes.as_mut_ptr() as *mut u8,
+                    encoded_hashes.as_mut_ptr().cast::<u8>(),
                     encoded_hashes.len() * 8,
                 )
             };
@@ -79,7 +79,7 @@ mod test_composite_hash {
                         .iter()
                         .copied()
                         .zip(GapHash::<P, B>::downgraded(
-                            &encoded_hashes,
+                            encoded_hashes,
                             number_of_inserted_hashes,
                             hash_bits,
                             writer_tell,
@@ -104,7 +104,7 @@ mod test_composite_hash {
                     GapHash::<P, B>::encode(index, register, original_hash, hash_bits);
 
                 let result = GapHash::<P, B>::insert_sorted_desc(
-                    &mut encoded_hashes,
+                    encoded_hashes,
                     number_of_inserted_hashes,
                     writer_tell,
                     index,
@@ -173,7 +173,7 @@ mod test_composite_hash {
                     // We check that the inserted hash appears among the inserted hashes.
                     assert!(
                         GapHash::<P, B>::downgraded(
-                            &encoded_hashes,
+                            encoded_hashes,
                             number_of_inserted_hashes,
                             hash_bits,
                             writer_tell,
@@ -186,7 +186,7 @@ mod test_composite_hash {
                     // If we attempt to insert the same hash again, it should not be inserted.
                     assert_eq!(
                         GapHash::<P, B>::insert_sorted_desc(
-                            &mut encoded_hashes,
+                            encoded_hashes,
                             number_of_inserted_hashes,
                             writer_tell,
                             index,

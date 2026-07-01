@@ -206,7 +206,7 @@ mod test_compose_scompose_hash {
                 let recomposed_hash = SwitchHash::<P, B>::compose_hash(
                     u32::try_from(index).unwrap(),
                     register,
-                    u32::from(fragment.hash_remainder),
+                    fragment.hash_remainder,
                     hash_bits,
                 );
 
@@ -289,7 +289,7 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
         assert!(hash_bits >= 8);
         assert!(hash_bits == 8 || hash_bits == 16 || hash_bits == 24 || hash_bits == 32);
         assert!(hash_bits >= Self::SMALLEST_VIABLE_HASH_BITS);
-        assert!(bit_index == number_of_hashes * u32::from(hash_bits));
+        assert_eq!(bit_index, number_of_hashes * u32::from(hash_bits));
 
         let hashes: &[u8] =
             &hashes[..usize::try_from(number_of_hashes).unwrap() * usize::from(hash_bits / 8)];
@@ -623,7 +623,7 @@ impl<P: Precision, B: Bits> SwitchHash<P, B> {
             P::EXPONENT
         );
 
-        (fragmented.register as u8, fragmented.index as usize)
+        (fragmented.register, fragmented.index as usize)
     }
 
     #[must_use]
@@ -691,7 +691,7 @@ impl<'a> From<Iter<'a, u32>> for IterVariants<'a> {
     }
 }
 
-impl<'a> IterVariants<'a> {
+impl IterVariants<'_> {
     #[inline]
     pub(super) const fn hash_bits(&self) -> u8 {
         match self {
@@ -721,7 +721,7 @@ impl Iterator for IterVariants<'_> {
     }
 }
 
-impl<'a> ExactSizeIterator for IterVariants<'a> {
+impl ExactSizeIterator for IterVariants<'_> {
     #[inline]
     fn len(&self) -> usize {
         match self {
@@ -744,7 +744,7 @@ pub struct DecodedIter<'a, P, B> {
     _phantom: core::marker::PhantomData<&'a (P, B)>,
 }
 
-impl<'a, P, B> LastBufferedBit for DecodedIter<'a, P, B> {
+impl<P, B> LastBufferedBit for DecodedIter<'_, P, B> {
     #[inline]
     fn last_buffered_bit(&self) -> u32 {
         (self.number_of_hashes - self.variant.len()) as u32 * u32::from(self.variant.hash_bits())
@@ -756,7 +756,7 @@ impl<'a, P, B> LastBufferedBit for DecodedIter<'a, P, B> {
     }
 }
 
-impl<'a, P: Precision, B: Bits> Iterator for DecodedIter<'a, P, B> {
+impl<P: Precision, B: Bits> Iterator for DecodedIter<'_, P, B> {
     type Item = (u8, usize);
 
     #[inline]
@@ -796,7 +796,7 @@ pub struct DowngradedIter<'a, P, B> {
     _phantom: core::marker::PhantomData<&'a (P, B)>,
 }
 
-impl<'a, P, B> LastBufferedBit for DowngradedIter<'a, P, B> {
+impl<P, B> LastBufferedBit for DowngradedIter<'_, P, B> {
     #[inline]
     fn last_buffered_bit(&self) -> u32 {
         (self.number_of_hashes - self.variant.len()) as u32 * u32::from(self.variant.hash_bits())
@@ -808,7 +808,7 @@ impl<'a, P, B> LastBufferedBit for DowngradedIter<'a, P, B> {
     }
 }
 
-impl<'a, P: Precision, B: Bits> Iterator for DowngradedIter<'a, P, B> {
+impl<P: Precision, B: Bits> Iterator for DowngradedIter<'_, P, B> {
     type Item = u32;
 
     #[inline]

@@ -170,7 +170,7 @@ pub fn mle_preferred_threshold<P: Precision, B: Bits>() -> Option<f64> {
             // Bisect the bracket `[previous, n]` for a tight threshold.
             let (mut low, mut high) = (previous, n);
             for _ in 0..60 {
-                let mid = 0.5 * (low + high);
+                let mid = f64::midpoint(low, high);
                 if gap(mid) >= 0.0 {
                     high = mid;
                 } else {
