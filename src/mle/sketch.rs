@@ -354,7 +354,7 @@ pub(crate) fn joint_sketch_mle_core<
     let left_views: [Mle<&HyperLogLog<P, B, R, H>>; M] = core::array::from_fn(|i| lefts[i].mle());
     let right_views: [Mle<&HyperLogLog<P, B, R, H>>; N] = core::array::from_fn(|j| rights[j].mle());
     let (overlap0, left0, right0) =
-        crate::sketches::inclusion_exclusion_joint_sketch(&left_views, &right_views).into_parts();
+        sketching_core::inclusion_exclusion_joint_sketch(&left_views, &right_views).into_parts();
 
     let mut phis_buf = [f64::ZERO; MAX_K];
     let phis = &mut phis_buf[..k];

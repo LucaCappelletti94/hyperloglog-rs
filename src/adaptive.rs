@@ -81,7 +81,7 @@ impl<H> Adaptive<H> {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::CardinalityEstimator
     for Adaptive<&HyperLogLog<P, B, R, H>>
 {
     #[inline]
@@ -101,7 +101,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstima
             self.0.estimate_union_cardinality(other.0)
         }
     }
+}
 
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+    for Adaptive<&HyperLogLog<P, B, R, H>>
+{
     #[inline]
     fn predicted_relative_standard_error(&self) -> f64 {
         if self.0.prefers_mle() {
@@ -152,6 +156,7 @@ mod tests {
     // so exact float comparison is intentional here.
     #![allow(clippy::float_cmp)]
     use crate::prelude::*;
+    use sketching_core::CardinalityEstimator;
 
     #[test]
     fn adaptive_uses_mle_in_the_saturation_window() {

@@ -35,7 +35,7 @@ impl<H> Mle<H> {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::CardinalityEstimator
     for Mle<&HyperLogLog<P, B, R, H>>
 {
     /// Estimates the cardinality via the single-counter maximum-likelihood estimator.
@@ -54,7 +54,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstima
     fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         self.0.estimate_union_cardinality_mle(other.0)
     }
+}
 
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+    for Mle<&HyperLogLog<P, B, R, H>>
+{
     #[inline]
     fn predicted_relative_standard_error(&self) -> f64 {
         // For a pre-dense operand the MLE falls back to the default estimate, so its error model does

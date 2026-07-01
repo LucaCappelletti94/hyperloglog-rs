@@ -21,6 +21,15 @@ fn code_len(value: u64) -> u32 {
     2 * significant_bits(value) + 1
 }
 
+/// Encoded bit length of a gap. Gaps between distinct sorted values are always >= 1,
+/// so we store gap - 1 (>= 0). This saves bits on the common case of small gaps
+/// (contiguous values: gap 1 encodes as 0, taking 1 bit instead of 3).
+#[inline]
+fn gap_code_len(gap: u64) -> u32 {
+    debug_assert!(gap >= 1, "gaps between distinct sorted values must be >= 1");
+    code_len(gap - 1)
+}
+
 /// Reads the bit at index `bit` from the buffer, interpreted as big-endian `u64` words with the most
 /// significant bit first (the layout used by the sorted hash list bitstream).
 #[inline]
@@ -118,7 +127,8 @@ impl Iterator for ValueIter<'_> {
             self.first = false;
             code
         } else {
-            self.previous - code
+            // Stored gaps encode gap - 1; recover the true gap.
+            self.previous - (code + 1)
         };
         self.remaining -= 1;
         Some(self.previous)
@@ -141,7 +151,11 @@ pub(crate) fn contains_value(buffer: &[u8], count: u32, value: u64) -> bool {
     for index in 0..count {
         let (code, next_pos) = read_value_at(buffer, pos);
         pos = next_pos;
-        previous = if index == 0 { code } else { previous - code };
+        previous = if index == 0 {
+            code
+        } else {
+            previous - (code + 1)
+        };
         if previous == value {
             return true;
         }
@@ -247,7 +261,7 @@ pub(crate) fn merge_metrics(
         bits += if first {
             code_len(value)
         } else {
-            code_len(previous - value)
+            gap_code_len(previous - value)
         };
         previous = value;
         count += 1;
@@ -270,7 +284,7 @@ pub(crate) fn merge_write(
     let mut pos = 0u32;
     let mut previous = 0u64;
     for_each_union_value(buffer_a, count_a, buffer_b, count_b, |first, value| {
-        let code = if first { value } else { previous - value };
+        let code = if first { value } else { (previous - value) - 1 };
         pos = write_value_at(dest, pos, code);
         previous = value;
         count += 1;
@@ -324,7 +338,11 @@ pub(crate) fn insert_value(buffer: &mut [u8], count: u32, value: u64) -> ValueIn
     for index in 0..count {
         let start = pos;
         let (code, end) = read_value_at(buffer, pos);
-        let current = if index == 0 { code } else { previous - code };
+        let current = if index == 0 {
+            code
+        } else {
+            previous - (code + 1)
+        };
         pos = end;
         previous = current;
         if next.is_none() {
@@ -344,21 +362,21 @@ pub(crate) fn insert_value(buffer: &mut [u8], count: u32, value: u64) -> ValueIn
         // `value` is the new minimum: append its gap to the smallest stored value at the end.
         None => {
             let gap = before.expect("a non-empty list has a predecessor") - value;
-            if total_bits + code_len(gap) > capacity_bits {
+            if total_bits + gap_code_len(gap) > capacity_bits {
                 return ValueInsertion::DoesNotFit;
             }
-            write_value_at(buffer, total_bits, gap);
+            write_value_at(buffer, total_bits, gap - 1);
             ValueInsertion::Inserted
         }
         // `value` is spliced before `next`: write its code, then rewrite `next` relative to `value`.
         Some((next_value, split_bit, next_end)) => {
             let code_a = match before {
-                None => value,              // new maximum: stored absolutely
-                Some(prev) => prev - value, // gap from the predecessor
+                None => value,                    // new maximum: stored absolutely
+                Some(prev) => (prev - value) - 1, // gap - 1 from the predecessor
             };
             let new_next_gap = value - next_value;
             let old_next_len = next_end - split_bit;
-            let new_len = code_len(code_a) + code_len(new_next_gap);
+            let new_len = code_len(code_a) + gap_code_len(new_next_gap);
             // Replacing `next`'s code with `code_a` followed by `next`'s shorter gap always grows the
             // stream, so `new_len > old_next_len`.
             debug_assert!(new_len > old_next_len);
@@ -368,7 +386,7 @@ pub(crate) fn insert_value(buffer: &mut [u8], count: u32, value: u64) -> ValueIn
             }
             shift_bits_right(buffer, next_end, total_bits, delta);
             let after_a = write_value_at(buffer, split_bit, code_a);
-            write_value_at(buffer, after_a, new_next_gap);
+            write_value_at(buffer, after_a, new_next_gap - 1);
             ValueInsertion::Inserted
         }
     }

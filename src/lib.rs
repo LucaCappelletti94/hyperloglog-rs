@@ -18,8 +18,21 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+// Re-export shared sketching primitives from the core crate.
+pub use sketching_core::prelude::{
+    Bits, Bits10, Bits11, Bits12, Bits13, Bits14, Bits15, Bits16, Bits4, Bits5, Bits6, Bits7,
+    Bits8, Bits9, Precision, Precision10, Precision11, Precision12, Precision13, Precision14,
+    Precision15, Precision16, Precision17, Precision18, Precision4, Precision5, Precision6,
+    Precision7, Precision8, Precision9,
+};
+pub use sketching_core::{
+    split_packed_index, CardinalityEstimator as CoreCardinalityEstimator, FloatOps,
+    HyperSpheresSketch as CoreHyperSpheresSketch, JointSketch as CoreJointSketch,
+    JointSketchError as CoreJointSketchError, Number, One, Packed, PositiveInteger, VariableWord,
+    Zero,
+};
+
 pub mod adaptive;
-mod bits;
 pub mod composite_hash;
 mod correction_coefficients;
 pub mod error_model;
@@ -28,7 +41,6 @@ mod hash_list;
 pub mod hyperloglog;
 pub mod mle;
 pub mod no_linear_counting;
-mod precisions;
 mod registers;
 pub mod sketches;
 pub mod utils;
@@ -36,15 +48,14 @@ pub mod utils;
 /// Re-exports of the most important traits and structs.
 pub mod prelude {
     pub use crate::adaptive::Adaptive;
-    pub use crate::bits::*;
     pub use crate::error_model::*;
     pub use crate::estimator::CardinalityEstimator;
     pub use crate::hyperloglog::*;
     pub use crate::mle::{JointMle, Mle};
     pub use crate::no_linear_counting::NoLinearCounting;
-    pub use crate::precisions::*;
     pub use crate::registers::*;
     pub use crate::sketches::*;
     pub use crate::utils::*;
     pub use core::ops::{BitOr, BitOrAssign};
+    pub use sketching_core::prelude::*;
 }

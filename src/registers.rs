@@ -7,7 +7,8 @@ use crate::prelude::*;
 use crate::utils::{FloatOps, Zero};
 mod packed_array;
 
-pub use packed_array::{Packed, PackedRegister};
+pub use packed_array::PackedRegister;
+pub use sketching_core::{Packed, PackedIter};
 
 /// Trait marker for the registers.
 pub trait Registers<P: Precision, B: Bits>:
@@ -31,7 +32,7 @@ pub trait Registers<P: Precision, B: Bits>:
 
     /// Returns a random register.
     fn random(&self, random_state: u64) -> (usize, u8) {
-        let index = xorshift64(random_state) as usize % (1 << P::EXPONENT);
+        let index = sketching_core::splitmix64(random_state) as usize % (1 << P::EXPONENT);
         (index, self.get_register(index))
     }
 

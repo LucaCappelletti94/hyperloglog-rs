@@ -8,7 +8,7 @@ use super::{
     switch::{DecodedIter, DowngradedIter},
     Debug, LastBufferedBit, Precision, SaturationError, SwitchHash,
 };
-use crate::bits::Bits;
+use crate::Bits;
 use bitreader::{len_rice, BitReader};
 use bitwriter::BitWriter;
 use core::mem::size_of;

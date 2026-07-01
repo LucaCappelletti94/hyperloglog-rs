@@ -5,7 +5,7 @@ use core::slice::Iter;
 use super::gaps::InsertMetadata;
 use super::{LastBufferedBit, SaturationError};
 use crate::composite_hash::GapHash;
-use crate::{bits::Bits, prelude::Precision};
+use crate::{prelude::Precision, Bits};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 /// The current hash approach is particularly straightforward.

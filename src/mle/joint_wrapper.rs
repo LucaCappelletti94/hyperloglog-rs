@@ -67,7 +67,7 @@ impl<H> JointMle<H> {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::CardinalityEstimator
     for JointMle<&HyperLogLog<P, B, R, H>>
 {
     /// The scalar cardinality is the inner counter's default (HyperLogLog++) estimate: the joint MLE
@@ -83,7 +83,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstima
     fn estimate_union_cardinality(&self, other: &Self) -> f64 {
         self.0.estimate_union_cardinality(other.0)
     }
+}
 
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+    for JointMle<&HyperLogLog<P, B, R, H>>
+{
     #[inline]
     fn predicted_relative_standard_error(&self) -> f64 {
         self.0.predicted_relative_standard_error()

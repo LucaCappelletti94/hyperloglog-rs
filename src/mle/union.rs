@@ -738,6 +738,7 @@ pub(crate) fn mle_union_regions<P: Precision, B: Bits, I: ExactSizeIterator<Item
 #[cfg(test)]
 mod tests {
     use crate::prelude::*;
+    use sketching_core::CardinalityEstimator;
 
     type Hll = HyperLogLog<Precision12, Bits6>;
 

@@ -64,7 +64,7 @@ impl<H> NoLinearCounting<H> {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::CardinalityEstimator
     for NoLinearCounting<&HyperLogLog<P, B, R, H>>
 {
     /// Estimates the cardinality with the register linear-counting branch bypassed (bias-corrected
@@ -80,10 +80,14 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstima
         self.0
             .estimate_union_cardinality_no_linear_counting(other.0)
     }
+}
 
-    // The error model is independent of the linear-counting choice (linear counting only swaps the
-    // estimator at low register load, not its variance or the raw-estimator bias), so these delegate
-    // to the inner default-estimator error model.
+// The error model is independent of the linear-counting choice (linear counting only swaps the
+// estimator at low register load, not its variance or the raw-estimator bias), so these delegate
+// to the inner default-estimator error model.
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> CardinalityEstimator
+    for NoLinearCounting<&HyperLogLog<P, B, R, H>>
+{
     #[inline]
     fn predicted_relative_standard_error(&self) -> f64 {
         self.0.predicted_relative_standard_error()
@@ -120,6 +124,7 @@ mod tests {
     // comparison is intentional here.
     #![allow(clippy::float_cmp)]
     use crate::prelude::*;
+    use sketching_core::CardinalityEstimator;
 
     type Hll = HyperLogLog<Precision12, Bits6>;
 

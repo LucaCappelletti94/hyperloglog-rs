@@ -227,7 +227,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             return joint_sketch_exact_from_values::<P, B, R, H, M, N>(lefts, rights);
         }
         if !lefts.iter().chain(rights.iter()).any(Self::is_hyperloglog) {
-            return crate::sketches::inclusion_exclusion_joint_sketch(lefts, rights);
+            return sketching_core::inclusion_exclusion_joint_sketch(lefts, rights);
         }
 
         // At least one operand is dense: materialize every operand to registers (a no-op for the dense
@@ -237,7 +237,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         let rights: [Self; N] = core::array::from_fn(|j| rights[j].clone().into_hll());
         let left_views: [Mle<&Self>; M] = core::array::from_fn(|i| lefts[i].mle());
         let right_views: [Mle<&Self>; N] = core::array::from_fn(|j| rights[j].mle());
-        crate::sketches::inclusion_exclusion_joint_sketch(&left_views, &right_views)
+        sketching_core::inclusion_exclusion_joint_sketch(&left_views, &right_views)
     }
 
     /// The three disjoint regions `[left_difference, right_difference, intersection]` of the 2-set

@@ -7,19 +7,13 @@
 //! - `word_from_registers<const NUMBER_OF_BITS_PER_REGISTER: usize>(registers: &[u32]) -> u32`: Converts an array
 //!   of HLL registers into a single 32-bit word.
 
-mod constants;
 mod hasher_type;
-mod matrix;
-mod number;
-mod random;
-mod variable_word;
 
-pub use constants::*;
 pub use hasher_type::HasherType;
-pub use matrix::Matrix;
-pub(crate) use number::{FloatOps, Number, PositiveInteger};
-pub use random::*;
-pub use variable_word::VariableWord;
+pub use sketching_core::{
+    iter_random_values, iter_var_len_random_values, splitmix64, FloatOps, Number, One,
+    PositiveInteger, Zero,
+};
 
 #[inline]
 #[must_use]
