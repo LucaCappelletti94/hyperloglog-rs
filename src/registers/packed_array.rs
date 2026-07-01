@@ -20,11 +20,13 @@ use core::fmt::Debug;
 use core::hash::Hash;
 use sketching_core::{
     extract_bridge_value_from_word, extract_value_from_word, insert_bridge_value_into_word,
-    insert_value_into_word, split_packed_index, Packed,
+    insert_value_into_word, split_packed_index, Packed, PackedShape, Words,
 };
 
 /// Trait marker to associate a specific register array with a combination of precision and bits.
-pub trait PackedRegister<B: Bits>: Precision {
+/// Extends [`PackedShape`], which fixes the underlying `[u64; N]` word storage; this trait adds
+/// the array-backed and (optional) `Vec`-backed `Registers` associations that HLL needs.
+pub trait PackedRegister<B: Bits>: PackedShape<B> {
     /// The type of the packed array register.
     type Array: Registers<Self, B>;
     #[cfg(feature = "alloc")]
@@ -36,10 +38,10 @@ pub trait IncreaseCapacity {
     fn increase_capacity(&mut self, maximal_size: usize);
 }
 
-impl<const N: usize> IncreaseCapacity for [u64; N] {
+impl<const N: usize> IncreaseCapacity for Words<N> {
     #[inline]
     fn increase_capacity(&mut self, _maximal_size: usize) {
-        unimplemented!("The increase_capacity method is not implemented for [u64; N]");
+        unimplemented!("The increase_capacity method is not implemented for Words<N>");
     }
 }
 
@@ -185,7 +187,7 @@ macro_rules! impl_packed_array_register_for_precision_and_bits {
         $(
             paste::paste! {
                 impl PackedRegister<[<Bits $bits>]> for [<Precision $exponent>] {
-                    type Array = Packed<[u64; {(usize::pow(2, $exponent) * $bits).div_ceil(64)}], [<Bits $bits>]>;
+                    type Array = Packed<<[<Precision $exponent>] as PackedShape<[<Bits $bits>]>>::Words, [<Bits $bits>]>;
                     #[cfg(feature = "alloc")]
                     type Vec = Packed<Vec<u64>, [<Bits $bits>]>;
                 }
