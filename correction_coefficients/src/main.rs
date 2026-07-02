@@ -8,8 +8,8 @@ extern crate proc_macro2;
 extern crate quote;
 extern crate syn;
 
-mod polyfit;
-mod utils;
+use correction_coefficients::polyfit;
+use correction_coefficients::utils;
 
 use prettyplease::unparse;
 use proc_macro2::TokenStream;

@@ -105,10 +105,8 @@ pub fn cardinality_samples<S: Set + Default>(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardinalitySamplesByModel {
-    pub mean_hash_list_saturation: Option<f64>,
     pub mean_hyperloglog_saturation: Option<f64>,
     pub hyperloglog: Vec<CardinalitySample>,
-    pub hash_list: Vec<CardinalitySample>,
 }
 
 struct ReportsBuilder {
@@ -231,11 +229,8 @@ pub fn uncorrected_cardinality_samples_by_model<P: Precision + PackedRegister<B>
     let capacity_to_allocate = cardinality_estimate_to_index(maximum_cardinality) as usize + 1;
 
     let hyperloglog_reports = ReportsBuilder::new(capacity_to_allocate);
-    let hash_list_reports = ReportsBuilder::new(capacity_to_allocate);
 
-    // We create two arrays to keep track of the sums of saturation cardinalities
-    // and their counts. We will use these to compute the mean saturation.
-    let hash_list_saturations = ScalarCounter::new();
+    // Track the cardinality at which all registers become fully imprinted.
     let hyperloglog_saturations = ScalarCounter::new();
 
     (0..iterations)
@@ -247,13 +242,8 @@ pub fn uncorrected_cardinality_samples_by_model<P: Precision + PackedRegister<B>
             ));
             let mut model_not_imprinted = model_not_imprinted.clone();
 
-            let hash_list_reports = hash_list_reports.get_mut();
             let hyperloglog_reports = hyperloglog_reports.get_mut();
 
-            // We iterate over the reports and increase the measurements.
-            hash_list_reports
-                .iter_mut()
-                .for_each(|report| report.increase_measuremenet_count());
             hyperloglog_reports
                 .iter_mut()
                 .for_each(|report| report.increase_measuremenet_count());
@@ -265,21 +255,13 @@ pub fn uncorrected_cardinality_samples_by_model<P: Precision + PackedRegister<B>
 
                 let index: usize = cardinality_estimate_to_index(exact_cardinality);
 
-                if model_not_imprinted.is_sorted_hash_list() {
-                    hash_list_reports[index]
-                        .update(exact_cardinality, cardinality_estimate_not_imprinted);
-                } else {
+                if !model_not_imprinted.is_sorted_hash_list() {
                     hyperloglog_reports[index]
                         .update(exact_cardinality, cardinality_estimate_not_imprinted);
                 }
 
-                let was_hash_list = model_not_imprinted.is_sorted_hash_list();
                 let was_not_full_not_imprinted = !model_not_imprinted.is_full();
                 model_not_imprinted.insert_element(starting_value);
-
-                if was_hash_list != model_not_imprinted.is_sorted_hash_list() {
-                    hash_list_saturations.update(exact_cardinality as f64);
-                }
 
                 if was_not_full_not_imprinted && model_not_imprinted.is_full() {
                     hyperloglog_saturations.update(exact_cardinality as f64);
@@ -289,24 +271,14 @@ pub fn uncorrected_cardinality_samples_by_model<P: Precision + PackedRegister<B>
             }
         });
 
-    // We flatten the reports from all threads into a single vector
     let total_hyperloglog_reports = hyperloglog_reports.flatten(iterations);
-
-    let total_hash_list_reports = hash_list_reports.flatten(iterations);
-
-    // We compute the mean saturation for both models
-    let mean_hash_list_saturation = hash_list_saturations.into_mean();
-
     let mean_hyperloglog_saturation = hyperloglog_saturations.into_mean();
 
     CardinalitySamplesByModel {
-        mean_hash_list_saturation,
         mean_hyperloglog_saturation,
         hyperloglog: total_hyperloglog_reports,
-        hash_list: total_hash_list_reports,
     }
 }
-
 /// Samples a counter forced into HyperLogLog registers from its first insert (via `into_hll`), so
 /// the register regime is characterized even at low load where a natural counter would still be a
 /// hash list. For each cardinality up to `maximum_cardinality` it records the raw uncorrected

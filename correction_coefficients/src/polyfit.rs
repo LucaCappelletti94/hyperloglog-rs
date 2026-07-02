@@ -20,6 +20,8 @@ const REL_WEIGHT_FLOOR: f64 = 1e-3;
 pub struct PolyFit {
     /// Monomial coefficients in `u`, low order first (`coeffs[0] + coeffs[1] u + ...`).
     pub coeffs: [f64; NCOEFF],
+    /// Actual polynomial degree used (may be less than `DEGREE` if sample count is low).
+    pub degree: usize,
     /// Lower end of the fit's load domain (`raw / m`).
     pub t_lo: f64,
     /// Upper end of the fit's load domain (`raw / m`).
@@ -38,8 +40,9 @@ impl PolyFit {
         } else {
             0.0
         };
-        let mut bias_over_m = self.coeffs[DEGREE];
-        for k in (0..DEGREE).rev() {
+        let deg = self.degree.min(NCOEFF - 1);
+        let mut bias_over_m = self.coeffs[deg];
+        for k in (0..deg).rev() {
             bias_over_m = bias_over_m * u + self.coeffs[k];
         }
         raw + m * bias_over_m
@@ -59,6 +62,12 @@ pub struct FitSample {
 /// Weighted least-squares fit of `bias/m` against the domain-mapped load, over the samples' load
 /// range. Empty input yields the identity correction (all-zero coefficients).
 pub fn fit(samples: &[FitSample], m: f64) -> PolyFit {
+    fit_with_degree(samples, m, DEGREE)
+}
+
+/// Weighted least-squares polynomial fit at an arbitrary degree. The returned [`PolyFit`] stores
+/// the actual degree used (clamped to the sample count and `NCOEFF - 1`).
+pub fn fit_with_degree(samples: &[FitSample], m: f64, degree: usize) -> PolyFit {
     let mut t_lo = f64::INFINITY;
     let mut t_hi = f64::NEG_INFINITY;
     for s in samples {
@@ -66,24 +75,22 @@ pub fn fit(samples: &[FitSample], m: f64) -> PolyFit {
         t_lo = t_lo.min(t);
         t_hi = t_hi.max(t);
     }
+    let empty = PolyFit {
+        coeffs: [0.0; NCOEFF],
+        degree: 0,
+        t_lo: 0.0,
+        t_hi: 0.0,
+    };
     if !(t_hi > t_lo) {
-        return PolyFit {
-            coeffs: [0.0; NCOEFF],
-            t_lo: 0.0,
-            t_hi: 0.0,
-        };
+        return empty;
     }
 
     let n = samples.len();
-    // A degree-d polynomial needs at least d+1 points; for sparse cells drop to the highest degree the
-    // data supports and zero-pad the remaining (high-order) coefficients, which Horner then ignores.
-    let ncols = NCOEFF.min(n);
+    // Cap degree so that ncols = degree + 1 does not exceed sample count or storage.
+    let effective_degree = degree.min(NCOEFF - 1).min(n - 1);
+    let ncols = effective_degree + 1;
     if ncols == 0 {
-        return PolyFit {
-            coeffs: [0.0; NCOEFF],
-            t_lo: 0.0,
-            t_hi: 0.0,
-        };
+        return empty;
     }
     // Row-major weighted design matrix A (n x ncols) and target b (n).
     let mut a = vec![0.0_f64; n * ncols];
@@ -92,9 +99,6 @@ pub fn fit(samples: &[FitSample], m: f64) -> PolyFit {
         let t = s.raw / m;
         let yn = (s.exact - s.raw) / m;
         let u = 2.0 * (t - t_lo) / (t_hi - t_lo) - 1.0;
-        // Relative-error weight: downstream relative error is (fit - yn) / (exact/m), and exact/m = t
-        // + yn, so weighting by sqrt(count)/(t+yn) makes the loss the count-weighted squared relative
-        // error.
         let exact_over_m = (t + yn).max(REL_WEIGHT_FLOOR);
         let w = s.count.sqrt() / exact_over_m;
         let mut uk = 1.0;
@@ -108,7 +112,12 @@ pub fn fit(samples: &[FitSample], m: f64) -> PolyFit {
     let solution = householder_qr_solve(&mut a, &mut b, n, ncols);
     let mut coeffs = [0.0_f64; NCOEFF];
     coeffs[..ncols].copy_from_slice(&solution[..ncols]);
-    PolyFit { coeffs, t_lo, t_hi }
+    PolyFit {
+        coeffs,
+        degree: effective_degree,
+        t_lo,
+        t_hi,
+    }
 }
 
 /// Solves the least-squares system `min ||A x - b||` for an `n x p` row-major matrix `A` (with
