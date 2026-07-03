@@ -1,0 +1,24 @@
+   Compiling hyperloglog-rs v0.1.56 (/home/luca/github/hyperloglog-rs)
+    Finished `release` profile [optimized] target(s) in 0.52s
+     Running `target/release/examples/sigma_tau_compare`
+Accuracy (mean relative error over a cardinality sweep in the corrected regime):
+
+P10 B6  mean |bias| over 20 cardinalities: uncorrected  0.4265%  sigma/tau  0.1917%
+P8  B6  mean |bias| over 9 cardinalities: uncorrected  0.3413%  sigma/tau  1.9156%
+P12 B6  mean |bias| over 27 cardinalities: uncorrected  5.3624%  sigma/tau  0.1436%
+
+Single-counter speed:
+
+P8  B6  ns/call: uncorrected    1.2  default (sigma/tau)    5.9  sigma/tau O(1)    4.7  sigma/tau O(m)    372.7  bare series    3.5
+P10 B6  ns/call: uncorrected    1.2  default (sigma/tau)    6.0  sigma/tau O(1)    4.8  sigma/tau O(m)   1188.5  bare series    3.5
+P12 B6  ns/call: uncorrected    1.2  default (sigma/tau)    6.0  sigma/tau O(1)    4.7  sigma/tau O(m)   4653.8  bare series    3.3
+P14 B6  ns/call: uncorrected    1.2  default (sigma/tau)    7.0  sigma/tau O(1)    6.0  sigma/tau O(m)  17011.4  bare series    4.0
+P16 B6  ns/call: uncorrected    1.2  default (sigma/tau)    7.0  sigma/tau O(1)    6.2  sigma/tau O(m)  67127.3  bare series    3.8
+
+Union (merge) speed on HyperBall-shaped counters (both 3*m):
+
+P8  B6  union merge:    1.59 us/merge    6.23 ns/register  (m = 256)
+P10 B6  union merge:    7.04 us/merge    6.88 ns/register  (m = 1024)
+P12 B6  union merge:   27.39 us/merge    6.69 ns/register  (m = 4096)
+P14 B6  union merge:  109.52 us/merge    6.68 ns/register  (m = 16384)
+P16 B6  union merge:  449.64 us/merge    6.86 ns/register  (m = 65536)

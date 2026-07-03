@@ -1,0 +1,48 @@
+    Finished `release` profile [optimized] target(s) in 0.06s
+     Running `target/release/examples/zero_count_probe`
+Max zero-register count and bit width in the dense bias-corrected band:
+
+P4  B4  m=     16  crossover~      42  max zeros in band =      0  needs  0 bits
+P4  B5  m=     16  crossover~      42  max zeros in band =      0  needs  0 bits
+P4  B6  m=     16  crossover~      42  max zeros in band =      0  needs  0 bits
+P5  B4  m=     32  crossover~      46  max zeros in band =      5  needs  3 bits
+P5  B5  m=     32  crossover~      70  max zeros in band =      1  needs  1 bits
+P5  B6  m=     32  crossover~      70  max zeros in band =      1  needs  1 bits
+P6  B4  m=     64  crossover~     101  max zeros in band =     11  needs  4 bits
+P6  B5  m=     64  crossover~     121  max zeros in band =      8  needs  4 bits
+P6  B6  m=     64  crossover~     127  max zeros in band =      7  needs  3 bits
+P7  B4  m=    128  crossover~     200  max zeros in band =     26  needs  5 bits
+P7  B5  m=    128  crossover~     245  max zeros in band =     17  needs  5 bits
+P7  B6  m=    128  crossover~     285  max zeros in band =     12  needs  4 bits
+P8  B4  m=    256  crossover~     390  max zeros in band =     61  needs  6 bits
+P8  B5  m=    256  crossover~     517  max zeros in band =     37  needs  6 bits
+P8  B6  m=    256  crossover~    1242  max zeros in band =      1  needs  1 bits
+P9  B4  m=    512  crossover~     667  max zeros in band =    139  needs  8 bits
+P9  B5  m=    512  crossover~     937  max zeros in band =     87  needs  7 bits
+P9  B6  m=    512  crossover~    2902  max zeros in band =      1  needs  1 bits
+P10 B4  m=   1024  crossover~    1335  max zeros in band =    278  needs  9 bits
+P10 B5  m=   1024  crossover~    1800  max zeros in band =    175  needs  8 bits
+P10 B6  m=   1024  crossover~    2259  max zeros in band =    106  needs  7 bits
+P11 B4  m=   2048  crossover~    2638  max zeros in band =    566  needs 10 bits
+P11 B5  m=   2048  crossover~    3617  max zeros in band =    357  needs  9 bits
+P11 B6  m=   2048  crossover~    4634  max zeros in band =    217  needs  8 bits
+P12 B4  m=   4096  crossover~    5335  max zeros in band =   1128  needs 11 bits
+P12 B5  m=   4096  crossover~    7143  max zeros in band =    725  needs 10 bits
+P12 B6  m=   4096  crossover~    9404  max zeros in band =    435  needs  9 bits
+P13 B4  m=   8192  crossover~   10410  max zeros in band =   2283  needs 12 bits
+P13 B5  m=   8192  crossover~   14255  max zeros in band =   1445  needs 11 bits
+P13 B6  m=   8192  crossover~   18156  max zeros in band =    883  needs 10 bits
+P14 B4  m=  16384  crossover~   23581  max zeros in band =   3846  needs 12 bits
+P14 B5  m=  16384  crossover~   28711  max zeros in band =   2759  needs 12 bits
+P14 B6  m=  16384  crossover~   36477  max zeros in band =   1700  needs 11 bits
+P15 B4  m=  32768  crossover~   36513  max zeros in band =  10763  needs 14 bits
+P15 B5  m=  32768  crossover~   52091  max zeros in band =   6631  needs 13 bits
+P15 B6  m=  32768  crossover~   70752  max zeros in band =   3763  needs 12 bits
+P16 B4  m=  65536  crossover~  132785  max zeros in band =   8596  needs 14 bits
+P16 B5  m=  65536  crossover~  145273  max zeros in band =   7126  needs 13 bits
+P16 B6  m=  65536  crossover~  139896  max zeros in band =   7705  needs 13 bits
+P17 B4  m= 131072  crossover~  575442  max zeros in band =   1624  needs 11 bits
+P17 B5  m= 131072  crossover~  591130  max zeros in band =   1456  needs 11 bits
+P17 B6  m= 131072  crossover~  591130  max zeros in band =   1456  needs 11 bits
+P18 B4  m= 262144  crossover~ 1378458  max zeros in band =   1375  needs 11 bits
+P18 B5  m= 262144  crossover~ 1372473  max zeros in band =   1397  needs 11 bits

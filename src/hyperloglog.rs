@@ -4,10 +4,7 @@
 //! longer fit, only then falling back to the probabilistic registers.
 
 use crate::composite_hash::{GapHash, SaturationError};
-use crate::correction_coefficients::{
-    HYPERLOGLOG_CORRECTION_COEFFS, HYPERLOGLOG_CORRECTION_DOMAIN,
-    HYPERLOGLOG_LINEAR_COUNT_THRESHOLD,
-};
+use crate::correction_coefficients::HYPERLOGLOG_LINEAR_COUNT_THRESHOLD;
 use crate::prelude::*;
 use core::f64;
 use core::fmt::Debug;
@@ -57,10 +54,15 @@ impl<P: Precision, B: Bits, R: Registers<P, B> + PartialEq, H: HasherType> Parti
     for HyperLogLog<P, B, R, H>
 {
     #[inline]
-    /// Compares the `harmonic_sum` word by its raw bits rather than as an `f64`. The word doubles as a
-    /// metadata bitfield (pre-dense) and as a NaN-boxed zero count (dense low-load), and `NaN != NaN`
-    /// under float equality would make two otherwise-identical counters compare unequal. Bitwise
-    /// comparison is exact for every representation.
+    /// Compares the `harmonic_sum` word by its raw bits rather than as an `f64`. The word doubles
+    /// as a pre-dense metadata bitfield, as a NaN-boxed zero count in dense low-load mode, and as
+    /// a pack of the harmonic sum and the zero-register count in dense harmonic mode. `NaN != NaN`
+    /// under float equality would make two otherwise-identical zero-mode counters compare unequal,
+    /// and the low-bit packing in harmonic mode is a real part of the counter's state. Bitwise
+    /// comparison is exact for every representation. As a consequence two counters that reach the
+    /// same register state via different insertion orders are NOT guaranteed equal: floating-point
+    /// `H += 2^-r_new - 2^-r_old` is order-sensitive at ULP scale, so the packed word may differ.
+    /// Counters built by the same insertion sequence are bit-identical.
     fn eq(&self, other: &Self) -> bool {
         self.harmonic_sum.to_bits() == other.harmonic_sum.to_bits()
             && self.registers == other.registers
@@ -95,29 +97,82 @@ fn decode_dense_zeros(harmonic_sum: f64) -> u32 {
     (harmonic_sum.to_bits() & DENSE_ZEROS_MASK) as u32
 }
 
-/// Applies a fitted bias-correction polynomial to a raw estimate. The correction is a degree-8
-/// polynomial in the normalized load `t = raw / m` (with `m = 2^P`), stored as monomial coefficients
-/// in the domain-mapped variable `u in [-1, 1]` (low order first) plus the load domain
-/// `[t_lo, t_hi]`. The load is clamped to the fit domain (so the correction never extrapolates), and
-/// `bias / m` is evaluated by Horner and added back: `corrected = raw + m * poly(u)`.
-///
-/// This MUST stay identical to `PolyFit::corrected` in the `correction_coefficients` generator, so the
-/// shipped behavior matches the fit's measured accuracy.
+/// Low-mantissa bit width reserved for the packed zero-register count in the dense bias-corrected
+/// band, indexed `[P - 4][B - 4]`. In that band the `HyperLogLog::harmonic_sum` f64 word carries the
+/// harmonic sum `H` in its high `52 - ZERO_BITS[..]` mantissa bits with the low `ZERO_BITS[..]` bits
+/// clear and holding the zero-register count, so Ertl's sigma/tau estimator can read both moments in
+/// O(1) without a register scan. Sized to the empirical worst case `m * exp(-threshold / m)` (matched
+/// by `examples/zero_count_probe.rs` to within 1 count across P4..P18) plus a two-bit safety margin,
+/// with a four-bit floor. Full derivation and the probe run are in `docs/zero_bits_table.md`.
+const ZERO_BITS: [[u8; 3]; 15] = [
+    [4, 4, 4],    // P4   max zeros ~     1 /     1 /     1
+    [5, 4, 4],    // P5   max zeros ~     6 /     1 /     1
+    [6, 6, 5],    // P6   max zeros ~    12 /     9 /     7
+    [7, 7, 6],    // P7   max zeros ~    26 /    17 /    12
+    [8, 8, 4],    // P8   max zeros ~    61 /    38 /     2
+    [10, 9, 4],   // P9   max zeros ~   140 /    88 /     2
+    [11, 10, 9],  // P10  max zeros ~   279 /   176 /   106
+    [12, 11, 10], // P11  max zeros ~   566 /   357 /   218
+    [13, 12, 11], // P12  max zeros ~  1129 /   726 /   435
+    [14, 13, 12], // P13  max zeros ~  2284 /  1446 /   884
+    [14, 14, 13], // P14  max zeros ~  3846 /  2760 /  1700
+    [16, 15, 14], // P15  max zeros ~ 10764 /  6631 /  3764
+    [16, 15, 15], // P16  max zeros ~  8596 /  7127 /  7706
+    [13, 13, 13], // P17  max zeros ~  1624 /  1456 /  1456
+    [13, 13, 13], // P18  max zeros ~  1376 /  1397 /  1397
+];
+
+/// Number of low mantissa bits of `harmonic_sum` that hold the packed zero-register count for the
+/// `(P, B)` cell, i.e. `ZERO_BITS[P - 4][B - 4]`. A monomorphizing wrapper so callers do not spell
+/// out the index arithmetic each time.
 #[inline]
-#[must_use]
-pub fn correct_cardinality(raw_estimate: f64, m: f64, coeffs: &[f64], domain: &[f64; 2]) -> f64 {
-    let (t_lo, t_hi) = (domain[0], domain[1]);
-    let t = (raw_estimate / m).clamp(t_lo, t_hi);
-    let u = if t_hi > t_lo {
-        2.0 * (t - t_lo) / (t_hi - t_lo) - 1.0
-    } else {
-        0.0
-    };
-    let mut bias_over_m = *coeffs.last().unwrap();
-    for k in (0..coeffs.len() - 1).rev() {
-        bias_over_m = bias_over_m * u + coeffs[k];
-    }
-    raw_estimate + m * bias_over_m
+fn zero_bits<P: Precision, B: Bits>() -> u8 {
+    ZERO_BITS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4]
+}
+
+/// Packs a zero-register count into the low `zero_bits` mantissa bits of the harmonic-sum word,
+/// clearing those bits of `h` first. The high `52 - zero_bits` mantissa bits (and the sign and
+/// exponent) carry the harmonic sum, so `unpack_harmonic(pack_harmonic_with_zeros(h, z, k), k)`
+/// recovers `h` truncated by at most one low-bits ULP and `unpack_zeros(.., k)` recovers `z`.
+///
+/// `zero_bits` MUST be at most 32 (the width of the `zeros: u32` payload); `zeros` MUST fit in that
+/// many bits (`zeros < 1 << zero_bits`), or the debug asserts fire and the packed count truncates.
+#[inline]
+fn pack_harmonic_with_zeros(h: f64, zeros: u32, zero_bits: u8) -> f64 {
+    debug_assert!(
+        zero_bits <= 32,
+        "zero_bits ({zero_bits}) must be at most 32 (the u32 zeros field width)"
+    );
+    debug_assert!(
+        zero_bits == 32 || u64::from(zeros) < 1u64 << zero_bits,
+        "zeros ({zeros}) does not fit in {zero_bits} bits"
+    );
+    let mask = (1u64 << zero_bits) - 1;
+    let h_bits = h.to_bits() & !mask;
+    f64::from_bits(h_bits | u64::from(zeros))
+}
+
+/// Extracts the harmonic sum from a packed word by clearing the low `zero_bits` mantissa bits. The
+/// relative error against the original harmonic sum is at most `2^(zero_bits - 52)`.
+#[inline]
+fn unpack_harmonic(word: f64, zero_bits: u8) -> f64 {
+    debug_assert!(
+        zero_bits <= 32,
+        "zero_bits ({zero_bits}) must be at most 32"
+    );
+    let mask = (1u64 << zero_bits) - 1;
+    f64::from_bits(word.to_bits() & !mask)
+}
+
+/// Extracts the packed zero-register count from the low `zero_bits` mantissa bits of the word.
+#[inline]
+fn unpack_zeros(word: f64, zero_bits: u8) -> u32 {
+    debug_assert!(
+        zero_bits <= 32,
+        "zero_bits ({zero_bits}) must be at most 32"
+    );
+    let mask = (1u64 << zero_bits) - 1;
+    (word.to_bits() & mask) as u32
 }
 
 /// Which cardinality-estimation regime a counter is in, returned by
@@ -130,8 +185,8 @@ pub enum EstimationRegime {
     /// Sorted hash list: corrected for hash collisions via the birthday-paradox
     /// `HASHLIST_CORRECTION_*` tables.
     HashListCollisionCorrected,
-    /// `HyperLogLog` registers below `correction_upper_bound`: the empirical `HyperLogLog`++ bias
-    /// correction (the `HYPERLOGLOG_CORRECTION_*` tables).
+    /// `HyperLogLog` registers below `correction_upper_bound`: Ertl's analytical tau/sigma
+    /// estimator (`sigma_tau_cardinality`), evaluated in O(1) from the packed `(H, zeros)` moments.
     HyperLogLogBiasCorrected,
     /// `HyperLogLog` registers at very low load (the linear-counting estimate is at or below the
     /// regenerated per-`(P, B)` `HYPERLOGLOG_LINEAR_COUNT_THRESHOLD`): the count of zero registers
@@ -173,8 +228,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         // Since number_of_registers is a power of 2, specifically 2^exponent, the harmonic sum
         // is equal to 2^(exponent - max_multiplicity). Only a HyperLogLog counter can be full; the
         // pre-HyperLogLog representations reuse `harmonic_sum` as a metadata word, not a real sum.
+        // The saturated harmonic sum is a pure power of two (mantissa low bits are zero), so the
+        // band-mask applied inside `dense_harmonic_sum` never disturbs it.
         self.is_hyperloglog()
-            && self.harmonic_sum
+            && self.dense_harmonic_sum()
                 <= f64::integer_exp2_minus_signed(
                     (1_i16 << B::NUMBER_OF_BITS) - i16::from(P::EXPONENT) - 1,
                 )
@@ -245,11 +302,13 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         // HyperLogLog registers. The dense word's mode records which estimator applies, mirroring
         // `estimate_cardinality`: zeros mode is the low-load linear-counting regime, harmonic mode is
         // raw above the correction bound and empirically bias-corrected below it.
+        // Zeros mode still lives in the NaN box, so keep the direct check; the raw-vs-corrected
+        // decision then reads the harmonic sum through the band-mask accessor.
         if self.harmonic_sum.is_nan() {
             return EstimationRegime::HyperLogLogLinearCounted;
         }
         let raw_estimate =
-            P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / self.harmonic_sum;
+            P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / self.dense_harmonic_sum();
         if raw_estimate >= correction_upper_bound::<P>() {
             EstimationRegime::HyperLogLogRaw
         } else {
@@ -275,14 +334,36 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 
     #[inline]
-    /// The real harmonic sum of the dense registers, reconstructing it from the registers when the
-    /// word is in NaN-boxed zeros mode. O(1) in harmonic mode, O(m) in zeros mode. Only valid in
-    /// register mode.
+    /// The harmonic sum `H = sum 2^-register` of the dense registers, ready for any raw or
+    /// bias-corrected estimator. O(1) in harmonic mode (the stored word with the low
+    /// [`ZERO_BITS`] mantissa bits masked to zero, so the packed zero-register count that step 4
+    /// puts there does not leak into `H`), O(m) in zeros mode (reconstructed from the registers,
+    /// since the word is a NaN-boxed count instead of a sum). Only valid in register mode.
+    ///
+    /// The mask perturbs `H` by at most one low-bits ULP, i.e. `|H_masked - H| <= H *
+    /// 2^(ZERO_BITS[..] - 52) ~ 1.5e-11` in the worst cell (P15/P16 B4). That is six to eight
+    /// orders of magnitude below the register-noise floor and negligible for every estimator.
     pub(crate) fn dense_harmonic_sum(&self) -> f64 {
         if self.harmonic_sum.is_nan() {
             self.harmonic_sum_from_registers()
         } else {
-            self.harmonic_sum
+            unpack_harmonic(self.harmonic_sum, zero_bits::<P, B>())
+        }
+    }
+
+    #[inline]
+    /// Zero-register count of a dense counter, O(1) from the word alone: from the NaN-boxed count
+    /// in dense zeros mode, from the low-mantissa packing in dense harmonic mode. Panics in debug
+    /// if the counter is not dense.
+    pub(crate) fn dense_zero_count(&self) -> u32 {
+        debug_assert!(
+            self.is_hyperloglog(),
+            "dense_zero_count called on a pre-dense counter",
+        );
+        if self.harmonic_sum.is_nan() {
+            decode_dense_zeros(self.harmonic_sum)
+        } else {
+            unpack_zeros(self.harmonic_sum, zero_bits::<P, B>())
         }
     }
 
@@ -411,15 +492,14 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             let count = self.get_number_of_values();
             let new_registers = self.full_size_cleared_registers();
             let source = core::mem::replace(&mut self.registers, new_registers);
-            self.harmonic_sum = f64::integer_exp2(P::EXPONENT);
+            self.harmonic_sum = encode_dense_zeros(u32::try_from(1u64 << P::EXPONENT).unwrap());
             for value in
                 crate::composite_hash::gaps::value_list::ValueIter::new(source.as_ref(), count)
             {
                 let (index, register, _) = Self::index_and_register_and_hash(&value);
                 self.insert_register_value_and_index(register, index);
             }
-            debug_assert!(self.harmonic_sum.is_finite());
-            self.finalize_dense_representation();
+            debug_assert!(self.is_hyperloglog());
             return;
         }
 
@@ -429,7 +509,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         let registers = core::mem::replace(&mut self.registers, new_registers);
         let number_of_hashes = self.get_number_of_hashes().unwrap();
         let writer_tell = self.get_writer_tell();
-        self.harmonic_sum = f64::integer_exp2(P::EXPONENT);
+        self.harmonic_sum = encode_dense_zeros(u32::try_from(1u64 << P::EXPONENT).unwrap());
 
         let mut last_index = usize::MAX;
         GapHash::<P, B>::decoded(registers.as_ref(), number_of_hashes, hash_bits, writer_tell)
@@ -441,8 +521,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 self.insert_register_value_and_index(new_register_value, index);
             });
 
-        debug_assert!(self.harmonic_sum.is_finite());
-        self.finalize_dense_representation();
+        debug_assert!(self.is_hyperloglog());
     }
 
     #[inline]
@@ -452,23 +531,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     pub fn into_hll(mut self) -> Self {
         self.to_hll();
         self
-    }
-
-    #[inline]
-    /// Called once a dense counter has just been built with a real harmonic sum. When the load is low
-    /// enough that linear counting is the preferred estimator, switch the word to the NaN-boxed zero
-    /// count (zeros mode) so future estimates are O(1) without a register scan. At higher load it stays
-    /// in harmonic mode, unchanged.
-    fn finalize_dense_representation(&mut self) {
-        debug_assert!(self.is_hyperloglog() && !self.harmonic_sum.is_nan());
-        let zeros = self.number_of_zero_registers().unwrap();
-        if zeros == 0 {
-            return;
-        }
-        let m = f64::integer_exp2(P::EXPONENT);
-        if m * (m / zeros as f64).natural_log() <= Self::linear_count_threshold() {
-            self.harmonic_sum = encode_dense_zeros(u32::try_from(zeros).unwrap());
-        }
     }
 
     #[inline]
@@ -661,20 +723,35 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 let m = f64::integer_exp2(P::EXPONENT);
                 // Stay in zeros mode while linear counting is still the preferred estimator (the same
                 // decision `corrected_register_cardinality` makes); otherwise materialize the real
-                // harmonic sum once and switch to harmonic mode for the rest of the counter's life.
+                // harmonic sum once and switch to harmonic mode for the rest of the counter's life,
+                // packing the current zero count into the low mantissa bits so the sigma/tau O(1)
+                // moments path can read it back without a scan.
                 let stays_linear = zeros > 0
                     && m * (m / f64::from(zeros)).natural_log() <= Self::linear_count_threshold();
                 self.harmonic_sum = if stays_linear {
                     encode_dense_zeros(zeros)
                 } else {
-                    self.harmonic_sum_from_registers()
+                    let h = self.harmonic_sum_from_registers();
+                    pack_harmonic_with_zeros(h, zeros, zero_bits::<P, B>())
                 };
             }
         } else {
-            self.harmonic_sum += f64::integer_exp2_minus(larger_register_value)
+            // Harmonic mode (dense, above the crossover): extract the current harmonic sum from the
+            // high mantissa bits and the packed zero-register count from the low bits, apply the H
+            // delta, decrement the count when a zero flipped to nonzero, then repack. The mask-add-
+            // repack pattern is essential: doing `harmonic_sum += delta` directly would let the
+            // delta's low bits corrupt the packed count, since delta and count share the same word.
+            let k = zero_bits::<P, B>();
+            let mut zeros = unpack_zeros(self.harmonic_sum, k);
+            let new_h = unpack_harmonic(self.harmonic_sum, k)
+                + f64::integer_exp2_minus(larger_register_value)
                 - f64::integer_exp2_minus(old_register_value);
-            debug_assert!(self.harmonic_sum.is_finite());
-            debug_assert!(self.harmonic_sum > 0.0);
+            if old_register_value == 0 && larger_register_value > 0 {
+                debug_assert!(zeros > 0, "packed zero count went stale on decrement");
+                zeros -= 1;
+            }
+            debug_assert!(new_h.is_finite() && new_h > 0.0);
+            self.harmonic_sum = pack_harmonic_with_zeros(new_h, zeros, k);
         }
 
         old_register_value < new_register_value
@@ -707,10 +784,12 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     #[inline]
     /// Corrects a register-mode cardinality from its harmonic sum and zero-register count. Uses
     /// linear counting (`m * ln(m / zeros)`) when its estimate is at or below the regenerated
-    /// threshold (the most accurate estimator at low load), otherwise the empirically bias-corrected
-    /// raw estimate, which passes through to the uncorrected raw above the correction bound. Shared by
-    /// the single-counter [`estimate_cardinality`](Self::estimate_cardinality) and the dense union
-    /// path so both apply linear counting at low load rather than the badly-biased raw correction.
+    /// threshold (the most accurate estimator at low load), otherwise Ertl's analytical tau/sigma
+    /// estimator via [`ertl_cardinality_from_moments`](crate::sigma_tau::ertl_cardinality_from_moments)
+    /// with `saturated = 0`. Shared by the single-counter
+    /// [`estimate_cardinality`](Self::estimate_cardinality) and the dense union path so both apply
+    /// linear counting at low load rather than sigma/tau's `O(m)` H reconstruction, and sigma/tau
+    /// everywhere above.
     pub(crate) fn corrected_register_cardinality(harmonic_sum: f64, zeros: usize) -> f64 {
         if zeros > 0 {
             let m = f64::integer_exp2(P::EXPONENT);
@@ -719,32 +798,12 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                 return linear_counting;
             }
         }
-        Self::bias_corrected_raw_cardinality(harmonic_sum)
-    }
-
-    #[inline]
-    /// The empirically bias-corrected raw register cardinality, WITHOUT the linear-counting branch:
-    /// `correct_cardinality(alpha * m^2 / harmonic_sum)`, passing through to the uncorrected raw above
-    /// the correction bound. This is the non-linear-counting tail of
-    /// [`corrected_register_cardinality`](Self::corrected_register_cardinality), factored out so the
-    /// [`NoLinearCounting`](crate::no_linear_counting::NoLinearCounting) view can reuse it to measure
-    /// how much linear counting contributes at low load.
-    pub(crate) fn bias_corrected_raw_cardinality(harmonic_sum: f64) -> f64 {
-        let m = f64::integer_exp2(P::EXPONENT);
-        let raw = P::ALPHA * f64::integer_exp2(P::EXPONENT + P::EXPONENT) / harmonic_sum;
-        // Above the correction bound the raw estimate is used uncorrected (the fitted polynomial only
-        // covers the load domain up to 7.5 * 2^P).
-        if raw >= correction_upper_bound::<P>() {
-            return raw;
-        }
-        let p = P::EXPONENT as usize - 4;
-        let b = B::NUMBER_OF_BITS as usize - 4;
-        correct_cardinality(
-            raw,
-            m,
-            &HYPERLOGLOG_CORRECTION_COEFFS[p][b],
-            &HYPERLOGLOG_CORRECTION_DOMAIN[p][b],
-        )
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "zeros <= m <= 2^18 is exact in f64"
+        )]
+        let zeros_f = zeros as f64;
+        crate::sigma_tau::ertl_cardinality_from_moments::<P, B>(harmonic_sum, zeros_f, 0.0)
     }
 
     /// Expected number of distinct composite hashes for `n` elements at the given width, and its
@@ -941,25 +1000,12 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             let m = f64::integer_exp2(P::EXPONENT);
             m * (m / f64::from(zeros)).natural_log()
         } else {
-            // Dense, harmonic mode: linear counting no longer applies (the counter left zeros mode at
-            // the crossover), so the bias-corrected raw estimate is correct, again with no scan.
-            Self::bias_corrected_raw_cardinality(self.harmonic_sum)
-        }
-    }
-
-    #[inline]
-    /// Returns the cardinality estimate with the register linear-counting branch BYPASSED: in
-    /// register mode it always uses the bias-corrected raw estimate
-    /// ([`bias_corrected_raw_cardinality`](Self::bias_corrected_raw_cardinality)), never linear
-    /// counting. A pre-dense operand (value or sorted hash list) never uses linear counting, so it
-    /// delegates to the default [`estimate_cardinality`](Self::estimate_cardinality). Used by the
-    /// [`NoLinearCounting`](crate::no_linear_counting::NoLinearCounting) view to measure the
-    /// contribution of linear counting at low load.
-    pub(crate) fn estimate_cardinality_no_linear_counting(&self) -> f64 {
-        if self.is_hyperloglog() {
-            Self::bias_corrected_raw_cardinality(self.dense_harmonic_sum())
-        } else {
-            self.estimate_cardinality()
+            // Dense, harmonic mode: Ertl's analytical tau/sigma estimator, evaluated in O(1) from
+            // the packed `(H, zeros)` moments. This replaces the shipped fitted-polynomial bias
+            // correction (which failed at P8, oscillated across the band, and damaged the raw
+            // estimate at high load). Saturation is treated as zero: the packed band ends at
+            // `7.5 * m`, orders of magnitude below where even a four-bit register field saturates.
+            self.sigma_tau_cardinality()
         }
     }
 
@@ -1216,31 +1262,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             }
         }
         Self::hash_list_cardinality(distinct, target_hash_bits)
-    }
-
-    #[inline]
-    /// Returns the union cardinality estimate with the register linear-counting branch BYPASSED. When
-    /// both operands are dense, the union is estimated from the element-wise-max registers via
-    /// [`bias_corrected_raw_cardinality`](Self::bias_corrected_raw_cardinality) (never linear
-    /// counting), and the operand cardinalities likewise bypass linear counting. Otherwise it delegates
-    /// to the default [`estimate_union_cardinality`](Self::estimate_union_cardinality): two pre-dense
-    /// operands never use linear counting so the delegation is exact, but a union mixing a register
-    /// counter with a pre-dense one can still apply linear counting on the reconstructed union (this
-    /// view does not special-case that mix). Used by the
-    /// [`NoLinearCounting`](crate::no_linear_counting::NoLinearCounting) view.
-    pub(crate) fn estimate_union_cardinality_no_linear_counting(&self, other: &Self) -> f64 {
-        if self.is_hyperloglog() && other.is_hyperloglog() {
-            let (union_harmonic_sum, _union_zeros) =
-                self.registers.get_union_harmonic_sum(&other.registers);
-            let union_estimate = Self::bias_corrected_raw_cardinality(union_harmonic_sum);
-            correct_union_estimate(
-                self.estimate_cardinality_no_linear_counting(),
-                other.estimate_cardinality_no_linear_counting(),
-                union_estimate,
-            )
-        } else {
-            self.estimate_union_cardinality(other)
-        }
     }
 
     #[inline]
@@ -2132,5 +2153,395 @@ mod occupancy_partition_tests {
         check_partition::<Precision9, Bits6>();
         check_partition::<Precision10, Bits6>();
         check_partition::<Precision12, Bits6>();
+    }
+}
+
+#[cfg(test)]
+mod zero_pack_tests {
+    //! Round-trip and relative-error bounds for the harmonic-sum packing helpers
+    //! ([`pack_harmonic_with_zeros`], [`unpack_harmonic`], [`unpack_zeros`]). These are pure
+    //! numerical properties of the bit-layout, independent of any `HyperLogLog` counter.
+
+    use super::{pack_harmonic_with_zeros, unpack_harmonic, unpack_zeros, zero_bits, ZERO_BITS};
+    use crate::prelude::*;
+
+    /// A representative slice of harmonic-sum magnitudes for the packing tests. Covers the small
+    /// P4 sums (a few units) through the P18 sums (hundreds of thousands, once `H ~ 0.1 * m`).
+    const HARMONIC_SUMS: &[f64] = &[
+        1.0,
+        1.5,
+        7.0 / 3.0,
+        16.0,
+        1.234_567_890_123_456e2,
+        2_048.0,
+        3.141_592_653_589_793e4,
+        6.5e5,
+    ];
+
+    /// Packing then unpacking must recover the zero count exactly for every width and every value
+    /// the width can hold, regardless of the harmonic-sum bit pattern.
+    #[test]
+    fn pack_unpack_round_trip_zeros() {
+        for &h in HARMONIC_SUMS {
+            for zero_bits in 0u8..=16 {
+                let max_zeros = if zero_bits == 0 {
+                    0
+                } else {
+                    (1u32 << zero_bits) - 1
+                };
+                // Sample low, mid, and boundary zero counts.
+                let samples = [
+                    0u32,
+                    1,
+                    max_zeros / 2,
+                    max_zeros.saturating_sub(1),
+                    max_zeros,
+                ];
+                for &zeros in &samples {
+                    if zeros > max_zeros {
+                        continue;
+                    }
+                    let packed = pack_harmonic_with_zeros(h, zeros, zero_bits);
+                    let recovered = unpack_zeros(packed, zero_bits);
+                    assert_eq!(
+                        recovered, zeros,
+                        "h={h} zero_bits={zero_bits} zeros={zeros}: got {recovered}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Unpacking the harmonic sum must return `h` truncated by at most one low-bits ULP, i.e. the
+    /// relative error is at most `2^(zero_bits - 52)`. This is the mask-only property (packing
+    /// clears the low bits; nothing else moves).
+    #[test]
+    fn unpack_harmonic_relative_error_bound() {
+        for &h in HARMONIC_SUMS {
+            for zero_bits in 0u8..=16 {
+                let max_zeros = if zero_bits == 0 {
+                    0
+                } else {
+                    (1u32 << zero_bits) - 1
+                };
+                for &zeros in &[0u32, 1, max_zeros / 2, max_zeros] {
+                    if zeros > max_zeros {
+                        continue;
+                    }
+                    let packed = pack_harmonic_with_zeros(h, zeros, zero_bits);
+                    let recovered = unpack_harmonic(packed, zero_bits);
+                    // The recovered value differs from `h` by at most one low-bits ULP, which in
+                    // the worst case is `2^(zero_bits - 52) * |h|` relative.
+                    let bound = h * f64::integer_exp2_minus_signed(52 - i16::from(zero_bits));
+                    let err = (recovered - h).abs();
+                    assert!(
+                        err <= bound,
+                        "h={h} zero_bits={zero_bits} zeros={zeros}: err {err} > bound {bound}"
+                    );
+                    // Truncation, never rounding: the recovered value never exceeds `h`.
+                    assert!(
+                        recovered <= h,
+                        "h={h} zero_bits={zero_bits} zeros={zeros}: recovered {recovered} > h"
+                    );
+                }
+            }
+        }
+    }
+
+    /// A zero-bit width is the identity: no bits stolen, no zeros carried, packed word equals `h`.
+    #[test]
+    fn zero_width_is_identity() {
+        for &h in HARMONIC_SUMS {
+            let packed = pack_harmonic_with_zeros(h, 0, 0);
+            assert_eq!(packed.to_bits(), h.to_bits(), "h={h}");
+            assert_eq!(unpack_harmonic(packed, 0).to_bits(), h.to_bits());
+            assert_eq!(unpack_zeros(packed, 0), 0);
+        }
+    }
+
+    /// A zero-count of zero recovers the bit-identical masked-`h`, and packing then unpacking is
+    /// idempotent (the packed word is a fixed point of `unpack_harmonic`).
+    #[test]
+    fn pack_zero_matches_mask_only() {
+        for &h in HARMONIC_SUMS {
+            for zero_bits in 0u8..=16 {
+                let packed = pack_harmonic_with_zeros(h, 0, zero_bits);
+                let masked = unpack_harmonic(h, zero_bits);
+                assert_eq!(
+                    packed.to_bits(),
+                    masked.to_bits(),
+                    "h={h} zero_bits={zero_bits}"
+                );
+                let re_masked = unpack_harmonic(packed, zero_bits);
+                assert_eq!(packed.to_bits(), re_masked.to_bits());
+            }
+        }
+    }
+
+    /// The frozen `ZERO_BITS` table must be a valid mantissa slice: every entry is at most 52 (the
+    /// mantissa width) and, per the derivation, at most 16 (P15 B4, P16 B4).
+    #[test]
+    fn zero_bits_table_bounds() {
+        for row in &ZERO_BITS {
+            for &k in row {
+                assert!(k >= 4, "ZERO_BITS entry {k} < 4-bit floor");
+                assert!(k <= 16, "ZERO_BITS entry {k} > 16-bit ceiling");
+            }
+        }
+    }
+
+    /// The `zero_bits::<P, B>()` monomorphizing accessor must equal the table lookup.
+    #[test]
+    fn zero_bits_accessor_matches_table() {
+        macro_rules! check {
+            ($p:ty, $b:ty) => {{
+                let got = zero_bits::<$p, $b>();
+                let expected = ZERO_BITS[<$p as Precision>::EXPONENT as usize - 4]
+                    [<$b as VariableWord>::NUMBER_OF_BITS as usize - 4];
+                assert_eq!(
+                    got,
+                    expected,
+                    "P{} B{}",
+                    <$p as Precision>::EXPONENT,
+                    <$b as VariableWord>::NUMBER_OF_BITS
+                );
+            }};
+        }
+        check!(Precision4, Bits4);
+        check!(Precision4, Bits5);
+        check!(Precision4, Bits6);
+        check!(Precision8, Bits6);
+        check!(Precision10, Bits6);
+        check!(Precision12, Bits4);
+        check!(Precision15, Bits4);
+        check!(Precision16, Bits4);
+        check!(Precision18, Bits6);
+    }
+
+    /// The packed zero count in the harmonic-mode word MUST match a fresh register scan at every
+    /// mutation, whether the counter arrived at harmonic mode by natural growth from a hash list,
+    /// by the zeros-to-harmonic transition inside `insert_register_value_and_index`, or by a
+    /// merge that folded a second dense counter in.
+    #[test]
+    fn packed_zeros_match_scan_across_lifecycle() {
+        fn assert_matches<P, B>(hll: &HyperLogLog<P, B>, label: &str, step: u64)
+        where
+            P: Precision + PackedRegister<B>,
+            B: Bits,
+        {
+            if !hll.is_hyperloglog() || hll.harmonic_sum.is_nan() {
+                return;
+            }
+            let scanned = u32::try_from(hll.number_of_zero_registers().unwrap()).unwrap();
+            let packed = hll.dense_zero_count();
+            assert_eq!(
+                scanned, packed,
+                "{label} step={step}: packed {packed} != scan {scanned}",
+            );
+        }
+
+        fn check<P, B>(name: &str)
+        where
+            P: Precision + PackedRegister<B>,
+            B: Bits,
+        {
+            let m = 1u64 << P::EXPONENT;
+            for seed in 0u64..4 {
+                // Natural growth: hash-list -> dense (zeros -> harmonic transition may fire
+                // inside the insert path); sample the invariant along the way and at the end.
+                let n = 6 * m.max(200);
+                let sample_every = (n / 512).max(1);
+                let mut hll = HyperLogLog::<P, B>::default();
+                let mut state = 0x00C0_FFEE_u64 ^ seed;
+                for i in 0..n {
+                    state = splitmix64(state);
+                    hll.insert(&state);
+                    if i % sample_every == 0 {
+                        assert_matches(&hll, &format!("{name} natural seed={seed}"), i);
+                    }
+                }
+                assert_matches(&hll, &format!("{name} natural-end seed={seed}"), n);
+
+                // Forced dense at low load, then grown through the crossover: the counter enters
+                // dense zeros mode via `into_hll`, then the subsequent inserts drive the
+                // zeros-to-harmonic transition and its packed-count materialization.
+                let mut small = HyperLogLog::<P, B>::default();
+                let mut sstate = 0x0000_BABE_u64 ^ seed;
+                for _ in 0..(m / 8).max(20) {
+                    sstate = splitmix64(sstate);
+                    small.insert(&sstate);
+                }
+                let mut grown = small.into_hll();
+                for i in 0..2 * m {
+                    sstate = splitmix64(sstate);
+                    grown.insert(&sstate);
+                    if i % sample_every == 0 {
+                        assert_matches(&grown, &format!("{name} forced seed={seed}"), i);
+                    }
+                }
+                assert_matches(&grown, &format!("{name} forced-end seed={seed}"), 2 * m);
+
+                // Merge of two independent dense counters: `merge` iterates over the rhs
+                // registers through `insert_register_value_and_index`, so packed maintenance must
+                // survive that hot path too.
+                let mut a = HyperLogLog::<P, B>::default();
+                let mut astate = 0x000A_11CE_u64 ^ seed;
+                for _ in 0..3 * m {
+                    astate = splitmix64(astate);
+                    a.insert(&astate);
+                }
+                let mut b = HyperLogLog::<P, B>::default();
+                let mut bstate = 0x0000_0B0B_u64 ^ seed;
+                for _ in 0..3 * m {
+                    bstate = splitmix64(bstate);
+                    b.insert(&bstate);
+                }
+                let merged = a | b;
+                assert_matches(&merged, &format!("{name} merge seed={seed}"), 0);
+            }
+        }
+
+        check::<Precision6, Bits4>("P6B4");
+        check::<Precision8, Bits5>("P8B5");
+        check::<Precision10, Bits6>("P10B6");
+        check::<Precision12, Bits4>("P12B4");
+    }
+
+    /// Two counters built by the identical insertion sequence must be bit-equal after the packed
+    /// zeros field lands in the harmonic word. This is the invariant `PartialEq` documents: same
+    /// registers plus same `harmonic_sum` bits.
+    #[test]
+    fn partial_eq_bit_exact_after_packing() {
+        let mut a = HyperLogLog::<Precision10, Bits6>::default();
+        let mut b = HyperLogLog::<Precision10, Bits6>::default();
+        let mut state = 0x00C0_FFEE_u64;
+        for _ in 0..5_000u64 {
+            state = splitmix64(state);
+            a.insert(&state);
+            b.insert(&state);
+        }
+        assert!(
+            a.is_hyperloglog() && !a.harmonic_sum.is_nan(),
+            "test setup: need dense harmonic mode with a packed count",
+        );
+        assert_eq!(
+            a, b,
+            "identical insertion sequences must produce bit-equal counters"
+        );
+        assert_eq!(
+            a.harmonic_sum.to_bits(),
+            b.harmonic_sum.to_bits(),
+            "packed harmonic-sum word must be bit-identical",
+        );
+        assert_eq!(a.dense_zero_count(), b.dense_zero_count());
+        // Force a divergence: bump one of `b`'s registers directly to a value strictly larger
+        // than what it currently holds. That guarantees both the register state and the packed
+        // count change, so `PartialEq` must reflect the divergence.
+        let target = (1u8 << <Bits6 as VariableWord>::NUMBER_OF_BITS) - 1;
+        b.insert_register_value_and_index(target, 0);
+        assert_ne!(a, b, "diverged register state must not compare equal");
+    }
+
+    /// The raw regime (cardinality above the `7.5 * m` correction bound) keeps packing zeros, and
+    /// that count MUST fit in `ZERO_BITS[P - 4][B - 4]` bits. In the raw regime the true zero
+    /// count is at most `m * exp(-7.5)`, well under every cell's cap, so this test just
+    /// materializes the state and confirms the packed accessor round-trips the fresh scan.
+    #[test]
+    fn raw_regime_packed_count_fits_and_matches_scan() {
+        fn check<P, B>(name: &str)
+        where
+            P: Precision + PackedRegister<B>,
+            B: Bits,
+        {
+            let m = 1u64 << P::EXPONENT;
+            // 12 * m > 7.5 * m puts every configuration comfortably in the raw regime.
+            let n = 12 * m;
+            let mut hll = HyperLogLog::<P, B>::default();
+            let mut state = 0x0000_DEAD_BEEF_u64 ^ (u64::from(P::EXPONENT) << 8);
+            for _ in 0..n {
+                state = splitmix64(state);
+                hll.insert(&state);
+            }
+            assert!(
+                hll.is_hyperloglog() && !hll.harmonic_sum.is_nan(),
+                "{name} n={n}: must land in dense harmonic mode",
+            );
+            let raw_estimate = hll.uncorrected_estimate_cardinality();
+            assert!(
+                raw_estimate >= 7.5 * (m as f64),
+                "{name} n={n}: raw estimate {raw_estimate} should be in the raw regime",
+            );
+            let scanned = u32::try_from(hll.number_of_zero_registers().unwrap()).unwrap();
+            assert_eq!(
+                hll.dense_zero_count(),
+                scanned,
+                "{name} n={n}: packed count drifted from scan in raw regime",
+            );
+            let k = ZERO_BITS[P::EXPONENT as usize - 4][B::NUMBER_OF_BITS as usize - 4];
+            let cap = if k >= 32 { u32::MAX } else { (1u32 << k) - 1 };
+            assert!(
+                scanned <= cap,
+                "{name} n={n}: raw-regime zeros {scanned} exceeded {k}-bit cap {cap}",
+            );
+        }
+
+        check::<Precision8, Bits4>("P8B4");
+        check::<Precision10, Bits5>("P10B5");
+        check::<Precision12, Bits6>("P12B6");
+    }
+
+    /// Serde round-trip of the packed harmonic word: the low-mantissa packing must survive any
+    /// serde format that preserves finite `f64` bit-exactly. Whole-counter round-trip cannot be
+    /// tested at this layer because the register backing `sketching_core::Packed<W, V>` does not
+    /// yet implement `Serialize`/`Deserialize` under its own `serde` feature. That is a
+    /// pre-existing gap in `sketching_core`, unrelated to the packing; the invariant we own here
+    /// is that the harmonic-sum word round-trips, which is verified end to end via `serde_json`.
+    /// Zeros mode is skipped intentionally: its NaN box does not survive `serde_json`, which is a
+    /// JSON limitation, not a packing limitation.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_round_trip_packed_harmonic_word() {
+        let mut hll = HyperLogLog::<Precision10, Bits6>::default();
+        let mut state = 0x00C0_FFEE_u64;
+        for _ in 0..(5 * (1u64 << 10)) {
+            state = splitmix64(state);
+            hll.insert(&state);
+        }
+        assert!(
+            hll.is_hyperloglog() && !hll.harmonic_sum.is_nan(),
+            "test setup: need dense harmonic mode with a finite packed word",
+        );
+        let original_bits = hll.harmonic_sum.to_bits();
+        let packed_zeros = hll.dense_zero_count();
+        let scanned_zeros = u32::try_from(hll.number_of_zero_registers().unwrap()).unwrap();
+        assert_eq!(
+            packed_zeros, scanned_zeros,
+            "test setup: packed count must match the fresh scan before the round-trip",
+        );
+
+        // Round-trip the packed word itself. `serde_json` uses correctly-rounded formatting,
+        // which is a bijection on finite normal `f64` values, so bits are preserved.
+        let json = serde_json::to_string(&hll.harmonic_sum).expect("serialize packed word");
+        let restored_word: f64 = serde_json::from_str(&json).expect("deserialize packed word");
+        assert_eq!(
+            restored_word.to_bits(),
+            original_bits,
+            "packed harmonic-sum word must survive JSON round-trip bit-exactly",
+        );
+
+        // Reconstruct a counter around the restored word and confirm the packing survives on the
+        // reader side: `dense_harmonic_sum` and `dense_zero_count` recover the same `(H, zeros)`
+        // as the original, and the sigma/tau estimate matches bit-exactly.
+        let mut restored = hll;
+        restored.harmonic_sum = restored_word;
+        assert_eq!(restored.dense_zero_count(), scanned_zeros);
+        assert_eq!(
+            restored.dense_harmonic_sum().to_bits(),
+            hll.dense_harmonic_sum().to_bits(),
+        );
+        assert_eq!(
+            restored.sigma_tau_cardinality(),
+            hll.sigma_tau_cardinality(),
+        );
     }
 }

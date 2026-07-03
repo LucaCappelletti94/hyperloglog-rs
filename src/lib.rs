@@ -76,8 +76,8 @@ pub mod estimator;
 mod hash_list;
 pub mod hyperloglog;
 pub mod mle;
-pub mod no_linear_counting;
 mod registers;
+pub mod sigma_tau;
 pub mod sketches;
 pub mod utils;
 
@@ -88,8 +88,8 @@ pub mod prelude {
     pub use crate::estimator::HllCardinalityEstimator;
     pub use crate::hyperloglog::*;
     pub use crate::mle::{JointMle, Mle};
-    pub use crate::no_linear_counting::NoLinearCounting;
     pub use crate::registers::*;
+    pub use crate::sigma_tau::SigmaTau;
     pub use crate::sketches::*;
     pub use crate::utils::*;
     pub use core::ops::{BitOr, BitOrAssign};

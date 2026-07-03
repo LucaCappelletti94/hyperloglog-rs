@@ -206,7 +206,7 @@ fn scalar_mle(op: &str, a: &Hll, b: &Hll) -> f64 {
 /// linear-counting branch bypassed (always the bias-corrected raw estimate). Comparing this against
 /// `scalar_default` measures how much linear counting contributes at low register load.
 fn scalar_no_linear(op: &str, a: &Hll, b: &Hll) -> f64 {
-    let (an, bn) = (a.no_linear_counting(), b.no_linear_counting());
+    let (an, bn) = (a.sigma_tau(), b.sigma_tau());
     match op {
         "cardinality" => an.estimate_cardinality(),
         "union" => an.estimate_union_cardinality(&bn),
@@ -534,8 +534,8 @@ fn main() {
                 });
                 let no_linear_speed = with_no_linear.then(|| {
                     autobench(fast, REPS, || {
-                        let ln = [la[0].no_linear_counting(), la[1].no_linear_counting()];
-                        let rn = [ra[0].no_linear_counting(), ra[1].no_linear_counting()];
+                        let ln = [la[0].sigma_tau(), la[1].sigma_tau()];
+                        let rn = [ra[0].sigma_tau(), ra[1].sigma_tau()];
                         black_box_f64(JointSketch::estimate(&ln, &rn).union());
                     })
                 });
@@ -560,8 +560,8 @@ fn main() {
                         me_overlap.push(sketch_overlap_error_2x2(&mle_sketch, card as f64));
                     }
                     if with_no_linear {
-                        let ln = [l[0].no_linear_counting(), l[1].no_linear_counting()];
-                        let rn = [r[0].no_linear_counting(), r[1].no_linear_counting()];
+                        let ln = [l[0].sigma_tau(), l[1].sigma_tau()];
+                        let rn = [r[0].sigma_tau(), r[1].sigma_tau()];
                         let no_linear_sketch = JointSketch::estimate(&ln, &rn);
                         ne.push(sketch_error_2x2(&no_linear_sketch, card as f64));
                         ne_overlap.push(sketch_overlap_error_2x2(&no_linear_sketch, card as f64));
