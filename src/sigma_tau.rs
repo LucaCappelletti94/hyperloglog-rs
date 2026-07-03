@@ -1,16 +1,18 @@
 //! Ertl's tau/sigma corrected raw cardinality estimator (Otmar Ertl, "New cardinality estimation
-//! algorithms for HyperLogLog sketches", arXiv:1702.01284) and the [`SigmaTau`] mode wrapper that
+//! algorithms for `HyperLogLog` sketches", arXiv:1702.01284) and the [`SigmaTau`] mode wrapper that
 //! routes [`HyperLogLog`] cardinality estimates through it.
 //!
-//! Unlike the default estimate, which reads a fitted per-cell bias-correction polynomial
-//! (`HYPERLOGLOG_CORRECTION_COEFFS`), this estimator is fully analytical and table-free: two
-//! convergent series, `sigma` for the low (zero-register) range and `tau` for the saturated range,
-//! correct the raw harmonic sum across the whole cardinality range with no fitting. Obtain the view
-//! with [`HyperLogLog::sigma_tau`] and return to the default estimators with [`SigmaTau::into_inner`].
+//! Sigma/tau is now the crate's default register-regime estimator (as of the polynomial and
+//! anchor-table drop): the harmonic-mode branch of [`HyperLogLog::estimate_cardinality`] reads
+//! `(H, zeros)` in O(1) from the packed harmonic-sum word and calls
+//! [`ertl_cardinality_from_moments`]. The `SigmaTau` wrapper is retained as a diagnostic view
+//! that applies sigma/tau uniformly, including a strict evaluation in dense zeros mode where the
+//! default falls back to linear counting for O(1). Return to the default estimators with
+//! [`SigmaTau::into_inner`].
 
 use crate::prelude::*;
 
-/// `1 / (2 ln 2)`, the `m -> infinity` HyperLogLog normalization constant Ertl's estimator uses. The
+/// `1 / (2 ln 2)`, the `m -> infinity` `HyperLogLog` normalization constant Ertl's estimator uses. The
 /// finite-`m` bias is absorbed by `sigma`/`tau` rather than by a per-precision alpha.
 const ALPHA_INF: f64 = 0.721_347_520_444_481_7;
 
@@ -64,7 +66,7 @@ fn ertl_cardinality<P: Precision, B: Bits>(c: &[f64]) -> f64 {
     // halving recurrence that reproduces `sum_{k=1}^{q} c[k] * 2^-k`.
     let mut z = m * tau((m - c[q_plus_one]) / m);
     for k in (1..q_plus_one).rev() {
-        z = 0.5 * (z + c[k]);
+        z = f64::midpoint(z, c[k]);
     }
     // Low range: the zero-register correction.
     z += m * sigma(c[0] / m);
