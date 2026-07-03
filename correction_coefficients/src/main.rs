@@ -1,5 +1,8 @@
-//! Generator for the dense register-regime bias-correction coefficients and the linear-counting
-//! thresholds written to `../src/correction_coefficients.rs`.
+//! Generator for the per-cell linear-counting thresholds emitted at
+//! `../src/correction_coefficients.rs`. The dense register-regime bias correction is Ertl's
+//! analytical tau/sigma estimator (`src/sigma_tau.rs`), so this generator no longer fits
+//! polynomials or emits an anchor table; it only pins down where linear counting stops beating
+//! sigma/tau, cell by cell.
 #![deny(unsafe_code)]
 #![deny(unused_macro_rules)]
 #![deny(missing_docs)]
@@ -15,16 +18,14 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::File;
 
-use crate::utils::{register_correction, CorrectionPerformance, RegisterCorrection};
+use crate::utils::{register_correction, RegisterCorrection};
 use hyperloglog_rs::prelude::*;
 use indicatif::MultiProgress;
 use indicatif::{ProgressBar, ProgressStyle};
-use test_utils::prelude::write_report;
 
-/// Procedural macro to generate the correction function for the provided precision,
-/// and bit sizes.
+/// Runs `register_correction` for every `(precision, bits)` pair listed.
 macro_rules! generate_gap_for_precision {
-    ($reports:ident, $multiprogress:ident, $precision:ty, $($bit_size:ty),*) => {
+    ($corrections:ident, $multiprogress:ident, $precision:ty, $($bit_size:ty),*) => {
         let progress_bar = $multiprogress.add(ProgressBar::new(3 as u64));
 
         progress_bar.set_style(
@@ -37,8 +38,8 @@ macro_rules! generate_gap_for_precision {
         progress_bar.tick();
 
         $(
-            let report = register_correction::<$precision, $bit_size>($multiprogress);
-            $reports.push(report);
+            let correction = register_correction::<$precision, $bit_size>($multiprogress);
+            $corrections.push(correction);
             progress_bar.inc(1);
         )*
 
@@ -46,9 +47,9 @@ macro_rules! generate_gap_for_precision {
     };
 }
 
-/// Procedural macro to generate the correction function for the provided precisions.
+/// Runs `generate_gap_for_precision` for every precision listed.
 macro_rules! generate_gap_for_precisions {
-    ($reports:ident, $multiprogress:ident, $($precision:ty),*) => {
+    ($corrections:ident, $multiprogress:ident, $($precision:ty),*) => {
         let progress_bar = $multiprogress.add(ProgressBar::new(15));
 
         progress_bar.set_style(
@@ -61,7 +62,7 @@ macro_rules! generate_gap_for_precisions {
         progress_bar.tick();
 
         $(
-            generate_gap_for_precision!($reports, $multiprogress, $precision, Bits4, Bits5, Bits6);
+            generate_gap_for_precision!($corrections, $multiprogress, $precision, Bits4, Bits5, Bits6);
             progress_bar.inc(1);
         )*
 
@@ -70,10 +71,10 @@ macro_rules! generate_gap_for_precisions {
 }
 
 fn correction() {
-    let mut reports: Vec<(RegisterCorrection, CorrectionPerformance)> = Vec::new();
+    let mut corrections: Vec<RegisterCorrection> = Vec::new();
     let multiprogress = &MultiProgress::new();
     generate_gap_for_precisions!(
-        reports,
+        corrections,
         multiprogress,
         Precision4,
         Precision5,
@@ -93,29 +94,21 @@ fn correction() {
     );
     multiprogress.clear().unwrap();
 
-    let path = "correction.csv";
+    let maximal_precision = corrections.iter().map(|c| c.precision).max().unwrap();
 
-    write_report(reports.iter().map(|(_, c)| c), path);
-
-    let maximal_precision = reports.iter().map(|(c, _)| c.precision).max().unwrap();
-
-    // Emit the linear-counting threshold per (P, B) cell. The dense register-regime bias
-    // correction is now Ertl's analytical tau/sigma estimator (`src/sigma_tau.rs`), so this file
-    // no longer emits polynomial coefficients or a domain table.
+    // Emit the linear-counting threshold per (P, B) cell.
     let mut linear_count_thresholds: Vec<TokenStream> = Vec::new();
 
     (4..=maximal_precision).for_each(|exponent| {
         let mut this_linear_count_thresholds: Vec<TokenStream> = Vec::new();
 
         (4..=6).for_each(|bit_size| {
-            let (correction, _) = reports
+            let correction = corrections
                 .iter()
-                .find(|(correction, _)| {
-                    correction.precision == exponent && correction.bits == bit_size
-                })
+                .find(|correction| correction.precision == exponent && correction.bits == bit_size)
                 .unwrap();
-            let sub_linear_count_threshold = correction.linear_count_threshold;
-            this_linear_count_thresholds.push(quote! { #sub_linear_count_threshold });
+            let threshold = correction.linear_count_threshold;
+            this_linear_count_thresholds.push(quote! { #threshold });
         });
 
         linear_count_thresholds.push(quote! { [#(#this_linear_count_thresholds),*] });
@@ -126,7 +119,7 @@ fn correction() {
     let output = quote! {
         //! Register-regime linear-counting threshold (generated by the `correction_coefficients` crate).
         //!
-        //! The dense HyperLogLog register regime uses Ertl's analytical tau/sigma estimator in
+        //! The dense `HyperLogLog` register regime uses Ertl's analytical tau/sigma estimator in
         //! `src/sigma_tau.rs` (no fitted polynomials, no anchor tables). What remains here is the
         //! per-cell linear-counting crossover: below this cardinality the counter stays in the
         //! NaN-boxed dense zeros mode and returns `m * ln(m / zeros)` in O(1); above it, `to_hll`
@@ -142,22 +135,13 @@ fn correction() {
         ];
     };
 
-    // We write out the output token stream to '../src/composite_hash/gap_birthday_paradox.rs'
     let output_path = "../src/correction_coefficients.rs";
-
-    // Convert the generated TokenStream to a string
     let code_string = output.to_string();
-
-    // Parse the generated code string into a syn::Item
     let syntax_tree: File = syn::parse_str(&code_string).unwrap();
-
-    // Use prettyplease to format the syntax tree
     let formatted_code = unparse(&syntax_tree);
-
-    // Write the formatted code to the output file
     std::fs::write(output_path, formatted_code).unwrap();
 
-    println!("Generated correction coefficients in '{}'", output_path);
+    println!("Generated linear-counting thresholds in '{}'", output_path);
 }
 
 fn main() {
