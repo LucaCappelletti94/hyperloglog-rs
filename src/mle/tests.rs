@@ -767,7 +767,7 @@ mod joint_mle {
             a.mle_union_regions_from_registers(&b);
 
         // The generalized joint MLE through the register path.
-        let sketch = joint_sketch_mle_from_registers::<_, _, _, _, 1, 1>(&[a], &[b]);
+        let sketch = joint_sketch_mle_from_registers::<_, _, _, _, _, 1, 1>(&[a], &[b]);
 
         assert!(
             (sketch.overlap[0][0] - intersection).abs() <= 1e-6 * intersection.max(1.0),
@@ -848,7 +848,7 @@ mod joint_mle {
         // analytic Hessian, the oracle path a finite difference of its own gradient (the oracle has no
         // closed-form Hessian).
         let value_patterns = tabulate_joint_value_patterns::<_, _, _, _, M, N>(&lefts, &rights);
-        let (ov_poly, l_poly, r_poly) = joint_sketch_mle_core::<_, _, _, _, M, N>(
+        let (ov_poly, l_poly, r_poly) = joint_sketch_mle_core::<_, _, _, _, _, M, N>(
             &lefts,
             &rights,
             |phis, gradient| {
@@ -882,7 +882,7 @@ mod joint_mle {
 
         // Oracle path (exponential gradient, finite-difference Hessian).
         let oracle_patterns = tabulate_joint_patterns::<_, _, _, _, M, N>(&lefts, &rights);
-        let (ov_oracle, l_oracle, r_oracle) = joint_sketch_mle_core::<_, _, _, _, M, N>(
+        let (ov_oracle, l_oracle, r_oracle) = joint_sketch_mle_core::<_, _, _, _, _, M, N>(
             &lefts,
             &rights,
             |phis, gradient| {
@@ -1022,7 +1022,7 @@ mod joint_mle {
         );
 
         let (ov, ld, rd) =
-            joint_sketch_mle_from_registers::<_, _, _, _, M, N>(&lefts, &rights).into_parts();
+            joint_sketch_mle_from_registers::<_, _, _, _, _, M, N>(&lefts, &rights).into_parts();
         let union: f64 = overlap.iter().flatten().sum::<f64>()
             + left_diff.iter().sum::<f64>()
             + right_diff.iter().sum::<f64>();
@@ -1080,7 +1080,7 @@ mod joint_mle {
         let [left_difference, right_difference, intersection] =
             a.mle_union_regions_from_registers(&b);
         let union = left_difference + right_difference + intersection;
-        let sketch = joint_sketch_mle_from_registers_full::<_, _, _, _, 1, 1>(&[a], &[b]);
+        let sketch = joint_sketch_mle_from_registers_full::<_, _, _, _, _, 1, 1>(&[a], &[b]);
         // 0.5% of the union per region, well inside the P12 register error.
         let close = |got: f64, exact: f64| (got - exact).abs() <= 0.005 * union;
         assert!(

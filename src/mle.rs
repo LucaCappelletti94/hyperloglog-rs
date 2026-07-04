@@ -18,6 +18,7 @@
 //! and `exact` (the exact value-list joint set-algebra decomposition).
 
 use crate::prelude::*;
+use sketching_core::sparse_value_list::SparseValueCodec;
 
 mod cardinality;
 mod exact;
@@ -63,13 +64,14 @@ pub fn bench_joint_sketch_mle<
     B: Bits,
     R: Registers<P, B>,
     H: HasherType,
+    C: SparseValueCodec,
     const M: usize,
     const N: usize,
 >(
-    lefts: &[HyperLogLog<P, B, R, H>; M],
-    rights: &[HyperLogLog<P, B, R, H>; N],
+    lefts: &[HyperLogLog<P, B, R, H, C>; M],
+    rights: &[HyperLogLog<P, B, R, H, C>; N],
 ) -> crate::sketches::JointSketch<M, N> {
-    sketch::joint_sketch_mle_from_registers_full::<P, B, R, H, M, N>(lefts, rights)
+    sketch::joint_sketch_mle_from_registers_full::<P, B, R, H, C, M, N>(lefts, rights)
 }
 
 /// Benchmark hook: the 2-set union MLE regions via the production damped-Newton solver. Hidden from the
@@ -77,9 +79,9 @@ pub fn bench_joint_sketch_mle<
 /// hot path.
 #[doc(hidden)]
 #[must_use]
-pub fn bench_union_regions<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType>(
-    left: &HyperLogLog<P, B, R, H>,
-    right: &HyperLogLog<P, B, R, H>,
+pub fn bench_union_regions<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C: SparseValueCodec>(
+    left: &HyperLogLog<P, B, R, H, C>,
+    right: &HyperLogLog<P, B, R, H, C>,
 ) -> [f64; 3] {
     left.mle_union_regions_from_registers(right)
 }
@@ -88,7 +90,10 @@ use cardinality::mle_cardinality;
 use exact::joint_sketch_exact_from_values;
 use union::{mle_union_regions, union_region_relative_covariance};
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
+{
     /// Returns the union cardinality estimated with the joint Maximum Likelihood Estimation.
     ///
     /// # Examples
@@ -224,7 +229,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         if lefts.iter().all(Self::is_sorted_value_list)
             && rights.iter().all(Self::is_sorted_value_list)
         {
-            return joint_sketch_exact_from_values::<P, B, R, H, M, N>(lefts, rights);
+            return joint_sketch_exact_from_values::<P, B, R, H, C, M, N>(lefts, rights);
         }
         if !lefts.iter().chain(rights.iter()).any(Self::is_hyperloglog) {
             return sketching_core::inclusion_exclusion_joint_sketch(lefts, rights);

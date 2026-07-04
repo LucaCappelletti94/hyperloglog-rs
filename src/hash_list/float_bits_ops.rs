@@ -2,8 +2,12 @@
 //! used in a `HyperLogLog` as the harmonic sum, while in the sorted hash list we repurpose
 //! them to store other metadata.
 use crate::prelude::*;
+use sketching_core::sparse_value_list::SparseValueCodec;
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
+{
     #[inline]
     pub(crate) fn set_hash_bits(&mut self, hash_bits: u8) {
         encode_hash_bits(&mut self.harmonic_sum, hash_bits);

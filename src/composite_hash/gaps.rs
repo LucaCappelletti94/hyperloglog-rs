@@ -3,7 +3,6 @@ use core::marker::PhantomData;
 use core::u64;
 mod bitreader;
 mod bitwriter;
-pub(crate) mod value_list;
 use super::{
     switch::{DecodedIter, DowngradedIter},
     Debug, LastBufferedBit, Precision, SaturationError, SwitchHash,
@@ -1528,7 +1527,7 @@ impl<P: Precision, B: Bits> GapHash<P, B> {
     /// collapsed). Returns the number of cross-stream coincidences (distinct hashes present in both
     /// operands at `target_hash_bits`), which estimates `|A intersect B|` for the cardinality
     /// correction. Allocation-free: both inputs are already sorted, exactly like
-    /// [`value_list::for_each_union_value`](super::gaps::value_list).
+    /// [`sparse_value_list::merge_write`](sketching_core::sparse_value_list::merge_write).
     fn for_each_merged_downgraded<F: FnMut(bool, u32)>(
         a_hashes: &[u8],
         a_number_of_hashes: u32,

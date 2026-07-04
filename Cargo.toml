@@ -49,6 +49,10 @@ ultraloglog = "0.1.6"
 # HyperLogLogLog (Karppa and Pagh 2022) compressed-register sketch, our own faithful port, for the
 # register-compression comparison: same estimates as HyperLogLog, less memory, no low-cardinality gain.
 hyperlogloglog = { path = "../hyperlogloglog-rs" }
+# `dsi-bitstream` is already a transitive dep via `sketching-core`. The internal
+# `codec_generic_tests` module wires a custom `SparseValueCodec` (a `Default`-derivable wrapper
+# around `ConstCode<GAMMA>`) to prove the `HyperLogLog<..., C>` generic accepts user codecs.
+dsi-bitstream = { version = "0.9", default-features = false }
 
 [features]
 default = ["alloc"]

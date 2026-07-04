@@ -5,8 +5,12 @@ use crate::{
     prelude::{Bits, HasherType, HyperLogLog, Precision, Registers},
     utils::{correct_union_estimate, FloatOps},
 };
+use sketching_core::sparse_value_list::SparseValueCodec;
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
+{
     #[inline]
     /// Returns the union estimation from a decreasingly sorted iterator and a counter.
     ///

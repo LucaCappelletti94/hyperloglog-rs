@@ -111,7 +111,7 @@ fn bench_joint_mle(c: &mut Criterion) {
         group.bench_function("damped_p8", |b| {
             b.iter(|| {
                 let sketch =
-                    hyperloglog_rs::mle::bench_joint_sketch_mle::<Precision8, Bits6, _, _, 8, 8>(
+                    hyperloglog_rs::mle::bench_joint_sketch_mle::<Precision8, Bits6, _, _, _, 8, 8>(
                         black_box(&lefts),
                         black_box(&rights),
                     );
@@ -126,7 +126,7 @@ fn bench_joint_mle(c: &mut Criterion) {
         group.bench_function("damped_p10", |b| {
             b.iter(|| {
                 let sketch =
-                    hyperloglog_rs::mle::bench_joint_sketch_mle::<Precision10, Bits6, _, _, 8, 8>(
+                    hyperloglog_rs::mle::bench_joint_sketch_mle::<Precision10, Bits6, _, _, _, 8, 8>(
                         black_box(&lefts),
                         black_box(&rights),
                     );
@@ -143,7 +143,7 @@ fn bench_joint_mle(c: &mut Criterion) {
         group.bench_function("damped_p14", |b| {
             b.iter(|| {
                 let sketch =
-                    hyperloglog_rs::mle::bench_joint_sketch_mle::<Precision14, Bits6, _, _, 8, 8>(
+                    hyperloglog_rs::mle::bench_joint_sketch_mle::<Precision14, Bits6, _, _, _, 8, 8>(
                         black_box(&lefts),
                         black_box(&rights),
                     );
@@ -156,7 +156,7 @@ fn bench_joint_mle(c: &mut Criterion) {
         group.bench_function("damped_p16", |b| {
             b.iter(|| {
                 let sketch =
-                    hyperloglog_rs::mle::bench_joint_sketch_mle::<Precision16, Bits6, _, _, 8, 8>(
+                    hyperloglog_rs::mle::bench_joint_sketch_mle::<Precision16, Bits6, _, _, _, 8, 8>(
                         black_box(&lefts),
                         black_box(&rights),
                     );

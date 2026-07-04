@@ -11,6 +11,7 @@
 //! [`SigmaTau::into_inner`].
 
 use crate::prelude::*;
+use sketching_core::sparse_value_list::SparseValueCodec;
 
 /// `1 / (2 ln 2)`, the `m -> infinity` `HyperLogLog` normalization constant Ertl's estimator uses. The
 /// finite-`m` bias is absorbed by `sigma`/`tau` rather than by a per-precision alpha.
@@ -93,7 +94,10 @@ pub fn ertl_cardinality_from_moments<P: Precision, B: Bits>(
     ALPHA_INF * m * m / z
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
+{
     /// Returns a [`SigmaTau`] view (borrowing this counter) whose cardinality estimate uses Ertl's
     /// analytical tau/sigma corrected raw estimator instead of the default fitted correction.
     #[inline]
@@ -188,8 +192,10 @@ impl<H> SigmaTau<H> {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::CardinalityEstimator
-    for SigmaTau<&HyperLogLog<P, B, R, H>>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> sketching_core::CardinalityEstimator
+    for SigmaTau<&HyperLogLog<P, B, R, H, C>>
+where
+    C: SparseValueCodec,
 {
     #[inline]
     fn estimate_cardinality(&self) -> f64 {
@@ -204,8 +210,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::C
 
 // Empty body: inherits the default inclusion-exclusion `joint_sketch`, which runs over this view's
 // analytical cardinality and union estimates.
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketch
-    for SigmaTau<&HyperLogLog<P, B, R, H>>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HyperSpheresSketch
+    for SigmaTau<&HyperLogLog<P, B, R, H, C>>
+where
+    C: SparseValueCodec,
 {
 }
 

@@ -6,6 +6,9 @@
 use crate::composite_hash::{GapHash, SaturationError};
 use crate::correction_coefficients::HYPERLOGLOG_LINEAR_COUNT_THRESHOLD;
 use crate::prelude::*;
+use sketching_core::sparse_value_list::{
+    self as svl, SigBitsCode, SparseValueCodec, ValueInsertion, ValueIter, BE,
+};
 use core::f64;
 use core::fmt::Debug;
 use core::hash::Hash;
@@ -21,13 +24,16 @@ pub struct HyperLogLog<
     B: Bits,
     R: Registers<P, B> = <P as PackedRegister<B>>::Array,
     Hasher: HasherType = twox_hash::XxHash64,
+    C = SigBitsCode,
 > {
     /// The registers of the counter.
     pub(crate) registers: R,
     /// The harmonic sum of the registers, i.e. the sum of 2^(-register_value) for all registers.
     pub(crate) harmonic_sum: f64,
-    /// Phantom data to ensure the type parameters are used.
-    _phantom: PhantomData<(P, B, Hasher)>,
+    /// Phantom data to ensure the type parameters are used. `C` is a zero-runtime-cost codec
+    /// witness: the codec is a codec-witness ZST (see `SigBitsCode`) that methods materialize with
+    /// `C::default()` when they need to encode or decode the sorted value list.
+    _phantom: PhantomData<(P, B, Hasher, C)>,
 }
 
 /// A [`HyperLogLog`] backed by a heap-allocated, growable register vector
@@ -40,18 +46,20 @@ pub struct HyperLogLog<
 /// precision) or when many counters are created dynamically. The estimation behavior is identical;
 /// only the register backing differs. Requires the `alloc` feature.
 #[cfg(feature = "alloc")]
-pub type VecHll<P, B, H = twox_hash::XxHash64> =
-    HyperLogLog<P, B, <P as PackedRegister<B>>::Vec, H>;
+pub type VecHll<P, B, H = twox_hash::XxHash64, C = SigBitsCode> =
+    HyperLogLog<P, B, <P as PackedRegister<B>>::Vec, H, C>;
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> Default for HyperLogLog<P, B, R, H> {
-    #[inline]
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> Default for HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B> + PartialEq, H: HasherType> PartialEq
-    for HyperLogLog<P, B, R, H>
+impl<P: Precision, B: Bits, R: Registers<P, B> + PartialEq, H: HasherType, C> PartialEq
+    for HyperLogLog<P, B, R, H, C>
 {
     #[inline]
     /// Compares the `harmonic_sum` word by its raw bits rather than as an `f64`. The word doubles
@@ -199,7 +207,10 @@ pub enum EstimationRegime {
     HyperLogLogRaw,
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
+{
     #[inline]
     fn new() -> Self {
         let mut hll = Self {
@@ -244,9 +255,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         // In sorted-value-list mode the stored items are literal values, not hashes, so test membership by
         // hashing each stored value and matching the full original hash (exact, no false negatives).
         if self.is_sorted_value_list() {
-            return crate::composite_hash::gaps::value_list::ValueIter::new(
+            return ValueIter::<BE, _>::new(
                 self.registers.as_ref(),
+                0,
                 self.get_number_of_values(),
+                C::default(),
             )
             .any(|value| Self::index_and_register_and_hash(&value).2 == original_hash);
         }
@@ -493,8 +506,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             let new_registers = self.full_size_cleared_registers();
             let source = core::mem::replace(&mut self.registers, new_registers);
             self.harmonic_sum = encode_dense_zeros(u32::try_from(1u64 << P::EXPONENT).unwrap());
-            for value in
-                crate::composite_hash::gaps::value_list::ValueIter::new(source.as_ref(), count)
+            for value in ValueIter::<BE, _>::new(source.as_ref(), 0, count, C::default())
             {
                 let (index, register, _) = Self::index_and_register_and_hash(&value);
                 self.insert_register_value_and_index(register, index);
@@ -570,10 +582,8 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// Inserts a value into the sorted value list, growing the buffer or transitioning to a hash
     /// list when it no longer fits.
     fn insert_value_exact(&mut self, value: u64) -> bool {
-        use crate::composite_hash::gaps::value_list::{self, ValueInsertion};
-
         let count = self.get_number_of_values();
-        match value_list::insert_value(self.registers.as_mut(), count, value) {
+        match svl::insert_value::<BE, _>(self.registers.as_mut(), 0, count, value, C::default()) {
             ValueInsertion::Inserted => {
                 self.set_number_of_values(count + 1);
                 true
@@ -606,15 +616,17 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// operand into this one (which is quadratic). The only allocation is one clone of this counter's
     /// own value buffer, mirroring the mode-transition paths.
     fn try_merge_exact_values(&mut self, rhs: &Self) -> bool {
-        use crate::composite_hash::gaps::value_list;
 
         let count_self = self.get_number_of_values();
         let count_rhs = rhs.get_number_of_values();
-        let (union_count, needed_bits) = value_list::merge_metrics(
+        let (union_count, needed_bits) = svl::merge_metrics::<BE, _>(
             self.registers.as_ref(),
+            0,
             count_self,
             rhs.registers.as_ref(),
+            0,
             count_rhs,
+            C::default(),
         );
 
         let maximal_bits = (1usize << P::EXPONENT) * B::NUMBER_OF_BITS as usize;
@@ -628,12 +640,16 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
             self.registers.increase_capacity();
         }
         self.registers.clear_registers();
-        value_list::merge_write(
+        svl::merge_write::<BE, _>(
             source.as_ref(),
+            0,
             count_self,
             rhs.registers.as_ref(),
+            0,
             count_rhs,
             self.registers.as_mut(),
+            0,
+            C::default(),
         );
         self.set_number_of_values(union_count);
         true
@@ -654,9 +670,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         let count = self.get_number_of_values();
         let source = self.registers.clone();
         self.clear();
-        debug_assert!(self.is_sorted_hash_list());
-        for value in crate::composite_hash::gaps::value_list::ValueIter::new(source.as_ref(), count)
-        {
+        for value in ValueIter::<BE, _>::new(source.as_ref(), 0, count, C::default()) {
             let (index, register, original_hash) = Self::index_and_register_and_hash(&value);
             self.insert_index_register_hash(index, register, original_hash);
         }
@@ -678,9 +692,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// past that transition).
     pub fn recover_values(&self) -> Option<impl Iterator<Item = u64> + '_> {
         if self.is_sorted_value_list() {
-            Some(crate::composite_hash::gaps::value_list::ValueIter::new(
+            Some(ValueIter::<BE, _>::new(
                 self.registers.as_ref(),
+                0,
                 self.get_number_of_values(),
+                C::default(),
             ))
         } else {
             None
@@ -692,10 +708,12 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     /// sorted value list. Falls back to the probabilistic hashed membership otherwise.
     pub fn may_contain_value(&self, value: u64) -> bool {
         if self.is_sorted_value_list() {
-            crate::composite_hash::gaps::value_list::contains_value(
+            svl::contains_value::<BE, _>(
                 self.registers.as_ref(),
+                0,
                 self.get_number_of_values(),
                 value,
+                C::default(),
             )
         } else {
             self.may_contain(&value)
@@ -1115,11 +1133,14 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
         // list (a clone) and reuses the existing logic.
         {
             if self.is_sorted_value_list() && other.is_sorted_value_list() {
-                let union = crate::composite_hash::gaps::value_list::union_count(
+                let union = svl::union_count::<BE, _>(
                     self.registers.as_ref(),
+                    0,
                     self.get_number_of_values(),
                     other.registers.as_ref(),
+                    0,
                     other.get_number_of_values(),
+                    C::default(),
                 );
                 return f64::from(union);
             }
@@ -1289,9 +1310,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
                     // values in (now hashed, so each insertion is cheap).
                     self.to_sorted_hash_list();
                 }
-                for value in crate::composite_hash::gaps::value_list::ValueIter::new(
+                for value in ValueIter::<BE, _>::new(
                     rhs.registers.as_ref(),
+                    0,
                     rhs.get_number_of_values(),
+                    C::default(),
                 ) {
                     self.insert_value(value);
                 }
@@ -1493,8 +1516,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B,
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOrAssign<&Self>
-    for HyperLogLog<P, B, R, H>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> BitOrAssign<&Self>
+    for HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
 {
     #[inline]
     fn bitor_assign(&mut self, rhs: &Self) {
@@ -1502,8 +1527,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOrAssign<&Self
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOrAssign
-    for HyperLogLog<P, B, R, H>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> BitOrAssign
+    for HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
 {
     #[inline]
     fn bitor_assign(&mut self, rhs: Self) {
@@ -1511,7 +1538,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOrAssign
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOr for HyperLogLog<P, B, R, H> {
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> BitOr for HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
+{
     type Output = Self;
 
     #[inline]
@@ -1521,8 +1551,11 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOr for HyperLo
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> BitOr for &HyperLogLog<P, B, R, H> {
-    type Output = HyperLogLog<P, B, R, H>;
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> BitOr for &HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
+{
+    type Output = HyperLogLog<P, B, R, H, C>;
 
     #[inline]
     fn bitor(self, rhs: Self) -> Self::Output {
@@ -2543,5 +2576,111 @@ mod zero_pack_tests {
             restored.sigma_tau_cardinality(),
             hll.sigma_tau_cardinality(),
         );
+    }
+}
+
+#[cfg(test)]
+mod codec_generic_tests {
+    //! Proves the `C` codec generic on `HyperLogLog<P, B, R, H, C>` is real work at runtime, not
+    //! just plumbing that always resolves to `SigBitsCode`. Two counters with the same values
+    //! inserted MUST recover the same set (functional equivalence), and MUST produce different raw
+    //! register bytes (proof the codec parameter is actually driving the encoding).
+    use super::*;
+    use dsi_bitstream::prelude::{
+        CodeLen as _CodeLen, CodesRead, CodesWrite, DynamicCodeRead as _DynamicCodeRead,
+        DynamicCodeWrite as _DynamicCodeWrite, Endianness,
+    };
+    use sketching_core::sparse_value_list::{code_consts, ConstCode};
+
+    /// A `Default`-derivable wrapper around `ConstCode<GAMMA>`. Elias gamma has a different
+    /// codeword shape from `SigBitsCode` (`SigBits(n) = 2 * bit_length(n) + 1`, `gamma(n) =
+    /// 2 * floor(log2(n + 1)) + 1`), so encoding the same non-trivial value in each yields
+    /// different bit strings.
+    #[derive(Debug, Default, Clone, Copy)]
+    struct Gamma;
+
+    impl _DynamicCodeRead for Gamma {
+        #[inline]
+        fn read<E: Endianness, R: CodesRead<E> + ?Sized>(&self, r: &mut R) -> Result<u64, R::Error> {
+            ConstCode::<{ code_consts::GAMMA }>.read(r)
+        }
+    }
+
+    impl _DynamicCodeWrite for Gamma {
+        #[inline]
+        fn write<E: Endianness, W: CodesWrite<E> + ?Sized>(
+            &self,
+            w: &mut W,
+            value: u64,
+        ) -> Result<usize, W::Error> {
+            ConstCode::<{ code_consts::GAMMA }>.write(w, value)
+        }
+    }
+
+    impl _CodeLen for Gamma {
+        #[inline]
+        fn len(&self, value: u64) -> usize {
+            ConstCode::<{ code_consts::GAMMA }>.len(value)
+        }
+    }
+
+    type ArrayReg = <Precision10 as PackedRegister<Bits6>>::Array;
+    type DefaultHll = HyperLogLog<Precision10, Bits6, ArrayReg, twox_hash::XxHash64, SigBitsCode>;
+    type GammaHll = HyperLogLog<Precision10, Bits6, ArrayReg, twox_hash::XxHash64, Gamma>;
+
+    /// Insert a handful of values that stay in the sorted value list under both codecs, then check
+    /// that recovery agrees but the raw register bytes differ. If the codec parameter were dead
+    /// code (silently resolving to `SigBitsCode` for both), the raw bytes would be identical.
+    #[test]
+    fn codec_parameter_drives_bit_layout_in_value_list() {
+        let mut default_hll: DefaultHll = Default::default();
+        let mut gamma_hll: GammaHll = Default::default();
+        // 50 sequential u64s: well under either codec's saturation budget on a p10 b6 counter
+        // (768 bytes), so both should still be in exact-mode after insertion.
+        for v in 0u64..50 {
+            default_hll.insert_value(v);
+            gamma_hll.insert_value(v);
+        }
+        assert!(default_hll.is_sorted_value_list());
+        assert!(gamma_hll.is_sorted_value_list());
+
+        // Functional equivalence: both codecs recover the same set of values in the same order.
+        let default_values: alloc::vec::Vec<u64> =
+            default_hll.recover_values().unwrap().collect();
+        let gamma_values: alloc::vec::Vec<u64> = gamma_hll.recover_values().unwrap().collect();
+        assert_eq!(
+            default_values, gamma_values,
+            "recovery must yield the same set of values under both codecs",
+        );
+
+        // Bit-layout distinctness: same logical set, different on-wire encoding. If these are
+        // equal, the codec parameter is not actually driving the writer path.
+        let default_bytes: &[u8] = default_hll.registers.as_ref();
+        let gamma_bytes: &[u8] = gamma_hll.registers.as_ref();
+        assert_ne!(
+            default_bytes, gamma_bytes,
+            "SigBitsCode and gamma must produce different register byte layouts for the same set",
+        );
+    }
+
+    /// Membership queries must agree between the two codecs: an inserted value is present under
+    /// both, an uninserted value is absent under both. This exercises the decode path (in
+    /// `contains_value`) through the `C` parameter.
+    #[test]
+    fn codec_parameter_drives_membership() {
+        let mut default_hll: DefaultHll = Default::default();
+        let mut gamma_hll: GammaHll = Default::default();
+        for v in [7u64, 42, 123, 999, 1_000_000] {
+            default_hll.insert_value(v);
+            gamma_hll.insert_value(v);
+        }
+        for v in [7u64, 42, 123, 999, 1_000_000] {
+            assert!(default_hll.may_contain_value(v));
+            assert!(gamma_hll.may_contain_value(v));
+        }
+        for v in [0u64, 1, 8, 100, 1_000_001] {
+            assert!(!default_hll.may_contain_value(v));
+            assert!(!gamma_hll.may_contain_value(v));
+        }
     }
 }

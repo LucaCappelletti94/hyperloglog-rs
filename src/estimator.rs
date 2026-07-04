@@ -8,6 +8,7 @@
 //! by the [`Mle`](crate::mle::Mle) mode wrapper (using the maximum-likelihood estimators).
 
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
+use sketching_core::sparse_value_list::SparseValueCodec;
 
 /// Estimates set cardinalities with HyperLogLog-specific error and bias analysis.
 ///
@@ -43,8 +44,10 @@ pub trait HllCardinalityEstimator: sketching_core::CardinalityEstimator {
     fn bias_at(&self, cardinality: f64) -> f64;
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::CardinalityEstimator
-    for HyperLogLog<P, B, R, H>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> sketching_core::CardinalityEstimator
+    for HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
 {
     #[inline]
     fn estimate_cardinality(&self) -> f64 {
@@ -94,8 +97,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::C
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HllCardinalityEstimator
-    for HyperLogLog<P, B, R, H>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HllCardinalityEstimator
+    for HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
 {
     #[inline]
     fn predicted_relative_standard_error(&self) -> f64 {

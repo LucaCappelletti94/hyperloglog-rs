@@ -7,11 +7,14 @@
 pub use sketching_core::{HyperSpheresSketch, JointSketch, JointSketchError};
 
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
+use sketching_core::sparse_value_list::SparseValueCodec;
 
 /// Wires `HyperLogLog` to the approximate sketching algorithms. The required cardinality and union
 /// estimators come from its [`CardinalityEstimator`](crate::estimator::CardinalityEstimator) implementation.
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketch
-    for HyperLogLog<P, B, R, H>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HyperSpheresSketch
+    for HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
 {
     #[inline]
     fn joint_sketch<const L: usize, const N: usize>(

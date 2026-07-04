@@ -11,7 +11,7 @@
 //! largest current head. For each distinct value we read its left shell (the smallest left list that
 //! contains it) and right shell directly off the merge cursors.
 
-use crate::composite_hash::gaps::value_list::ValueIter;
+use sketching_core::sparse_value_list::{SparseValueCodec, ValueIter, BE};
 use crate::prelude::*;
 use crate::utils::Zero;
 
@@ -24,11 +24,12 @@ pub(crate) fn joint_sketch_exact_from_values<
     B: Bits,
     R: Registers<P, B>,
     H: HasherType,
+    C: SparseValueCodec,
     const M: usize,
     const N: usize,
 >(
-    lefts: &[HyperLogLog<P, B, R, H>; M],
-    rights: &[HyperLogLog<P, B, R, H>; N],
+    lefts: &[HyperLogLog<P, B, R, H, C>; M],
+    rights: &[HyperLogLog<P, B, R, H, C>; N],
 ) -> JointSketch<M, N> {
     debug_assert!(
         lefts.iter().all(HyperLogLog::is_sorted_value_list)
@@ -38,13 +39,20 @@ pub(crate) fn joint_sketch_exact_from_values<
 
     // One descending cursor per input list, with its current head value buffered. The lists are
     // sorted, so this is a standard multi-way merge over `M + N` streams (largest value first).
-    let mut left_iters: [ValueIter; M] = core::array::from_fn(|i| {
-        ValueIter::new(lefts[i].registers.as_ref(), lefts[i].get_number_of_values())
+    let mut left_iters: [ValueIter<'_, BE, C>; M] = core::array::from_fn(|i| {
+        ValueIter::<BE, _>::new(
+            lefts[i].registers.as_ref(),
+            0,
+            lefts[i].get_number_of_values(),
+            C::default(),
+        )
     });
-    let mut right_iters: [ValueIter; N] = core::array::from_fn(|j| {
-        ValueIter::new(
+    let mut right_iters: [ValueIter<'_, BE, C>; N] = core::array::from_fn(|j| {
+        ValueIter::<BE, _>::new(
             rights[j].registers.as_ref(),
+            0,
             rights[j].get_number_of_values(),
+            C::default(),
         )
     });
     let mut left_head: [Option<u64>; M] = core::array::from_fn(|i| left_iters[i].next());

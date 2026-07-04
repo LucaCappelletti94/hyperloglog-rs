@@ -5,6 +5,7 @@ use super::likelihood::{joint_pattern_ll_and_gradient_poly, joint_pattern_ll_gra
 use super::optimizers::{DampedNewton, MAX_K};
 use crate::prelude::*;
 use crate::utils::{FloatOps, Zero};
+use sketching_core::sparse_value_list::SparseValueCodec;
 
 /// One marginal anchor: which counter it pins (a left counter `A_i` or a right counter `B_j`), the log
 /// of that counter's `HyperLogLog`++ cardinality estimate, and the prior weight. The region index set is
@@ -82,11 +83,12 @@ pub(crate) fn joint_sketch_mle_from_registers<
     B: Bits,
     R: Registers<P, B>,
     H: HasherType,
+    C: SparseValueCodec,
     const M: usize,
     const N: usize,
 >(
-    lefts: &[HyperLogLog<P, B, R, H>; M],
-    rights: &[HyperLogLog<P, B, R, H>; N],
+    lefts: &[HyperLogLog<P, B, R, H, C>; M],
+    rights: &[HyperLogLog<P, B, R, H, C>; N],
 ) -> JointSketch<M, N> {
     // The single-pair case is exactly Ertl's 2-set joint MLE, which has a fast analytic solver over
     // the register multiplicity arrays. Use it instead of the generalized pattern-based optimizer,
@@ -108,7 +110,7 @@ pub(crate) fn joint_sketch_mle_from_registers<
         };
     }
 
-    joint_sketch_mle_from_registers_full::<P, B, R, H, M, N>(lefts, rights)
+    joint_sketch_mle_from_registers_full::<P, B, R, H, C, M, N>(lefts, rights)
 }
 
 /// Generalized joint MLE that always runs the full damped-Newton optimizer, with no `M = N = 1`
@@ -129,11 +131,12 @@ pub(crate) fn joint_sketch_mle_from_registers_full<
     B: Bits,
     R: Registers<P, B>,
     H: HasherType,
+    C: SparseValueCodec,
     const M: usize,
     const N: usize,
 >(
-    lefts: &[HyperLogLog<P, B, R, H>; M],
-    rights: &[HyperLogLog<P, B, R, H>; N],
+    lefts: &[HyperLogLog<P, B, R, H, C>; M],
+    rights: &[HyperLogLog<P, B, R, H, C>; N],
 ) -> JointSketch<M, N> {
     let m_registers = 1_usize << P::EXPONENT;
     // Collect every register's monotone pattern, sort, then run-length encode into the distinct
@@ -141,7 +144,7 @@ pub(crate) fn joint_sketch_mle_from_registers_full<
     // per-evaluation sweeps walk flat memory.
     let mut keys: alloc::vec::Vec<([u8; M], [u8; N])> = alloc::vec::Vec::with_capacity(m_registers);
     for r in 0..m_registers {
-        keys.push(register_pattern::<P, B, R, H, M, N>(lefts, rights, r));
+        keys.push(register_pattern::<P, B, R, H, C, M, N>(lefts, rights, r));
     }
     keys.sort_unstable();
     let mut patterns: alloc::vec::Vec<([u8; M], [u8; N], f64)> = alloc::vec::Vec::new();
@@ -151,7 +154,7 @@ pub(crate) fn joint_sketch_mle_from_registers_full<
             _ => patterns.push((a, b, 1.0)),
         }
     }
-    joint_sketch_mle_from_patterns::<P, B, R, H, M, N>(lefts, rights, &patterns)
+    joint_sketch_mle_from_patterns::<P, B, R, H, C, M, N>(lefts, rights, &patterns)
 }
 
 /// Runs the generalized joint MLE over the distinct `(a_pat, b_pat, count)` patterns (the sufficient
@@ -163,17 +166,18 @@ fn joint_sketch_mle_from_patterns<
     B: Bits,
     R: Registers<P, B>,
     H: HasherType,
+    C: SparseValueCodec,
     const M: usize,
     const N: usize,
 >(
-    lefts: &[HyperLogLog<P, B, R, H>; M],
-    rights: &[HyperLogLog<P, B, R, H>; N],
+    lefts: &[HyperLogLog<P, B, R, H, C>; M],
+    rights: &[HyperLogLog<P, B, R, H, C>; N],
     patterns: &[([u8; M], [u8; N], f64)],
 ) -> JointSketch<M, N> {
     let p_exponent = P::EXPONENT;
     let q_plus_one: u8 = (1 << B::NUMBER_OF_BITS) - 1;
     let k = M * N + M + N;
-    joint_sketch_mle_core::<P, B, R, H, M, N>(
+    joint_sketch_mle_core::<P, B, R, H, C, M, N>(
         lefts,
         rights,
         |phis, gradient| {
@@ -227,18 +231,19 @@ pub(crate) fn joint_sketch_mle_from_registers_full<
     B: Bits,
     R: Registers<P, B>,
     H: HasherType,
+    C: SparseValueCodec,
     const M: usize,
     const N: usize,
 >(
-    lefts: &[HyperLogLog<P, B, R, H>; M],
-    rights: &[HyperLogLog<P, B, R, H>; N],
+    lefts: &[HyperLogLog<P, B, R, H, C>; M],
+    rights: &[HyperLogLog<P, B, R, H, C>; N],
 ) -> JointSketch<M, N> {
     let p_exponent = P::EXPONENT;
     let q_plus_one: u8 = (1 << B::NUMBER_OF_BITS) - 1;
     let m_registers = 1_usize << P::EXPONENT;
     let k = M * N + M + N;
 
-    joint_sketch_mle_core::<P, B, R, H, M, N>(
+    joint_sketch_mle_core::<P, B, R, H, C, M, N>(
         lefts,
         rights,
         |phis, gradient| {
@@ -248,7 +253,7 @@ pub(crate) fn joint_sketch_mle_from_registers_full<
             }
             let mut log_likelihood = f64::ZERO;
             for r in 0..m_registers {
-                let (a_pat, b_pat) = register_pattern::<P, B, R, H, M, N>(lefts, rights, r);
+                let (a_pat, b_pat) = register_pattern::<P, B, R, H, C, M, N>(lefts, rights, r);
                 log_likelihood += joint_pattern_ll_and_gradient_poly::<M, N>(
                     &a_pat,
                     &b_pat,
@@ -268,7 +273,7 @@ pub(crate) fn joint_sketch_mle_from_registers_full<
             }
             let mut scratch_gradient = [f64::ZERO; MAX_K];
             for r in 0..m_registers {
-                let (a_pat, b_pat) = register_pattern::<P, B, R, H, M, N>(lefts, rights, r);
+                let (a_pat, b_pat) = register_pattern::<P, B, R, H, C, M, N>(lefts, rights, r);
                 joint_pattern_ll_grad_hess_poly::<M, N>(
                     &a_pat,
                     &b_pat,
@@ -293,11 +298,12 @@ fn register_pattern<
     B: Bits,
     R: Registers<P, B>,
     H: HasherType,
+    C: SparseValueCodec,
     const M: usize,
     const N: usize,
 >(
-    lefts: &[HyperLogLog<P, B, R, H>; M],
-    rights: &[HyperLogLog<P, B, R, H>; N],
+    lefts: &[HyperLogLog<P, B, R, H, C>; M],
+    rights: &[HyperLogLog<P, B, R, H, C>; N],
     r: usize,
 ) -> ([u8; M], [u8; N]) {
     let mut a_pat = [0u8; M];
@@ -333,11 +339,12 @@ pub(crate) fn joint_sketch_mle_core<
     B: Bits,
     R: Registers<P, B>,
     H: HasherType,
+    C: SparseValueCodec,
     const M: usize,
     const N: usize,
 >(
-    lefts: &[HyperLogLog<P, B, R, H>; M],
-    rights: &[HyperLogLog<P, B, R, H>; N],
+    lefts: &[HyperLogLog<P, B, R, H, C>; M],
+    rights: &[HyperLogLog<P, B, R, H, C>; N],
     mut log_likelihood_gradient: impl FnMut(&[f64], &mut [f64]) -> f64,
     log_likelihood_hessian: impl Fn(&[f64], &mut [f64]),
 ) -> JointSketch<M, N> {
@@ -351,8 +358,8 @@ pub(crate) fn joint_sketch_mle_core<
     // basin on weakly identified deep cells, whereas from the 2-set MLE solution it starts at a point
     // the joint likelihood can only refine. The seed costs M*N 2-set MLE solves and does not recurse
     // (inclusion-exclusion over `Mle` views uses only the pairwise union, never the joint optimizer).
-    let left_views: [Mle<&HyperLogLog<P, B, R, H>>; M] = core::array::from_fn(|i| lefts[i].mle());
-    let right_views: [Mle<&HyperLogLog<P, B, R, H>>; N] = core::array::from_fn(|j| rights[j].mle());
+    let left_views: [Mle<&HyperLogLog<P, B, R, H, C>>; M] = core::array::from_fn(|i| lefts[i].mle());
+    let right_views: [Mle<&HyperLogLog<P, B, R, H, C>>; N] = core::array::from_fn(|j| rights[j].mle());
     let (overlap0, left0, right0) =
         sketching_core::inclusion_exclusion_joint_sketch(&left_views, &right_views).into_parts();
 

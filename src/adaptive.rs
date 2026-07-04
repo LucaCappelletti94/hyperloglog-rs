@@ -21,6 +21,7 @@
 use crate::error_model::{register_crlb_relative_standard_error, register_raw_bias};
 use crate::estimator::HllCardinalityEstimator;
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
+use sketching_core::sparse_value_list::SparseValueCodec;
 use crate::sketches::HyperSpheresSketch;
 use crate::utils::FloatOps;
 
@@ -29,7 +30,10 @@ use crate::utils::FloatOps;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Adaptive<H>(pub H);
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
+{
     /// Returns a view over this counter that auto-selects the more accurate estimator: the fast
     /// default everywhere except the saturation window where the maximum-likelihood estimator is more
     /// accurate. The view borrows the counter (no copy). Use [`Adaptive::into_inner`] to go back to the
@@ -81,8 +85,10 @@ impl<H> Adaptive<H> {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::CardinalityEstimator
-    for Adaptive<&HyperLogLog<P, B, R, H>>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> sketching_core::CardinalityEstimator
+    for Adaptive<&HyperLogLog<P, B, R, H, C>>
+where
+    C: SparseValueCodec,
 {
     #[inline]
     fn estimate_cardinality(&self) -> f64 {
@@ -103,8 +109,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::C
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HllCardinalityEstimator
-    for Adaptive<&HyperLogLog<P, B, R, H>>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HllCardinalityEstimator
+    for Adaptive<&HyperLogLog<P, B, R, H, C>>
+where
+    C: SparseValueCodec,
 {
     #[inline]
     fn predicted_relative_standard_error(&self) -> f64 {
@@ -145,8 +153,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HllCardinalityEst
 
 // Empty body: inherits the default inclusion-exclusion `joint_sketch`, which runs over this view's
 // adaptively chosen cardinality and union estimates.
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketch
-    for Adaptive<&HyperLogLog<P, B, R, H>>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HyperSpheresSketch
+    for Adaptive<&HyperLogLog<P, B, R, H, C>>
+where
+    C: SparseValueCodec,
 {
 }
 
@@ -211,5 +221,100 @@ mod tests {
             small.adaptive().estimate_cardinality(),
             small.estimate_cardinality(),
         );
+    }
+
+    /// The MLE-preferred branch of every `HllCardinalityEstimator` method: the adaptive view
+    /// must forward to `self.mle().<method>()`, bit-exactly. Same driver as
+    /// `adaptive_uses_mle_in_the_saturation_window`, so we know `prefers_mle()` is true.
+    #[test]
+    fn adaptive_forwards_hll_error_model_in_mle_window() {
+        use crate::estimator::HllCardinalityEstimator;
+        type Hll = HyperLogLog<Precision6, Bits4>;
+        let mut h = Hll::default();
+        let mut state = 0x1234_5678u64;
+        for _ in 0..1_200_000u64 {
+            state = splitmix64(state);
+            h.insert(&state);
+        }
+        assert!(h.prefers_mle());
+        let view = h.adaptive();
+        let mle = h.mle();
+        assert_eq!(view.predicted_relative_standard_error(), mle.predicted_relative_standard_error());
+        assert_eq!(view.predicted_bias(), mle.predicted_bias());
+        assert_eq!(view.relative_standard_error_at(1_000_000.0), mle.relative_standard_error_at(1_000_000.0));
+        assert_eq!(view.bias_at(1_000_000.0), mle.bias_at(1_000_000.0));
+    }
+
+    /// The default branch of every `HllCardinalityEstimator` method: wide-register counter never
+    /// prefers the MLE, so the adaptive view must forward to the bare counter's own method.
+    #[test]
+    fn adaptive_forwards_hll_error_model_outside_mle_window() {
+        use crate::estimator::HllCardinalityEstimator;
+        type Hll = HyperLogLog<Precision10, Bits6>;
+        let mut h = Hll::default();
+        let mut state = 0x99u64;
+        for _ in 0..100_000u64 {
+            state = splitmix64(state);
+            h.insert(&state);
+        }
+        assert!(h.is_hyperloglog() && !h.prefers_mle());
+        let view = h.adaptive();
+        assert_eq!(view.predicted_relative_standard_error(), h.predicted_relative_standard_error());
+        assert_eq!(view.predicted_bias(), h.predicted_bias());
+        assert_eq!(view.relative_standard_error_at(50_000.0), h.relative_standard_error_at(50_000.0));
+        assert_eq!(view.bias_at(50_000.0), h.bias_at(50_000.0));
+    }
+
+    /// The union path of the `CardinalityEstimator` impl on the adaptive view: routes to
+    /// `estimate_union_cardinality_mle` when either operand prefers MLE, to the default otherwise.
+    #[test]
+    fn adaptive_forwards_estimate_union_cardinality() {
+        type Hll = HyperLogLog<Precision6, Bits4>;
+        let mut a = Hll::default();
+        let mut b = Hll::default();
+        let mut state_a = 0xAAu64;
+        let mut state_b = 0xBBu64;
+        for _ in 0..1_200_000u64 {
+            state_a = splitmix64(state_a);
+            state_b = splitmix64(state_b);
+            a.insert(&state_a);
+            b.insert(&state_b);
+        }
+        assert!(a.prefers_mle() && b.prefers_mle());
+        assert_eq!(
+            a.adaptive().estimate_union_cardinality(&b.adaptive()),
+            a.estimate_union_cardinality_mle(&b),
+        );
+
+        // Both wide, neither prefers the MLE: routes to the default union.
+        type Wide = HyperLogLog<Precision10, Bits6>;
+        let mut wa = Wide::default();
+        let mut wb = Wide::default();
+        let mut sa = 0x1u64;
+        let mut sb = 0x2u64;
+        for _ in 0..50_000u64 {
+            sa = splitmix64(sa);
+            sb = splitmix64(sb);
+            wa.insert(&sa);
+            wb.insert(&sb);
+        }
+        assert!(!wa.prefers_mle() && !wb.prefers_mle());
+        assert_eq!(
+            wa.adaptive().estimate_union_cardinality(&wb.adaptive()),
+            wa.estimate_union_cardinality(&wb),
+        );
+    }
+
+    /// `into_inner()` recovers the wrapped reference (which then estimates as the bare counter).
+    #[test]
+    fn adaptive_into_inner_returns_wrapped_reference() {
+        type Hll = HyperLogLog<Precision10, Bits6>;
+        let mut h = Hll::default();
+        for value in 0u64..100 {
+            h.insert(&value);
+        }
+        let view = h.adaptive();
+        let inner: &Hll = view.into_inner();
+        assert_eq!(inner.estimate_cardinality(), h.estimate_cardinality());
     }
 }

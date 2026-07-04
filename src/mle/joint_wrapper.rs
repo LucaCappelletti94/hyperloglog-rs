@@ -11,6 +11,7 @@
 use super::sketch::joint_sketch_mle_from_registers;
 use crate::estimator::HllCardinalityEstimator;
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
+use sketching_core::sparse_value_list::SparseValueCodec;
 use crate::sketches::{HyperSpheresSketch, JointSketch};
 
 /// A generalized-joint-MLE view over a [`HyperLogLog`] (here a borrowed one, produced by
@@ -18,7 +19,10 @@ use crate::sketches::{HyperSpheresSketch, JointSketch};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct JointMle<H>(pub H);
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperLogLog<P, B, R, H> {
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HyperLogLog<P, B, R, H, C>
+where
+    C: SparseValueCodec,
+{
     /// Returns a generalized-joint-MLE view over this counter. The view borrows the counter (no
     /// copy). Its joint hypersphere sketch ([`JointSketch::estimate`]) runs the joint maximum
     /// likelihood optimization over the disjoint-cell region model, which fits every overlap cell and
@@ -67,8 +71,10 @@ impl<H> JointMle<H> {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::CardinalityEstimator
-    for JointMle<&HyperLogLog<P, B, R, H>>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> sketching_core::CardinalityEstimator
+    for JointMle<&HyperLogLog<P, B, R, H, C>>
+where
+    C: SparseValueCodec,
 {
     /// The scalar cardinality is the inner counter's default (`HyperLogLog`++) estimate: the joint MLE
     /// refines the disjoint-region decomposition, not the single-counter cardinality.
@@ -85,8 +91,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> sketching_core::C
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HllCardinalityEstimator
-    for JointMle<&HyperLogLog<P, B, R, H>>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HllCardinalityEstimator
+    for JointMle<&HyperLogLog<P, B, R, H, C>>
+where
+    C: SparseValueCodec,
 {
     #[inline]
     fn predicted_relative_standard_error(&self) -> f64 {
@@ -109,8 +117,10 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HllCardinalityEst
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketch
-    for JointMle<&HyperLogLog<P, B, R, H>>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HyperSpheresSketch
+    for JointMle<&HyperLogLog<P, B, R, H, C>>
+where
+    C: SparseValueCodec,
 {
     /// Runs the generalized joint MLE over the disjoint-region model. The dispatch mirrors the bare
     /// [`joint_sketch_mle`](HyperLogLog::joint_sketch_mle): all-value-list operands are counted
@@ -124,9 +134,9 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketc
         lefts: &[Self; L],
         rights: &[Self; N],
     ) -> JointSketch<L, N> {
-        let left_counters: [HyperLogLog<P, B, R, H>; L] =
+        let left_counters: [HyperLogLog<P, B, R, H, C>; L] =
             core::array::from_fn(|i| lefts[i].0.clone());
-        let right_counters: [HyperLogLog<P, B, R, H>; N] =
+        let right_counters: [HyperLogLog<P, B, R, H, C>; N] =
             core::array::from_fn(|j| rights[j].0.clone());
 
         // Pre-dense operands (all value lists, or any value/hash-list mix with no dense operand) are
@@ -138,7 +148,7 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketc
             .chain(right_counters.iter())
             .any(HyperLogLog::is_hyperloglog);
         if !any_dense {
-            return HyperLogLog::<P, B, R, H>::joint_sketch_mle::<L, N>(
+            return HyperLogLog::<P, B, R, H, C>::joint_sketch_mle::<L, N>(
                 &left_counters,
                 &right_counters,
             );
@@ -149,6 +159,80 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType> HyperSpheresSketc
         // consumed here, so there is no second copy.
         let left_counters = left_counters.map(HyperLogLog::into_hll);
         let right_counters = right_counters.map(HyperLogLog::into_hll);
-        joint_sketch_mle_from_registers::<P, B, R, H, L, N>(&left_counters, &right_counters)
+        joint_sketch_mle_from_registers::<P, B, R, H, C, L, N>(&left_counters, &right_counters)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Delegator coverage for the `CardinalityEstimator` and `HllCardinalityEstimator` methods on
+    //! `JointMle`. The joint-sketch path is exercised by the top-level joint MLE tests; this
+    //! module focuses on the scalar delegators (which all forward to the inner counter's default
+    //! `HyperLogLog`++ estimators) and `into_inner`.
+    #![allow(clippy::float_cmp)]
+    use crate::estimator::HllCardinalityEstimator;
+    use crate::prelude::*;
+    use sketching_core::CardinalityEstimator;
+
+    fn build_hll() -> HyperLogLog<Precision10, Bits6> {
+        let mut h = HyperLogLog::<Precision10, Bits6>::default();
+        let mut state = 0x2020_2020_2020_2020u64;
+        for _ in 0..50_000u64 {
+            state = splitmix64(state);
+            h.insert(&state);
+        }
+        h
+    }
+
+    /// The scalar cardinality is the inner counter's default `HyperLogLog`++ estimate.
+    #[test]
+    fn jmle_estimate_cardinality_matches_default() {
+        let h = build_hll();
+        assert_eq!(h.jmle().estimate_cardinality(), h.estimate_cardinality());
+    }
+
+    /// The pairwise union is the inner counter's default estimate; only the joint sketch differs.
+    #[test]
+    fn jmle_estimate_union_cardinality_matches_default() {
+        let mut a = HyperLogLog::<Precision10, Bits6>::default();
+        let mut b = HyperLogLog::<Precision10, Bits6>::default();
+        let mut state_a = 0xAAAA_AAAAu64;
+        let mut state_b = 0xBBBB_BBBBu64;
+        for _ in 0..50_000u64 {
+            state_a = splitmix64(state_a);
+            state_b = splitmix64(state_b);
+            a.insert(&state_a);
+            b.insert(&state_b);
+        }
+        assert_eq!(
+            a.jmle().estimate_union_cardinality(&b.jmle()),
+            a.estimate_union_cardinality(&b),
+        );
+    }
+
+    /// The error-model methods all forward to the inner counter's default implementation.
+    #[test]
+    fn jmle_error_model_matches_default() {
+        let h = build_hll();
+        let view = h.jmle();
+        assert_eq!(
+            view.predicted_relative_standard_error(),
+            h.predicted_relative_standard_error(),
+        );
+        assert_eq!(view.predicted_bias(), h.predicted_bias());
+        assert_eq!(
+            view.relative_standard_error_at(100_000.0),
+            h.relative_standard_error_at(100_000.0),
+        );
+        assert_eq!(view.bias_at(100_000.0), h.bias_at(100_000.0));
+    }
+
+    /// `into_inner()` returns the wrapped reference.
+    #[test]
+    fn jmle_into_inner_returns_wrapped_reference() {
+        let h = build_hll();
+        let view = h.jmle();
+        let inner: &HyperLogLog<Precision10, Bits6> = view.into_inner();
+        assert_eq!(inner.estimate_cardinality(), h.estimate_cardinality());
     }
 }
