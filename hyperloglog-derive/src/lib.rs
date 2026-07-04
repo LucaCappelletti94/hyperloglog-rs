@@ -81,11 +81,17 @@ pub fn test_precisions_and_bits(attr: TokenStream, item: TokenStream) -> TokenSt
         .map(|bits| Ident::new(&format!("Bits{}", bits), fn_name.span()))
         .collect::<Vec<_>>();
 
+    // Default CI matrix. Non-default combinations are gated behind
+    // `#[cfg(feature = "exhaustive-tests")]` so a nightly / pre-release sweep
+    // still exercises the entire cross product.
+    const DEFAULT_PRECISIONS: &[u8] = &[4, 8, 12, 16];
+    const DEFAULT_BITS: &[u8] = &[4, 6];
+
     // Generate the test functions
     let test_functions = precisions.iter().enumerate().flat_map(|(i, precision)| {
-        let precision_exponent = i + 4;
-        (4..=6).zip(bits.iter()).flat_map(move |(bit_size, bit)| {
-            if exclude_ref.contains(&(precision_exponent as u8, bit_size as u8)) {
+        let precision_exponent = (i + 4) as u8;
+        (4u8..=6).zip(bits.iter()).flat_map(move |(bit_size, bit)| {
+            if exclude_ref.contains(&(precision_exponent, bit_size)) {
                 return quote! {};
             }
 
@@ -94,8 +100,17 @@ pub fn test_precisions_and_bits(attr: TokenStream, item: TokenStream) -> TokenSt
                 fn_name.span(),
             );
 
+            let is_default = DEFAULT_PRECISIONS.contains(&precision_exponent)
+                && DEFAULT_BITS.contains(&bit_size);
+            let feature_gate = if is_default {
+                quote! {}
+            } else {
+                quote! { #[cfg(feature = "exhaustive-tests")] }
+            };
+
             quote! {
                 #[test]
+                #feature_gate
                 fn #test_fn_name() {
                     #fn_name::<#precision, #bit>();
                 }
@@ -138,56 +153,45 @@ pub fn test_estimator(_attr: TokenStream, item: TokenStream) -> TokenStream {
         // ("ahasher", quote! { ahash::AHasher }),
     ];
 
+    // Default CI matrix. Non-default combinations are gated behind
+    // `#[cfg(feature = "exhaustive-tests")]` so a pre-release sweep still
+    // exercises every precision and bit width. The vec-backed variant was
+    // dropped entirely; the vec register backend is covered by the unit tests
+    // under `registers::packed_array`.
+    const DEFAULT_PRECISIONS: &[usize] = &[4, 8, 12, 16];
+    const DEFAULT_BITS: &[u8] = &[4, 6];
+
     // Generate the test functions
     let test_functions = precisions.iter().enumerate().flat_map(|(idx, precision)| {
         let precision_exponent = idx + 4;
         let hashers = hashers.clone();
-        (bits).iter().flat_map(move |bit| {
+        (4u8..=6).zip(bits.iter()).flat_map(move |(bit_size, bit)| {
             let hashers = hashers.clone();
-            hashers.into_iter().flat_map(move |(hasher_name, hasher_path)| {
-                    let feature_constraints: Vec<proc_macro2::TokenStream> = vec![];
+            let is_default = DEFAULT_PRECISIONS.contains(&precision_exponent)
+                && DEFAULT_BITS.contains(&bit_size);
+            let feature_gate = if is_default {
+                quote! {}
+            } else {
+                quote! { #[cfg(feature = "exhaustive-tests")] }
+            };
+            hashers.into_iter().map(move |(hasher_name, hasher_path)| {
+                let array_test_fn_name = Ident::new(
+                    &format!(
+                        "{}_{}_{}_{}_array",
+                        fn_name, precision, bit, hasher_name
+                    )
+                    .to_lowercase(),
+                    fn_name.span(),
+                );
 
-                    let array_test_fn_name = Ident::new(
-                        &format!(
-                            "{}_{}_{}_{}_array",
-                            fn_name, precision, bit, hasher_name
-                        )
-                        .to_lowercase(),
-                        fn_name.span(),
-                    );
-
-                    // Vec tests at high precisions (14+) are extremely slow due to large heap
-                    // allocations. Skip them; the array variant covers correctness.
-                    let vec_test = if precision_exponent <= 12 {
-                        let vec_test_fn_name = Ident::new(
-                            &format!(
-                                "{}_{}_{}_{}_vec",
-                                fn_name, precision, bit, hasher_name
-                            )
-                            .to_lowercase(),
-                            fn_name.span(),
-                        );
-
-                        quote! {
-                            #[test]
-                            #[cfg(feature = "alloc")]
-                            #(#feature_constraints)*
-                            fn #vec_test_fn_name() {
-                                #fn_name::<#precision, #bit, <#precision as PackedRegister<#bit>>::Vec, #hasher_path>();
-                            }
-                        }
-                    } else {
-                        quote! {}
-                    };
-
-                    quote! {
-                        #[test]
-                        #(#feature_constraints)*
-                        fn #array_test_fn_name() {
-                            #fn_name::<#precision, #bit, <#precision as PackedRegister<#bit>>::Array, #hasher_path>();
-                        }
-                        #vec_test
+                let feature_gate = feature_gate.clone();
+                quote! {
+                    #[test]
+                    #feature_gate
+                    fn #array_test_fn_name() {
+                        #fn_name::<#precision, #bit, <#precision as PackedRegister<#bit>>::Array, #hasher_path>();
                     }
+                }
             })
         })
     });

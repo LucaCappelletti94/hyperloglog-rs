@@ -119,14 +119,25 @@ mod test_composite_hash {
                 }
 
                 if let Ok(Some(insert_metadata)) = result {
-                    // If the hash was inserted, there must NOT be a reference stored with the same hash.
-                    assert!(!reference_hashes[..number_of_inserted_hashes as usize]
-                        .contains(&reference_encoded_hash));
-                    reference_hashes[number_of_inserted_hashes as usize] = reference_encoded_hash;
+                    // `reference_hashes[..number_of_inserted_hashes]` is kept sorted in
+                    // descending order. We locate the insertion position with
+                    // `partition_point` (`O(log N)`) and slide the tail down by one slot
+                    // with `copy_within` (`O(N)` memmove), which is asymptotically the
+                    // same as `Vec::insert`. This replaces the earlier `contains` +
+                    // `sort_unstable_by` combo that was `O(N log N)` per iteration and
+                    // pushed `p >= 15` runs above 60 seconds each.
+                    let sorted = &reference_hashes[..number_of_inserted_hashes as usize];
+                    let insert_pos = sorted.partition_point(|&h| h > reference_encoded_hash);
+                    assert!(
+                        insert_pos == sorted.len() || sorted[insert_pos] != reference_encoded_hash,
+                        "Reference hashes already contain {reference_encoded_hash:064b}.",
+                    );
+                    reference_hashes.copy_within(
+                        insert_pos..number_of_inserted_hashes as usize,
+                        insert_pos + 1,
+                    );
+                    reference_hashes[insert_pos] = reference_encoded_hash;
                     number_of_inserted_hashes += 1;
-                    // We sort by decreasing order so that we can use the binary search.
-                    reference_hashes[..number_of_inserted_hashes as usize]
-                        .sort_unstable_by(|a, b| b.cmp(a));
 
                     if insert_metadata.hash_bits != hash_bits {
                         let mut last_reference_hash = u32::MAX;

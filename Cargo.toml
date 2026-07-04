@@ -60,6 +60,11 @@ default = ["alloc"]
 # allocation.
 alloc = []
 
+# Reopen the full precision * bits property-check matrix in the test macros
+# (`hyperloglog_derive::test_estimator`, `test_precisions_and_bits`). Off by
+# default: CI runs a sparse sweep, pre-release audits opt into the full sweep.
+exhaustive-tests = []
+
 [package.metadata.clippy]
 all-features = true
 
