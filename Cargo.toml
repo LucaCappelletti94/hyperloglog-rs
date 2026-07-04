@@ -28,7 +28,7 @@ serde = { version = "1.0", default-features = false, features = [
 ], optional = true }
 paste = "1.0.15"
 twox-hash = { version = "1.6.3", default-features = false }
-sketching-core = { git = "https://github.com/LucaCappelletti94/sketching-core-rs.git", rev = "e5872a0a4c9a16c40688617da312ca76a259f84c", features = ["alloc", "serde"] }
+sketching-core = { version = "0.1", features = ["alloc", "serde"] }
 hyperloglog-derive = { path = "hyperloglog-derive" }
 
 
@@ -104,9 +104,3 @@ harness = false
 name = "joint_mle"
 harness = false
 
-# Unify sketching-core to the local checkout so setsketch (which references it by git) and the
-# path-based hyperloglog-rs and hyperlogloglog crates all share one sketching-core in the dev
-# dependency graph. Without this the examples see two distinct sketching-core versions and the
-# shared Precision and Base types fail to unify.
-[patch."https://github.com/LucaCappelletti94/sketching-core-rs.git"]
-sketching-core = { path = "../sketching-core-rs" }
