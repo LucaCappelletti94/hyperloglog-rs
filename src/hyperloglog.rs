@@ -6,16 +6,31 @@
 use crate::composite_hash::{GapHash, SaturationError};
 use crate::correction_coefficients::HYPERLOGLOG_LINEAR_COUNT_THRESHOLD;
 use crate::prelude::*;
-use sketching_core::sparse_value_list::{
-    self as svl, SigBitsCode, SparseValueCodec, ValueInsertion, ValueIter, BE,
-};
 use core::f64;
 use core::fmt::Debug;
 use core::hash::Hash;
 use core::marker::PhantomData;
+use sketching_core::sparse_value_list::{
+    self as svl, SigBitsCode, SparseValueCodec, ValueInsertion, ValueIter, BE,
+};
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// The `slice_view` module attaches `unsafe` methods (`as_words`, `from_words`, ...) to the
+// counter. Clippy defensively flags any `serde::Deserialize` derive that coexists with unsafe
+// code, because a deserializer feeding invalid bytes could break a safety invariant. That does
+// not apply here: the counter's fields are `harmonic_sum: f64` (every bit pattern is a valid
+// `f64`, including NaNs) and `registers: Packed<Words<N>, B>` (a wrapper over `[u64; N]`, which
+// imposes no bit-level invariant beyond storing bits), so a deserialized counter is bit-for-bit
+// equivalent to one produced by `insert` / `merge` and the slice-view accessors are safe on it.
+#[cfg_attr(feature = "serde", allow(clippy::unsafe_derive_deserialize))]
+// The struct is `#[repr(C)]` so its memory layout is stable: fields land in declaration order
+// (`harmonic_sum` in word 0, `registers` in words `1..N`), no reordering, no tail padding. This
+// is what lets the `slice_view` module view a counter as a `[u64]` slab and reconstruct one over
+// a borrowed `&[u64]` in place. Every field is 8-byte aligned already, so `#[repr(C)]` is
+// space-equivalent to `#[repr(Rust)]` on this struct, and using it unconditionally has zero cost
+// while removing an axis on which downstream users can silently observe layout drift.
+#[repr(C)]
 /// A hybrid counter for approximate set cardinality estimation that transitions across three
 /// representations as it grows (sorted value list, then sorted hash list, then `HyperLogLog`
 /// registers), keeping values or hashes explicit until they no longer fit.
@@ -26,10 +41,12 @@ pub struct HyperLogLog<
     Hasher: HasherType = twox_hash::XxHash64,
     C = SigBitsCode,
 > {
+    /// The harmonic sum of the registers, i.e. the sum of `2^(-register_value)` for all
+    /// registers. Placed first so under `#[repr(C)]` it occupies word 0 of the counter's memory
+    /// slab, with the register bits filling words `1..N`.
+    pub(crate) harmonic_sum: f64,
     /// The registers of the counter.
     pub(crate) registers: R,
-    /// The harmonic sum of the registers, i.e. the sum of 2^(-register_value) for all registers.
-    pub(crate) harmonic_sum: f64,
     /// Phantom data to ensure the type parameters are used. `C` is a zero-runtime-cost codec
     /// witness: the codec is a codec-witness ZST (see `SigBitsCode`) that methods materialize with
     /// `C::default()` when they need to encode or decode the sorted value list.
@@ -49,7 +66,8 @@ pub struct HyperLogLog<
 pub type VecHll<P, B, H = twox_hash::XxHash64, C = SigBitsCode> =
     HyperLogLog<P, B, <P as PackedRegister<B>>::Vec, H, C>;
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> Default for HyperLogLog<P, B, R, H, C>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> Default
+    for HyperLogLog<P, B, R, H, C>
 where
     C: SparseValueCodec,
 {
@@ -506,8 +524,7 @@ where
             let new_registers = self.full_size_cleared_registers();
             let source = core::mem::replace(&mut self.registers, new_registers);
             self.harmonic_sum = encode_dense_zeros(u32::try_from(1u64 << P::EXPONENT).unwrap());
-            for value in ValueIter::<BE, _>::new(source.as_ref(), 0, count, C::default())
-            {
+            for value in ValueIter::<BE, _>::new(source.as_ref(), 0, count, C::default()) {
                 let (index, register, _) = Self::index_and_register_and_hash(&value);
                 self.insert_register_value_and_index(register, index);
             }
@@ -616,7 +633,6 @@ where
     /// operand into this one (which is quadratic). The only allocation is one clone of this counter's
     /// own value buffer, mirroring the mode-transition paths.
     fn try_merge_exact_values(&mut self, rhs: &Self) -> bool {
-
         let count_self = self.get_number_of_values();
         let count_rhs = rhs.get_number_of_values();
         let (union_count, needed_bits) = svl::merge_metrics::<BE, _>(
@@ -1538,7 +1554,8 @@ where
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> BitOr for HyperLogLog<P, B, R, H, C>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> BitOr
+    for HyperLogLog<P, B, R, H, C>
 where
     C: SparseValueCodec,
 {
@@ -1551,7 +1568,8 @@ where
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> BitOr for &HyperLogLog<P, B, R, H, C>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> BitOr
+    for &HyperLogLog<P, B, R, H, C>
 where
     C: SparseValueCodec,
 {
@@ -2601,7 +2619,10 @@ mod codec_generic_tests {
 
     impl _DynamicCodeRead for Gamma {
         #[inline]
-        fn read<E: Endianness, R: CodesRead<E> + ?Sized>(&self, r: &mut R) -> Result<u64, R::Error> {
+        fn read<E: Endianness, R: CodesRead<E> + ?Sized>(
+            &self,
+            r: &mut R,
+        ) -> Result<u64, R::Error> {
             ConstCode::<{ code_consts::GAMMA }>.read(r)
         }
     }
@@ -2645,8 +2666,7 @@ mod codec_generic_tests {
         assert!(gamma_hll.is_sorted_value_list());
 
         // Functional equivalence: both codecs recover the same set of values in the same order.
-        let default_values: alloc::vec::Vec<u64> =
-            default_hll.recover_values().unwrap().collect();
+        let default_values: alloc::vec::Vec<u64> = default_hll.recover_values().unwrap().collect();
         let gamma_values: alloc::vec::Vec<u64> = gamma_hll.recover_values().unwrap().collect();
         assert_eq!(
             default_values, gamma_values,

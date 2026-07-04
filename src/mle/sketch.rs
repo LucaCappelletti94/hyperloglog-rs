@@ -358,8 +358,12 @@ pub(crate) fn joint_sketch_mle_core<
     // basin on weakly identified deep cells, whereas from the 2-set MLE solution it starts at a point
     // the joint likelihood can only refine. The seed costs M*N 2-set MLE solves and does not recurse
     // (inclusion-exclusion over `Mle` views uses only the pairwise union, never the joint optimizer).
-    let left_views: [Mle<&HyperLogLog<P, B, R, H, C>>; M] = core::array::from_fn(|i| lefts[i].mle());
-    let right_views: [Mle<&HyperLogLog<P, B, R, H, C>>; N] = core::array::from_fn(|j| rights[j].mle());
+    #[allow(clippy::type_complexity)]
+    let left_views: [Mle<&HyperLogLog<P, B, R, H, C>>; M] =
+        core::array::from_fn(|i| lefts[i].mle());
+    #[allow(clippy::type_complexity)]
+    let right_views: [Mle<&HyperLogLog<P, B, R, H, C>>; N] =
+        core::array::from_fn(|j| rights[j].mle());
     let (overlap0, left0, right0) =
         sketching_core::inclusion_exclusion_joint_sketch(&left_views, &right_views).into_parts();
 

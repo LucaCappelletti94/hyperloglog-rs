@@ -79,6 +79,7 @@ pub mod mle;
 mod registers;
 pub mod sigma_tau;
 pub mod sketches;
+pub mod slice_view;
 pub mod utils;
 
 /// Re-exports of the most important traits and structs.

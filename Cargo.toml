@@ -73,7 +73,6 @@ default = ["alloc"]
 # enables the heap-`Vec`-backed register storage (`VecHll`); the fixed-size array backing needs no
 # allocation.
 alloc = []
-
 # Reopen the full precision * bits property-check matrix in the test macros
 # (`hyperloglog_derive::test_estimator`, `test_precisions_and_bits`). Off by
 # default: CI runs a sparse sweep, pre-release audits opt into the full sweep.
