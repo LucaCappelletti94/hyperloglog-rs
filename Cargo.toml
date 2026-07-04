@@ -49,6 +49,16 @@ ultraloglog = "0.1.6"
 # HyperLogLogLog (Karppa and Pagh 2022) compressed-register sketch, our own faithful port, for the
 # register-compression comparison: same estimates as HyperLogLog, less memory, no low-cardinality gain.
 hyperlogloglog = { path = "../hyperlogloglog-rs" }
+# ExaLogLog (Ertl 2024, EDBT 2025) reference-parity Rust port of the Java implementation.
+# Byte-for-byte parity with `dynatrace-research/exaloglog-paper` on splitmix64 inserts. Ships the
+# sparse-mode hash-token accumulator that is the closest published competitor to the hash list in
+# the low-cardinality regime the paper targets.
+exaloglog = "0.15"
+# Vigna's card-est-array crate (LAW group, University of Milan) ships the HyperLogLog and
+# HyperLogLog8 counters used as per-node estimators in HyperBall and HyperANF. Included here as a
+# same-hash-stream comparator so the paper's hash list can be reported against Sebastiano and
+# Tommaso's reference implementations directly.
+card-est-array = "0.6"
 # `dsi-bitstream` is already a transitive dep via `sketching-core`. The internal
 # `codec_generic_tests` module wires a custom `SparseValueCodec` (a `Default`-derivable wrapper
 # around `ConstCode<GAMMA>`) to prove the `HyperLogLog<..., C>` generic accepts user codecs.
