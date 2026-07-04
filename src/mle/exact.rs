@@ -11,9 +11,9 @@
 //! largest current head. For each distinct value we read its left shell (the smallest left list that
 //! contains it) and right shell directly off the merge cursors.
 
-use sketching_core::sparse_value_list::{SparseValueCodec, ValueIter, BE};
 use crate::prelude::*;
 use crate::utils::Zero;
+use sketching_core::sparse_value_list::{SparseValueCodec, ValueIter, BE};
 
 /// Exact joint sketch when every operand is in the sorted value list: classify each distinct literal
 /// value directly (no hashing, no collisions), giving truly exact disjoint cells. `overlap[i][j] =

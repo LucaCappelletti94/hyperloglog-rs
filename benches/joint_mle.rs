@@ -110,11 +110,15 @@ fn bench_joint_mle(c: &mut Criterion) {
         let (lefts, rights) = build_power_law_cells::<Precision8, Bits6, 8, 8>(0xC0FFEE, 300);
         group.bench_function("damped_p8", |b| {
             b.iter(|| {
-                let sketch =
-                    hyperloglog_rs::mle::bench_joint_sketch_mle::<Precision8, Bits6, _, _, _, 8, 8>(
-                        black_box(&lefts),
-                        black_box(&rights),
-                    );
+                let sketch = hyperloglog_rs::mle::bench_joint_sketch_mle::<
+                    Precision8,
+                    Bits6,
+                    _,
+                    _,
+                    _,
+                    8,
+                    8,
+                >(black_box(&lefts), black_box(&rights));
                 black_box(sketch)
             });
         });
@@ -125,11 +129,15 @@ fn bench_joint_mle(c: &mut Criterion) {
         let (lefts, rights) = build_power_law_cells::<Precision10, Bits6, 8, 8>(0xC0FFEE, 1200);
         group.bench_function("damped_p10", |b| {
             b.iter(|| {
-                let sketch =
-                    hyperloglog_rs::mle::bench_joint_sketch_mle::<Precision10, Bits6, _, _, _, 8, 8>(
-                        black_box(&lefts),
-                        black_box(&rights),
-                    );
+                let sketch = hyperloglog_rs::mle::bench_joint_sketch_mle::<
+                    Precision10,
+                    Bits6,
+                    _,
+                    _,
+                    _,
+                    8,
+                    8,
+                >(black_box(&lefts), black_box(&rights));
                 black_box(sketch)
             });
         });
@@ -142,11 +150,15 @@ fn bench_joint_mle(c: &mut Criterion) {
         let (lefts, rights) = build_power_law_cells::<Precision14, Bits6, 8, 8>(0xC0FFEE, 4096);
         group.bench_function("damped_p14", |b| {
             b.iter(|| {
-                let sketch =
-                    hyperloglog_rs::mle::bench_joint_sketch_mle::<Precision14, Bits6, _, _, _, 8, 8>(
-                        black_box(&lefts),
-                        black_box(&rights),
-                    );
+                let sketch = hyperloglog_rs::mle::bench_joint_sketch_mle::<
+                    Precision14,
+                    Bits6,
+                    _,
+                    _,
+                    _,
+                    8,
+                    8,
+                >(black_box(&lefts), black_box(&rights));
                 black_box(sketch)
             });
         });
@@ -155,11 +167,15 @@ fn bench_joint_mle(c: &mut Criterion) {
         let (lefts, rights) = build_power_law_cells::<Precision16, Bits6, 8, 8>(0xC0FFEE, 16384);
         group.bench_function("damped_p16", |b| {
             b.iter(|| {
-                let sketch =
-                    hyperloglog_rs::mle::bench_joint_sketch_mle::<Precision16, Bits6, _, _, _, 8, 8>(
-                        black_box(&lefts),
-                        black_box(&rights),
-                    );
+                let sketch = hyperloglog_rs::mle::bench_joint_sketch_mle::<
+                    Precision16,
+                    Bits6,
+                    _,
+                    _,
+                    _,
+                    8,
+                    8,
+                >(black_box(&lefts), black_box(&rights));
                 black_box(sketch)
             });
         });

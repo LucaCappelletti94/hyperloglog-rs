@@ -79,7 +79,13 @@ pub fn bench_joint_sketch_mle<
 /// hot path.
 #[doc(hidden)]
 #[must_use]
-pub fn bench_union_regions<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C: SparseValueCodec>(
+pub fn bench_union_regions<
+    P: Precision,
+    B: Bits,
+    R: Registers<P, B>,
+    H: HasherType,
+    C: SparseValueCodec,
+>(
     left: &HyperLogLog<P, B, R, H, C>,
     right: &HyperLogLog<P, B, R, H, C>,
 ) -> [f64; 3] {

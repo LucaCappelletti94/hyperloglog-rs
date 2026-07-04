@@ -21,9 +21,9 @@
 use crate::error_model::{register_crlb_relative_standard_error, register_raw_bias};
 use crate::estimator::HllCardinalityEstimator;
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
-use sketching_core::sparse_value_list::SparseValueCodec;
 use crate::sketches::HyperSpheresSketch;
 use crate::utils::FloatOps;
+use sketching_core::sparse_value_list::SparseValueCodec;
 
 /// A view over a [`HyperLogLog`] (here a borrowed one, produced by [`HyperLogLog::adaptive`]) that
 /// auto-selects the default or maximum-likelihood estimator per counter. See the module documentation.
@@ -85,8 +85,8 @@ impl<H> Adaptive<H> {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> sketching_core::CardinalityEstimator
-    for Adaptive<&HyperLogLog<P, B, R, H, C>>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C>
+    sketching_core::CardinalityEstimator for Adaptive<&HyperLogLog<P, B, R, H, C>>
 where
     C: SparseValueCodec,
 {
@@ -239,9 +239,15 @@ mod tests {
         assert!(h.prefers_mle());
         let view = h.adaptive();
         let mle = h.mle();
-        assert_eq!(view.predicted_relative_standard_error(), mle.predicted_relative_standard_error());
+        assert_eq!(
+            view.predicted_relative_standard_error(),
+            mle.predicted_relative_standard_error()
+        );
         assert_eq!(view.predicted_bias(), mle.predicted_bias());
-        assert_eq!(view.relative_standard_error_at(1_000_000.0), mle.relative_standard_error_at(1_000_000.0));
+        assert_eq!(
+            view.relative_standard_error_at(1_000_000.0),
+            mle.relative_standard_error_at(1_000_000.0)
+        );
         assert_eq!(view.bias_at(1_000_000.0), mle.bias_at(1_000_000.0));
     }
 
@@ -259,9 +265,15 @@ mod tests {
         }
         assert!(h.is_hyperloglog() && !h.prefers_mle());
         let view = h.adaptive();
-        assert_eq!(view.predicted_relative_standard_error(), h.predicted_relative_standard_error());
+        assert_eq!(
+            view.predicted_relative_standard_error(),
+            h.predicted_relative_standard_error()
+        );
         assert_eq!(view.predicted_bias(), h.predicted_bias());
-        assert_eq!(view.relative_standard_error_at(50_000.0), h.relative_standard_error_at(50_000.0));
+        assert_eq!(
+            view.relative_standard_error_at(50_000.0),
+            h.relative_standard_error_at(50_000.0)
+        );
         assert_eq!(view.bias_at(50_000.0), h.bias_at(50_000.0));
     }
 

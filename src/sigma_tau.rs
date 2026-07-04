@@ -192,8 +192,8 @@ impl<H> SigmaTau<H> {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> sketching_core::CardinalityEstimator
-    for SigmaTau<&HyperLogLog<P, B, R, H, C>>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C>
+    sketching_core::CardinalityEstimator for SigmaTau<&HyperLogLog<P, B, R, H, C>>
 where
     C: SparseValueCodec,
 {

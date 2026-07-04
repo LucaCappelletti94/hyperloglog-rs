@@ -11,8 +11,8 @@
 use super::sketch::joint_sketch_mle_from_registers;
 use crate::estimator::HllCardinalityEstimator;
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
-use sketching_core::sparse_value_list::SparseValueCodec;
 use crate::sketches::{HyperSpheresSketch, JointSketch};
+use sketching_core::sparse_value_list::SparseValueCodec;
 
 /// A generalized-joint-MLE view over a [`HyperLogLog`] (here a borrowed one, produced by
 /// [`HyperLogLog::jmle`]). See the module documentation.
@@ -71,8 +71,8 @@ impl<H> JointMle<H> {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> sketching_core::CardinalityEstimator
-    for JointMle<&HyperLogLog<P, B, R, H, C>>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C>
+    sketching_core::CardinalityEstimator for JointMle<&HyperLogLog<P, B, R, H, C>>
 where
     C: SparseValueCodec,
 {

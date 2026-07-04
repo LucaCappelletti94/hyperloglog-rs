@@ -44,8 +44,8 @@ pub trait HllCardinalityEstimator: sketching_core::CardinalityEstimator {
     fn bias_at(&self, cardinality: f64) -> f64;
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> sketching_core::CardinalityEstimator
-    for HyperLogLog<P, B, R, H, C>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C>
+    sketching_core::CardinalityEstimator for HyperLogLog<P, B, R, H, C>
 where
     C: SparseValueCodec,
 {

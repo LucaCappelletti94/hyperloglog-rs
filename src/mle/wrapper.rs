@@ -9,8 +9,8 @@
 
 use crate::estimator::HllCardinalityEstimator;
 use crate::prelude::{Bits, HasherType, HyperLogLog, Precision, Registers};
-use sketching_core::sparse_value_list::SparseValueCodec;
 use crate::sketches::{HyperSpheresSketch, JointSketch};
+use sketching_core::sparse_value_list::SparseValueCodec;
 
 /// A maximum-likelihood-estimation view over a [`HyperLogLog`] (here a borrowed one, produced by
 /// [`HyperLogLog::mle`]). See the module documentation.
@@ -39,8 +39,8 @@ impl<H> Mle<H> {
     }
 }
 
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> sketching_core::CardinalityEstimator
-    for Mle<&HyperLogLog<P, B, R, H, C>>
+impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C>
+    sketching_core::CardinalityEstimator for Mle<&HyperLogLog<P, B, R, H, C>>
 where
     C: SparseValueCodec,
 {
@@ -170,9 +170,10 @@ mod tests {
         let rse = view.predicted_relative_standard_error();
         assert!(rse.is_finite() && rse > 0.0);
         // Reference implementation of the same call.
-        let expected = crate::error_model::register_crlb_relative_standard_error::<Precision10, Bits6>(
-            h.estimate_cardinality_mle(),
-        );
+        let expected = crate::error_model::register_crlb_relative_standard_error::<
+            Precision10,
+            Bits6,
+        >(h.estimate_cardinality_mle());
         assert_eq!(rse, expected);
         // The MLE is asymptotically unbiased.
         assert_eq!(view.predicted_bias(), 0.0);
@@ -181,7 +182,9 @@ mod tests {
         // `relative_standard_error_at` matches the CRLB at the supplied cardinality.
         assert_eq!(
             view.relative_standard_error_at(100_000.0),
-            crate::error_model::register_crlb_relative_standard_error::<Precision10, Bits6>(100_000.0),
+            crate::error_model::register_crlb_relative_standard_error::<Precision10, Bits6>(
+                100_000.0
+            ),
         );
     }
 
