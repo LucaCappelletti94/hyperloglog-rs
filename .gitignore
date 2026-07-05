@@ -18,3 +18,7 @@ Cargo.lock
 *.tsv.zip
 .DS_Store
 .vscode/
+
+# cargo-mutants working directories (per-run mutation-test outputs, huge and per-machine).
+mutants.out/
+mutants.out.old/
