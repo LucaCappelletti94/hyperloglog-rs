@@ -135,6 +135,35 @@ where
         }
     }
 
+    /// Broadword override: replaces the default per-register `set_greater` loop with a
+    /// word-level SWAR max. Cuts the register-max part of a dense-dense merge from
+    /// `O(num_regs)` per-register unpack/repack cycles to `O(num_words)` word operations
+    /// (roughly `20x` fewer operations on `Precision10 Bits5`). The `alloc` feature owns the
+    /// scratch and mask storage; without `alloc` the default per-register fallback fires.
+    #[cfg(feature = "alloc")]
+    #[inline]
+    fn register_max_from(&mut self, rhs: &Self) {
+        let num_words = AsRef::<[u64]>::as_ref(self).len();
+        debug_assert_eq!(num_words, AsRef::<[u64]>::as_ref(rhs).len());
+        let register_size = B::NUMBER_OF_BITS_USIZE;
+        let num_regs = 1_usize << P::EXPONENT;
+        let mut msb_mask = alloc::vec![0u64; num_words];
+        let mut lsb_mask = alloc::vec![0u64; num_words];
+        crate::broadword::build_msb_mask(&mut msb_mask, register_size, num_regs);
+        crate::broadword::build_lsb_mask(&mut lsb_mask, register_size, num_regs);
+        let mut acc = alloc::vec![0u64; num_words];
+        let mut mask_scratch = alloc::vec![0u64; num_words];
+        crate::broadword::merge_max_broadword(
+            AsMut::<[u64]>::as_mut(self),
+            AsRef::<[u64]>::as_ref(rhs),
+            &msb_mask,
+            &lsb_mask,
+            register_size,
+            &mut acc,
+            &mut mask_scratch,
+        );
+    }
+
     #[inline]
     #[allow(unsafe_code)]
     fn set(&mut self, index: usize, new_register: u8) {

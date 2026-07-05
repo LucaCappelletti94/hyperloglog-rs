@@ -69,6 +69,8 @@ pub use sketching_core::{
 };
 
 pub mod adaptive;
+#[cfg(feature = "alloc")]
+pub(crate) mod broadword;
 pub mod composite_hash;
 mod correction_coefficients;
 pub mod error_model;

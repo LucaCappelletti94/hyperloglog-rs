@@ -140,6 +140,20 @@ pub trait Registers<P: Precision, B: Bits>:
     /// The previous value of the register, and the larger of the two values.
     fn set_greater(&mut self, index: usize, value: u8) -> (u8, u8);
 
+    /// Takes the element-wise maximum of `rhs`'s registers into `self`'s registers.
+    ///
+    /// The default implementation walks both operands and issues one [`Self::set_greater`] per
+    /// register position. Implementors backed by a packed word slab SHOULD override this with
+    /// a SWAR word-level maximum so a bulk merge does `O(num_words)` word operations rather
+    /// than `O(num_regs)` per-register unpack/repack cycles. Callers must not rely on any
+    /// specific relationship between the pre-call and post-call `harmonic_sum`; the caller
+    /// (typically [`HyperLogLog::merge`]) rebuilds it once at the end.
+    fn register_max_from(&mut self, rhs: &Self) {
+        for (index, register) in rhs.iter_registers().enumerate() {
+            self.set_greater(index, register);
+        }
+    }
+
     /// Updates the register at the given index with the given value.
     ///
     /// # Arguments

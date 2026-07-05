@@ -165,7 +165,6 @@ fn bench_hyperloglog_union(c: &mut Criterion) {
             },
         );
     });
-
     group.finish();
 }
 

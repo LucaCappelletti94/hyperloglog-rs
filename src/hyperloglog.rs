@@ -436,7 +436,6 @@ where
             pack_harmonic_with_zeros(harmonic, zeros, zero_bits::<P, B>())
         };
     }
-
     #[inline]
     fn clear(&mut self) {
         self.registers.clear_registers();
@@ -1381,18 +1380,14 @@ where
                 // HyperBall (one merge per graph arc, one estimate per graph node) see the
                 // full constant-factor win. Streaming callers keep the fast `estimate` because
                 // the packed word is left in the same shape `insert` maintains.
-                for (index, register) in rhs.registers.iter_registers().enumerate() {
-                    self.registers.set_greater(index, register);
-                }
+                self.registers.register_max_from(&rhs.registers);
                 self.rebuild_dense_word_from_registers();
             }
             (true, false) => {
                 // Only `self` is a sorted hash list: materialize it, then take the register
                 // maximum via the same deferred-bookkeeping loop as the dense-dense arm.
                 self.to_hll();
-                for (index, register) in rhs.registers.iter_registers().enumerate() {
-                    self.registers.set_greater(index, register);
-                }
+                self.registers.register_max_from(&rhs.registers);
                 self.rebuild_dense_word_from_registers();
             }
             (false, true) => {
@@ -2743,5 +2738,186 @@ mod codec_generic_tests {
             assert!(!default_hll.may_contain_value(v));
             assert!(!gamma_hll.may_contain_value(v));
         }
+    }
+}
+
+#[cfg(test)]
+mod merge_broadword_hll_tests {
+    //! End-to-end equivalence between the transparent `BitOrAssign` path (which internally
+    //! routes dense-dense operands through the broadword register max override on
+    //! [`Registers::register_max_from`]) and an explicit per-register `set_greater` loop.
+    //! Both paths must produce a bit-exact identical final counter state.
+    //!
+    //! The comparison relies on the derived [`PartialEq`], which compares the packed
+    //! `harmonic_sum` bits and the raw register slab. Since both paths call
+    //! `rebuild_dense_word_from_registers` after the register max, if the register slabs
+    //! agree the harmonic word necessarily agrees too. So this test primarily catches
+    //! discrepancies in the broadword register-max itself.
+
+    use super::*;
+    use crate::prelude::iter_random_values;
+
+    /// Insert enough random values into a fresh counter to promote it out of the sorted hash
+    /// list mode, then transition to a dense `HyperLogLog`. Returns a counter in dense mode.
+    fn build_dense<P, B, R, H>(seed: u64) -> HyperLogLog<P, B, R, H>
+    where
+        P: Precision + PackedRegister<B>,
+        B: Bits,
+        R: Registers<P, B>,
+        H: HasherType,
+        HyperLogLog<P, B, R, H>: Default,
+    {
+        let mut hll: HyperLogLog<P, B, R, H> = Default::default();
+        for value in iter_random_values::<u64>(1_000_000, None, Some(seed)) {
+            hll.insert(&value);
+            if !hll.is_sorted_hash_list() {
+                break;
+            }
+        }
+        let mut dense = hll.into_hll();
+        assert!(dense.is_hyperloglog(), "counter must be in dense HLL mode");
+        // Keep inserting to make sure we exercise a fair variety of register maxima.
+        for value in iter_random_values::<u64>(100_000, None, Some(seed.wrapping_add(0xDEAD))) {
+            dense.insert(&value);
+        }
+        dense
+    }
+
+    /// Reference register max: walk `rhs`'s registers in index order, updating `self` with
+    /// `set_greater`. This is the [`Registers::register_max_from`] default implementation
+    /// spelled out inline so a change to that default does not silently hide a regression.
+    fn merge_reference<P, B, R, H>(dst: &mut HyperLogLog<P, B, R, H>, rhs: &HyperLogLog<P, B, R, H>)
+    where
+        P: Precision + PackedRegister<B>,
+        B: Bits,
+        R: Registers<P, B>,
+        H: HasherType,
+    {
+        for (index, register) in rhs.registers.iter_registers().enumerate() {
+            dst.registers.set_greater(index, register);
+        }
+        dst.rebuild_dense_word_from_registers();
+    }
+
+    /// Generic driver: build two random dense counters, merge one via `|=` (goes through the
+    /// broadword override at register level) and another via the explicit per-register
+    /// reference, then assert bit-exact equality.
+    fn check_equivalence<P, B>()
+    where
+        P: Precision + PackedRegister<B>,
+        B: Bits,
+        HyperLogLog<P, B, <P as PackedRegister<B>>::Array, twox_hash::XxHash64>: Default,
+    {
+        type ScratchHll<P, B> =
+            HyperLogLog<P, B, <P as PackedRegister<B>>::Array, twox_hash::XxHash64>;
+        let dst: ScratchHll<P, B> = build_dense::<P, B, _, _>(0x00A1_1CE0);
+        let src: ScratchHll<P, B> = build_dense::<P, B, _, _>(0x0000_B0B0);
+
+        // Broadword path: `|=` -> `merge` -> `register_max_from` (broadword override) +
+        // rebuild.
+        let mut dst_bitor = dst.clone();
+        dst_bitor |= &src;
+
+        // Reference path: explicit per-register `set_greater` loop + rebuild.
+        let mut dst_reference = dst;
+        merge_reference(&mut dst_reference, &src);
+
+        assert_eq!(
+            dst_bitor,
+            dst_reference,
+            "bitor_assign (broadword) and per-register reference must produce identical \
+             counter states at (P = {}, B = {})",
+            P::EXPONENT,
+            B::NUMBER_OF_BITS,
+        );
+    }
+
+    #[test]
+    fn broadword_equivalent_p10b4() {
+        check_equivalence::<Precision10, Bits4>();
+    }
+
+    #[test]
+    fn broadword_equivalent_p10b5() {
+        check_equivalence::<Precision10, Bits5>();
+    }
+
+    #[test]
+    fn broadword_equivalent_p10b6() {
+        check_equivalence::<Precision10, Bits6>();
+    }
+
+    #[test]
+    fn broadword_equivalent_p12b5() {
+        check_equivalence::<Precision12, Bits5>();
+    }
+
+    #[test]
+    fn broadword_equivalent_p8b6() {
+        check_equivalence::<Precision8, Bits6>();
+    }
+
+    /// Merging a counter with itself must be a no-op (`max(x, x) = x`), leaving both the
+    /// register slab and the packed harmonic word bit-exact identical to the input.
+    #[test]
+    fn broadword_self_merge_is_noop() {
+        type Hll = HyperLogLog<
+            Precision10,
+            Bits5,
+            <Precision10 as PackedRegister<Bits5>>::Array,
+            twox_hash::XxHash64,
+        >;
+        let dense: Hll = build_dense::<Precision10, Bits5, _, _>(0x0DEF_ACE0);
+        let before = dense;
+        let mut after = dense;
+        after |= &dense;
+        assert_eq!(
+            before, after,
+            "self-merge under broadword must be a bit-exact no-op",
+        );
+    }
+
+    /// Merging an all-zeros dense counter into a random dense counter must leave the target
+    /// unchanged. Zero is the minimum register value, so `max(x, 0) = x` for every register.
+    #[test]
+    fn broadword_merge_zeros_into_dense_is_noop() {
+        type Hll = HyperLogLog<
+            Precision10,
+            Bits5,
+            <Precision10 as PackedRegister<Bits5>>::Array,
+            twox_hash::XxHash64,
+        >;
+        let dst_random: Hll = build_dense::<Precision10, Bits5, _, _>(0xC0DE_C0DE);
+        // Force `zeros_counter` to be an all-zeros dense HLL: `Default` gives a fresh sorted
+        // value list; `into_hll()` promotes it to dense with every register still zero.
+        let zeros_counter: Hll = Hll::default().into_hll();
+        assert!(zeros_counter.is_hyperloglog());
+
+        let before = dst_random;
+        let mut after = dst_random;
+        after |= &zeros_counter;
+        assert_eq!(
+            before, after,
+            "merging an all-zeros counter must leave the target unchanged",
+        );
+    }
+
+    /// Merging an arbitrary dense counter into an all-zeros counter must yield an exact copy
+    /// of the source. This complements the previous test by flipping the roles.
+    #[test]
+    fn broadword_merge_dense_into_zeros_matches_source() {
+        type Hll = HyperLogLog<
+            Precision10,
+            Bits5,
+            <Precision10 as PackedRegister<Bits5>>::Array,
+            twox_hash::XxHash64,
+        >;
+        let src_random: Hll = build_dense::<Precision10, Bits5, _, _>(0xC0DE_D00D);
+        let mut dst_zeros: Hll = Hll::default().into_hll();
+        dst_zeros |= &src_random;
+        assert_eq!(
+            dst_zeros, src_random,
+            "merging into an all-zeros counter must reproduce the source exactly",
+        );
     }
 }
