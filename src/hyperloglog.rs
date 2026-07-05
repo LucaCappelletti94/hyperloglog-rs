@@ -408,6 +408,35 @@ where
             .sum()
     }
 
+    /// Rebuilds the packed `harmonic_sum` word (and its embedded zero-register count) from the
+    /// current dense register state. Callers that mutate many registers in a bulk operation
+    /// (dense-dense `merge`, batched inserts, sketch fusion) can skip the per-register unpack /
+    /// repack that [`insert_register_value_and_index`] does and call this once at the end.
+    ///
+    /// The mode selection between "zeros" (linear counting) and "harmonic" mirrors what
+    /// [`insert_register_value_and_index`] would settle on if the same register values had been
+    /// applied one at a time. Single scan over the registers (`O(m)`), no floats past the raw
+    /// register-lookup table.
+    fn rebuild_dense_word_from_registers(&mut self) {
+        debug_assert!(self.is_hyperloglog());
+        let mut harmonic = 0.0f64;
+        let mut zeros = 0u32;
+        for register in self.registers.iter_registers() {
+            harmonic += f64::integer_exp2_minus(register);
+            if register == 0 {
+                zeros += 1;
+            }
+        }
+        let m = f64::integer_exp2(P::EXPONENT);
+        let stays_linear =
+            zeros > 0 && m * (m / f64::from(zeros)).natural_log() <= Self::linear_count_threshold();
+        self.harmonic_sum = if stays_linear {
+            encode_dense_zeros(zeros)
+        } else {
+            pack_harmonic_with_zeros(harmonic, zeros, zero_bits::<P, B>())
+        };
+    }
+
     #[inline]
     fn clear(&mut self) {
         self.registers.clear_registers();
@@ -1342,17 +1371,29 @@ where
         }
         match (self.is_sorted_hash_list(), rhs.is_sorted_hash_list()) {
             (false, false) => {
-                // Both counters are fully-fledged HyperLogLogs: element-wise register maximum.
+                // Both counters are already dense HyperLogLogs: take the element-wise register
+                // maximum in a tight loop with no per-write bookkeeping, then rebuild the
+                // packed `harmonic_sum` word once from the merged registers. That saves the
+                // `unpack_zeros`, `unpack_harmonic`, two `integer_exp2_minus` lookups, and the
+                // `pack_harmonic_with_zeros` that `insert_register_value_and_index` would run
+                // per register, dropping the merge from `O(m * bookkeeping)` to `O(m)` cheap
+                // packed reads and writes plus one `O(m)` rebuild. Bulk merge callers like
+                // HyperBall (one merge per graph arc, one estimate per graph node) see the
+                // full constant-factor win. Streaming callers keep the fast `estimate` because
+                // the packed word is left in the same shape `insert` maintains.
                 for (index, register) in rhs.registers.iter_registers().enumerate() {
-                    self.insert_register_value_and_index(register, index);
+                    self.registers.set_greater(index, register);
                 }
+                self.rebuild_dense_word_from_registers();
             }
             (true, false) => {
-                // Only `self` is a sorted hash list: materialize it, then take the register maximum.
+                // Only `self` is a sorted hash list: materialize it, then take the register
+                // maximum via the same deferred-bookkeeping loop as the dense-dense arm.
                 self.to_hll();
                 for (index, register) in rhs.registers.iter_registers().enumerate() {
-                    self.insert_register_value_and_index(register, index);
+                    self.registers.set_greater(index, register);
                 }
+                self.rebuild_dense_word_from_registers();
             }
             (false, true) => {
                 // Only `rhs` is a sorted hash list: fold its hashes into `self`'s registers.

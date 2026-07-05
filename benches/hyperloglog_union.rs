@@ -132,6 +132,40 @@ fn bench_hyperloglog_union(c: &mut Criterion) {
         b.iter(|| black_box(black_box(&left_hash_list) | black_box(&right_hll)));
     });
 
+    // The `HyperBall` scenario: `Precision10 Bits5` (1024 5-bit registers, 640 B per counter),
+    // both operands forced dense via `into_hll()`. This is the exact shape the `hll_only` cell
+    // hits inside HyperBall's inner loop, one merge per graph arc.
+    type HllP10B5 = HyperLogLog<Precision10, Bits5>;
+    fn build_saturated_p10b5(seed: u64) -> HllP10B5 {
+        let mut hll = HllP10B5::default();
+        for value in iter_random_values::<u64>(1_000_000, None, Some(seed)) {
+            hll.insert(&value);
+            if !hll.is_sorted_hash_list() {
+                break;
+            }
+        }
+        hll.into_hll()
+    }
+    let left_p10b5 = build_saturated_p10b5(0x00A1_1CE0);
+    let right_p10b5 = build_saturated_p10b5(0x0000_B0B0);
+    group.bench_function("union_hyperloglog_p10b5", |b| {
+        b.iter(|| black_box(black_box(&left_p10b5) | black_box(&right_p10b5)));
+    });
+
+    // Merge in place (no clone) at the same shape, since HyperBall's inner call is
+    // `merge_with_helper(&mut dst, &src)`, not a `BitOr` that clones the left operand. The
+    // `BitOr` bench above bundles a clone into every sample, which is where a chunk of the
+    // `union_hyperloglog_p10b5` time actually goes. This one isolates the merge itself.
+    group.bench_function("merge_hyperloglog_p10b5_in_place", |b| {
+        b.iter_with_setup(
+            || left_p10b5,
+            |mut dst| {
+                black_box(&mut dst).bitor_assign(black_box(&right_p10b5));
+                dst
+            },
+        );
+    });
+
     group.finish();
 }
 
