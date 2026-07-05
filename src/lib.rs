@@ -92,7 +92,6 @@ pub mod prelude {
     pub use crate::hyperloglog::*;
     pub use crate::mle::{JointMle, Mle};
     pub use crate::registers::*;
-    pub use crate::sigma_tau::SigmaTau;
     pub use crate::sketches::*;
     pub use crate::utils::*;
     pub use core::ops::{BitOr, BitOrAssign};

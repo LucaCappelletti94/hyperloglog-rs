@@ -97,18 +97,16 @@ where
 
     let t_unc = bench(&|| hll.uncorrected_estimate_cardinality());
     let t_default = bench(&|| hll.estimate_cardinality());
-    let t_st_packed = bench(&|| hll.sigma_tau().estimate_cardinality());
     let t_st_hist = bench(&|| hll.sigma_tau_cardinality_from_histogram());
     let t_st_bare = bench(&|| {
         hyperloglog_rs::sigma_tau::ertl_cardinality_from_moments::<P, B>(harmonic_sum, zeros, 0.0)
     });
     println!(
-        "P{:<2} B{}  ns/call: uncorrected {:>6.1}  default (sigma/tau) {:>6.1}  sigma/tau O(1) {:>6.1}  sigma/tau O(m) {:>8.1}  bare series {:>6.1}",
+        "P{:<2} B{}  ns/call: uncorrected {:>6.1}  default (sigma/tau) {:>6.1}  sigma/tau O(m) {:>8.1}  bare series {:>6.1}",
         P::EXPONENT,
         B::NUMBER_OF_BITS,
         t_unc,
         t_default,
-        t_st_packed,
         t_st_hist,
         t_st_bare,
     );

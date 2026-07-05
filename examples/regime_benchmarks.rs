@@ -202,20 +202,6 @@ fn scalar_mle(op: &str, a: &Hll, b: &Hll) -> f64 {
     }
 }
 
-/// The no-linear-counting estimator value of a scalar op on `(a, b)`: the register estimate with the
-/// linear-counting branch bypassed (always the bias-corrected raw estimate). Comparing this against
-/// `scalar_default` measures how much linear counting contributes at low register load.
-fn scalar_no_linear(op: &str, a: &Hll, b: &Hll) -> f64 {
-    let (an, bn) = (a.sigma_tau(), b.sigma_tau());
-    match op {
-        "cardinality" => an.estimate_cardinality(),
-        "union" => an.estimate_union_cardinality(&bn),
-        "intersection" => an.estimate_intersection_cardinality(&bn),
-        "jaccard" => an.estimate_jaccard_index(&bn),
-        _ => unreachable!(),
-    }
-}
-
 /// The exact ground truth of a scalar op from the two value sets.
 fn scalar_truth(op: &str, set_a: &HashSet<u64>, set_b: &HashSet<u64>) -> f64 {
     match op {
@@ -405,14 +391,7 @@ fn main() {
 
         for (repr_name, repr, with_mle) in reprs {
             eprintln!("  card {card:>8}  {repr_name}");
-            // The no-linear-counting variant is measured only on the forced-dense series: that series
-            // is in linear counting across the whole sub-threshold range, so the gap against the
-            // default is visible there. The hybrid is a hash list below the dense transition, where
-            // linear counting never applies, so it would only duplicate the default.
-            // The no-linear-counting series was dropped from the lineup: its only purpose was to
-            // quantify linear counting's low-load contribution, and post the dense zeros-mode change it
-            // forces an O(m) harmonic-sum reconstruction at low load, so it is no longer cheap.
-            let with_no_linear = false;
+            // Scalar-op scaffolding: default is a real timing, MLE is optional per representation.
             let (vals_a, vals_b) = build_vals(card, 42);
             let a = build(&vals_a, repr);
             let b = build(&vals_b, repr);
@@ -459,11 +438,9 @@ fn main() {
                 })
             };
 
-            // Scalar-op speed (default, MLE for dense/hybrid, no-linear-counting for dense), on the
-            // representative pair.
+            // Scalar-op speed (default, MLE for dense/hybrid) on the representative pair.
             let mut default_speed: Vec<Vec<f64>> = Vec::with_capacity(SCALAR_OPS.len());
             let mut mle_speed: Vec<Option<Vec<f64>>> = Vec::with_capacity(SCALAR_OPS.len());
-            let mut no_linear_speed: Vec<Option<Vec<f64>>> = Vec::with_capacity(SCALAR_OPS.len());
             for op in SCALAR_OPS {
                 default_speed.push({
                     let (a, b) = (a.clone(), b.clone());
@@ -477,18 +454,10 @@ fn main() {
                         black_box_f64(scalar_mle(op, &a, &b));
                     })
                 }));
-                no_linear_speed.push(with_no_linear.then(|| {
-                    let (a, b) = (a.clone(), b.clone());
-                    autobench(fast, REPS, || {
-                        black_box_f64(scalar_no_linear(op, &a, &b));
-                    })
-                }));
             }
             // Scalar quality over independent trials: build each pair once, score every scalar task.
             let mut default_err: Vec<Vec<f64>> = vec![Vec::with_capacity(TRIALS); SCALAR_OPS.len()];
             let mut mle_err: Vec<Vec<f64>> = vec![Vec::with_capacity(TRIALS); SCALAR_OPS.len()];
-            let mut no_linear_err: Vec<Vec<f64>> =
-                vec![Vec::with_capacity(TRIALS); SCALAR_OPS.len()];
             for t in 0..TRIALS {
                 let (va, vb) = build_vals(card, t as u64 + 1);
                 let sa: HashSet<u64> = va.iter().copied().collect();
@@ -500,9 +469,6 @@ fn main() {
                     default_err[idx].push(rel_err(scalar_default(op, &ta, &tb), truth));
                     if with_mle && op_uses_mle(op) {
                         mle_err[idx].push(rel_err(scalar_mle(op, &ta, &tb), truth));
-                    }
-                    if with_no_linear {
-                        no_linear_err[idx].push(rel_err(scalar_no_linear(op, &ta, &tb), truth));
                     }
                 }
             }
@@ -532,21 +498,12 @@ fn main() {
                         black_box_f64(JointSketch::estimate(&lm, &rm).union());
                     })
                 });
-                let no_linear_speed = with_no_linear.then(|| {
-                    autobench(fast, REPS, || {
-                        let ln = [la[0].sigma_tau(), la[1].sigma_tau()];
-                        let rn = [ra[0].sigma_tau(), ra[1].sigma_tau()];
-                        black_box_f64(JointSketch::estimate(&ln, &rn).union());
-                    })
-                });
                 let mut de = Vec::with_capacity(SKETCH_TRIALS);
                 let mut me = Vec::with_capacity(SKETCH_TRIALS);
-                let mut ne = Vec::with_capacity(SKETCH_TRIALS);
                 // Overlap-grid-only errors (the four intersection cells), the metric the
                 // joint-sketch figure highlights and where the MLE separates from the default.
                 let mut de_overlap = Vec::with_capacity(SKETCH_TRIALS);
                 let mut me_overlap = Vec::with_capacity(SKETCH_TRIALS);
-                let mut ne_overlap = Vec::with_capacity(SKETCH_TRIALS);
                 for t in 0..SKETCH_TRIALS {
                     let (l, r) = build_sketch_operands(card, t as u64 + 1, repr);
                     let default_sketch = JointSketch::estimate(&l, &r);
@@ -559,55 +516,23 @@ fn main() {
                         me.push(sketch_error_2x2(&mle_sketch, card as f64));
                         me_overlap.push(sketch_overlap_error_2x2(&mle_sketch, card as f64));
                     }
-                    if with_no_linear {
-                        let ln = [l[0].sigma_tau(), l[1].sigma_tau()];
-                        let rn = [r[0].sigma_tau(), r[1].sigma_tau()];
-                        let no_linear_sketch = JointSketch::estimate(&ln, &rn);
-                        ne.push(sketch_error_2x2(&no_linear_sketch, card as f64));
-                        ne_overlap.push(sketch_overlap_error_2x2(&no_linear_sketch, card as f64));
-                    }
                 }
-                (
-                    default_speed,
-                    mle_speed,
-                    no_linear_speed,
-                    de,
-                    me,
-                    ne,
-                    de_overlap,
-                    me_overlap,
-                    ne_overlap,
-                )
+                (default_speed, mle_speed, de, me, de_overlap, me_overlap)
             });
 
             let op_json = |speed: &[f64], err: &[f64]| serde_json::json!({ "speed_ns": stat_json(speed), "mre": stat_json(err) });
             let mut ops_json = serde_json::Map::new();
             for (idx, op) in SCALAR_OPS.iter().enumerate() {
                 let mle = mle_speed[idx].as_ref().map(|s| op_json(s, &mle_err[idx]));
-                let no_linear = no_linear_speed[idx]
-                    .as_ref()
-                    .map(|s| op_json(s, &no_linear_err[idx]));
                 ops_json.insert(
                     op.to_string(),
                     serde_json::json!({
                         "default": op_json(&default_speed[idx], &default_err[idx]),
                         "mle": mle,
-                        "no_linear": no_linear,
                     }),
                 );
             }
-            if let Some((
-                default_speed,
-                mle_speed,
-                no_linear_speed,
-                de,
-                me,
-                ne,
-                de_overlap,
-                me_overlap,
-                ne_overlap,
-            )) = &sketch_json
-            {
+            if let Some((default_speed, mle_speed, de, me, de_overlap, me_overlap)) = &sketch_json {
                 // The sketch node carries an extra `overlap_mre` (overlap-grid-only error) beside the
                 // whole-decomposition `mre` the generic `op_json` emits.
                 let sketch_node = |speed: &[f64], err: &[f64], overlap_err: &[f64]| {
@@ -618,15 +543,11 @@ fn main() {
                     })
                 };
                 let mle = mle_speed.as_ref().map(|s| sketch_node(s, me, me_overlap));
-                let no_linear = no_linear_speed
-                    .as_ref()
-                    .map(|s| sketch_node(s, ne, ne_overlap));
                 ops_json.insert(
                     "sketch".to_string(),
                     serde_json::json!({
                         "default": sketch_node(default_speed, de, de_overlap),
                         "mle": mle,
-                        "no_linear": no_linear,
                     }),
                 );
             }

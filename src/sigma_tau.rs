@@ -1,14 +1,10 @@
 //! Ertl's tau/sigma corrected raw cardinality estimator (Otmar Ertl, "New cardinality estimation
-//! algorithms for `HyperLogLog` sketches", arXiv:1702.01284) and the [`SigmaTau`] mode wrapper that
-//! routes [`HyperLogLog`] cardinality estimates through it.
+//! algorithms for `HyperLogLog` sketches", arXiv:1702.01284).
 //!
-//! Sigma/tau is now the crate's default register-regime estimator (as of the polynomial and
+//! Sigma/tau is the crate's default register-regime estimator (as of the polynomial and
 //! anchor-table drop): the harmonic-mode branch of [`HyperLogLog::estimate_cardinality`] reads
 //! `(H, zeros)` in O(1) from the packed harmonic-sum word and calls
-//! [`ertl_cardinality_from_moments`]. The `SigmaTau` wrapper is retained as a diagnostic view
-//! that applies sigma/tau uniformly, including a strict evaluation in dense zeros mode where the
-//! default falls back to linear counting for O(1). Return to the default estimators with
-//! [`SigmaTau::into_inner`].
+//! [`ertl_cardinality_from_moments`]. Dense zeros mode falls back to linear counting for O(1).
 
 use crate::prelude::*;
 use sketching_core::sparse_value_list::SparseValueCodec;
@@ -98,13 +94,6 @@ impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HyperLogLog<P,
 where
     C: SparseValueCodec,
 {
-    /// Returns a [`SigmaTau`] view (borrowing this counter) whose cardinality estimate uses Ertl's
-    /// analytical tau/sigma corrected raw estimator instead of the default fitted correction.
-    #[inline]
-    pub fn sigma_tau(&self) -> SigmaTau<&Self> {
-        SigmaTau(self)
-    }
-
     /// Ertl's tau/sigma corrected cardinality of this counter.
     ///
     /// In the dense harmonic band the estimate is O(1): the harmonic sum `H` and the
@@ -127,23 +116,6 @@ where
         ertl_cardinality_from_moments::<P, B>(harmonic_sum, zeros, 0.0)
     }
 
-    /// Ertl's tau/sigma corrected union cardinality from the moments of the element-wise-max
-    /// union registers, computed in a single O(m) zipped scan (no multiplicity-histogram
-    /// allocation). Falls back to the default union estimate when either operand is still
-    /// pre-dense.
-    pub(crate) fn sigma_tau_union_cardinality(&self, other: &Self) -> f64 {
-        if !self.is_hyperloglog() || !other.is_hyperloglog() {
-            return self.estimate_union_cardinality(other);
-        }
-        let (union_h, union_zeros) = self.registers.get_union_harmonic_sum(&other.registers);
-        #[allow(
-            clippy::cast_precision_loss,
-            reason = "union_zeros <= m <= 2^18 is exact in f64"
-        )]
-        let zeros = union_zeros as f64;
-        ertl_cardinality_from_moments::<P, B>(union_h, zeros, 0.0)
-    }
-
     /// Reference O(m) form of [`sigma_tau_cardinality`](Self::sigma_tau_cardinality) that builds
     /// the full register-multiplicity histogram and calls [`ertl_cardinality`]. Kept as the
     /// correctness oracle the packed moments path is cross-checked against, and exposed
@@ -160,61 +132,6 @@ where
         }
         ertl_cardinality::<P, B>(&c)
     }
-
-    /// Reference O(m) form of
-    /// [`sigma_tau_union_cardinality`](Self::sigma_tau_union_cardinality). Same rationale as
-    /// [`sigma_tau_cardinality_from_histogram`](Self::sigma_tau_cardinality_from_histogram).
-    #[doc(hidden)]
-    pub fn sigma_tau_union_cardinality_from_histogram(&self, other: &Self) -> f64 {
-        const CAP: usize = crate::mle::REGISTER_MULTIPLICITIES_CAPACITY;
-        if !self.is_hyperloglog() || !other.is_hyperloglog() {
-            return self.estimate_union_cardinality(other);
-        }
-        let mut c = [0.0_f64; CAP];
-        for [a, b] in self.registers.iter_registers_zipped(&other.registers) {
-            c[usize::from(a.max(b))] += 1.0;
-        }
-        ertl_cardinality::<P, B>(&c)
-    }
-}
-
-/// An Ertl tau/sigma estimation view over a [`HyperLogLog`], produced by [`HyperLogLog::sigma_tau`].
-/// It implements [`sketching_core::CardinalityEstimator`], so the derived intersection, Jaccard, and
-/// difference estimates come for free from the analytical cardinality and union primitives.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SigmaTau<H>(pub H);
-
-impl<H> SigmaTau<H> {
-    /// Returns the wrapped counter (or reference), switching back to the default estimators.
-    #[inline]
-    pub fn into_inner(self) -> H {
-        self.0
-    }
-}
-
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C>
-    sketching_core::CardinalityEstimator for SigmaTau<&HyperLogLog<P, B, R, H, C>>
-where
-    C: SparseValueCodec,
-{
-    #[inline]
-    fn estimate_cardinality(&self) -> f64 {
-        self.0.sigma_tau_cardinality()
-    }
-
-    #[inline]
-    fn estimate_union_cardinality(&self, other: &Self) -> f64 {
-        self.0.sigma_tau_union_cardinality(other.0)
-    }
-}
-
-// Empty body: inherits the default inclusion-exclusion `joint_sketch`, which runs over this view's
-// analytical cardinality and union estimates.
-impl<P: Precision, B: Bits, R: Registers<P, B>, H: HasherType, C> HyperSpheresSketch
-    for SigmaTau<&HyperLogLog<P, B, R, H, C>>
-where
-    C: SparseValueCodec,
-{
 }
 
 #[cfg(test)]
@@ -233,7 +150,7 @@ mod tests {
                 hll.insert(&x);
             }
             let hll = hll.into_hll();
-            let est = hll.sigma_tau().estimate_cardinality();
+            let est = hll.sigma_tau_cardinality();
             let rel = (est - card as f64).abs() / card as f64;
             assert!(rel < 0.03, "card {card}: sigma/tau {est} rel err {rel}");
         }
@@ -250,7 +167,7 @@ mod tests {
                 hll.insert(&x);
             }
             let hll = hll.into_hll();
-            let hist = hll.sigma_tau().estimate_cardinality();
+            let hist = hll.sigma_tau_cardinality();
             let (mut h, mut zeros, mut sat) = (0.0, 0.0, 0.0);
             for r in Registers::<Precision12, Bits6>::iter_registers(&hll.registers) {
                 h += f64::integer_exp2_minus(r);
@@ -308,45 +225,6 @@ mod tests {
         check::<Precision12, Bits4>("P12B4");
         check::<Precision14, Bits6>("P14B6");
     }
-
-    /// Sigma/tau union cardinality via the moments path must agree with the joint-histogram
-    /// reference, at parity precision to the single-counter cross-check.
-    #[test]
-    fn sigma_tau_union_o1_matches_histogram() {
-        fn check<P, B>(name: &str)
-        where
-            P: Precision + PackedRegister<B>,
-            B: Bits,
-        {
-            let m = 1u64 << P::EXPONENT;
-            for &(na, nb) in &[(m / 2, m / 2), (m, 3 * m), (3 * m, 3 * m), (5 * m, m / 4)] {
-                let mut a = HyperLogLog::<P, B>::default();
-                let mut ast = 0x000A_11CE_u64 ^ na ^ nb;
-                for _ in 0..na {
-                    ast = splitmix64(ast);
-                    a.insert(&ast);
-                }
-                let mut b = HyperLogLog::<P, B>::default();
-                let mut bst = 0x0000_0B0B_u64 ^ na ^ nb;
-                for _ in 0..nb {
-                    bst = splitmix64(bst);
-                    b.insert(&bst);
-                }
-                let fast = a.sigma_tau_union_cardinality(&b);
-                let reference = a.sigma_tau_union_cardinality_from_histogram(&b);
-                let tol = 1e-6 * reference.max(1.0);
-                assert!(
-                    (fast - reference).abs() <= tol,
-                    "{name} na={na} nb={nb}: O(1) {fast} vs histogram {reference} (tol {tol})",
-                );
-            }
-        }
-
-        check::<Precision8, Bits5>("P8B5");
-        check::<Precision10, Bits6>("P10B6");
-        check::<Precision12, Bits4>("P12B4");
-    }
-
     /// Sigma/tau's raw-regime behavior: above the correction bound `7.5 * m` the polynomial
     /// pass-through returns the raw estimate, and sigma/tau reduces to `alpha_inf * m^2 / z` with
     /// `z = m*sigma(zeros/m) + interior + m*2^-q*tau((m-sat)/m)`. Because the packed band ends at
@@ -374,7 +252,7 @@ mod tests {
                 raw >= 7.5 * (m as f64),
                 "card {card}: raw estimate {raw} must be in the raw regime for this test",
             );
-            let est = hll.sigma_tau().estimate_cardinality();
+            let est = hll.sigma_tau_cardinality();
             let rel = (est - card as f64).abs() / card as f64;
             // 5% covers the P10 register-noise floor (~3.3%) with room for the sigma/tau
             // constant-factor difference between `alpha` (finite-m) and `alpha_inf`.
